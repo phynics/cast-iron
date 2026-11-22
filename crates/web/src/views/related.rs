@@ -21,7 +21,7 @@ use crate::views::sources::source_line;
 use crate::views::spells::spells_noun;
 use crate::views::util::{local_resource, sort_key};
 use cast_iron_schema::{
-    Block, EntryId, EntryKind, OptionGroupIndex, Relation, RelationKind, RelationLabel, RuleEntry,
+    Block, EntryId, EntryKind, Inline, OptionGroupIndex, Relation, RelationKind, RelationLabel, RuleEntry,
     SpellListClass, SpellLists, TradeIndex, TypedFields,
 };
 use leptos::prelude::*;
@@ -406,7 +406,7 @@ fn class_panels(
             out.push(
                 view! {
                     <section class="rel" aria-labelledby="rel-archetypes">
-                        <h2 id="rel-archetypes">"Archetypes · "<span class="rel-count">{fmt::count(total)}</span></h2>
+                        <h2 id="rel-archetypes">"Archetypes "<span class="rel-count">{fmt::count(total)}</span></h2>
                         <details class="rel-disclosure">
                             <summary>{icons::chevron_right("disclosure-chevron")}{format!("Show {}", fmt::pluralize(total, "archetype", "archetypes"))}</summary>
                             {groups}
@@ -692,6 +692,16 @@ fn changes_panel(library: &Library, id: &EntryId, all: Option<&Relations>) -> Ve
     .collect()
 }
 
+/// True when a paragraph of the body has a bold `Prerequisites` label, the printed line. It often
+/// follows a flavour sentence in the same paragraph, after a line break.
+fn body_prints_prerequisites(body: &[Block]) -> bool {
+    body.iter().any(|block| {
+        matches!(block, Block::Paragraph { content, .. }
+            if content.iter().any(|inline| matches!(inline, Inline::Strong { c }
+                if plain_text(c).trim_start().starts_with("Prerequisite"))))
+    })
+}
+
 fn feat_panels(
     library: &Library,
     entry: &RuleEntry,
@@ -706,8 +716,11 @@ fn feat_panels(
         .into_iter()
         .filter(|(id, _)| library.is_entry_active(id))
         .collect();
-    if text.is_some() || !named.is_empty() {
-        let printed = text.map(|t| {
+    // The body prints a `Prerequisites` line for most feats, so the panel lists the feats it names
+    // and nothing else. A feat whose body prints none keeps the line here, so no text is lost.
+    let printed = text.filter(|_| !body_prints_prerequisites(&entry.body));
+    if printed.is_some() || !named.is_empty() {
+        let printed = printed.map(|t| {
             view! {
                 <p class="prereq-text"><span class="rel-label">"As printed: "</span>{t}</p>
             }
@@ -1234,6 +1247,27 @@ mod tests {
         let flat = feat(&["c/z"], vec![]);
         assert_eq!(prerequisite_links(&flat), [(id("c/z"), false)]);
         assert!(prerequisite_links(&feat(&[], vec![])).is_empty());
+    }
+
+    #[test]
+    fn a_printed_prerequisites_line_is_found_after_a_flavour_sentence() {
+        let paragraph = |content: Vec<Inline>| Block::Paragraph {
+            style: Default::default(),
+            content,
+        };
+        let strong = |label: &str| Inline::Strong {
+            c: vec![Inline::text(label)],
+        };
+        let printed = paragraph(vec![
+            Inline::text("Flavour."),
+            Inline::Break,
+            strong("Prerequisites:"),
+            Inline::text(" Str 13."),
+        ]);
+        assert!(body_prints_prerequisites(&[printed]));
+        let other = paragraph(vec![strong("Benefit:"), Inline::text(" Prerequisites.")]);
+        assert!(!body_prints_prerequisites(&[other]));
+        assert!(!body_prints_prerequisites(&[]));
     }
 
     #[test]

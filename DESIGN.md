@@ -70,7 +70,7 @@ A small control can mean five different things. Each role has one form, so a rea
 | Filter menu | A group too large for one row (feat types, schools, creature types) | A 44 px button with the card radius, a 1 px `--line` border, the text `{Group}: {value}` and a chevron-down icon. A narrowed menu has an `--accent` border and weight 600, with no fill. It opens an in-flow panel of 44 px link rows (label, tabular count, check on the current row, `aria-current`), "All {plural}" first, and a find field above 10 options. | `.filter-btn`, `.filter-panel`, `.choice-list`, `.choice-row` | A pill; a modal, a backdrop or a focus trap; ARIA `menu` |
 | Navigation | A jump to another place: recently viewed, shortcuts, spell-list links, search suggestions (Quick search rows: plain link rows with a muted `Kind · Book` line) | A rectangle with the card radius (`--radius`, 6 px) or a plain link row. It may show `aria-current` wayfinding (the current spell level). | `.jump` in `.jump-list`, `.rel-chips li`, `.rel-list` | A pill; a check mark or other filter state |
 | Navigation: related page | A link from a list to a related page (Feat chains, Spell lists, `Manage books ›` on Books), in the filter row | Accent text, weight 600, a chevron-right icon, a 44 px hit area, no border. | `.page-link` | A bordered rectangle beside a filter menu: two same-looking shapes with different jobs |
-| Label | A short fact about the item next to it: "or", "repeats", "not in this library", `Inactive` on a book row | Small muted text with no border, no background and no pointer cursor. | `.tag` | A border, a link, anything that looks clickable |
+| Label | A short fact about the item next to it: "or", "repeats", "not in this library", `Inactive` on a book row. A count next to a heading or a group name is Label text, never a bordered shape. | Small muted text with no border, no background and no pointer cursor. | `.tag`, `.rel-count` | A border, a link, anything that looks clickable |
 
 Rules that apply to every role:
 
@@ -373,6 +373,12 @@ a native `details.progression-spells` below the core table: a 44 px summary `Spe
 chevron, closed by default. A non-caster has no disclosure. Do not hide a stat column in a
 disclosure on any other table.
 
+#### Relationship sections
+
+Relationship panels are sections, not cards: an `h2` at `--step-1`, hairline rows, a muted hint under the heading when the relation needs one. They follow the add-on sections in the same stack and the same unboxed form. A feat's `Requirements` lists the feats it names; the printed prerequisite line stays in the body and appears once. A feat whose body prints no `Prerequisites` line keeps `As printed:` in the panel, so no text is lost, and a feat that names no active feat and prints its line in the body has no panel.
+
+A count beside a panel heading is Label text inside the heading (`Leads to 61`), so the heading's accessible name keeps it.
+
 #### Class summary card
 
 A class page opens with `section.class-card.stat-block`, directly under the metadata line: the spell
@@ -564,7 +570,6 @@ These views exist and have no design section yet. Each entry names the ticket th
 - Repeated titles in lists (the publication-entries fold): `#575`
 - Search filter panel contents: `#579`
 - Find a book: `#587`
-- Relationship panels on entries: `#573`
 
 The installer screen is described above under Installer screen, and the iOS guide and the panic notice under Sheets. No ticket follows for those three.
 

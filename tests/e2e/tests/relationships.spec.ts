@@ -174,7 +174,12 @@ test("feat pages preserve printed prerequisites and label alternatives honestly"
   expect(feat, "a feat with an either-or prerequisite that other feats name").toBeTruthy();
   await page.goto(`#/entry/${feat.id}`);
   await expect(page.locator("#rel-prereq")).toHaveText("Requirements");
-  await expect(page.locator(".prereq-text")).toContainText(feat.fields.prerequisites);
+  // The body prints the `Prerequisites` line once. The panel repeats it only when the body has none.
+  const printsPrerequisites = feat.body.some((block: any) =>
+    block.t === "paragraph" && block.content?.some((inline: any) =>
+      inline.t === "strong" && JSON.stringify(inline).includes("Prerequisite")));
+  if (printsPrerequisites) await expect(page.locator(".prereq-text")).toHaveCount(0);
+  else await expect(page.locator(".prereq-text")).toContainText(feat.fields.prerequisites);
   await expect(page.getByText("Feats it names", { exact: true })).toBeVisible();
   const expected = related(feat, "prerequisite");
   for (const edge of expected) {

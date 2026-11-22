@@ -2502,10 +2502,6 @@ mark {
   flex: 1;
 }
 
-.ref-fold > summary .rel-count {
-  font-weight: 400;
-}
-
 /* The class summary card is a stat block. Its class-skills row opens in place. */
 .class-card {
   max-width: var(--measure);
@@ -3227,18 +3223,12 @@ main,
 /* Relationship panels on an entry screen. */
 .entry-rel {
   display: grid;
-  gap: var(--space-3);
+  gap: var(--space-5);
   margin-bottom: var(--space-5);
   max-width: var(--measure);
 }
 
-.rel {
-  padding: var(--space-3) var(--space-4);
-  background: var(--surface);
-  border: var(--border);
-  border-radius: var(--radius);
-}
-
+/* A relationship panel is a section: no fill, border or radius, like the add-on sections. */
 .rel > h2 {
   margin: 0 0 var(--space-2);
   font-size: var(--step-1);
@@ -3393,19 +3383,13 @@ main,
   margin-top: 0;
 }
 
+/* A count beside a heading or a group name is Label text, never a bordered shape. */
 .rel-count {
-  display: inline-block;
-  min-width: 1.75rem;
-  padding: 0 var(--space-2);
   font-family: var(--font-text);
   font-size: var(--step--1);
-  font-weight: 600;
+  font-weight: 400;
   font-variant-numeric: tabular-nums;
-  text-align: center;
   color: var(--ink-muted);
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  vertical-align: 0.1em;
 }
 
 .rel-label {
