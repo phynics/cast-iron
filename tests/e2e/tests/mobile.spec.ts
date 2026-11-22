@@ -653,18 +653,27 @@ installedTest("Spell list density at 390 px: Compact is two lines, toggles witho
   const lineHeight = await meta.evaluate((el) => parseFloat(getComputedStyle(el).lineHeight));
   expect((await meta.boundingBox())!.height).toBeGreaterThan(lineHeight * 1.5);
 
-  // Both choices are 44 px Filter-role targets in one named group.
-  const toggle = page.getByRole("group", { name: "Spell row density" });
+  // The choice is one quiet text button at the end of the level bar's row (#595): no Filter pills
+  // and no radio group on the list, and the button is a 44 px target.
+  await expect(page.locator(".density-toggle .chip")).toHaveCount(0);
+  await expect(page.getByRole("radio", { name: /Compact|Wide/ })).toHaveCount(0);
+  const toggle = page.locator(".level-nav").getByRole("button", { name: "Compact rows" });
   await expect(toggle).toBeVisible();
-  for (const choice of await toggle.getByRole("radio").all()) {
-    const box = (await choice.boundingBox())!;
-    expect(box.height).toBeGreaterThanOrEqual(44);
-  }
+  await expect(toggle).toHaveClass(/text-btn/);
+  expect((await toggle.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  // With Wide rows, two rows fit in the first screen.
+  const fullyInside = await page.locator(".spell-list .spell-row").evaluateAll((nodes, viewport) =>
+    nodes.filter((n) => n.getBoundingClientRect().bottom <= viewport).length, page.viewportSize()!.height);
+  expect(fullyInside).toBeGreaterThanOrEqual(2);
   // A marker that a reload would clear proves the toggle does not navigate.
   await page.evaluate(() => ((window as any).__densityMarker = "kept"));
+  const address = page.url();
 
-  await page.getByRole("radio", { name: "Compact" }).check();
+  await toggle.click();
   await expect(list).toHaveAttribute("data-density", "compact");
+  await expect(page.locator(".level-nav").getByRole("button", { name: "Wide rows" })).toBeFocused();
+  await expect(page.getByRole("status").filter({ hasText: /^Compact rows$/ })).toHaveCount(1);
+  expect(page.url()).toBe(address);
   expect((await meta.boundingBox())!.height).toBeLessThan(lineHeight * 1.5);
   expect(await page.evaluate(() => (window as any).__densityMarker)).toBe("kept");
 
@@ -683,6 +692,9 @@ installedTest("Spell list density at 390 px: Compact is two lines, toggles witho
   await expect(metaAfter).toBeVisible();
   const lineHeightAfter = await metaAfter.evaluate((el) => parseFloat(getComputedStyle(el).lineHeight));
   expect((await metaAfter.boundingBox())!.height).toBeLessThan(lineHeightAfter * 1.5);
+  // Settings shows the same choice.
+  await page.goto("#/settings");
+  await expect(page.getByRole("radio", { name: "Compact" })).toBeChecked();
 });
 
 const homeSpells = entries.filter((entry) => entry.kind === "spell")

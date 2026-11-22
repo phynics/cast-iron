@@ -367,28 +367,28 @@ fn spell_row(row: SpellRow) -> impl IntoView {
     }
 }
 
-/// The Compact / Wide choice, as two Filter-role pills with a hidden radio each. The state
-/// lives in the app context, so Settings and every spell list show the same choice.
-fn density_toggle() -> impl IntoView {
+/// The Compact / Wide choice, as one quiet text button: a `.text-btn` named for the layout that a
+/// press switches to. The state lives in the app context, so Settings and every spell list show
+/// the same choice. The button is a plain button with a changing name, not a pressed toggle,
+/// because its name already states the action; `said` is the live line that names the layout
+/// that is now shown, which the new name of the button does not.
+fn density_toggle(said: RwSignal<&'static str>) -> impl IntoView {
     let app = use_app();
     view! {
-        <div class="density-toggle" role="group" aria-label="Spell row density">
-            {Density::ALL.into_iter().map(|choice| view! {
-                <label class="chip">
-                    <input
-                        type="radio"
-                        name=density::LIST_RADIO_GROUP
-                        value=choice.slug()
-                        prop:checked=move || app.density.get() == choice
-                        on:change=move |_| {
-                            app.density.set(choice);
-                            spawn_local(density::set(choice));
-                        }
-                    />
-                    <span>{choice.label()}</span>
-                </label>
-            }).collect_view()}
-        </div>
+        <li class="lvl-density">
+            <button
+                type="button"
+                class="text-btn"
+                on:click=move |_| {
+                    let next = app.density.get_untracked().other();
+                    app.density.set(next);
+                    said.set(next.rows_label());
+                    spawn_local(density::set(next));
+                }
+            >
+                {move || app.density.get().other().rows_label()}
+            </button>
+        </li>
     }
 }
 
@@ -465,6 +465,7 @@ fn ListPage(
         }
     };
 
+    let said = RwSignal::new("");
     let level_links = {
         let all_href = {
             let route_class = route_class.clone();
@@ -508,7 +509,7 @@ fn ListPage(
                 <a class="jump level-all" href=all_href aria-current=level.is_none().then_some("page")>
                     "All levels"
                 </a>
-                <ol class="lvls">{items}</ol>
+                <ol class="lvls">{items}{density_toggle(said)}</ol>
             </nav>
         }
     };
@@ -768,6 +769,7 @@ fn ListPage(
                 />
             </form>
             {level_links}
+            <p class="sr-only" role="status">{move || said.get()}</p>
             {(!known_level).then(|| view! {
                 <p class="notice">
                     {match level {
@@ -777,7 +779,6 @@ fn ListPage(
                     }}
                 </p>
             })}
-            {density_toggle()}
             {body}
         </div>
     }
