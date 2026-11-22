@@ -384,8 +384,9 @@ pub(crate) fn canonical_facets(entries: &[RuleEntry]) -> BTreeMap<EntryId, Vec<(
                 if let Some(value) = &fields.creature_type {
                     push(&mut facets, "creature_type", value);
                 }
+                // The stores disagree on case (`Huge`, `huge`); the facet holds one spelling.
                 if let Some(value) = &fields.size {
-                    push(&mut facets, "size", value);
+                    push(&mut facets, "size", &value.trim().to_lowercase());
                 }
                 if let Some(value) = &fields.alignment {
                     push(&mut facets, "alignment", value);
@@ -789,6 +790,28 @@ mod tests {
             serde_json::to_string(&catalog_stub(&printed_twice, "entries/feat-000.json")).unwrap(),
             json
         );
+    }
+
+    #[test]
+    fn size_facets_ignore_case() {
+        let creature = |id: &str, size: &str| {
+            let mut creature = entry(id, EntryKind::Creature, 0);
+            creature.fields = TypedFields::Creature(Box::new(cast_iron_schema::CreatureFields {
+                size: Some(size.into()),
+                ..Default::default()
+            }));
+            creature
+        };
+        let facets = canonical_facets(&[
+            creature("ref/creature/titan", "Huge"),
+            creature("ref/creature/giant", "huge"),
+        ]);
+        let size = |id: &str| facets[&EntryId::parse(id).unwrap()].clone();
+        assert_eq!(
+            size("ref/creature/titan"),
+            vec![("size".to_string(), "huge".to_string())]
+        );
+        assert_eq!(size("ref/creature/titan"), size("ref/creature/giant"));
     }
 
     #[test]

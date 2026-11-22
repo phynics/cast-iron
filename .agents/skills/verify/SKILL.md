@@ -69,7 +69,7 @@ Find the row for the change. Run the e2e tests in that area with `--grep`, and r
 | Feature | `--grep` pattern (spec file) | Source files |
 |---|---|---|
 | Search results, ranking, and offline search | `Search operates\|Equal relevance\|cold index\|catch-all\|Desktop results page` (`search.spec.ts`) | `crates/search`, `crates/web/src/views/search.rs` |
-| Search filters, chip counts, and the Publication filter | `Filter chips\|Chip counts\|Publication filter\|Publication name box` (`search.spec.ts`) | `crates/web/src/views/search.rs`, `crates/web/src/views/scope.rs`, `crates/web/src/views/sources.rs` |
+| Search filters, chip counts, and the Publication filter | `Filter chips\|Chip counts\|Publication filter\|Publication name box` (`search.spec.ts`) | `crates/web/src/views/search.rs`, `crates/web/src/views/scope.rs`, `crates/web/src/views/sources.rs`, `crates/web/src/route.rs`, `crates/content-compiler/src/pipeline.rs` |
 | Search and inactive books | `hidden matches\|inactive first source` (`search.spec.ts`) | `crates/web/src/discovery.rs`, `crates/web/src/views/search.rs` |
 | Scoped Quick search and kind-list scopes | `scope` (`search.spec.ts`) | `crates/web/src/views/quick_search.rs`, `crates/web/src/views/scope.rs`, `crates/web/src/views/search.rs`, `crates/web/src/route.rs` |
 | Spelling corrections | `correction` (`search.spec.ts`) | `crates/search`, `crates/web/src/views/search.rs`, `crates/web/src/views/quick_search.rs` |
