@@ -103,6 +103,8 @@ test("spell lists filter by class, level, and query; search supports source filt
   const field = page.locator("#list-filter");
   await field.fill("no-such-spell");
   await expect(field).toHaveValue("no-such-spell");
+  // Let that frame write first, so the next check sees only the two events below.
+  await expect.poll(hash).toMatch(/name=no-such-spell(&|$)/);
   // Two input events in one frame: the address ends with the last text (#616).
   await field.evaluate((el: HTMLInputElement) => {
     for (const text of ["no-such", "no-such-spell-last"]) {
