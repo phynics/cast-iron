@@ -131,7 +131,7 @@ test("The daily check surfaces a newer library, and Settings puts Updates first"
     // The start check finds the newer manifest, and the header says so without a tap.
     const action = page
       .locator("header.app-header")
-      .getByRole("button", { name: "Library update available. Open Settings" });
+      .getByRole("button", { name: "Library update ready. Open Settings" });
     await expect(action).toBeVisible();
     await action.click();
 

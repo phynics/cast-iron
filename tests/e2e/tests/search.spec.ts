@@ -526,7 +526,7 @@ test("Search operates entirely offline", async ({ page, context, server }) => {
   await waitHomeIdle(page);
   await page.reload();
   await expect(page.locator("#home-title")).toBeVisible();
-  await expect(page.locator(".badge")).toBeVisible(); // the offline badge
+  await expect(page.locator(".offline-mark")).toBeVisible(); // the offline mark
   await server.clearLog();
 
   // Results are live: typing is enough, there is no submit.

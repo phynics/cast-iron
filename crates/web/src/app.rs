@@ -383,7 +383,11 @@ fn Reader(library: Library) -> impl IntoView {
                 <QuickSearchButton />
                 <HeaderAction />
                 <Show when=move || !app.online.get()>
-                    <span class="badge" title="No connection. Everything here still works.">"Offline"</span>
+                    <span class="offline-mark">
+                        {views::icons::offline()}
+                        <span class="offline-text">"Offline"</span>
+                        <span class="sr-only">". Everything here still works."</span>
+                    </span>
                 </Show>
             </header>
             <InstallGuide />
