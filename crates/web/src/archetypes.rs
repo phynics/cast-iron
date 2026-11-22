@@ -15,7 +15,7 @@
 //! is never counted as compatible, and is listed apart as not checked. Everything here is pure,
 //! over typed content, and has native tests.
 
-use crate::class_options::replaces_line_of;
+use crate::class_options::{replaces_line_of, trade_line_of};
 use crate::route::ArchFilter;
 use cast_iron_schema::headings::plain_text;
 use cast_iron_schema::power::split_ability_tag;
@@ -51,12 +51,6 @@ impl Row {
     /// A row from the typed trades of the archetype. `trades` is `None` for a library without a
     /// row for it.
     pub fn new(id: EntryId, title: String, book: String, trades: Option<&TradeRow>) -> Self {
-        let line = |op: TradeOp| {
-            trades.and_then(|row| {
-                let names = row.printed(op);
-                (!names.is_empty()).then(|| format!("{} {}", op.label(), names.join(", ")))
-            })
-        };
         let resolved: Vec<FeatureTrade> = trades
             .map(|row| row.trades.iter().filter_map(feature_trade).collect())
             .unwrap_or_default();
@@ -67,7 +61,7 @@ impl Row {
             title,
             book,
             replaces: trades.and_then(replaces_line_of),
-            alters: line(TradeOp::Alters),
+            alters: trades.and_then(|row| trade_line_of(row, TradeOp::Alters)),
             trades: resolved,
             checked,
             has_data: trades.is_some(),
