@@ -30,7 +30,7 @@
   /* Type */
   --font-text: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
-  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --font-mono: ui-monospace, "SF Mono", "SFMono-Regular", Menlo, Consolas, monospace;
   --step--2: 0.75rem;
   --step--1: 0.875rem;
   --step-0: 1rem;
@@ -4728,8 +4728,10 @@ input::placeholder {
   box-shadow: 0 0 0 1.5px var(--surface-2);
 }
 
-@media (max-width: 47.99rem) {
-  /* Icon only; the accessible name stays on the button. */
+/* Below 64rem the header action and the Offline mark show only their glyphs, so the four tabs,
+   the search icon, the action and the mark fit one row at 48rem. The accessible names stay: the
+   button's `aria-label`, and the mark's text, which is only visually hidden. */
+@media (max-width: 63.99rem) {
   .header-action-btn {
     width: var(--touch);
     padding: 0;
@@ -4737,6 +4739,23 @@ input::placeholder {
 
   .header-action-label {
     display: none;
+  }
+
+  .offline-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
+
+/* From 48rem to 64rem the header row is tight: the column gap narrows. */
+@media (min-width: 48rem) and (max-width: 63.99rem) {
+  .app-header {
+    column-gap: var(--space-2);
   }
 }
 

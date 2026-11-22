@@ -385,7 +385,7 @@ fn Reader(library: Library) -> impl IntoView {
                 <Show when=move || !app.online.get()>
                     <span class="offline-mark">
                         {views::icons::offline()}
-                        <span>"Offline"</span>
+                        <span class="offline-text">"Offline"</span>
                         <span class="sr-only">". Everything here still works."</span>
                     </span>
                 </Show>

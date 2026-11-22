@@ -98,10 +98,18 @@ test("The Offline mark and the header action are not pills, and the masthead doe
   expect(buttonStyle.border).toBe("0px");
 
   // Both are shown: the brand, the nav, the search icon, the action and the mark share one row.
-  // 768 px is not here: the four tabs, the search icon, the action and the mark need about 840 px
-  // (the same row wraps at 768 px with the Install action alone). #589 names the owner decision.
-  for (const width of [1024, 1280]) {
+  // Below 64rem (1024 px) the action and the mark are glyphs only; their accessible names stay.
+  for (const width of [768, 1024, 1280]) {
     await page.setViewportSize({ width, height: 800 });
+    await expect(button, `${width}px`).toBeVisible();
+    await expect(mark, `${width}px`).toContainText("Offline. Everything here still works");
+    const labelShown = await page.locator(".header-action-label").isVisible();
+    const textShown = await page.locator(".offline-text").evaluate((el) => el.getBoundingClientRect().width > 2);
+    expect(labelShown, `${width}px label`).toBe(width >= 1024);
+    expect(textShown, `${width}px mark text`).toBe(width >= 1024);
+    const box = (await button.boundingBox())!;
+    expect(Math.round(box.width), `${width}px target`).toBeGreaterThanOrEqual(44);
+    expect(Math.round(box.height), `${width}px target`).toBeGreaterThanOrEqual(44);
     const header = page.locator("header.app-header");
     const rows = await header.evaluate((el) => {
       const tops = [...el.querySelectorAll<HTMLElement>(".brand, nav, .header-search-btn, .header-action-btn, .offline-mark")].map(
