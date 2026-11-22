@@ -1940,16 +1940,15 @@ pub fn BrowseKind(
             // Several facets narrow together: a feat has to carry every value. A book filter
             // reads the whole index, because the book may be disabled and its entries are then
             // not eligible; a plain list keeps the active-book snapshot.
-            let index = if source.is_some() {
-                Some(library.search_index().await?)
-            } else {
-                None
-            };
+            let full = library.search_index().await?;
+            let index = source.is_some().then_some(&full);
             let discovery = library.discovery();
-            // A class option's group comes from `option-groups.json`, not the search index.
-            // A book filter keeps the book's whole set, so it reads the catalog, not the
-            // active-book snapshot.
-            if kind == EntryKind::ClassOption {
+            // A library compiled before the index held the class-option group has no `group`
+            // field: its list reads `option-groups.json` instead, as a book filter does the
+            // whole catalog and a plain list the active books.
+            if kind == EntryKind::ClassOption
+                && !full.facet_fields().iter().any(|field| field == "group")
+            {
                 let groups = library.option_groups().await?.unwrap_or_default();
                 let mut ids: Option<HashSet<String>> = None;
                 for (field, value) in &applied {

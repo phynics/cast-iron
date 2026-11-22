@@ -159,6 +159,18 @@ pub const ARCHETYPE_CLASS_MENU: MenuSpec = MenuSpec {
     plural: "classes",
 };
 
+/// The racial-trait menu by the race the trait is part of. The labels are the race titles from
+/// the catalog, registered with the facet labels.
+pub const RACIAL_TRAIT_RACE_MENU: MenuSpec = MenuSpec {
+    field: "racial_trait_race",
+    group: "Race",
+    all_label: "All races",
+    find_label: "Find a race",
+    list_label: "Racial trait race",
+    singular: "race",
+    plural: "races",
+};
+
 /// The creature type menu. Thirteen types, so it has a find field.
 pub const CREATURE_TYPE_MENU: MenuSpec = MenuSpec {
     field: "creature_type",
@@ -263,9 +275,9 @@ pub fn lenses(kind: EntryKind) -> Vec<Lens> {
         EntryKind::Creature => vec![Lens::Menu(CREATURE_TYPE_MENU), Lens::Menu(CREATURE_CR_MENU)],
         EntryKind::Archetype => vec![Lens::Menu(ARCHETYPE_CLASS_MENU)],
         EntryKind::ClassOption => vec![Lens::Menu(CLASS_OPTION_GROUP_MENU)],
+        EntryKind::RacialTrait => vec![Lens::Menu(RACIAL_TRAIT_RACE_MENU)],
         EntryKind::Rule
         | EntryKind::PrestigeClass
-        | EntryKind::RacialTrait
         | EntryKind::Skill
         | EntryKind::Affliction
         | EntryKind::Trap => Vec::new(),
@@ -408,6 +420,8 @@ mod tests {
         assert_eq!(menu(EntryKind::Trait), Some(TRAIT_CATEGORY_MENU));
         assert_eq!(menu(EntryKind::Archetype), Some(ARCHETYPE_CLASS_MENU));
         assert_eq!(menu(EntryKind::ClassOption), Some(CLASS_OPTION_GROUP_MENU));
+        assert_eq!(menu(EntryKind::RacialTrait), Some(RACIAL_TRAIT_RACE_MENU));
+        assert_eq!(RACIAL_TRAIT_RACE_MENU.field, "racial_trait_race");
         assert_eq!(ITEM_CATEGORY_MENU.field, "item_category");
         assert_eq!(TRAIT_CATEGORY_MENU.field, "trait_category");
         assert_eq!(ARCHETYPE_CLASS_MENU.field, "archetype_class");
@@ -416,6 +430,7 @@ mod tests {
             (EntryKind::Item, ITEM_CATEGORY_MENU),
             (EntryKind::Trait, TRAIT_CATEGORY_MENU),
             (EntryKind::Archetype, ARCHETYPE_CLASS_MENU),
+            (EntryKind::RacialTrait, RACIAL_TRAIT_RACE_MENU),
             (EntryKind::Spell, SCHOOL_MENU),
         ] {
             let url = [(spec.field.to_string(), "x".to_string())];

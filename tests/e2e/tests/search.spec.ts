@@ -1329,6 +1329,34 @@ installedTest("On a filtered feat list Quick search is scoped to the facet, and 
   await expect(layer).toBeHidden();
 });
 
+installedTest("A class-option group is a scope like any facet: the pill, the suggestions and the results address keep it", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/browse/kind/class_option?facet=group:rage-power");
+  const line = page.locator("main .list-count");
+  await expect(line).toHaveText(/^[\d,]+ of [\d,]+ class options · Show all$/);
+  const layer = await openQuickSearch(page);
+  await expect(quickField(page)).toHaveAttribute("placeholder", "Search Rage powers");
+  await expect(scopePill(page, "Rage powers")).toBeVisible();
+
+  // Every suggestion in the scope is a rage power.
+  await quickField(page).fill("strength");
+  await expect(quickOptions(page).last()).toHaveText("See all results for “strength”");
+  await expect.poll(async () => (await suggestionTitles(page)).length).toBeGreaterThan(0);
+  const metas = await layer.locator('[role="option"]:not(.quick-search-all) .quick-search-meta').allInnerTexts();
+  expect(metas.length).toBeGreaterThan(0);
+  for (const meta of metas) expect(meta).toMatch(/^Rage power/);
+
+  await page.keyboard.press("Enter");
+  await waitResults(page, "strength");
+  const hash = new URL(page.url()).hash;
+  expect(hash).toContain("kind=class_option");
+  expect(hash).toContain("facet=group:rage-power");
+  await expect(page.locator(".result-count")).toHaveText(/^(Top [\d,]+ of )?[\d,]+ results? in Rage powers.* · Show all class options/);
+  await expect(scopePill(page, "Rage powers")).toBeVisible();
+  // The filter panel (the sidebar on a desktop) offers the group of the kind.
+  await expect(page.locator('.filters .filter-group:has(legend:text-is("Group"))')).toBeVisible();
+});
+
 installedTest("A recent search remembers its scope: the row shows it, tapping restores it, and the same words in another scope are another row", async ({ page }) => {
   await installLibrary(page);
   await waitControlled(page);

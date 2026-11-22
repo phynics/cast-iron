@@ -263,7 +263,30 @@ impl QuickSearch {
             });
             scope.with_source_title(title)
         });
+        let by_newer_facet = scope.as_ref().is_some_and(|scope| {
+            scope
+                .facets
+                .iter()
+                .any(|(field, _)| super::search::NEWER_FACET_FIELDS.contains(&field.as_str()))
+        });
         self.scope.set(scope);
+        if by_newer_facet {
+            // The pill names a group by its label, which comes from `option-groups.json`. A
+            // library compiled before the index held the group or the trait's race cannot search
+            // by them, so the scope falls back to the kind.
+            let library = self.library.get_value();
+            spawn_local(async move {
+                let _ = library.option_groups().await;
+                let Ok(index) = library.search_index().await else {
+                    return;
+                };
+                self.scope.try_update(|scope| {
+                    if let Some(scope) = scope.as_mut() {
+                        super::search::drop_unindexed(&mut scope.facets, &index);
+                    }
+                });
+            });
+        }
         self.continue_row.set(None);
         self.viewed_expanded.set(false);
         self.open.set(true);

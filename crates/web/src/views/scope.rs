@@ -81,13 +81,7 @@ impl Scope {
                 ..
             } if *kind != EntryKind::Rule => Some(Self {
                 kind: *kind,
-                // A group narrows the list through `option-groups.json`, which the search index
-                // does not carry, so a class-option search scopes to its kind alone rather than
-                // to a facet that would match nothing.
-                facets: applied_facets(*kind, facets)
-                    .into_iter()
-                    .filter(|(field, _)| !(*kind == EntryKind::ClassOption && field == "group"))
-                    .collect(),
+                facets: applied_facets(*kind, facets),
                 source: source.clone(),
                 source_title: None,
             }),
@@ -198,6 +192,8 @@ impl Scope {
             || cantrips
             || (self.kind == EntryKind::Race
                 && self.facets.iter().any(|(field, _)| field == "race_group"))
+            || (self.kind == EntryKind::ClassOption
+                && self.facets.iter().any(|(field, _)| field == "group"))
         {
             facets.join(" ")
         } else {
@@ -357,6 +353,42 @@ mod tests {
         ] {
             assert_eq!(Scope::of_page(&route), None, "{route:?}");
         }
+    }
+
+    #[test]
+    fn a_class_option_group_and_a_racial_trait_race_are_scopes_like_any_facet() {
+        crate::views::search::register_facet_titles(
+            "group",
+            [("rage-power".to_string(), "Rage powers".to_string())],
+        );
+        crate::views::search::register_facet_titles(
+            "racial_trait_race",
+            [("dwarf".to_string(), "Dwarf".to_string())],
+        );
+        let rage = Route::browse_kind_facets(
+            EntryKind::ClassOption,
+            vec![("group".into(), "rage-power".into())],
+        );
+        let rage = Scope::of_page(&rage).unwrap();
+        assert_eq!(
+            rage.facets,
+            [("group".to_string(), "rage-power".to_string())]
+        );
+        // The group's label names the kind, so it takes no noun after it.
+        assert_eq!(rage.placeholder(), "Search Rage powers");
+        assert_eq!(rage.label(), "Rage powers");
+        assert_eq!(rage.remove_label(), "Remove scope: Rage powers");
+        assert_eq!(rage.results_line("12 results"), "12 results in Rage powers");
+        assert_eq!(rage.show_all_label(), "Show all class options");
+
+        let dwarf = Route::browse_kind_facets(
+            EntryKind::RacialTrait,
+            vec![("racial_trait_race".into(), "dwarf".into())],
+        );
+        let dwarf = Scope::of_page(&dwarf).unwrap();
+        assert_eq!(dwarf.placeholder(), "Search Dwarf racial traits");
+        assert_eq!(dwarf.label(), "Dwarf racial traits");
+        assert_eq!(dwarf.remove_label(), "Remove scope: Dwarf racial traits");
     }
 
     #[test]

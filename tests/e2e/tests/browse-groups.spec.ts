@@ -194,6 +194,57 @@ test("The Races list sits under the printed group headings, with no filter", asy
   await expect(main.locator("h2.letter-head", { hasText: /races/i })).toHaveCount(0);
 });
 
+// ---- Racial traits: the Race menu (#577) ----
+
+const racialTraitCount = activeStubs.filter((stub) => stub.kind === "racial_trait").length;
+const dwarfTraits = [...corpus.entries.values()].filter(
+  (entry) =>
+    entry.kind === "racial_trait" &&
+    activeIds.has(entry.id) &&
+    (entry.relations ?? []).some((relation: any) => relation.kind === "part" && relation.target === "ref/race/dwarf"),
+).length;
+
+test("The Race menu narrows the racial traits to one race, and Quick search takes the race as its scope", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/browse/kind/racial_trait");
+  const main = page.locator("main");
+  const button = main.getByRole("button", { name: /^Race: / });
+  await expect(button).toHaveText("Race: All races");
+  await expect(main.locator(".list-count")).toHaveText(`${count(racialTraitCount)} racial traits`);
+  expect(dwarfTraits).toBeGreaterThan(0);
+  expect(dwarfTraits).toBeLessThan(racialTraitCount);
+
+  // More than ten races: a find field, focused on open.
+  await button.click();
+  const panel = page.locator(`#${await button.getAttribute("aria-controls")}`);
+  await expect(panel.getByRole("searchbox", { name: "Find a race" })).toBeFocused();
+  await panel.getByRole("searchbox").fill("dwarf");
+  await panel.getByRole("list", { name: "Racial trait race" }).getByRole("link", { name: `Dwarf, ${count(dwarfTraits)}`, exact: true }).click();
+
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/browse/kind/racial_trait?facet=racial_trait_race:dwarf");
+  const line = main.locator(".list-count");
+  await expect(line).toHaveText(`${count(dwarfTraits)} of ${count(racialTraitCount)} racial traits · Show all`);
+  await expect(main.getByRole("button", { name: "Race: Dwarf" })).toBeFocused();
+  // The race is the menu's value, so no row repeats it.
+  const sources = await main.locator(".entry-list .row-source").allInnerTexts();
+  for (const text of sources) expect(text).not.toContain("Dwarf");
+
+  // The header search keeps the race, with its title as the scope.
+  await page.locator("header.app-header").getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Remove scope: Dwarf racial traits", exact: true })).toBeVisible();
+  await expect(quickField(page)).toHaveAttribute("placeholder", "Search Dwarf racial traits");
+  await page.keyboard.press("Escape");
+
+  // The search filter panel offers the race for racial traits.
+  await page.goto("#/search?q=attributes&kind=racial_trait");
+  await expect(page.locator('.filters .filter-group:has(legend:text-is("Race"))')).toBeVisible();
+
+  // A race that holds no trait shows the empty state with the way out.
+  await page.goto("#/browse/kind/racial_trait?facet=racial_trait_race:aboleth");
+  await expect(main.getByText("No Aboleth racial traits in your active books.")).toBeVisible();
+  await expect(main.getByRole("link", { name: "Show all racial traits" })).toBeVisible();
+});
+
 // ---- Feats: the filter menu, filtering in place, Feat chains and the chain marker (#193 PR 2) ----
 
 const featsInCombat = [...corpus.entries.values()]
