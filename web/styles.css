@@ -4644,6 +4644,14 @@ input::placeholder {
   font-size: .85em;
   margin-inline-start: .5rem;
 }
+/* A fold in a list names its parent like a row does: the muted line sits at the end of the summary and drops under the title when the row is narrow. */
+.entry-list > li > .source-variants {
+  flex: 1 1 100%;
+  min-width: 0;
+}
+.entry-list > li > .source-variants > summary {
+  flex-wrap: wrap;
+}
 .source-variants > ul {
   list-style: none;
   padding-inline-start: 1rem;

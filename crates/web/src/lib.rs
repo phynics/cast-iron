@@ -41,6 +41,7 @@ pub mod reading;
 pub mod report;
 pub mod revisions;
 pub mod route;
+pub mod row_parents;
 pub mod store;
 pub mod theme;
 pub mod updates;

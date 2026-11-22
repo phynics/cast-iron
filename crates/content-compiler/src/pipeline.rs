@@ -873,6 +873,7 @@ mod tests {
         // is the list of facet values (phynics/cast-iron-data#171). `none` has no facet value.
         let slots: Vec<String> = cast_iron_corpus::ITEM_BODY_SLOTS
             .iter()
+            .chain(cast_iron_corpus::ITEM_TECH_SLOTS.iter())
             .chain(cast_iron_corpus::ITEM_QUALITY_SLOTS.iter())
             .map(|slot| slot.to_string())
             .chain(["neck or shoulders".to_string(), "none or neck".to_string()])

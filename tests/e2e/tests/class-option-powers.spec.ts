@@ -253,3 +253,17 @@ test("A long power name wraps and the level stays on its first line", async ({ p
   // The leader takes only the space that is left, which is none when the name wraps.
   expect(leader === null || leader.width < 2).toBe(true);
 });
+
+// phynics/cast-iron-data#165: the printed text of the Linnorm ray names no table, so the corpus
+// compiles one from the linnorm monsters and says so in a `Compiled table` note before it.
+test("The Linnorm ray table of the Draconic bloodline carries its Compiled table note and links each linnorm", async ({ page }) => {
+  await open(page, "ref/sorcbloodline/draconic");
+  const note = page.locator(".rich strong", { hasText: /^Compiled table:/ });
+  await expect(note).toHaveCount(1);
+  await expect(note.locator("xpath=..")).toContainText("It prints no table");
+  const table = page.locator(".rules-table").filter({ has: page.getByRole("link", { name: "Cairn Linnorm", exact: true }) });
+  await expect(table).toHaveCount(1);
+  await expect(table.locator("thead th")).toHaveText(["Linnorm", "Energy Type", "Shape", "Printed in"]);
+  await expect(table.locator("tbody tr")).toHaveCount(9);
+  await expect(table.getByRole("link", { name: "Cairn Linnorm", exact: true })).toHaveAttribute("href", /linnorm-cairn-linnorm/);
+});

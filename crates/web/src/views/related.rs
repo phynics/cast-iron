@@ -900,6 +900,7 @@ fn prestige_panel(library: &Library, entry: &RuleEntry) -> Option<AnyView> {
                 source: library
                     .source(&stub.source)
                     .map_or_else(|| stub.source.clone(), |s| s.title.clone()),
+                parent: None,
             })
         })
         .collect();
@@ -908,7 +909,7 @@ fn prestige_panel(library: &Library, entry: &RuleEntry) -> Option<AnyView> {
             let variant = &group.variants[0];
             view! { <li><a href=Route::entry(variant.id.clone()).href()>{variant.title.clone()}</a></li> }.into_any()
         } else {
-            view! { <li><crate::views::source_variants::SourceVariants group /></li> }.into_any()
+            view! { <li><crate::views::source_variants::SourceVariants group with_kind=true /></li> }.into_any()
         }
     }).collect_view();
     Some(

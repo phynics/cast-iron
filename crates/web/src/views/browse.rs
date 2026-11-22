@@ -7,6 +7,7 @@ use crate::fmt;
 use crate::library::{Library, LibraryError, use_library};
 use crate::revisions::EffectiveRevisions;
 use crate::route::{Route, navigate, replace};
+use crate::row_parents::{self, ParentMap};
 use crate::views::active_books::{
     MANAGE_LINK_ID, focus_after_frame, open_from_books, take_link_focus,
 };
@@ -22,17 +23,14 @@ use crate::views::filter_menu::{
 use crate::views::icons;
 use crate::views::scope::{FilterPill, Scope};
 use crate::views::search::{facet_label, sort_facet_pairs};
-use crate::views::source_variants::{SourceVariant, SourceVariants, group_variants};
+use crate::views::source_variants::{Parent, SourceVariant, SourceVariants, group_variants};
 use crate::views::util::{
     ACTIVE_BOOKS_SCOPE, Shared, active_count_line, addon_name, group_letter, kind_name,
     local_resource, set_title, sort_key,
 };
-use cast_iron_schema::{
-    EntryId, EntryKind, EntryStub, OptionGroupIndex, RelationLabel, SeriesKind,
-};
+use cast_iron_schema::{EntryId, EntryKind, EntryStub, RelationLabel, SeriesKind};
 use leptos::prelude::*;
 use std::collections::{HashMap, HashSet};
-use std::rc::Rc;
 use wasm_bindgen::JsCast;
 
 // ---- pure helpers -----------------------------------------------------------------------
@@ -182,48 +180,46 @@ fn feat_row(
     }
 }
 
-/// The class-option group index while it loads. The outer `Option` is "not loaded yet"; the
-/// inner one is "this library has no `option-groups.json`".
-type OptionGroups = ReadSignal<Option<Option<Rc<OptionGroupIndex>>>, LocalStorage>;
+/// Who each row's parent is, once the lookup behind it has loaded: `None` while it loads. The
+/// list renders its rows only after it has, so no row is built twice: a fold that opened, the
+/// focus and the scroll position survive. An affliction reads the catalog and is ready at once.
+type RowParents = ReadSignal<Option<Shared<ParentMap>>, LocalStorage>;
 
-/// A class-option row: the title, then `{book}` while the group filter is on, or
-/// `{Group singular} · {book}` in the whole list.
-fn class_option_row(
-    stub: &EntryStub,
-    book: Option<String>,
-    show_source: bool,
-    groups: OptionGroups,
-    group_selected: bool,
-) -> impl IntoView + use<> {
-    let id = stub.id.clone();
-    let detail_id = id.clone();
-    let detail = move || {
-        // Like every other row, the book line appears only when the list spans books. A
-        // book-filtered list already names its book once, in the pill.
-        if !show_source {
-            return None;
-        }
-        let book = book.clone().unwrap_or_else(|| "Other".to_string());
-        if group_selected {
-            return Some(book);
-        }
-        groups.with(|loaded| {
-            let singular = loaded
-                .as_ref()
-                .and_then(|index| index.as_ref())
-                .and_then(|index| class_options::group_of(index, &detail_id))
-                .map(|group| group.singular.clone());
-            match singular {
-                Some(singular) => Some(format!("{singular} · {book}")),
-                None => Some(book),
-            }
-        })
+/// The parents of the rows of `kind`, read from where each kind keeps them: a racial trait's
+/// race and an archetype's class from `relations.json` (for the entries in `stubs`), a class
+/// option's group from `option-groups.json`, an affliction's creature from the catalog. A
+/// library without the file, or a file that fails to load, has no parent, and its rows keep the
+/// book alone.
+fn row_parents_of(library: &Library, kind: EntryKind, stubs: &[EntryStub]) -> RowParents {
+    let title_of = {
+        let library = library.clone();
+        move |id: &EntryId| library.stub(id).map(|stub| stub.title.clone())
     };
-    view! {
-        <li>
-            <a href=Route::entry(id).href()>{stub.title.clone()}</a>
-            {move || detail().map(|text| view! { <span class="muted row-source">{text}</span> })}
-        </li>
+    match kind {
+        EntryKind::Affliction => {
+            let map = row_parents::from_stub_parents(stubs, &title_of);
+            signal_local(Some(Shared::new(map))).0
+        }
+        EntryKind::ClassOption => {
+            let library = library.clone();
+            local_resource(async move {
+                Shared::new(match library.option_groups().await {
+                    Ok(Some(index)) => row_parents::from_option_groups(&index),
+                    _ => ParentMap::new(),
+                })
+            })
+        }
+        _ => {
+            let (library, stubs) = (library.clone(), stubs.to_vec());
+            local_resource(async move {
+                Shared::new(match library.relations().await {
+                    Ok(Some(relations)) => {
+                        row_parents::from_relations(&relations, kind, &stubs, &title_of)
+                    }
+                    _ => ParentMap::new(),
+                })
+            })
+        }
     }
 }
 
@@ -1524,60 +1520,71 @@ fn AzList(
     stubs: Vec<EntryStub>,
     source_titles: Vec<Option<String>>,
     show_source: bool,
-    /// The class-option groups, so a row can name its group when the list is not filtered.
-    /// `None` for every other kind.
-    class_option_groups: Option<OptionGroups>,
-    /// True while a group filter is on: each option row then shows only its book.
-    class_option_group_selected: bool,
+    /// Who each row's parent is, so a row can name it and a fold can keep two rules apart.
+    /// `None` for a kind with no parent, and for a list that the parent's own menu narrows.
+    parents: Option<Shared<ParentMap>>,
     selected: Option<char>,
     focus: bool,
 ) -> impl IntoView {
     let groups = Shared::new(groups);
     let stubs = Shared::new(stubs);
     let source_titles = Shared::new(source_titles);
-    // Group only for presentation, after the caller has selected active catalog stubs. The
-    // letter index still counts source records, so the counts match the category total.
-    let mut grouped_by_entry = Vec::with_capacity(stubs.len());
-    for (i, stub) in stubs.iter().enumerate() {
-        let source = source_titles[i]
-            .clone()
-            .unwrap_or_else(|| "Source".to_string());
-        grouped_by_entry.push(SourceVariant {
-            id: stub.id.clone(),
-            title: stub.title.clone(),
-            source,
-            kind: stub.kind,
-        });
-    }
-    let presentation_groups = group_variants(grouped_by_entry);
-    let variant_group_by_id = presentation_groups
-        .iter()
-        .enumerate()
-        .flat_map(|(group_index, group)| {
-            group
-                .variants
-                .iter()
-                .map(move |v| (v.id.clone(), group_index))
-        })
-        .collect::<std::collections::HashMap<_, _>>();
-    let entry_index_by_id = stubs
-        .iter()
-        .enumerate()
-        .map(|(index, stub)| (stub.id.clone(), index))
-        .collect::<std::collections::HashMap<_, _>>();
 
-    // One list item per entry, with same-title records folded into one disclosure. The indices
-    // belong to one letter group, or to the whole list when the kind is short.
+    // One list item per entry, with printings of one rule folded into one disclosure. The
+    // indices belong to one letter group, or to the whole list when the kind is short. The
+    // fold and the order follow the parents, which the list has before it builds a row.
+    // The group still counts source records, so the counts match the category total.
     let rows_for = {
         let stubs = stubs.clone();
         let source_titles = source_titles.clone();
-        let presentation_groups = presentation_groups.clone();
-        let variant_group_by_id = variant_group_by_id.clone();
-        let entry_index_by_id = entry_index_by_id.clone();
         move |indices: &[usize]| {
+            let parent_of = |stub: &EntryStub| -> Option<Parent> {
+                parents.as_ref().and_then(|map| map.get(&stub.id)).cloned()
+            };
+            let mut order = indices.to_vec();
+            if parents.is_some() {
+                // Rows of one title sort by their parent's title, then by id.
+                cast_iron_sort::sort_by_cached_key(&mut order, |&i| {
+                    let stub = &stubs[i];
+                    (
+                        sort_key(&stub.title),
+                        parent_of(stub).map(|parent| sort_key(&parent.title)),
+                        stub.id.clone(),
+                    )
+                });
+            }
+            let entries = stubs
+                .iter()
+                .enumerate()
+                .map(|(i, stub)| SourceVariant {
+                    id: stub.id.clone(),
+                    title: stub.title.clone(),
+                    source: source_titles[i]
+                        .clone()
+                        .unwrap_or_else(|| "Source".to_string()),
+                    kind: stub.kind,
+                    parent: parent_of(stub),
+                })
+                .collect();
+            let presentation_groups = group_variants(entries);
+            let variant_group_by_id = presentation_groups
+                .iter()
+                .enumerate()
+                .flat_map(|(group_index, group)| {
+                    group
+                        .variants
+                        .iter()
+                        .map(move |v| (v.id.clone(), group_index))
+                })
+                .collect::<std::collections::HashMap<_, _>>();
+            let entry_index_by_id = stubs
+                .iter()
+                .enumerate()
+                .map(|(index, stub)| (stub.id.clone(), index))
+                .collect::<std::collections::HashMap<_, _>>();
             let mut rendered = Vec::<AnyView>::new();
             let mut consumed = std::collections::HashSet::new();
-            for &i in indices {
+            for i in order {
                 if !consumed.insert(i) {
                     continue;
                 }
@@ -1591,22 +1598,24 @@ fn AzList(
                             consumed.insert(*index);
                         }
                     }
-                    rendered
-                        .push(view! { <li><SourceVariants group=group.clone() /></li> }.into_any());
+                    let line =
+                        row_parents::line(row_parents::is_alternate(stub), group.parent(), None)
+                            .unwrap_or_default();
+                    rendered.push(
+                        view! { <li><SourceVariants group=group.clone() line /></li> }.into_any(),
+                    );
                 } else {
                     let source = source_titles[i].clone();
-                    rendered.push(match (marks, class_option_groups) {
-                        (Some(marks), _) => feat_row(stub, source, show_source, marks).into_any(),
-                        (None, Some(groups)) => class_option_row(
-                            stub,
-                            source,
-                            show_source,
-                            groups,
-                            class_option_group_selected,
-                        )
-                        .into_any(),
-                        (None, None) => {
-                            entry_row(stub, show_source.then_some(source).flatten()).into_any()
+                    rendered.push(match marks {
+                        Some(marks) => feat_row(stub, source, show_source, marks).into_any(),
+                        None => {
+                            let book = show_source.then_some(source).flatten();
+                            let line = row_parents::line(
+                                row_parents::is_alternate(stub),
+                                parent_of(stub).as_ref(),
+                                book.as_deref(),
+                            );
+                            entry_row(stub, line).into_any()
                         }
                     });
                 }
@@ -1618,7 +1627,7 @@ fn AzList(
     // Short lists keep the plain, ungrouped list.
     if stubs.len() <= GROUP_THRESHOLD {
         let indices: Vec<usize> = (0..stubs.len()).collect();
-        let rows = rows_for(&indices);
+        let rows = move || rows_for(&indices);
         return view! { <ul class="entry-list">{rows}</ul> }.into_any();
     }
 
@@ -1647,7 +1656,10 @@ fn AzList(
 
     let mut selected_rows = selected
         .and_then(|letter| groups.iter().position(|(group, _)| *group == letter))
-        .map(|position| rows_for(&groups[position].1));
+        .map(|position| {
+            let indices = groups[position].1.clone();
+            move || rows_for(&indices)
+        });
     let sections = groups
         .iter()
         .map(|(group_letter, indices)| {
@@ -1657,7 +1669,7 @@ fn AzList(
             let dom_id = letter_id(*group_letter);
             let is_selected = Some(*group_letter) == selected;
             if is_selected {
-                let rows = selected_rows.take().unwrap_or_default();
+                let rows = selected_rows.take();
                 view! {
                     <section class="letter-group" id=dom_id data-letter=label.clone()>
                         <h2 class="letter-head" id=format!("{dom_id}-heading") tabindex="-1">
@@ -2205,13 +2217,15 @@ fn BrowseList(
             })
         });
 
-    // Class options carry their group on the entry, but the list page reads the small derived
-    // index so a row can name the group without opening a shard.
-    let class_option_groups: Option<OptionGroups> = (kind == EntryKind::ClassOption).then(|| {
-        let library = library.clone();
-        local_resource(async move { library.option_groups().await.ok().flatten() })
-    });
-    let class_option_group_selected = applied.iter().any(|(field, _)| field == "group");
+    // A racial trait, an archetype, a class option and an affliction name their parent on the
+    // muted line, and printings of one rule fold only under the same parent. The list builds its
+    // rows once the lookup has resolved (near-instant once cached), so no row is built twice. A
+    // list that the parent's own menu narrows names the parent once, in the menu, so its rows
+    // need no lookup.
+    let parents: Option<RowParents> = (row_parents::names_parent(kind)
+        && !row_parents::parent_facet(kind)
+            .is_some_and(|field| applied.iter().any(|(name, _)| name == field)))
+    .then(|| row_parents_of(&library, kind, &stubs));
 
     let sectioned = sections.is_some();
     let body = if count == 0
@@ -2260,8 +2274,7 @@ fn BrowseList(
                         </h2>
                         <AzList kind facets=Vec::new() source=None marks=None groups=Vec::new()
                             stubs=group source_titles show_source=multi_source
-                            class_option_groups=None class_option_group_selected=false
-                            selected=None focus=false />
+                            parents=None selected=None focus=false />
                     </section>
                 }
             })
@@ -2272,15 +2285,27 @@ fn BrowseList(
             .iter()
             .map(|s| library.source(&row_source(s)).map(|src| src.title.clone()))
             .collect();
-        view! {
-            <AzList kind facets=applied.clone() source=source.clone() marks groups
-                stubs=stubs.clone() source_titles show_source=multi_source
-                class_option_groups=class_option_groups
-                class_option_group_selected=class_option_group_selected
-                selected=selected
-                focus=requested.is_some() && focus_menu.is_none() && !focus_first />
+        let focus = requested.is_some() && focus_menu.is_none() && !focus_first;
+        let list = {
+            let (applied, source, stubs) = (applied.clone(), source.clone(), stubs.clone());
+            move |parents: Option<Shared<ParentMap>>| {
+                view! {
+                    <AzList kind facets=applied.clone() source=source.clone() marks
+                        groups=groups.clone() stubs=stubs.clone()
+                        source_titles=source_titles.clone() show_source=multi_source
+                        parents selected=selected focus=focus />
+                }
+                .into_any()
+            }
+        };
+        match parents {
+            None => list(None),
+            Some(ready) => (move || match ready.get() {
+                None => view! { <p class="muted" role="status">"Loading…"</p> }.into_any(),
+                Some(map) => list(Some(map)),
+            })
+            .into_any(),
         }
-        .into_any()
     };
 
     let count_line = if book {

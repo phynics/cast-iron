@@ -104,6 +104,23 @@ installedTest("Filter chips list each creature size once, from Fine to Colossal,
   await expect.poll(() => new URL(page.url()).hash).toContain("size:");
 });
 
+installedTest("Filter chips list item slots as printed, with no price or cross-reference text in a value (phynics/cast-iron-data#171)", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/search?q=cloak&kind=item");
+  const group = page.locator(".filters .filter-group", { has: page.locator("legend", { hasText: /^Slot$/ }) });
+  await expect(group.locator(".chip").first()).toBeVisible();
+  const labels = (await group.locator(".chip").locator("input").evaluateAll((inputs) =>
+    inputs.map((input) => (input.getAttribute("aria-label") ?? "").replace(/, [\d,]+ entr(y|ies)$/, "")),
+  ));
+  expect(labels.length, "the cloak items have slot values").toBeGreaterThan(0);
+  // Two values that name two slots at once stay open by owner decision, and print gives them a
+  // `(see text)` qualifier; every other value is a plain slot.
+  const open = new Set(["chest and neck (see text)", "body and helm (see text)"]);
+  for (const label of labels.filter((label) => !open.has(label))) expect(label, `slot value ${label}`).not.toMatch(/Price|see/i);
+  expect(labels.filter((label) => /Price/i.test(label))).toEqual([]);
+  expect(labels).toContain("shoulders");
+});
+
 installedTest("Publication filter hides empty books, pages the rest, and keeps selections in the URL", async ({ page }) => {
   await installLibrary(page);
   await page.goto("#/search");

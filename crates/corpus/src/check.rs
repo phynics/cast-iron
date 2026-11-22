@@ -116,15 +116,18 @@ pub const AFFLICTION_TYPES: [&str; 6] = [
 /// `slot` facet, so the Slot menu lists only real slots (phynics/cast-iron-data#171).
 pub const ITEM_SLOT_NONE: &str = "none";
 
-/// The body slots that print gives a magic item, plus `none` (phynics/cast-iron-data#171). Two of
-/// them, joined by ` or `, make one value (`neck or shoulders`, `none or neck`). The data
-/// repository keeps the print citation of each value in `scripts/affliction-slot-vocabulary-171.tsv`.
-pub const ITEM_BODY_SLOTS: [&str; 15] = [
+/// The slots that print gives a magic item, plus `none` (phynics/cast-iron-data#171). `weapon` is
+/// the slot print gives a specific weapon, and `face` the one of the mask and the lenses (owner
+/// decisions of 2026-11-22). Two of them, joined by ` or `, make one value (`neck or shoulders`,
+/// `none or neck`). The data repository keeps the print citation of each value in
+/// `scripts/affliction-slot-vocabulary-171.tsv`.
+pub const ITEM_BODY_SLOTS: [&str; 17] = [
     "armor",
     "belt",
     "body",
     "chest",
     "eyes",
+    "face",
     "feet",
     "hands",
     "head",
@@ -134,7 +137,22 @@ pub const ITEM_BODY_SLOTS: [&str; 15] = [
     "ring",
     "shield",
     "shoulders",
+    "weapon",
     "wrists",
+];
+
+/// The `slot` values of the sockets and the cybertech of the Technology Guide, in the spelling of
+/// print (Technology Guide pp. 36, 52 and 53; owner decision of 2026-11-22). They are a separate
+/// closed list: a magic item never takes one, and a tech slot stands alone, never in an `or` pair.
+/// `arms (cybernetic)` is the spelling of the adventure volume that prints it.
+pub const ITEM_TECH_SLOTS: [&str; 7] = [
+    "arm",
+    "arms (cybernetic)",
+    "brain",
+    "ears",
+    "legs",
+    "skillslot",
+    "veemod goggles",
 ];
 
 /// The `slot` values of an item enhancement, which attaches to a weapon, armor or shield instead
@@ -146,10 +164,14 @@ pub const ITEM_QUALITY_SLOTS: [&str; 4] = [
     "armor/shield quality",
 ];
 
-/// Whether `value` is a closed `slot` value: one body slot, one enhancement value, or two distinct
-/// body slots joined by ` or `. Case counts: the corpus spells every value in lower case.
+/// Whether `value` is a closed `slot` value: one body slot, one tech slot, one enhancement value, or
+/// two distinct body slots joined by ` or `. A tech slot or an enhancement value never joins a pair.
+/// Case counts: the corpus spells every value in lower case.
 pub fn is_item_slot(value: &str) -> bool {
-    if ITEM_BODY_SLOTS.contains(&value) || ITEM_QUALITY_SLOTS.contains(&value) {
+    if ITEM_BODY_SLOTS.contains(&value)
+        || ITEM_TECH_SLOTS.contains(&value)
+        || ITEM_QUALITY_SLOTS.contains(&value)
+    {
         return true;
     }
     match value.split(" or ").collect::<Vec<_>>().as_slice() {
@@ -1882,35 +1904,40 @@ fn out_of_vocabulary(corpus: &Corpus) -> Vec<(String, &str, &'static str, String
     out
 }
 
-/// Warns, once per field and run, about values outside a closed vocabulary. It is a warning
-/// while the corpus is cleaned up (phynics/cast-iron-data#169, #171): the count measures what is
-/// left. When it reaches 0 it becomes an error, as the footnote findings did.
+/// Reports, once per field and run, values outside a closed vocabulary. `feat_types`, `size` and
+/// `affliction_type` are errors: the corpus pinned at v0.1.38 has none (phynics/cast-iron-data#169,
+/// #171). `slot` stays a warning because print itself gives 9 values that the list does not hold,
+/// and the owner left them open (phynics/cast-iron-data#171). The count measures what is left.
 fn check_closed_vocabularies(corpus: &Corpus, report: &mut Report) {
     let found = out_of_vocabulary(corpus);
-    for (field, list, fix, issue) in [
+    for (field, list, fix, issue, is_error) in [
         (
             "feat_types",
             "FEAT_TYPES",
             "move a book abbreviation, a title qualifier or a race out of it, as print gives them",
             169,
+            true,
         ),
         (
             "size",
             "SIZE_CATEGORIES",
             "give it the size category that print gives",
             169,
+            true,
         ),
         (
             "affliction_type",
             "AFFLICTION_TYPES",
             "tag the affliction with the first word of its printed `**Type:**` line",
             171,
+            true,
         ),
         (
             "slot",
-            "ITEM_BODY_SLOTS, ITEM_QUALITY_SLOTS and their `or` pairs",
+            "ITEM_BODY_SLOTS, ITEM_TECH_SLOTS, ITEM_QUALITY_SLOTS and the `or` pairs of ITEM_BODY_SLOTS",
             "map a spelling to the printed slot, or move text that is no slot out of it, as print gives them",
             171,
+            false,
         ),
     ] {
         let rows: Vec<_> = found.iter().filter(|row| row.2 == field).collect();
@@ -1923,12 +1950,17 @@ fn check_closed_vocabularies(corpus: &Corpus, report: &mut Report) {
             .take(3)
             .map(|(at, id, _, value)| format!("{at}: `{id}` has `{value}`"))
             .collect();
-        report.warnings.push(format!(
+        let message = format!(
             "{} `{field}` values in {} entries are outside the closed vocabulary `{list}` (for example {}); a filter menu shows the field, so {fix} (phynics/cast-iron-data#{issue})",
             rows.len(),
             entries.len(),
             examples.join(", ")
-        ));
+        );
+        if is_error {
+            report.problems.push(message);
+        } else {
+            report.warnings.push(message);
+        }
     }
 }
 
@@ -2830,30 +2862,31 @@ mod tests {
     }
 
     #[test]
-    fn a_feat_type_outside_the_closed_vocabulary_is_a_warning() {
+    fn a_feat_type_outside_the_closed_vocabulary_is_an_error() {
         let report = check(&corpus(vec![
             feat("ref/feat/ok", &["Combat", "General"]),
             feat("ref/feat/untyped", &[]),
         ]));
         assert!(report.warnings.is_empty(), "{:?}", report.warnings);
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
 
         let report = check(&corpus(vec![
             feat("ref/feat/boa", &["BoA"]),
             feat("ref/feat/race", &["Combat", "Dhampir"]),
         ]));
-        assert!(report.problems.is_empty(), "{:?}", report.problems);
-        assert_eq!(report.warnings.len(), 1, "{:?}", report.warnings);
-        let warning = &report.warnings[0];
+        assert!(report.warnings.is_empty(), "{:?}", report.warnings);
+        assert_eq!(report.problems.len(), 1, "{:?}", report.problems);
+        let problem = &report.problems[0];
         assert!(
-            warning
+            problem
                 .contains("2 `feat_types` values in 2 entries are outside the closed vocabulary"),
-            "{warning}"
+            "{problem}"
         );
-        assert!(warning.contains("`ref/feat/boa` has `BoA`"), "{warning}");
+        assert!(problem.contains("`ref/feat/boa` has `BoA`"), "{problem}");
     }
 
     #[test]
-    fn a_size_outside_the_categories_is_a_warning_without_regard_to_case() {
+    fn a_size_outside_the_categories_is_an_error_without_regard_to_case() {
         let sized = |id: &str, size: &str| {
             let mut entry = creature(id, "construct");
             if let TypedFields::Creature(fields) = &mut entry.fields {
@@ -2866,13 +2899,14 @@ mod tests {
             sized("ref/creature/b", "colossal"),
         ]));
         assert!(report.warnings.is_empty(), "{:?}", report.warnings);
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
 
         let report = check(&corpus(vec![sized("ref/creature/c", "artificial")]));
-        assert_eq!(report.warnings.len(), 1, "{:?}", report.warnings);
+        assert_eq!(report.problems.len(), 1, "{:?}", report.problems);
         assert!(
-            report.warnings[0].contains("1 `size` values in 1 entries are outside"),
+            report.problems[0].contains("1 `size` values in 1 entries are outside"),
             "{:?}",
-            report.warnings
+            report.problems
         );
     }
 
@@ -2898,6 +2932,7 @@ mod tests {
     fn the_item_slot_lists_hold_one_spelling_each() {
         let all: Vec<&str> = ITEM_BODY_SLOTS
             .iter()
+            .chain(ITEM_TECH_SLOTS.iter())
             .chain(ITEM_QUALITY_SLOTS.iter())
             .copied()
             .collect();
@@ -2907,6 +2942,12 @@ mod tests {
         assert!(all.iter().all(|slot| *slot == slot.to_lowercase()));
         // The compiler leaves `none` out of the `slot` facet by this name.
         assert!(ITEM_BODY_SLOTS.contains(&ITEM_SLOT_NONE));
+        // A tech slot is no magic-item slot, so the two lists share no value.
+        assert!(
+            ITEM_TECH_SLOTS
+                .iter()
+                .all(|slot| !ITEM_BODY_SLOTS.contains(slot))
+        );
         let types: BTreeSet<&str> = AFFLICTION_TYPES.iter().copied().collect();
         assert_eq!(types.len(), AFFLICTION_TYPES.len());
     }
@@ -2916,6 +2957,10 @@ mod tests {
         for ok in [
             "neck",
             "none",
+            "weapon",
+            "face",
+            "veemod goggles",
+            "arms (cybernetic)",
             "headband",
             "armor/shield quality",
             "neck or shoulders",
@@ -2930,12 +2975,17 @@ mod tests {
             "Neck",
             "see text",
             "neck (see text)",
-            "veemod goggles",
+            "amulet",
+            "cloak",
+            "veemod goggles or neck",
+            "neck or skillslot",
+            "arm or wrist",
+            "arm or arm",
+            "weapon quality or neck",
             "neck, ring, or none",
             "head and eyes",
             "neck or neck",
             "neck or shoulders or belt",
-            "weapon quality or neck",
             "neck or",
         ] {
             assert!(!is_item_slot(bad), "{bad}");
@@ -2947,13 +2997,15 @@ mod tests {
         let report = check(&corpus(vec![
             item("ref/item/ring", Some("ring")),
             item("ref/item/cloak", Some("neck or shoulders")),
+            item("ref/item/goggles", Some("veemod goggles")),
+            item("ref/item/blade", Some("weapon")),
             item("ref/item/plain", None),
         ]));
         assert!(report.warnings.is_empty(), "{:?}", report.warnings);
 
         let report = check(&corpus(vec![
-            item("ref/item/goggles", Some("veemod goggles")),
-            item("ref/item/lenses", Some("face")),
+            item("ref/item/hat", Some("head and eyes")),
+            item("ref/item/lenses", Some("neck, ring, or none")),
         ]));
         assert!(report.problems.is_empty(), "{:?}", report.problems);
         assert_eq!(report.warnings.len(), 1, "{:?}", report.warnings);
@@ -2963,7 +3015,7 @@ mod tests {
             "{warning}"
         );
         assert!(
-            warning.contains("`ref/item/goggles` has `veemod goggles`"),
+            warning.contains("`ref/item/hat` has `head and eyes`"),
             "{warning}"
         );
     }
@@ -2975,24 +3027,25 @@ mod tests {
             affliction("ref/affliction/b", &["fog", "disease"]),
         ]));
         assert!(report.warnings.is_empty(), "{:?}", report.warnings);
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
 
         let report = check(&corpus(vec![
             affliction("ref/affliction/c", &[]),
             affliction("ref/affliction/d", &["poison", "curse"]),
             affliction("ref/affliction/e", &["Poison"]),
         ]));
-        assert!(report.problems.is_empty(), "{:?}", report.problems);
-        assert_eq!(report.warnings.len(), 1, "{:?}", report.warnings);
-        let warning = &report.warnings[0];
+        assert!(report.warnings.is_empty(), "{:?}", report.warnings);
+        assert_eq!(report.problems.len(), 1, "{:?}", report.problems);
+        let problem = &report.problems[0];
         assert!(
-            warning.contains(
+            problem.contains(
                 "3 `affliction_type` values in 3 entries are outside the closed vocabulary"
             ),
-            "{warning}"
+            "{problem}"
         );
         assert!(
-            warning.contains("`ref/affliction/c` has `no type tag`"),
-            "{warning}"
+            problem.contains("`ref/affliction/c` has `no type tag`"),
+            "{problem}"
         );
     }
 
