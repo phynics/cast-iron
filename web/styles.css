@@ -2958,6 +2958,13 @@ main,
   gap: 0.375rem;
 }
 
+/* On a spell list the level links share the bar's row with the density button, which sits at
+   the right end of the row. */
+.level-nav .lvls {
+  flex: 1 1 auto;
+  align-items: center;
+}
+
 .lvl {
   display: inline-flex;
   flex-direction: column;
@@ -3144,20 +3151,13 @@ main,
   }
 }
 
-/* Compact / Wide is one Filter-role choice in two pills. The reader picks it once for every
-   spell list; the group sits beside the school filter. */
-.density-toggle {
+/* Compact / Wide is one quiet text button, the last item of the level bar's row. The reader picks
+   it once for every spell list. `margin-left: auto` pushes it to the right end of the last row of
+   level links; when that row is full it wraps to a line of its own, right-aligned. */
+.lvl-density {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-  margin-bottom: var(--space-3);
-}
-
-/* The density pills keep the 44 px target at every pointer type. The generic fine-pointer
-   chip rule lowers the pill to 2.25rem, which can clip the check mark at this size. */
-.density-toggle .chip span {
-  min-height: var(--touch);
+  margin-left: auto;
+  margin-inline-end: calc(-1 * var(--space-2));
 }
 
 /* Density "compact": name and school, then one fact line at every width. The line ends in an

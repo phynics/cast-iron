@@ -384,6 +384,7 @@ mod tests {
             class: "Elementalist Wizard".into(),
             level: Some(5),
             schools: vec!["evocation".into(), "conjuration".into()],
+            name: String::new(),
         };
         let narrowed = Scope::of_page(&narrowed).unwrap();
         assert_eq!(
