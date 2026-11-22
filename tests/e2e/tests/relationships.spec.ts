@@ -27,8 +27,11 @@ test("race racial traits and class archetypes link in both directions", async ({
   await page.locator(`.entry-rel a[href="#/entry/${traitId}"]`).click();
   await expect(page).toHaveURL(new RegExp(`#/entry/${traitId.replaceAll("/", "\\/")}$`));
   await expect(page.getByRole("heading", { name: trait.title, level: 1 })).toBeVisible();
-  await expect(page.getByRole("heading", { name: /racial trait of/i })).toBeVisible();
-  await page.locator(`.entry-rel a[href="#/entry/${race.id}"]`).click();
+  // The racial trait names its kind and its race in the metadata line (#574); no end panel does.
+  const traitMeta = page.locator(".entry-meta");
+  await expect(traitMeta.getByRole("link", { name: /^(Alternate|Standard) racial trait$/ })).toBeVisible();
+  await expect(page.locator("#rel-part")).toHaveCount(0);
+  await traitMeta.locator(`a[href="#/entry/${race.id}"]`).click();
   await expect(page).toHaveURL(new RegExp(`#/entry/${race.id.replaceAll("/", "\\/")}$`));
 
   const classEntry = entries.find((e) => e.kind === "class" &&
@@ -39,8 +42,11 @@ test("race racial traits and class archetypes link in both directions", async ({
   await page.locator(".arch-list").waitFor();
   await page.locator(`.arch-list a[href="#/entry/${archetype.id}"]`).click();
   await expect(page).toHaveURL(new RegExp(`#/entry/${archetype.id.replaceAll("/", "\\/")}$`));
-  await expect(page.getByRole("heading", { name: /An archetype of/ })).toBeVisible();
-  await page.locator(`.entry-rel a[href="#/entry/${classEntry.id}"]`).click();
+  // The archetype names its class in the metadata line (#574); no end panel does.
+  const archetypeMeta = page.locator(".entry-meta");
+  await expect(archetypeMeta.getByRole("link", { name: "Archetype", exact: true })).toBeVisible();
+  await expect(page.locator("#rel-archetype-of")).toHaveCount(0);
+  await archetypeMeta.locator(`a[href="#/entry/${classEntry.id}"]`).click();
   await expect(page).toHaveURL(new RegExp(`#/entry/${classEntry.id.replaceAll("/", "\\/")}$`));
 });
 

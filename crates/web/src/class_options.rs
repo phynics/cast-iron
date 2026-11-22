@@ -61,8 +61,14 @@ pub fn serves_several_classes(group: &OptionGroup) -> bool {
 /// printed names of the replaced features only; `None` when the row replaces nothing. The row
 /// reads the same from `trades.json` and from the `replaces.json` of an older library.
 pub fn replaces_line_of(row: &TradeRow) -> Option<String> {
-    let names = row.printed(TradeOp::Replaces);
-    (!names.is_empty()).then(|| format!("Replaces {}", names.join(", ")))
+    trade_line_of(row, TradeOp::Replaces)
+}
+
+/// `Replaces …` or `Alters …`: the printed names of the trades with `op`, or `None` when the
+/// row has none.
+pub fn trade_line_of(row: &TradeRow, op: TradeOp) -> Option<String> {
+    let names = row.printed(op);
+    (!names.is_empty()).then(|| format!("{} {}", op.label(), names.join(", ")))
 }
 
 /// The muted archetype line for the entry `id`. `None` when the library has no trades for it.

@@ -99,7 +99,7 @@ test("Home categories connect races, class options, spell levels, and reference 
   await openAllRows(page.locator(".entry-rel"));
   await page.locator(`.entry-rel a[href="#/entry/${raceTrait.id}"]`).click();
   await expect(page.getByRole("heading", { level: 1, name: raceTrait.title })).toBeVisible();
-  await expect(page.locator(".entry-rel").getByRole("heading", { name: /racial trait of/i })).toBeVisible();
+  await expect(page.locator(".entry-meta").getByRole("link", { name: /^(Alternate|Standard) racial trait$/ })).toBeVisible();
 
   // Class options are not listed in a book's Contents: they are reached from Home.
   const primary = page.getByRole("navigation", { name: "Primary" });
@@ -117,7 +117,7 @@ test("Home categories connect races, class options, spell levels, and reference 
   await page.locator(".arch-list").waitFor();
   await page.locator(`.arch-list a[href="#/entry/${archetype.id}"]`).click();
   await expect(page.getByRole("heading", { level: 1, name: archetype.title })).toBeVisible();
-  await expect(page.locator(".entry-rel").getByRole("heading", { name: /An archetype of/ })).toBeVisible();
+  await expect(page.locator(".entry-meta").getByRole("link", { name: classEntry.title, exact: true })).toBeVisible();
 
   // Use the class and level links in the spell-list hub to reach a spell entry.
   const classLevels = new Map<string, number>();
