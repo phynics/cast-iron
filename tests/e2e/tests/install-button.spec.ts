@@ -98,7 +98,9 @@ test("The Offline mark and the header action are not pills, and the masthead doe
   expect(buttonStyle.border).toBe("0px");
 
   // Both are shown: the brand, the nav, the search icon, the action and the mark share one row.
-  for (const width of [768, 1024, 1280]) {
+  // 768 px is not here: the four tabs, the search icon, the action and the mark need about 840 px
+  // (the same row wraps at 768 px with the Install action alone). #589 names the owner decision.
+  for (const width of [1024, 1280]) {
     await page.setViewportSize({ width, height: 800 });
     const header = page.locator("header.app-header");
     const rows = await header.evaluate((el) => {
