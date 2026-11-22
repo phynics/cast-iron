@@ -1,4 +1,4 @@
-import { test, expect, type BrowserContext, type Page } from "./fixtures";
+import { test, expect, goOffline, type BrowserContext, type Page } from "./fixtures";
 import { installLibrary, storedMeta, waitControlled, waitReady, afterRouteFrame } from "./helpers";
 
 // The header Install button and the Settings install option. Real browsers fire
@@ -69,6 +69,50 @@ test("The header button is reachable with Tab and named for screen readers", asy
   await expect.poll(() => page.evaluate(() => (window as any).__installPrompts)).toBe(1);
 });
 
+test("The Offline mark and the header action are not pills, and the masthead does not wrap", async ({ page, context, server }) => {
+  await firePromptEarly(context);
+  await installLibrary(page);
+  await waitControlled(page);
+  const button = headerButton(page);
+  await expect(button).toBeVisible();
+  await goOffline(context, server);
+
+  const mark = page.locator("header.app-header .offline-mark");
+  await expect(mark).toBeVisible();
+  await expect(mark).toContainText("Offline. Everything here still works");
+  const markStyle = await mark.evaluate((el) => {
+    const css = getComputedStyle(el);
+    return { border: css.borderTopWidth, radius: css.borderRadius, cursor: css.cursor, tabbable: el.tabIndex };
+  });
+  expect(markStyle.border).toBe("0px");
+  expect(markStyle.radius).not.toBe("999px");
+  expect(markStyle.cursor).not.toBe("pointer");
+  expect(markStyle.tabbable).toBe(-1);
+
+  const buttonStyle = await button.evaluate((el) => {
+    const css = getComputedStyle(el);
+    return { radius: css.borderRadius, animation: css.animationName, border: css.borderTopWidth };
+  });
+  expect(buttonStyle.radius).not.toBe("999px");
+  expect(buttonStyle.animation).toBe("none");
+  expect(buttonStyle.border).toBe("0px");
+
+  // Both are shown: the brand, the nav, the search icon, the action and the mark share one row.
+  for (const width of [768, 1024, 1280]) {
+    await page.setViewportSize({ width, height: 800 });
+    const header = page.locator("header.app-header");
+    const rows = await header.evaluate((el) => {
+      const tops = [...el.querySelectorAll<HTMLElement>(".brand, nav, .header-search-btn, .header-action-btn, .offline-mark")].map(
+        (child) => Math.round(child.getBoundingClientRect().top + child.getBoundingClientRect().height / 2),
+      );
+      return Math.max(...tops) - Math.min(...tops);
+    });
+    expect(rows, `${width}px`).toBeLessThanOrEqual(2);
+    const navRows = await page.locator("header.app-header nav").evaluate((nav) => new Set([...nav.children].map((c) => Math.round(c.getBoundingClientRect().top))).size);
+    expect(navRows, `${width}px nav`).toBe(1);
+  }
+});
+
 test("An installed app shows no header button and Settings says so", async ({ page, context }) => {
   await installLibrary(page);
 
@@ -94,7 +138,7 @@ test("An installed app shows no header button and Settings says so", async ({ pa
     await waitReady(installed);
     await expect(installed.getByRole("heading", { name: "Settings" })).toBeVisible();
     await expect(installed.getByTestId("app-install"), name).toContainText("Cast Iron is running as an installed app.");
-    await expect(installed.getByTestId("app-install").locator(".badge"), name).toHaveText("Installed");
+    await expect(installed.getByTestId("app-install"), name).toContainText(/^Installed\. /);
     await expect(headerButton(installed), name).toHaveCount(0);
     await expect(installed.getByRole("button", { name: "Install app" }), name).toHaveCount(0);
     await installed.close();

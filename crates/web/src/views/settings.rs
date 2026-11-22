@@ -280,8 +280,7 @@ pub fn Settings() -> impl IntoView {
             {move || if install_ctx.standalone() {
                 view! {
                     <p data-testid="app-install">
-                        <span class="badge">"Installed"</span>
-                        " Cast Iron is running as an installed app."
+                        "Installed. Cast Iron is running as an installed app."
                     </p>
                 }.into_any()
             } else if install_ctx.offer_in_settings() {

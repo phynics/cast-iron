@@ -13,7 +13,7 @@ All tokens are custom properties in `web/styles.css`. The color tokens have a li
 - **Colors:** `--bg`, `--surface`, `--surface-2`, `--ink`, `--ink-muted`, `--ink-dim`, `--line`, `--border` (the shorthand `1px solid var(--line)`), `--accent`, `--accent-ink`, `--focus`, `--error`, `--error-bg`, `--on-error`, `--ok`, `--mark-bg`, `--mark-ink`, `--stat-bg`, `--shadow-edge`.
 - **Type:** `--font-text`, `--font-display`, `--font-mono`, `--leading` (1.55), `--leading-tight` (1.2), `--step--1` to `--step-3` (see Type scale).
 - **Space:** `--space-1` to `--space-6` (0.25, 0.5, 0.75, 1, 1.5 and 2.5 rem).
-- **Shape:** `--radius` (6 px) for rectangles; 999 px only for filters (today also the `Offline` badge; #589 changes it). `--touch` (2.75rem, the 44 px target).
+- **Shape:** `--radius` (6 px) for rectangles; 999 px only for filters. `--touch` (2.75rem, the 44 px target).
 - **Layout:** `--measure` (44rem), `--wide` (66rem), `--header-h` (3.75rem), `--nav-h` (3.5rem), `--letter-h` (3rem), and `--switcher-h` (`calc(var(--touch) + 2 * var(--space-2))`), which `web/styles.css` declares in a second `:root` rule beside the section switcher, not in the first block.
 
 The stat block keeps its left accent rule; it is part of the identity.
@@ -70,7 +70,7 @@ A small control can mean five different things. Each role has one form, so a rea
 | Filter menu | A group too large for one row (feat types, schools, creature types) | A 44 px button with the card radius, a 1 px `--line` border, the text `{Group}: {value}` and a chevron-down icon. A narrowed menu has an `--accent` border and weight 600, with no fill. It opens an in-flow panel of 44 px link rows (label, tabular count, check on the current row, `aria-current`), "All {plural}" first, and a find field above 10 options. | `.filter-btn`, `.filter-panel`, `.choice-list`, `.choice-row` | A pill; a modal, a backdrop or a focus trap; ARIA `menu` |
 | Navigation | A jump to another place: recently viewed, shortcuts, spell-list links, search suggestions (Quick search rows: plain link rows with a muted `Kind · Book` line) | A rectangle with the card radius (`--radius`, 6 px) or a plain link row. It may show `aria-current` wayfinding (the current spell level). | `.jump` in `.jump-list`, `.rel-chips li`, `.rel-list` | A pill; a check mark or other filter state |
 | Navigation: related page | A link from a list to a related page (Feat chains, Spell lists, `Manage books ›` on Books), in the filter row | Accent text, weight 600, a chevron-right icon, a 44 px hit area, no border. | `.page-link` | A bordered rectangle beside a filter menu: two same-looking shapes with different jobs |
-| Label | A short fact about the item next to it: "or", "repeats", "not in this library", `Inactive` on a book row. A count next to a heading or a group name is Label text, never a bordered shape. | Small muted text with no border, no background and no pointer cursor. | `.tag`, `.rel-count` | A border, a link, anything that looks clickable |
+| Label | A short fact about the item next to it: "or", "repeats", "not in this library", `Inactive` on a book row, `Offline` in the masthead. A count next to a heading or a group name is Label text, never a bordered shape. | Small muted text with no border, no background and no pointer cursor. | `.tag`, `.rel-count` | A border, a link, anything that looks clickable |
 
 Rules that apply to every role:
 
@@ -152,12 +152,14 @@ A sheet is a modal `<dialog>`. Only two exist; every other panel stays in the pa
 
 ### Masthead
 
-The sticky header holds the brand, the primary nav (from 48rem; below it the nav is the bottom bar), the header search icon, the install action and the Offline badge. Its height stays `--header-h` (3.75rem) and every control keeps a 44 px target.
+The sticky header holds the brand, the primary nav (from 48rem; below it the nav is the bottom bar), the header search icon, the header action (Install or Update) and the Offline mark. Its height stays `--header-h` (3.75rem) and every control keeps a 44 px target.
 
 - **Brand.** An original wordmark (#194; decision `docs/decisions/2026-11-21-svg-wordmark.md`): "Cast Iron" in outlined Rozha One (SIL OFL 1.1, `LICENSES/OFL-1.1-Rozha-One.txt`) in `web/icons/wordmark.svg`, with a 4-unit round stroke (of 200 units to the em) added to the path so the hairlines and serifs survive at 390 px. The brand link is 44 px high; the mark inside it is 1.4rem high and 6.455 times as wide, and its left edge is the brand's left edge, so the brand still lines up with the page title. A hanging hole in the capital I was tried and dropped: Rozha's stem is too narrow for it.
 - **One file, both themes.** The SVG is an alpha mask (`.brand-mark`), not an image: the paint is `--ink` under a static diagonal oil-slick gradient (blue, violet, teal, amber, each mixed into `--ink` at 30 to 34 %), so the mark takes the light and the dark theme from the tokens. Nothing moves, so Reduce Motion needs no case. In forced-colors mode the paint is `CanvasText`.
 - **Name.** The mark is `aria-hidden`; the brand link carries a `.sr-only` "Cast Iron", once. The installer's masthead uses the same two spans.
 - **Search stays secondary.** The idle header search icon is a bare 20 px glyph in `--ink-muted` with no fill and no border; hover and focus bring `--ink` and the `--surface-2` fill. It never competes with the mark.
+- **Offline mark.** Label text with an offline glyph, never a pill: a 20 px glyph (`views/icons.rs`, `aria-hidden`) and `Offline` in `--step--1` `--ink-muted`, with no border, fill or radius, not focusable. Its sentence `Everything here still works.` is visually hidden text after the word, so the accessible text reads `Offline. Everything here still works.`.
+- **Header action.** It has the header search icon's form: a bare 20 px glyph (a download arrow for Install, the update glyph for Update) in `--ink-muted`, no border and no fill at rest; hover brings `--ink` and the `--surface-2` fill with the `--radius` corners; 44 px target; no entry animation. From 48rem its label (`Install`, `Update ready`) sits beside the glyph. The update pip stays. A library update names itself `Library update ready. Open Settings`, as its status does.
 - **Limits.** No remote font, no animation, no image of the wordmark in the WASM. The artwork must stay clear of Paizo and Pathfinder marks (`AGENTS.md`, rules 10 and 11).
 
 ### Primary navigation
@@ -573,7 +575,6 @@ These views exist and have no design section yet. Each entry names the ticket th
 - Legal: `#588`
 - Not found and the other recovery states: `#582`
 - Storage failure screen: `#583`
-- Header action and Offline mark: `#589`
 - Repeated titles in lists (the publication-entries fold): `#575`
 - Search filter panel contents: `#579`
 - Find a book: `#587`
@@ -607,7 +608,7 @@ The entry page of a turned-off book shows a `.notice`: `This entry's book is tur
 
 ### Offline
 
-While the device has no connection the header shows `Offline`, a `.badge` (small `--ink-muted` text on `--surface-2` with a hairline) at the right end, titled `No connection. Everything here still works.`. It has the 999 px radius that Shape reserves for filters. `#589` owns the Offline mark and the header action.
+While the device has no connection the header shows the Offline mark (see Shell › Masthead) at the right end: the glyph and `Offline`, with the visually hidden `Everything here still works.`.
 
 ## Copy
 

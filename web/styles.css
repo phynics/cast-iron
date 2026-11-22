@@ -309,13 +309,20 @@ main:focus {
   border-bottom-color: var(--accent);
 }
 
-.badge {
+/* The Offline mark is Label text with a glyph: no border, no fill, no radius, not focusable. */
+.offline-mark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
   font-size: var(--step--1);
-  padding: 0.1rem var(--space-2);
-  border: var(--border);
-  border-radius: 999px;
   color: var(--ink-muted);
-  background: var(--surface-2);
+}
+
+.offline-mark svg {
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
 }
 
 main {
@@ -756,10 +763,6 @@ html {
   top: 0;
   z-index: 5;
   min-height: var(--header-h);
-}
-
-.app-header .badge {
-  margin-left: auto;
 }
 
 main:has(> .wide, > .search-page, > .entry) {
@@ -4297,7 +4300,7 @@ input::placeholder {
 .hit-group > .source-variants > ul { padding-inline: 1rem; }
 .rel-chips .source-variants { min-width: 14rem; }
 
-/* ==== Header action (Install) ============================================================= */
+/* ==== Header action (Install, Update) ============================================================= */
 
 .header-action-btn {
   display: inline-flex;
@@ -4305,36 +4308,28 @@ input::placeholder {
   justify-content: center;
   gap: 0.4rem;
   flex: none;
-  min-height: 1.875rem;
-  padding: 0 var(--space-3);
+  min-width: var(--touch);
+  min-height: var(--touch);
+  padding: 0 var(--space-2);
   font: inherit;
   font-size: var(--step--1);
   font-weight: 600;
   color: var(--ink-muted);
-  background: var(--surface-2);
-  border: var(--border);
-  border-radius: 999px;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius);
   cursor: pointer;
-  animation: header-action-in 180ms ease-out;
 }
 
 .header-action-btn:hover {
   color: var(--ink);
-  background: var(--surface);
-  border: 1px solid var(--ink-muted);
-}
-
-.header-action-btn:active {
-  filter: brightness(0.95);
-}
-
-.header-action-btn:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
+  background: var(--surface-2);
 }
 
 .header-action-btn svg {
   flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
 }
 
 /* The icon wrapper carries the update pip at its top-right corner. */
@@ -4352,52 +4347,22 @@ input::placeholder {
   border-radius: 50%;
   background: var(--accent);
   /* A surface-colored ring keeps the pip distinct from the arrow tip it touches. */
-  box-shadow: 0 0 0 1.5px var(--surface-2);
-}
-
-.header-action-btn:hover .header-action-pip {
   box-shadow: 0 0 0 1.5px var(--surface);
 }
 
-@keyframes header-action-in {
-  from {
-    opacity: 0;
-    transform: translateY(-2px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-/* Touch screens get a real 44px button, not a small one with a larger hit area. */
-@media (pointer: coarse) {
-  .header-action-btn {
-    min-width: var(--touch);
-    min-height: var(--touch);
-  }
-}
-
-/* Next to the action, the Offline badge keeps its place right after it. */
-.app-header .header-action-btn + .badge {
-  margin-left: 0;
+.header-action-btn:hover .header-action-pip {
+  box-shadow: 0 0 0 1.5px var(--surface-2);
 }
 
 @media (max-width: 47.99rem) {
   /* Icon only; the accessible name stays on the button. */
   .header-action-btn {
-    width: 1.875rem;
+    width: var(--touch);
     padding: 0;
   }
 
   .header-action-label {
     display: none;
-  }
-}
-
-@media (max-width: 47.99rem) and (pointer: coarse) {
-  .header-action-btn {
-    width: var(--touch);
   }
 }
 
