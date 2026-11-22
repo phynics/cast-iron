@@ -330,7 +330,6 @@ mod tests {
                 classes: vec![],
                 entries: vec![id("ref/ragepower/lesser-spirit")],
             }],
-            ..Default::default()
         };
         let map = from_option_groups(&index);
         let parent = map.get(&id("ref/ragepower/lesser-spirit")).unwrap();
