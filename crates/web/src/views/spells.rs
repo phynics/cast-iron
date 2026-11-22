@@ -6,7 +6,7 @@ use crate::density::{self, Density};
 use crate::fmt;
 use crate::graph::{ListedSpell, filter_list, find_list, level_counts, list_schools, list_total};
 use crate::library::{Library, LibraryError, use_library};
-use crate::route::{Route, push, use_route};
+use crate::route::{Route, push, replace, use_route};
 use crate::views::book_tier::Tier;
 use crate::views::categories;
 use crate::views::filter_menu::{
@@ -255,7 +255,6 @@ pub fn SpellListView(class: String, level: Option<u8>) -> impl IntoView {
             library.discovery().spell_lists().await
         })
     };
-    let filter = RwSignal::new(String::new());
     move || {
         let (class, library) = (class.clone(), library.clone());
         lists.with(|state| match state {
@@ -276,7 +275,7 @@ pub fn SpellListView(class: String, level: Option<u8>) -> impl IntoView {
             }
             .into_any(),
             Some(Ok(Some(lists))) => {
-                view! { <ListPage lists=Shared::from_rc(lists.clone()) class level filter library /> }.into_any()
+                view! { <ListPage lists=Shared::from_rc(lists.clone()) class level library /> }.into_any()
             }
         })
     }
@@ -415,7 +414,6 @@ fn ListPage(
     lists: Shared<SpellLists>,
     class: String,
     level: Option<u8>,
-    filter: RwSignal<String>,
     library: Library,
 ) -> impl IntoView {
     let app = use_app();
@@ -430,12 +428,16 @@ fn ListPage(
         }
         .into_any();
     };
-    // The schools are the route's: a choice is one more history entry that this page reads
-    // without being rebuilt.
+    // The schools and the name are the route's: a school is one more history entry and the name
+    // replaces the current one, and this page reads both without being rebuilt.
     let route = use_route();
     let schools = Memo::new(move |_| match route.get() {
         Route::SpellList { schools, .. } => schools,
         _ => Vec::new(),
+    });
+    let filter = Memo::new(move |_| match route.get() {
+        Route::SpellList { name, .. } => name,
+        _ => String::new(),
     });
     let name = list.name.clone();
     let counts = level_counts(list);
@@ -455,10 +457,11 @@ fn ListPage(
     let route_class = class.clone();
     let route_with = {
         let route_class = route_class.clone();
-        move |schools: Vec<String>| Route::SpellList {
+        move |schools: Vec<String>, name: String| Route::SpellList {
             class: route_class.clone(),
             level,
             schools,
+            name,
         }
     };
 
@@ -470,6 +473,7 @@ fn ListPage(
                     class: route_class.clone(),
                     level: None,
                     schools: schools.get(),
+                    name: filter.get(),
                 }
                 .href()
             }
@@ -483,6 +487,7 @@ fn ListPage(
                         class: route_class.clone(),
                         level: Some(l),
                         schools: schools.get(),
+                        name: filter.get(),
                     }
                     .href()
                 };
@@ -585,6 +590,7 @@ fn ListPage(
                         class: list_name.clone(),
                         level: Some(l),
                         schools: chosen.clone(),
+                        name: filter.get(),
                     }
                     .href();
                     view! {
@@ -622,15 +628,44 @@ fn ListPage(
             })
         })
     };
-    let show_all_href = route_with(Vec::new()).href();
+    // Typing replaces the history entry, so no key makes an entry of its own, and the write waits
+    // for the next animation frame, so a fast typist rebuilds the list once per frame, not once
+    // per key. The field keeps focus and caret: the frame writes the text it already shows.
+    let typed: StoredValue<Option<String>> = StoredValue::new(None);
+    let on_name = {
+        let (route_with, class) = (route_with.clone(), class.clone());
+        move |text: String| {
+            let waiting = typed.with_value(Option::is_some);
+            typed.set_value(Some(text));
+            if waiting {
+                return;
+            }
+            let (route_with, class) = (route_with.clone(), class.clone());
+            request_animation_frame(move || {
+                let Some(text) = typed.try_update_value(Option::take).flatten() else {
+                    return;
+                };
+                // The reader may have left the list in this frame.
+                let here = matches!(
+                    route.get_untracked(),
+                    Route::SpellList { class: c, level: l, .. } if c == class && l == level
+                );
+                if here {
+                    replace(&route_with(schools.get_untracked(), text));
+                }
+            });
+        }
+    };
+    let show_all_href = route_with(Vec::new(), String::new()).href();
     let count_view = move || {
         let narrowed = schools.with(|s| !s.is_empty()) || !filter.with(|f| f.trim().is_empty());
         let show_all = narrowed.then(|| {
             view! {
                 " · "
                 <a class="count-action" href=show_all_href.clone()
-                    aria-label=if level == Some(0) { "Show all cantrips" } else { "Show all spells" }
-                    on:click=move |_| filter.set(String::new())>"Show all"</a>
+                    aria-label=if level == Some(0) { "Show all cantrips" } else { "Show all spells" }>
+                    "Show all"
+                </a>
             }
         });
         view! { {count_line(level, shown.get(), total, narrowed)}{show_all} }
@@ -677,15 +712,22 @@ fn ListPage(
         let chosen = Signal::derive(move || schools.get());
         let on_change = {
             let route_with = route_with.clone();
-            Callback::new(move |next: Vec<String>| push(&route_with(next)))
+            Callback::new(move |next: Vec<String>| {
+                push(&route_with(next, filter.get_untracked()));
+            })
         };
         let button = view! {
             <div class="filter-menu">
                 <FilterMenuButton spec state text narrowed focus=false />
             </div>
         };
+        // "All schools" keeps the name that is typed now.
+        let all_href = Signal::derive({
+            let route_with = route_with.clone();
+            move || route_with(Vec::new(), filter.get()).href()
+        });
         let panel = view! {
-            <MultiFilterMenuPanel spec state options chosen all_href=route_with(Vec::new()).href() count_noun=("spell", "spells")
+            <MultiFilterMenuPanel spec state options chosen all_href count_noun=("spell", "spells")
                 on_change />
         };
         (button, panel)
@@ -722,7 +764,7 @@ fn ListPage(
                     autocapitalize="off"
                     spellcheck="false"
                     prop:value=move || filter.get()
-                    on:input=move |ev| filter.set(event_target_value(&ev))
+                    on:input=move |ev| on_name(event_target_value(&ev))
                 />
             </form>
             {level_links}

@@ -659,6 +659,7 @@ mod tests {
                 class: "Wizard".into(),
                 level: Some(3),
                 schools: Vec::new(),
+                name: String::new(),
             },
             Route::FeatChains,
         ] {

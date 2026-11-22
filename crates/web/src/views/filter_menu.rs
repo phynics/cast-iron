@@ -420,8 +420,9 @@ pub fn MultiFilterMenuPanel(
     options: Vec<MultiOption>,
     /// The values the route chooses now.
     chosen: Signal<Vec<String>>,
-    /// The list with nothing chosen.
-    all_href: String,
+    /// The list with nothing chosen. A signal, because the page's other state, such as a name
+    /// filter, changes under the open panel.
+    all_href: Signal<String>,
     /// What a row's count counts, for its accessible name: `spell`, `spells`.
     count_noun: (&'static str, &'static str),
     on_change: Callback<Vec<String>>,
@@ -483,7 +484,7 @@ pub fn MultiFilterMenuPanel(
                     <a
                         class="choice-row"
                         id=all_id
-                        href=all_href
+                        href=move || all_href.get()
                         aria-current=move || none_chosen().then_some("true")
                         on:click=move |event| {
                             // The current choice only closes the panel, as in a single-choice menu.
