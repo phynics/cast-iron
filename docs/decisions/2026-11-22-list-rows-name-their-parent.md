@@ -4,7 +4,7 @@ date: 2026-11-22
 status: current
 superseded_by: []
 issues: [575, 594]
-prs: []
+prs: [611]
 area: ui
 ---
 
@@ -27,12 +27,13 @@ titles. These are the choices that the code does not show.
 - **`Alternate` starts the muted line of an alternate racial trait** (`Alternate · Dwarf · Advanced
   Race Guide`), as `2026-11-22-racial-trait-race-facet` deferred to this change. It is read from the id
   (the `alternate-racial-traits` segment, the rule the race page uses), so it shows in a list that the
-  Race menu narrows too (`Alternate · Advanced Race Guide`), where the race is left out.
-- **Variant links name the book, then the parent, then a number; no page.** The issue asks for
-  `p. {page}` when two printings share a book. The catalog stub has no citation page, so it would
-  need a shard read when a fold opens, and no fold of the pinned corpus has two printings with one
-  primary book. Page labels are left out because no fold in the corpus needs them, and their code
-  cost wasm size. When two links would read the same they add the parent's title, and a last `(n)`
-  keeps any two apart, so two links in one fold never read the same.
+  Race menu narrows too (`Alternate · Advanced Race Guide`), where the race is left out. A fold takes the marker from its first printing; no fold of the pinned corpus mixes a standard and an alternate printing of one race (all 49 are uniform).
+- **Variant links name the book, then a number; no page, no parent.** The issue asks for
+  `p. {page}` when two printings share a book, then the parent. The catalog stub has no citation
+  page, so a page needs a shard read when a fold opens, and no fold of the pinned corpus has two
+  printings with one primary book. Page labels are left out because no fold in the corpus needs
+  them, and their code cost wasm size. The parent cannot tell two links apart, because the fold key
+  already holds it, so every link of a fold shares it. A last `(n)` keeps any two apart, so two links
+  in one fold never read the same.
 - **The prestige-class requirements panel keeps `{Book}, {Kind}`.** It lists feats and skills, so the
   page does not name the kind.

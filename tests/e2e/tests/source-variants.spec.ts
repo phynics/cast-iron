@@ -52,6 +52,9 @@ test("Source variants retain distinct entries in browse and search after book fi
   // Other folds may share the title under another parent; the fold is the one that holds these links.
   const group = page.locator(".entry-list .source-variants").filter({ has: page.locator(`a[href="#/entry/${variants[0].id}"]`) });
   await expect(group).toHaveCount(1);
+  // A parented list builds its rows once its lookup resolves; press only on the settled row.
+  await expect(page.getByText("Loading…", { exact: true })).toHaveCount(0);
+  await expect(group.locator("summary")).toBeVisible();
   await expect(group.locator("summary")).toContainText(new RegExp(`^${escape(title)} `));
   await group.locator("summary").press("Enter");
   for (const stub of variants) await expect(group.locator(`a[href="#/entry/${stub.id}"]`)).toBeVisible();
@@ -128,9 +131,9 @@ test("An alternate racial trait starts its line with Alternate and its fold name
   // Narrowed by race, the race is the menu's value: the marker stays and the race goes.
   await page.goto("#/browse/kind/racial_trait?facet=racial_trait_race:dwarf&l=A");
   const dwarf = page.locator(".entry-list > li .row-source");
-  await expect(dwarf.first()).toBeVisible();
-  for (const text of await dwarf.allInnerTexts()) expect(text).not.toContain("Dwarf");
   await expect(page.locator(".entry-list > li .row-source", { hasText: /^Alternate · / }).first()).toBeVisible();
+  await expect(page.getByText("Loading…", { exact: true })).toHaveCount(0);
+  await expect.poll(async () => (await dwarf.allInnerTexts()).filter((text) => text.includes("Dwarf"))).toEqual([]);
 });
 
 test("Afflictions that share a title name their creature", async ({ page }) => {
@@ -160,23 +163,27 @@ test("An archetype row names its class", async ({ page }) => {
 
 test("Every open fold lists its printings under links that never read the same", async ({ page }) => {
   await installLibrary(page);
-  for (const hash of ["#/browse/kind/racial_trait?l=A", "#/browse/kind/affliction?l=D", "#/browse/kind/creature?l=A"]) {
+  const lists: [string, boolean][] = [
+    ["#/browse/kind/racial_trait?l=A", true],
+    ["#/browse/kind/affliction?l=P", false],
+    ["#/browse/kind/affliction?l=D", true],
+    ["#/browse/kind/archetype?l=A", false],
+    ["#/browse/kind/creature?l=A", true],
+  ];
+  for (const [hash, hasFolds] of lists) {
     await page.goto(hash);
+    // The rows are built once the parents have loaded.
+    await expect(page.locator(".entry-list > li").first()).toBeVisible();
+    await expect(page.getByText("Loading…", { exact: true })).toHaveCount(0);
     const folds = page.locator(".entry-list .source-variants");
-    await expect(folds.first()).toBeVisible();
+    if (hasFolds) await expect(folds.first(), hash).toBeVisible();
     await folds.evaluateAll((all) => all.forEach((fold) => ((fold as HTMLDetailsElement).open = true)));
-    await expect
-      .poll(async () => {
-        const unlike: string[] = [];
-        for (const fold of await folds.all()) {
-          const texts = await fold.locator("ul a").allInnerTexts();
-          if (new Set(texts).size !== texts.length) unlike.push(texts.join(" | "));
-        }
-        return unlike;
-      }, hash)
-      .toEqual([]);
-    // A link names its book alone: the kind is the page's.
-    for (const text of await folds.first().locator("ul a").allInnerTexts()) expect(text, hash).not.toMatch(/, (Racial traits|Afflictions|Creatures)$/);
+    for (const fold of await folds.all()) {
+      const texts = await fold.locator("ul a").allInnerTexts();
+      expect(new Set(texts).size, `${hash}: ${texts.join(" | ")}`).toBe(texts.length);
+      // A link names its book alone: the kind is the page's.
+      for (const text of texts) expect(text, hash).not.toMatch(/, (Racial traits|Afflictions|Creatures|Archetypes)$/);
+    }
   }
 });
 

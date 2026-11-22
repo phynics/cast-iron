@@ -227,27 +227,45 @@ fn feat_row(
 }
 
 /// Who each row's parent is, once the lookup behind it has loaded: `None` while it loads. The
-/// rows render at once with their book; the parent joins the line, the fold and the order when
-/// the lookup arrives, as the chain marker does.
+/// list renders its rows only after it has, so no row is built twice: a fold that opened, the
+/// focus and the scroll position survive. An affliction reads the catalog and is ready at once.
 type RowParents = ReadSignal<Option<Shared<ParentMap>>, LocalStorage>;
 
-/// The parents of the rows in `stubs`, read from where each kind keeps them: a racial trait's
-/// race and an archetype's class from `relations.json`, a class option's group from
-/// `option-groups.json`, an affliction's creature from the catalog. A library without the file
-/// has no parent, and its rows keep the book alone.
-async fn load_row_parents(library: &Library, kind: EntryKind, stubs: &[EntryStub]) -> ParentMap {
-    let title_of = |id: &EntryId| library.stub(id).map(|stub| stub.title.clone());
+/// The parents of the rows of `kind`, read from where each kind keeps them: a racial trait's
+/// race and an archetype's class from `relations.json` (for the entries in `stubs`), a class
+/// option's group from `option-groups.json`, an affliction's creature from the catalog. A
+/// library without the file, or a file that fails to load, has no parent, and its rows keep the
+/// book alone.
+fn row_parents_of(library: &Library, kind: EntryKind, stubs: &[EntryStub]) -> RowParents {
+    let title_of = {
+        let library = library.clone();
+        move |id: &EntryId| library.stub(id).map(|stub| stub.title.clone())
+    };
     match kind {
-        EntryKind::RacialTrait | EntryKind::Archetype => match library.relations().await {
-            Ok(Some(relations)) => row_parents::from_relations(&relations, kind, stubs, &title_of),
-            _ => ParentMap::new(),
-        },
-        EntryKind::ClassOption => match library.option_groups().await {
-            Ok(Some(index)) => row_parents::from_option_groups(&index),
-            _ => ParentMap::new(),
-        },
-        EntryKind::Affliction => row_parents::from_stub_parents(stubs, &title_of),
-        _ => ParentMap::new(),
+        EntryKind::Affliction => {
+            let map = row_parents::from_stub_parents(stubs, &title_of);
+            signal_local(Some(Shared::new(map))).0
+        }
+        EntryKind::ClassOption => {
+            let library = library.clone();
+            local_resource(async move {
+                Shared::new(match library.option_groups().await {
+                    Ok(Some(index)) => row_parents::from_option_groups(&index),
+                    _ => ParentMap::new(),
+                })
+            })
+        }
+        _ => {
+            let (library, stubs) = (library.clone(), stubs.to_vec());
+            local_resource(async move {
+                Shared::new(match library.relations().await {
+                    Ok(Some(relations)) => {
+                        row_parents::from_relations(&relations, kind, &stubs, &title_of)
+                    }
+                    _ => ParentMap::new(),
+                })
+            })
+        }
     }
 }
 
@@ -1550,7 +1568,7 @@ fn AzList(
     show_source: bool,
     /// Who each row's parent is, so a row can name it and a fold can keep two rules apart.
     /// `None` for a kind with no parent, and for a list that the parent's own menu narrows.
-    parents: Option<RowParents>,
+    parents: Option<Shared<ParentMap>>,
     selected: Option<char>,
     focus: bool,
 ) -> impl IntoView {
@@ -1560,20 +1578,19 @@ fn AzList(
 
     // One list item per entry, with printings of one rule folded into one disclosure. The
     // indices belong to one letter group, or to the whole list when the kind is short. The
-    // fold and the order follow the parents, so this reads them and runs again when they load.
+    // fold and the order follow the parents, which the list has before it builds a row.
     // The group still counts source records, so the counts match the category total.
     let rows_for = {
         let stubs = stubs.clone();
         let source_titles = source_titles.clone();
         move |indices: &[usize]| {
-            let loaded = parents.and_then(|parents| parents.get());
             let parent_of = |stub: &EntryStub| -> Option<Parent> {
-                loaded.as_ref().and_then(|map| map.get(&stub.id)).cloned()
+                parents.as_ref().and_then(|map| map.get(&stub.id)).cloned()
             };
             let mut order = indices.to_vec();
-            if loaded.is_some() {
+            if parents.is_some() {
                 // Rows of one title sort by their parent's title, then by id.
-                cast_iron_sort::sort_by_key(&mut order, |&i| {
+                cast_iron_sort::sort_by_cached_key(&mut order, |&i| {
                     let stub = &stubs[i];
                     (
                         sort_key(&stub.title),
@@ -2247,17 +2264,14 @@ fn BrowseList(
         });
 
     // A racial trait, an archetype, a class option and an affliction name their parent on the
-    // muted line, and printings of one rule fold only under the same parent. The lookups load
-    // once for the page; the rows do not wait for them. A list that the parent's own menu
-    // narrows names the parent once, in the menu, so its rows need no lookup.
+    // muted line, and printings of one rule fold only under the same parent. The list builds its
+    // rows once the lookup has resolved (near-instant once cached), so no row is built twice. A
+    // list that the parent's own menu narrows names the parent once, in the menu, so its rows
+    // need no lookup.
     let parents: Option<RowParents> = (row_parents::names_parent(kind)
         && !row_parents::parent_facet(kind)
             .is_some_and(|field| applied.iter().any(|(name, _)| name == field)))
-    .then(|| {
-        let library = library.clone();
-        let stubs = stubs.clone();
-        local_resource(async move { Shared::new(load_row_parents(&library, kind, &stubs).await) })
-    });
+    .then(|| row_parents_of(&library, kind, &stubs));
 
     let sectioned = sections.is_some();
     let body = if count == 0
@@ -2306,8 +2320,7 @@ fn BrowseList(
                         </h2>
                         <AzList kind facets=Vec::new() source=None marks=None groups=Vec::new()
                             stubs=group source_titles show_source=multi_source
-                            parents=None
-                            selected=None focus=false />
+                            parents=None selected=None focus=false />
                     </section>
                 }
             })
@@ -2325,14 +2338,27 @@ fn BrowseList(
             .iter()
             .map(|s| library.source(&row_source(s)).map(|src| src.title.clone()))
             .collect();
-        view! {
-            <AzList kind facets=applied.clone() source=source.clone() marks groups
-                stubs=stubs.clone() source_titles show_source=multi_source
-                parents
-                selected=selected
-                focus=requested.is_some() && focus_menu.is_none() && !focus_first />
+        let focus = requested.is_some() && focus_menu.is_none() && !focus_first;
+        let list = {
+            let (applied, source, stubs) = (applied.clone(), source.clone(), stubs.clone());
+            move |parents: Option<Shared<ParentMap>>| {
+                view! {
+                    <AzList kind facets=applied.clone() source=source.clone() marks
+                        groups=groups.clone() stubs=stubs.clone()
+                        source_titles=source_titles.clone() show_source=multi_source
+                        parents selected=selected focus=focus />
+                }
+                .into_any()
+            }
+        };
+        match parents {
+            None => list(None),
+            Some(ready) => (move || match ready.get() {
+                None => view! { <p class="muted" role="status">"Loading…"</p> }.into_any(),
+                Some(map) => list(Some(map)),
+            })
+            .into_any(),
         }
-        .into_any()
     };
 
     let count_line = if book {

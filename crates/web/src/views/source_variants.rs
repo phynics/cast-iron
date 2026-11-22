@@ -107,9 +107,10 @@ pub fn variants_for_stubs(
     )
 }
 
-/// The text of each link in a fold, in order. A link names its book: the list already names
-/// the kind. If two links would still read the same they add the parent title, and a last `(n)`
-/// keeps any two apart. `with_kind` keeps `, {Kind}` for a panel that is not a list of one kind.
+/// The text of each link in a fold, in order. A link names its book: the list already names the
+/// kind. The fold key holds the parent, so every link of a fold shares it and the parent cannot
+/// tell two links apart; a last `(n)` keeps any two that read the same apart. `with_kind` keeps
+/// `, {Kind}` for a panel that is not a list of one kind.
 pub fn variant_labels(variants: &[SourceVariant], with_kind: bool) -> Vec<String> {
     let mut labels: Vec<String> = variants
         .iter()
@@ -121,22 +122,13 @@ pub fn variant_labels(variants: &[SourceVariant], with_kind: bool) -> Vec<String
             }
         })
         .collect();
-    let clashes = |labels: &[String]| -> Vec<bool> {
-        labels
-            .iter()
-            .map(|label| labels.iter().filter(|other| *other == label).count() > 1)
-            .collect()
-    };
-    let clashing = clashes(&labels);
-    for (label, (variant, clash)) in labels.iter_mut().zip(variants.iter().zip(clashing)) {
-        if clash && let Some(parent) = &variant.parent {
-            *label = format!("{label}, {}", parent.title);
-        }
-    }
-    let clashing = clashes(&labels);
+    let repeated: Vec<bool> = labels
+        .iter()
+        .map(|label| labels.iter().filter(|other| *other == label).count() > 1)
+        .collect();
     let mut seen = std::collections::HashMap::<String, usize>::new();
-    for (label, clash) in labels.iter_mut().zip(clashing) {
-        if clash {
+    for (label, repeated) in labels.iter_mut().zip(repeated) {
+        if repeated {
             let n = seen.entry(label.clone()).or_default();
             *n += 1;
             *label = format!("{label} ({n})");
@@ -304,36 +296,23 @@ mod tests {
     }
 
     #[test]
-    fn a_link_that_still_reads_the_same_adds_its_parent_and_then_a_number() {
+    fn two_links_that_read_the_same_get_a_number_and_the_rest_stay_plain() {
         let kind = EntryKind::RacialTrait;
         let fold = [
             of("Dwarf", variant("a/x", "Hardy", "Core Rulebook", kind)),
-            of("Elf", variant("a/y", "Hardy", "Core Rulebook", kind)),
-            of("Elf", variant("a/z", "Hardy", "Advanced Race Guide", kind)),
+            of("Dwarf", variant("a/y", "Hardy", "Core Rulebook", kind)),
+            of(
+                "Dwarf",
+                variant("a/z", "Hardy", "Advanced Race Guide", kind),
+            ),
         ];
         assert_eq!(
             variant_labels(&fold, false),
             [
-                "Core Rulebook, Dwarf",
-                "Core Rulebook, Elf",
+                "Core Rulebook (1)",
+                "Core Rulebook (2)",
                 "Advanced Race Guide"
             ]
-        );
-        let same = [
-            of("Dwarf", variant("a/x", "Hardy", "Core Rulebook", kind)),
-            of("Dwarf", variant("a/y", "Hardy", "Core Rulebook", kind)),
-        ];
-        assert_eq!(
-            variant_labels(&same, false),
-            ["Core Rulebook, Dwarf (1)", "Core Rulebook, Dwarf (2)"]
-        );
-        let bare = [
-            variant("a/x", "Hardy", "Core Rulebook", EntryKind::Creature),
-            variant("a/y", "Hardy", "Core Rulebook", EntryKind::Creature),
-        ];
-        assert_eq!(
-            variant_labels(&bare, false),
-            ["Core Rulebook (1)", "Core Rulebook (2)"]
         );
     }
 }

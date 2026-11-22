@@ -208,7 +208,8 @@ test("The group menu filters the class-option list in place", async ({ page }) =
   await page.getByRole("button", { name: `Group: ${schools.label}`, exact: true }).click();
   await page.locator(`#filter-panel-group`).getByRole("link", { name: "All groups" }).click();
   await expect(page.locator(".list-count")).toContainText(`${total} class options`);
-  await expect(page.locator(".entry-list .row-source").first()).toContainText(" · ");
+  // A single row's line (a direct child of its item), not a fold's, which names the group alone.
+  await expect(page.locator(".entry-list > li > .row-source").first()).toContainText(" · ");
 });
 
 test("An option's metadata line names its group and links its only class", async ({ page }) => {
