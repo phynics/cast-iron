@@ -36,6 +36,8 @@ pub struct Row {
     /// Whether every trade is resolved. False for a row without trades data or with a trade that
     /// names no feature.
     checked: bool,
+    /// Whether the library has a trades row for the archetype at all.
+    has_data: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -67,7 +69,14 @@ impl Row {
             alters: line(TradeOp::Alters),
             trades: resolved,
             checked,
+            has_data: trades.is_some(),
         }
+    }
+
+    /// Whether the library has trades for this archetype. False says the data does not tell which
+    /// class features it changes; true with [`Self::is_checked`] false says some trade names none.
+    pub fn has_data(&self) -> bool {
+        self.has_data
     }
 
     /// Whether the data can prove what this archetype touches.
@@ -102,7 +111,7 @@ pub fn overlaps(a: &FeatureRef, b: &FeatureRef) -> bool {
     let shared_level =
         a.levels.is_empty() || b.levels.is_empty() || a.levels.iter().any(|l| b.levels.contains(l));
     let shared_power = match (&a.power, &b.power) {
-        (Some(x), Some(y)) => x == y,
+        (Some(x), Some(y)) => x.eq_ignore_ascii_case(y),
         _ => true,
     };
     a.anchor == b.anchor && same_class && shared_level && shared_power
@@ -145,9 +154,21 @@ pub fn feature_headings(body: &[Block]) -> Vec<(String, String)> {
         .collect()
 }
 
+/// A feature's name from its heading anchor, for a feature that has no heading on the page:
+/// `bonus-feats` is `Bonus feats`. The printed name of a trade is not used, because it can name
+/// one level of the feature (`5th-level bonus feat`) and the option is the whole feature.
+pub fn anchor_label(anchor: &str) -> String {
+    let words = anchor.replace('-', " ");
+    let mut chars = words.chars();
+    chars
+        .next()
+        .map(|first| first.to_uppercase().chain(chars).collect())
+        .unwrap_or_default()
+}
+
 /// The features the archetypes touch, in the order of the class's own headings. A feature that
-/// has no heading in `headings` is named by the first printed name of a trade of it, and comes
-/// last. Each shows how many archetypes touch it.
+/// has no heading in `headings` is named from its anchor (see [`anchor_label`]) and comes last.
+/// Each shows how many archetypes touch it.
 pub fn feature_options(rows: &[Row], headings: &[(String, String)]) -> Vec<FeatureOption> {
     let mut found: Vec<FeatureOption> = Vec::new();
     for (anchor, label) in headings {
@@ -167,7 +188,7 @@ pub fn feature_options(rows: &[Row], headings: &[(String, String)]) -> Vec<Featu
                 let count = rows.iter().filter(|other| other.touches(anchor)).count();
                 found.push(FeatureOption {
                     anchor: anchor.clone(),
-                    label: trade.printed.clone(),
+                    label: anchor_label(anchor),
                     count,
                 });
             }
@@ -198,6 +219,28 @@ pub struct Shown {
     pub unchecked: Vec<usize>,
 }
 
+/// How many archetypes the `Combine with` choice is made among: every row but the chosen one.
+pub fn others(rows: &[Row], choice: &Choice) -> usize {
+    let chosen = choice
+        .with
+        .as_ref()
+        .is_some_and(|id| rows.iter().any(|row| &row.id == id));
+    rows.len() - usize::from(chosen)
+}
+
+/// How many other archetypes the data proves compatible with `row`.
+pub fn compatible_with(rows: &[Row], row: &Row) -> usize {
+    narrow(
+        rows,
+        &Choice {
+            keep: Vec::new(),
+            with: Some(row.id.clone()),
+        },
+    )
+    .compatible
+    .len()
+}
+
 /// Narrow `rows` by `choice`. With nothing chosen every row is compatible and none is unchecked.
 /// Otherwise a row is compatible when it touches none of the kept features and conflicts with
 /// none of the chosen archetype's trades, and it is *unchecked* when the data cannot say (a trade
@@ -213,6 +256,17 @@ pub fn narrow(rows: &[Row], choice: &Choice) -> Shown {
         .with
         .as_ref()
         .and_then(|id| rows.iter().find(|row| &row.id == id));
+    // Nothing is compatible with an archetype the data cannot place (an unresolved trade, no
+    // trades row, or an id that is not among the rows): it could clash with any of them. Every
+    // other row is not checked.
+    if choice.with.is_some() && with.is_none_or(|with| !with.checked) {
+        return Shown {
+            compatible: Vec::new(),
+            unchecked: (0..rows.len())
+                .filter(|&index| with.is_none_or(|with| with.id != rows[index].id))
+                .collect(),
+        };
+    }
     let mut shown = Shown::default();
     for (index, row) in rows.iter().enumerate() {
         if with.is_some_and(|with| with.id == row.id) {
@@ -402,6 +456,10 @@ mod tests {
         ]
     }
 
+    fn alters(printed: &str, anchor: &str) -> Trade {
+        trade(TradeOp::Alters, printed, Some(feature(anchor)))
+    }
+
     fn titles(rows: &[Row], indexes: &[usize]) -> Vec<String> {
         indexes.iter().map(|&i| rows[i].title.clone()).collect()
     }
@@ -450,6 +508,122 @@ mod tests {
         assert!(overlaps(&a, &b));
         // A trade that names no class takes the class of the page.
         assert!(overlaps(&a, &feature("spells")));
+    }
+
+    #[test]
+    fn an_alteration_clashes_with_a_replacement_and_with_another_alteration() {
+        let alters_only = row("Alterer", vec![alters("Arcane bond", "arcane-bond")]);
+        let replacer = row("Replacer", vec![replaces("Arcane bond", "arcane-bond")]);
+        let also_alters = row("Also", vec![alters("Arcane bond", "arcane-bond")]);
+        let other = row("Other", vec![replaces("Cantrips", "cantrips")]);
+        assert!(conflicts(&alters_only, &replacer));
+        assert!(conflicts(&alters_only, &also_alters));
+        assert!(!conflicts(&alters_only, &other));
+        // Keeping the feature leaves out an archetype that only alters it.
+        let all = vec![alters_only, replacer, other];
+        let shown = narrow(
+            &all,
+            &Choice {
+                keep: vec!["arcane-bond".into()],
+                with: None,
+            },
+        );
+        assert_eq!(titles(&all, &shown.compatible), ["Other"]);
+    }
+
+    #[test]
+    fn a_trade_with_levels_meets_a_trade_with_a_power_only_where_both_can_apply() {
+        let level_five = at("bloodline-powers", &[5], None);
+        let power_claws = at("bloodline-powers", &[], Some("Claws"));
+        // One names levels, the other a power: each covers the other's whole range.
+        assert!(overlaps(&level_five, &power_claws));
+        // Both name a level and a power: both must be shared.
+        let five_claws = at("bloodline-powers", &[5], Some("Claws"));
+        let nine_claws = at("bloodline-powers", &[9], Some("Claws"));
+        let five_warp = at("bloodline-powers", &[5], Some("Warp Touch"));
+        assert!(!overlaps(&five_claws, &nine_claws));
+        assert!(!overlaps(&five_claws, &five_warp));
+        assert!(overlaps(&five_claws, &five_claws));
+        // The power compares without case.
+        assert!(overlaps(
+            &at("bloodline-powers", &[], Some("claws")),
+            &power_claws
+        ));
+    }
+
+    #[test]
+    fn a_chosen_archetype_the_data_cannot_place_leaves_nothing_compatible() {
+        let all = rows();
+        let with = |value: &str| Choice {
+            keep: Vec::new(),
+            with: Some(id(value)),
+        };
+        // An unresolved trade: every other row is not checked, none is compatible.
+        let odd = all.iter().find(|r| r.title == "Odd One").unwrap();
+        let shown = narrow(&all, &with(odd.id.as_str()));
+        assert!(shown.compatible.is_empty());
+        assert_eq!(
+            titles(&all, &shown.unchecked),
+            [
+                "Arcane Bomber",
+                "Arcane Physician",
+                "Bonded Wizard",
+                "Chronomancer"
+            ]
+        );
+        // No trades row.
+        let mut with_nodata = rows();
+        with_nodata.push(Row::new(
+            id("ref/arc-wizard/nodata"),
+            "No Data".into(),
+            "Book".into(),
+            None,
+        ));
+        let shown = narrow(&with_nodata, &with("ref/arc-wizard/nodata"));
+        assert!(shown.compatible.is_empty());
+        assert_eq!(shown.unchecked, [0, 1, 2, 3, 4]);
+        // An id that is not among the rows: nothing is compatible, every row is not checked.
+        let shown = narrow(&all, &with("ref/arc-wizard/gone"));
+        assert!(shown.compatible.is_empty());
+        assert_eq!(shown.unchecked, [0, 1, 2, 3, 4]);
+        // The count's total leaves the chosen archetype out only when it is among the rows.
+        assert_eq!(others(&all, &with(odd.id.as_str())), 4);
+        assert_eq!(others(&all, &with("ref/arc-wizard/gone")), 5);
+        assert_eq!(others(&all, &Choice::default()), 5);
+    }
+
+    #[test]
+    fn a_row_says_whether_the_library_has_trades_for_it() {
+        let nodata = Row::new(id("ref/arc-wizard/n"), "N".into(), "B".into(), None);
+        assert!(!nodata.has_data() && !nodata.is_checked());
+        let odd = rows().remove(4);
+        assert!(odd.has_data() && !odd.is_checked());
+    }
+
+    #[test]
+    fn a_feature_without_a_heading_is_named_from_its_anchor() {
+        assert_eq!(anchor_label("bonus-feats"), "Bonus feats");
+        assert_eq!(anchor_label("cantrips"), "Cantrips");
+        assert_eq!(anchor_label(""), "");
+        // A whole-feature option is not named after one level of it.
+        let rows = vec![row(
+            "Level only",
+            vec![trade(
+                TradeOp::Replaces,
+                "5th-level bonus feat",
+                Some(at("bonus-feats", &[5], None)),
+            )],
+        )];
+        let options = feature_options(&rows, &[]);
+        assert_eq!(options[0].label, "Bonus feats");
+    }
+
+    #[test]
+    fn compatible_with_counts_the_other_archetypes_that_can_combine() {
+        let all = rows();
+        assert_eq!(compatible_with(&all, &all[1]), 2);
+        // The archetype with an unresolved trade combines with nothing the data proves.
+        assert_eq!(compatible_with(&all, &all[4]), 0);
     }
 
     #[test]
@@ -588,7 +762,7 @@ mod tests {
             .iter()
             .map(|o| (o.anchor.as_str(), o.label.as_str(), o.count))
             .collect();
-        // `cantrips` has no heading here: it is named by its printed name and comes last.
+        // `cantrips` has no heading here: it is named from its anchor and comes last.
         assert_eq!(
             seen,
             [

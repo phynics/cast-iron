@@ -122,6 +122,7 @@ pub fn ArticleContents(body: Vec<Block>, id: EntryId) -> impl IntoView {
                 anchor: Some(heading.anchor),
                 book: book.clone(),
                 section: None,
+                arch: Default::default(),
             };
             let href = target.href();
             view! { <li class=class><a href=href on:click=move |event: leptos::ev::MouseEvent| {

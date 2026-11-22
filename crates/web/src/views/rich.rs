@@ -104,6 +104,7 @@ fn inline(item: &Inline) -> AnyView {
                 anchor: anchor.clone(),
                 book: None,
                 section: None,
+                arch: Default::default(),
             }
             .href();
             view! { <a class="xref" href=href>{inlines(c)}</a> }.into_any()
@@ -130,7 +131,7 @@ struct Renderer {
     notes: Option<NoteState>,
     /// A view that takes its place right after the class page's Archetypes heading, before the
     /// section's introduction, so the list is the first thing a reader finds there (#170, part D).
-    slot: Option<Callback<(), AnyView>>,
+    slot: Option<(String, Callback<(), AnyView>)>,
     /// True when the Archetypes heading has just been rendered and the slot is next.
     slot_open: bool,
 }
@@ -201,7 +202,7 @@ impl Renderer {
         }
     }
 
-    fn with_slot(mut self, slot: Option<Callback<(), AnyView>>) -> Self {
+    fn with_slot(mut self, slot: Option<(String, Callback<(), AnyView>)>) -> Self {
         self.slot = slot;
         self
     }
@@ -325,7 +326,7 @@ impl Renderer {
     /// The slot's view, once: the section it ends is over.
     fn take_slot(&mut self) -> Option<AnyView> {
         self.slot_open = false;
-        self.slot.take().map(|slot| slot.run(()))
+        self.slot.take().map(|(_, slot)| slot.run(()))
     }
 
     fn block(&mut self, item: &Block) -> AnyView {
@@ -338,7 +339,11 @@ impl Renderer {
                 );
                 let id = key.as_deref().map(heading_dom_id);
                 let section = key.as_ref().and_then(|key| self.marks.get(key)).copied();
-                if section == Some(Section::Archetypes) && self.slot.is_some() {
+                if self
+                    .slot
+                    .as_ref()
+                    .is_some_and(|(wanted, _)| key.as_ref() == Some(wanted))
+                {
                     self.slot_open = true;
                 }
                 heading(*level, id, section, None, inlines(content))
@@ -540,6 +545,7 @@ impl Renderer {
             anchor: Some(info.key.clone()),
             book: state.book.clone(),
             section: None,
+            arch: Default::default(),
         }
         .href();
         let content = vec![
@@ -573,6 +579,7 @@ impl Renderer {
                             anchor: Some(marker.clone()),
                             book: state.book.clone(),
                             section: None,
+                            arch: Default::default(),
                         }
                         .href();
                         let name = match cited.len() {
@@ -835,9 +842,9 @@ pub fn RichBody(
     /// `2026-11-20-class-option-power-layout`. Any other entry renders its body as printed.
     #[prop(optional_no_strip)]
     power_title: Option<String>,
-    /// A class page's archetype list: it takes its place right after the Archetypes heading.
+    /// A class page's archetype list and the key of the heading it follows.
     #[prop(optional_no_strip)]
-    archetype_list: Option<Callback<(), AnyView>>,
+    archetype_list: Option<(String, Callback<(), AnyView>)>,
 ) -> impl IntoView {
     let changed = changed.into_iter().collect::<BTreeSet<_>>();
     let mut renderer = Renderer::new(&body)

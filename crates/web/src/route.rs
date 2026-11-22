@@ -35,6 +35,23 @@ use leptos::prelude::*;
 use crate::book_source::{Retirement, aliased_book_source, retirement};
 use crate::class_sections::Section;
 
+/// The archetype list's choices on a class page (`?keep=arcane-bond&with=ref/arc-wizard/x`): the
+/// features to keep, in the order chosen, and the one archetype to combine with. They are the
+/// route's, like the schools of a spell list: a choice is a history entry that the page reads
+/// without being rebuilt (#170, part D).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct ArchFilter {
+    /// Heading anchors of the class's features, as the corpus writes them.
+    pub keep: Vec<String>,
+    pub with: Option<EntryId>,
+}
+
+impl ArchFilter {
+    pub fn is_empty(&self) -> bool {
+        self.keep.is_empty() && self.with.is_none()
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Route {
     Home,
@@ -111,6 +128,8 @@ pub enum Route {
         /// The part of a class page to open at (`?s=archetypes`). The entry id is the same:
         /// a section is a place on the page, not another entry. Overview has no value.
         section: Option<Section>,
+        /// The archetype list's choices (`?keep=` and `?with=`). Empty on every other page.
+        arch: ArchFilter,
     },
     /// Quick reference (#437): chips to the rules a table looks up mid-play. The Table tab.
     Quick,
@@ -150,6 +169,7 @@ impl Route {
             anchor: None,
             book: None,
             section: None,
+            arch: Default::default(),
         }
     }
 
@@ -160,6 +180,7 @@ impl Route {
             anchor: None,
             book: Some(source.into()),
             section: None,
+            arch: Default::default(),
         }
     }
 
@@ -352,11 +373,25 @@ impl Route {
                 let section = query
                     .and_then(|q| query_pairs(q).find(|(k, _)| k == "s"))
                     .and_then(|(_, v)| Section::from_slug(&v));
+                let mut keep: Vec<String> = Vec::new();
+                for (_, value) in query
+                    .into_iter()
+                    .flat_map(query_pairs)
+                    .filter(|(k, _)| k == "keep")
+                {
+                    if !value.is_empty() && !keep.contains(&value) {
+                        keep.push(value);
+                    }
+                }
+                let with = query
+                    .and_then(|q| query_pairs(q).find(|(k, _)| k == "with"))
+                    .and_then(|(_, v)| EntryId::parse(v).ok());
                 Route::Entry {
                     id,
                     anchor,
                     book,
                     section,
+                    arch: ArchFilter { keep, with },
                 }
             }
             // Legacy saved-entry URLs now land on Home, where all stars are listed.
@@ -485,6 +520,7 @@ impl Route {
                 anchor,
                 book,
                 section,
+                arch,
             } => {
                 let mut pairs: Vec<String> = Vec::new();
                 if let Some(anchor) = anchor {
@@ -495,6 +531,12 @@ impl Route {
                 }
                 if let Some(section) = section {
                     pairs.push(format!("s={}", section.slug()));
+                }
+                for anchor in &arch.keep {
+                    pairs.push(format!("keep={}", percent_encode(anchor)));
+                }
+                if let Some(with) = &arch.with {
+                    pairs.push(format!("with={}", percent_encode(with.as_str())));
                 }
                 if pairs.is_empty() {
                     format!("#/entry/{id}")
@@ -508,6 +550,45 @@ impl Route {
             Route::Legal => "#/legal".into(),
             Route::NotFound(hash) if hash.starts_with("#/") => hash.clone(),
             Route::NotFound(_) => "#/".into(),
+        }
+    }
+
+    /// The archetype list's choices of this route; empty for every other route.
+    pub fn arch(&self) -> ArchFilter {
+        match self {
+            Route::Entry { arch, .. } => arch.clone(),
+            _ => ArchFilter::default(),
+        }
+    }
+
+    /// Whether `other` is the entry page that `self` shows with other archetype choices and
+    /// nothing else changed. The page reads the choices from the route and is not rebuilt, so the
+    /// frame leaves scroll and focus alone (the reader is looking at the list).
+    pub fn only_arch_differs(&self, other: &Route) -> bool {
+        match (self, other) {
+            (
+                Route::Entry {
+                    id,
+                    anchor,
+                    book,
+                    section,
+                    arch,
+                },
+                Route::Entry {
+                    id: other_id,
+                    anchor: other_anchor,
+                    book: other_book,
+                    section: other_section,
+                    arch: other_arch,
+                },
+            ) => {
+                id == other_id
+                    && anchor == other_anchor
+                    && book == other_book
+                    && section == other_section
+                    && arch != other_arch
+            }
+            _ => false,
         }
     }
 
@@ -1540,6 +1621,7 @@ mod tests {
                 anchor: None,
                 book: Some("game-mastery-guide".into()),
                 section: None,
+                arch: Default::default(),
             }
         );
         // The surviving id and every other book id are unchanged.
@@ -1627,6 +1709,7 @@ mod tests {
                     anchor: None,
                     book: Some(new.into()),
                     section: None,
+                    arch: Default::default(),
                 }
             );
         }
@@ -1656,6 +1739,7 @@ mod tests {
             anchor: None,
             book: None,
             section: Some(Section::Archetypes),
+            arch: Default::default(),
         };
         assert_eq!(route.href(), "#/entry/ref/class/wizard?s=archetypes");
         round_trip(route.clone());
@@ -1666,6 +1750,7 @@ mod tests {
             anchor: Some("arcane-bond".into()),
             book: Some("core-rulebook".into()),
             section: Some(Section::Spells),
+            arch: Default::default(),
         };
         assert_eq!(
             all.href(),
@@ -1692,6 +1777,7 @@ mod tests {
             anchor: None,
             book: None,
             section: Some(Section::Requirements),
+            arch: Default::default(),
         };
         assert_eq!(
             requirements.href(),
@@ -1703,6 +1789,124 @@ mod tests {
     }
 
     #[test]
+    fn the_archetype_choices_are_a_query_that_round_trips() {
+        let wizard = EntryId::parse("ref/class/wizard").unwrap();
+        let physician = EntryId::parse("ref/arc-wizard/arcane-physician").unwrap();
+        let route = Route::Entry {
+            id: wizard.clone(),
+            anchor: None,
+            book: None,
+            section: Some(Section::Archetypes),
+            arch: ArchFilter {
+                keep: vec!["arcane-bond".into(), "scribe-scroll".into()],
+                with: Some(physician.clone()),
+            },
+        };
+        assert_eq!(
+            route.href(),
+            "#/entry/ref/class/wizard?s=archetypes&keep=arcane-bond&keep=scribe-scroll&with=ref%2Farc-wizard%2Farcane-physician"
+        );
+        round_trip(route.clone());
+        assert_eq!(route.arch().keep, ["arcane-bond", "scribe-scroll"]);
+        assert_eq!(route.arch().with, Some(physician.clone()));
+        // The entry id stays the path (rule 3); the choices ride beside the other parts.
+        let all = Route::Entry {
+            id: wizard.clone(),
+            anchor: Some("arcane-bond".into()),
+            book: Some("core-rulebook".into()),
+            section: Some(Section::Archetypes),
+            arch: ArchFilter {
+                keep: vec!["cantrips".into()],
+                with: None,
+            },
+        };
+        assert_eq!(
+            all.href(),
+            "#/entry/ref/class/wizard?a=arcane-bond&book=core-rulebook&s=archetypes&keep=cantrips"
+        );
+        round_trip(all);
+        // One choice alone.
+        let with_only = Route::Entry {
+            id: wizard.clone(),
+            anchor: None,
+            book: None,
+            section: None,
+            arch: ArchFilter {
+                keep: Vec::new(),
+                with: Some(physician),
+            },
+        };
+        round_trip(with_only);
+        // Another route has no choices.
+        assert!(Route::Home.arch().is_empty());
+    }
+
+    #[test]
+    fn old_entry_links_parse_with_no_archetype_choices() {
+        let wizard = EntryId::parse("ref/class/wizard").unwrap();
+        for hash in [
+            "#/entry/ref/class/wizard",
+            "#/entry/ref/class/wizard?s=archetypes",
+            "#/entry/ref/class/wizard?a=arcane-bond",
+            "#/entry/ref/class/wizard?a=arcane-bond&book=core-rulebook&s=features",
+            "#/entry/ref/pclass/arcane-archer?s=requirements",
+        ] {
+            let route = Route::parse(hash);
+            assert!(route.arch().is_empty(), "{hash}");
+            assert_eq!(route.href(), hash, "{hash} serializes back unchanged");
+        }
+        assert_eq!(
+            Route::parse("#/entry/ref/class/wizard?s=archetypes"),
+            Route::Entry {
+                id: wizard,
+                anchor: None,
+                book: None,
+                section: Some(Section::Archetypes),
+                arch: ArchFilter::default(),
+            }
+        );
+    }
+
+    #[test]
+    fn a_bad_archetype_choice_is_dropped_and_a_repeated_one_counts_once() {
+        let route = Route::parse(
+            "#/entry/ref/class/wizard?keep=arcane-bond&keep=&keep=arcane-bond&keep=cantrips&with=not%20an%20id",
+        );
+        assert_eq!(route.arch().keep, ["arcane-bond", "cantrips"]);
+        assert_eq!(route.arch().with, None);
+        // An id that is well formed stays, whether or not the page lists it.
+        let route = Route::parse("#/entry/ref/class/wizard?with=ref%2Farc-wizard%2Fgone");
+        assert_eq!(
+            route.arch().with,
+            Some(EntryId::parse("ref/arc-wizard/gone").unwrap())
+        );
+    }
+
+    #[test]
+    fn a_change_of_archetype_choices_alone_is_not_a_navigation_of_the_page() {
+        let id = EntryId::parse("ref/class/wizard").unwrap();
+        let at = |keep: &[&str], section: Option<Section>| Route::Entry {
+            id: id.clone(),
+            anchor: None,
+            book: None,
+            section,
+            arch: ArchFilter {
+                keep: keep.iter().map(|k| k.to_string()).collect(),
+                with: None,
+            },
+        };
+        let archetypes = Some(Section::Archetypes);
+        assert!(at(&[], archetypes).only_arch_differs(&at(&["cantrips"], archetypes)));
+        assert!(at(&["cantrips"], archetypes).only_arch_differs(&at(&[], archetypes)));
+        // The same choices, or another section, anchor or entry, is a different move.
+        assert!(!at(&[], archetypes).only_arch_differs(&at(&[], archetypes)));
+        assert!(!at(&[], archetypes).only_arch_differs(&at(&["cantrips"], None)));
+        assert!(!at(&[], None).only_arch_differs(&Route::Home));
+        let other = Route::entry(EntryId::parse("ref/class/fighter").unwrap());
+        assert!(!at(&[], archetypes).only_arch_differs(&other));
+    }
+
+    #[test]
     fn a_jump_inside_the_entry_on_screen_is_not_a_navigation() {
         let id = EntryId::parse("ref/class/wizard").unwrap();
         let at = |anchor: Option<&str>, section| Route::Entry {
@@ -1710,6 +1914,7 @@ mod tests {
             anchor: anchor.map(String::from),
             book: None,
             section,
+            arch: Default::default(),
         };
         assert!(at(None, None).is_section_jump(&at(None, Some(Section::Features))));
         assert!(
@@ -1732,6 +1937,7 @@ mod tests {
             anchor: None,
             book: None,
             section: Some(Section::Features),
+            arch: Default::default(),
         };
         assert!(!at(None, None).is_section_jump(&other));
         let in_book = Route::Entry {
@@ -1739,6 +1945,7 @@ mod tests {
             anchor: None,
             book: Some("core-rulebook".into()),
             section: Some(Section::Features),
+            arch: Default::default(),
         };
         assert!(!at(None, None).is_section_jump(&in_book));
         assert!(!at(None, None).is_section_jump(&Route::Home));
@@ -1869,6 +2076,7 @@ mod tests {
             anchor: Some("caster level & more/é".into()),
             book: None,
             section: None,
+            arch: Default::default(),
         };
         assert_eq!(
             route.href(),
@@ -1891,6 +2099,7 @@ mod tests {
             anchor: Some("casting".into()),
             book: Some("core-rulebook".into()),
             section: None,
+            arch: Default::default(),
         };
         assert_eq!(
             both.href(),
@@ -1904,6 +2113,7 @@ mod tests {
                 anchor: Some("casting".into()),
                 book: Some("core-rulebook".into()),
                 section: None,
+                arch: Default::default(),
             }
         );
         // An empty context is no context.

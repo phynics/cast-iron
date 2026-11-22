@@ -73,7 +73,7 @@ const overlaps = (a: FeatureRef, b: FeatureRef) =>
   a.anchor === b.anchor &&
   !(a.class && b.class && a.class !== b.class) &&
   (!a.levels?.length || !b.levels?.length || a.levels.some((level) => b.levels!.includes(level))) &&
-  (a.power == null || b.power == null || a.power === b.power);
+  (a.power == null || b.power == null || a.power.toLowerCase() === b.power.toLowerCase());
 
 const resolved = (row: Expected) => (row.trades ?? []).flatMap((trade) => (trade.feature ? [trade.feature] : []));
 
@@ -82,6 +82,11 @@ function expectedNarrowed(rows: Expected[], keep: string[], withId?: string) {
   const chosen = rows.find((row) => row.id === withId);
   const compatible: Expected[] = [];
   const unchecked: Expected[] = [];
+  // An archetype the data cannot place (or an id that is not among the rows) blocks the list:
+  // nothing is compatible, every other row is not checked.
+  if (withId && (!chosen || !chosen.checked)) {
+    return { compatible, unchecked: rows.filter((row) => row.id !== withId) };
+  }
   for (const row of rows) {
     if (row.id === withId) continue;
     if (!row.checked) {
@@ -173,6 +178,10 @@ test("Keep narrows the list to the archetypes that leave the chosen features alo
     // Tick one feature: Arcane Bond, which several archetypes replace.
     await choices.getByRole("checkbox", { name: /^Arcane Bond, \d+ archetypes?$/ }).check();
     await expect(keep, label).toHaveText("Keep: Arcane Bond");
+    // The choice is the route's: one history entry, in the address.
+    await expect.poll(() => page.evaluate(() => location.hash), label).toContain("keep=arcane-bond");
+    // It leaves the reader where they are: no jump to the section, focus stays on the row.
+    await expect(choices.getByRole("checkbox", { name: /^Arcane Bond, / }), label).toBeFocused();
     // The panel stays open while the reader ticks several rows.
     await expect(choices, label).toBeVisible();
     let want = expectedNarrowed(expected, ["arcane-bond"]);
@@ -184,8 +193,17 @@ test("Keep narrows the list to the archetypes that leave the chosen features alo
     // Two features.
     await choices.getByRole("checkbox", { name: /^Scribe Scroll, \d+ archetypes?$/ }).check();
     await expect(keep, label).toHaveText("Keep: 2 chosen");
+    await expect.poll(() => page.evaluate(() => location.hash), label).toMatch(/keep=arcane-bond&keep=scribe-scroll/);
     want = expectedNarrowed(expected, ["arcane-bond", "scribe-scroll"]);
     expect(await rowTitles(rowsOf(page)), label).toEqual(titles(want.compatible));
+    // The recorded-trades hint shows while a choice is active.
+    await expect(list(page).locator(".hint").filter({ hasText: "recorded trades only" }), label).toBeVisible();
+    // Back undoes the last tick and Forward restores it.
+    await page.goBack();
+    await expect(keep, label).toHaveText("Keep: Arcane Bond");
+    expect(await rowTitles(rowsOf(page)), label).toEqual(titles(expectedNarrowed(expected, ["arcane-bond"]).compatible));
+    await page.goForward();
+    await expect(keep, label).toHaveText("Keep: 2 chosen");
     // Rows the data cannot place are listed apart, never among the compatible ones.
     const unchecked = page.locator(".arch-unchecked");
     if (want.unchecked.length) {
@@ -198,9 +216,12 @@ test("Keep narrows the list to the archetypes that leave the chosen features alo
     await page.keyboard.press("Escape");
     await expect(choices, label).toBeHidden();
     await expect(keep, label).toBeFocused();
-    // Show all clears the choice.
+    // Show all clears the choice and moves focus to the first menu: its own button is gone.
     await countLine(page).getByRole("button", { name: "Show all" }).click();
     await expect(keep, label).toHaveText("Keep: Any feature");
+    await expect(keep, label).toBeFocused();
+    expect(await page.evaluate(() => location.hash), label).not.toContain("keep=");
+    await expect(list(page).locator(".hint").filter({ hasText: "recorded trades only" }), label).toHaveCount(0);
     await expect(countLine(page), label).toHaveText(`${expected.length} archetypes`);
     await expect(rowsOf(page), label).toHaveCount(expected.length);
     await expect(unchecked, label).toHaveCount(0);
@@ -226,19 +247,84 @@ test("Combine with lists the archetypes that change no feature the chosen one ch
     await expect(find, label).toBeFocused();
     await find.fill(chosen.title.toLowerCase());
     await expect(choices.getByRole("status"), label).toContainText("archetype");
-    await choices.getByRole("button", { name: chosen.title, exact: true }).first().click();
+    await choices.getByRole("link", { name: new RegExp(`^${chosen.title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}, \\d+$`) }).first().click();
     await expect(choices, label).toBeHidden();
     await expect(button, label).toHaveText(`Combine with: ${chosen.title}`);
+    await expect(button, label).toBeFocused();
+    await expect.poll(() => page.evaluate(() => location.hash), label).toContain(`with=${encodeURIComponent(chosen.id)}`);
     const want = expectedNarrowed(expected, [], chosen.id);
     expect(want.compatible.length, label).toBeGreaterThan(0);
     expect(want.compatible.length, label).toBeLessThan(expected.length - 1);
     expect(await rowTitles(rowsOf(page)), label).toEqual(titles(want.compatible));
     // The chosen archetype is not listed, and no listed one shares a feature with it.
     await expect(rowsOf(page).getByRole("link", { name: chosen.title, exact: true }), label).toHaveCount(0);
-    await expect(countLine(page), label).toContainText(`${want.compatible.length} of ${expected.length} archetypes`);
+    // The total leaves the chosen archetype out.
+    await expect(countLine(page), label).toContainText(`${want.compatible.length} of ${expected.length - 1} archetypes`);
+    await page.goBack();
+    await expect(button, label).toHaveText("Combine with: Any archetype");
+    await page.goForward();
+    await expect(button, label).toHaveText(`Combine with: ${chosen.title}`);
     await countLine(page).getByRole("button", { name: "Show all" }).click();
     await expect(button, label).toHaveText("Combine with: Any archetype");
     await expect(rowsOf(page), label).toHaveCount(expected.length);
     expect(await overflow(page), label).toBeLessThanOrEqual(0);
   }
+});
+
+test("A shared link opens filtered, and a chosen archetype the data cannot place blocks the list", async ({ page }) => {
+  await installLibrary(page);
+  const expected = archetypesOf(WIZARD);
+  const coldLoad = async (hash: string) => {
+    await page.evaluate((value) => history.replaceState(history.state, "", value), hash);
+    await page.reload();
+    await expect(list(page)).toBeVisible();
+  };
+  for (const width of WIDTHS) {
+    const label = `Wizard at ${width}px`;
+    await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+    // An old address, with no choices, opens unfiltered.
+    await coldLoad(`#/entry/${WIZARD}?s=archetypes`);
+    await expect(countLine(page), label).toHaveText(`${expected.length} archetypes`);
+    // A link with a choice opens with it applied.
+    await coldLoad(`#/entry/${WIZARD}?s=archetypes&keep=arcane-bond`);
+    await expect(menu(page, "keep"), label).toHaveText("Keep: Arcane Bond");
+    expect(await rowTitles(rowsOf(page)), label).toEqual(titles(expectedNarrowed(expected, ["arcane-bond"]).compatible));
+    // An archetype with an unresolved trade: nothing is compatible, every other row is not checked.
+    const unplaced = expected.find((row) => !row.checked && row.trades !== undefined);
+    if (unplaced) {
+      await coldLoad(`#/entry/${WIZARD}?s=archetypes&with=${encodeURIComponent(unplaced.id)}`);
+      await expect(menu(page, "with"), label).toHaveText(`Combine with: ${unplaced.title}`);
+      await expect(rowsOf(page), label).toHaveCount(0);
+      await expect(page.locator(".arch-unchecked"), label).toHaveText("Not checked");
+      const want = expectedNarrowed(expected, [], unplaced.id);
+      expect(want.compatible, label).toHaveLength(0);
+      expect(await rowTitles(list(page).locator("ul.arch-rows").nth(1)), label).toEqual(titles(want.unchecked));
+      await expect(list(page).getByText("Some trades of " + unplaced.title + " name no class feature"), label).toBeVisible();
+      await expect(countLine(page), label).toContainText(`0 of ${expected.length - 1} archetypes`);
+    }
+    // An id that is not among the rows blocks the list the same way.
+    await coldLoad(`#/entry/${WIZARD}?s=archetypes&with=ref%2Farc-wizard%2Fno-such-archetype`);
+    await expect(menu(page, "with"), label).toHaveText("Combine with: not in this list");
+    await expect(rowsOf(page), label).toHaveCount(0);
+    await expect(page.locator(".arch-unchecked"), label).toHaveText("Not checked");
+    await expect(list(page).getByText("is not in this list, so no archetype can be checked"), label).toBeVisible();
+    expect(await overflow(page), label).toBeLessThanOrEqual(0);
+  }
+});
+
+test("The Keep menu has a find field above ten features", async ({ page }) => {
+  await installLibrary(page);
+  await openClass(page, FIGHTER, 390);
+  const keep = menu(page, "keep");
+  await keep.click();
+  const choices = panel(page, "keep");
+  const total = await choices.getByRole("checkbox").count();
+  expect(total, "the Fighter has more than ten features that archetypes touch").toBeGreaterThan(10);
+  const find = choices.getByRole("searchbox", { name: "Find a feature" });
+  await expect(find).toBeFocused();
+  await find.fill("bravery");
+  await expect(choices.getByRole("status")).toContainText("feature");
+  await expect(choices.getByRole("checkbox")).toHaveCount(1);
+  await choices.getByRole("checkbox").check();
+  await expect(keep).toHaveText("Keep: Bravery");
 });

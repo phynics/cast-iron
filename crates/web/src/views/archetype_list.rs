@@ -1,26 +1,25 @@
 //! The archetype list of a class page and its compatibility filter (#170, part D; DESIGN.md,
-//! "Class pages"). The rules are in [`crate::archetypes`]; this file draws them.
+//! "Archetype list"). The rules are in [`crate::archetypes`]; this file draws them.
 //!
 //! One row per archetype: the name as a link to the archetype's own page, the book, and what it
-//! replaces and alters. Two filter menus narrow the list, in the form of DESIGN.md's filter menu:
-//! `Keep` (features of the class, several at once) and `Combine with` (one archetype). The choice
-//! is the state of this page's view and lives in the component, not in the route: the entry route
-//! carries the entry, its anchor, its book and its section, and a filter that Back would have to
-//! walk is not worth a new field on every one of those addresses.
+//! replaces and alters. Two filter menus narrow the list, the shared ones of DESIGN.md's "Filter
+//! menu": `Keep` (features of the class, several at once) and `Combine with` (one archetype).
+//! The choices are the route's (`?keep=` and `?with=`): a choice is one more history entry that
+//! this page reads without being rebuilt, so Back undoes it and a shared link opens filtered.
 
 use crate::archetypes::{self, Choice, FeatureOption, Row};
+use crate::class_sections::Section;
 use crate::fmt;
 use crate::graph::Relations;
 use crate::library::Library;
-use crate::route::Route;
+use crate::route::{ArchFilter, Route, push, use_route};
 use crate::views::filter_menu::{
-    FilterMenuButton, MenuSpec, MenuState, find_id, focus_by_id, multi_trigger_text, needs_find,
-    panel_id, toggled_choice,
+    FilterMenuButton, FilterMenuPanel, MenuOption, MenuSpec, MenuState, MultiFilterMenuPanel,
+    MultiOption, button_id, focus_by_id, multi_trigger_text,
 };
-use crate::views::icons;
 use crate::views::related::source_title;
 use crate::views::util::{Shared, sort_key};
-use cast_iron_schema::{EntryId, RelationKind, TradeIndex};
+use cast_iron_schema::{EntryId, TradeIndex};
 use leptos::prelude::*;
 
 const KEEP: MenuSpec = MenuSpec {
@@ -51,7 +50,7 @@ pub fn rows_of(
     trades: Option<&TradeIndex>,
 ) -> Vec<Row> {
     let mut rows: Vec<Row> = relations
-        .sources_of(class, RelationKind::Archetype)
+        .sources_of(class, cast_iron_schema::RelationKind::Archetype)
         .into_iter()
         .map(|id| {
             let title = library
@@ -83,45 +82,67 @@ fn row_view(row: &Row) -> impl IntoView + use<> {
     }
 }
 
-/// The `All` row of a menu: a button, ticked while nothing is chosen. It clears the choice.
-fn any_row(
-    spec: MenuSpec,
-    state: MenuState,
-    none: impl Fn() -> bool + Send + Sync + 'static,
-    clear: impl Fn() + Send + Sync + 'static,
-) -> impl IntoView {
-    let none = Shared::new(none);
-    let ticked = none.clone();
-    view! {
-        <li>
-            <button
-                type="button"
-                class="choice-row"
-                id=format!("{}-all", panel_id(&spec))
-                aria-pressed=move || none().to_string()
-                on:click=move |_| {
-                    clear();
-                    state.dismiss(&spec);
-                }
-            >
-                <span class="choice-box" aria-hidden="true">
-                    {move || ticked().then(icons::choice_check)}
-                </span>
-                <span class="choice-label">{spec.all_label}</span>
-            </button>
-        </li>
+/// Why nothing can be checked against the chosen archetype, or `None` when it can be.
+fn blocked_note(rows: &[Row], with: &Option<EntryId>) -> Option<String> {
+    let id = with.as_ref()?;
+    match rows.iter().find(|row| &row.id == id) {
+        None => Some(
+            "That archetype is not in this list, so no archetype can be checked against it."
+                .to_string(),
+        ),
+        Some(row) if row.is_checked() => None,
+        Some(row) if !row.has_data() => Some(format!(
+            "The data does not say which class features {} changes, so the filter cannot check any archetype against it.",
+            row.title
+        )),
+        Some(row) => Some(format!(
+            "Some trades of {} name no class feature, so the filter cannot check any archetype against it.",
+            row.title
+        )),
     }
 }
 
+/// The hint under the `Not checked` rows: what the data lacks for them.
+fn unchecked_hint(rows: &[Row], indexes: &[usize]) -> String {
+    let no_data = indexes.iter().any(|&index| !rows[index].has_data());
+    let partial = indexes.iter().any(|&index| rows[index].has_data());
+    let mut hint = Vec::new();
+    if no_data {
+        hint.push("The data does not say which class features these change, so the filter cannot check them.");
+    }
+    if partial {
+        hint.push("Some trades of these name no class feature, so the filter cannot say whether they fit.");
+    }
+    hint.join(" ")
+}
+
 #[component]
-pub fn ArchetypeList(rows: Vec<Row>, features: Vec<FeatureOption>) -> impl IntoView {
-    let total = rows.len();
+pub fn ArchetypeList(
+    class: EntryId,
+    book: Option<String>,
+    /// The stop the choices keep in the address, when the page has the Archetypes stop.
+    section: Option<Section>,
+    rows: Vec<Row>,
+    features: Vec<FeatureOption>,
+) -> impl IntoView {
+    let route = use_route();
     let rows = Shared::new(rows);
     let features = Shared::new(features);
-    let keep: RwSignal<Vec<String>> = RwSignal::new(Vec::new());
-    let with: RwSignal<Option<EntryId>> = RwSignal::new(None);
-    let keep_menu = MenuState::new();
-    let with_menu = MenuState::new();
+    let choice = Memo::new(move |_| route.with(Route::arch));
+    let keep = Memo::new(move |_| choice.with(|choice| choice.keep.clone()));
+    let with = Memo::new(move |_| choice.with(|choice| choice.with.clone()));
+    let route_for = {
+        let (class, book) = (class.clone(), book.clone());
+        Shared::new(
+            move |keep: Vec<String>, with: Option<EntryId>| Route::Entry {
+                id: class.clone(),
+                anchor: None,
+                book: book.clone(),
+                section,
+                arch: ArchFilter { keep, with },
+            },
+        )
+    };
     let shown = {
         let rows = rows.clone();
         Memo::new(move |_| {
@@ -134,12 +155,10 @@ pub fn ArchetypeList(rows: Vec<Row>, features: Vec<FeatureOption>) -> impl IntoV
             )
         })
     };
-    let nothing_chosen = move || keep.with(Vec::is_empty) && with.with(Option::is_none);
-    let show_all = move || {
-        keep.set(Vec::new());
-        with.set(None);
-    };
+    let nothing_chosen = move || choice.with(ArchFilter::is_empty);
     let has_features = !features.is_empty();
+    let keep_menu = MenuState::new();
+    let with_menu = MenuState::new();
 
     // The buttons.
     let keep_text = {
@@ -148,11 +167,11 @@ pub fn ArchetypeList(rows: Vec<Row>, features: Vec<FeatureOption>) -> impl IntoV
             let labels: Vec<String> = keep.with(|chosen| {
                 chosen
                     .iter()
-                    .filter_map(|anchor| {
+                    .map(|anchor| {
                         features
                             .iter()
                             .find(|feature| &feature.anchor == anchor)
-                            .map(|feature| feature.label.clone())
+                            .map_or_else(|| archetypes::anchor_label(anchor), |f| f.label.clone())
                     })
                     .collect()
             });
@@ -163,9 +182,11 @@ pub fn ArchetypeList(rows: Vec<Row>, features: Vec<FeatureOption>) -> impl IntoV
         let rows = rows.clone();
         Signal::derive(move || {
             let title = with.with(|id| {
-                id.as_ref()
-                    .and_then(|id| rows.iter().find(|row| &row.id == id))
-                    .map(|row| row.title.clone())
+                id.as_ref().map(|id| {
+                    rows.iter()
+                        .find(|row| &row.id == id)
+                        .map_or_else(|| "not in this list".to_string(), |row| row.title.clone())
+                })
             });
             Some(format!(
                 "{}: {}",
@@ -177,98 +198,62 @@ pub fn ArchetypeList(rows: Vec<Row>, features: Vec<FeatureOption>) -> impl IntoV
     let keep_narrowed = Signal::derive(move || keep.with(|chosen| !chosen.is_empty()));
     let with_narrowed = Signal::derive(move || with.with(Option::is_some));
 
-    // Opening a panel puts focus in its find field, or on its first row.
-    Effect::new(move |_| {
-        if keep_menu.open.get() {
-            let target = format!("{}-all", panel_id(&KEEP));
-            request_animation_frame(move || focus_by_id(&target));
+    // A choice of archetype closes its panel and puts focus back on the button, as a choice
+    // in a single-choice menu does on a list page.
+    Effect::new(move |previous: Option<Option<EntryId>>| {
+        let now = with.get();
+        if previous.is_some_and(|before| before != now) {
+            with_menu.dismiss(&WITH);
         }
-    });
-    let with_find = needs_find(total);
-    Effect::new(move |_| {
-        if with_menu.open.get() {
-            let target = if with_find {
-                find_id(&WITH)
-            } else {
-                format!("{}-all", panel_id(&WITH))
-            };
-            request_animation_frame(move || focus_by_id(&target));
-        }
+        now
     });
 
-    // The features to keep: one checkbox row each, with how many archetypes touch it.
-    let keep_rows = features
-        .iter()
-        .map(|feature| {
-            let (anchor, for_checked) = (feature.anchor.clone(), feature.anchor.clone());
-            let name = format!(
-                "{}, {}",
-                feature.label,
-                fmt::pluralize(feature.count, "archetype", "archetypes")
-            );
-            view! {
-                <li>
-                    <label class="choice-row">
-                        <input
-                            type="checkbox"
-                            aria-label=name
-                            prop:checked=move || keep.with(|chosen| chosen.contains(&for_checked))
-                            on:change=move |_| {
-                                keep.set(toggled_choice(&keep.get_untracked(), &anchor));
-                            }
-                        />
-                        <span class="choice-label">{feature.label.clone()}</span>
-                        <span class="choice-count">{fmt::count(feature.count)}</span>
-                    </label>
-                </li>
-            }
-        })
-        .collect_view();
-
-    // The archetype to combine with: one button row each, filtered by the find field.
-    let with_rows = {
-        let rows = rows.clone();
+    // The features to keep. The panel reads the choices from the route; it is rebuilt only when
+    // the archetype changes, because its `Any feature` link keeps that choice.
+    let keep_panel = {
+        let (features, route_for) = (features.clone(), route_for.clone());
         move || {
-            let query = with_menu.query.get().trim().to_lowercase();
-            rows.iter()
-                .filter(|row| row.title.to_lowercase().contains(&query))
-                .map(|row| {
-                    let (id, chosen_id) = (row.id.clone(), row.id.clone());
-                    let chosen = move || with.with(|current| current.as_ref() == Some(&chosen_id));
-                    let ticked = chosen.clone();
-                    view! {
-                        <li>
-                            <button
-                                type="button"
-                                class="choice-row"
-                                aria-pressed=move || chosen().to_string()
-                                on:click=move |_| {
-                                    with.set(Some(id.clone()));
-                                    with_menu.dismiss(&WITH);
-                                }
-                            >
-                                <span class="choice-label">{row.title.clone()}</span>
-                                {move || ticked().then(icons::choice_check)}
-                            </button>
-                        </li>
-                    }
+            let with_now = with.get();
+            let options: Vec<MultiOption> = features
+                .iter()
+                .map(|feature| MultiOption {
+                    value: feature.anchor.clone(),
+                    label: feature.label.clone(),
+                    count: feature.count,
                 })
-                .collect_view()
+                .collect();
+            let all_href = route_for(Vec::new(), with_now).href();
+            let on_change = {
+                let route_for = route_for.clone();
+                Callback::new(move |next: Vec<String>| push(&route_for(next, with.get_untracked())))
+            };
+            let chosen = Signal::derive(move || keep.get());
+            view! {
+                <MultiFilterMenuPanel spec=KEEP state=keep_menu options chosen all_href
+                    count_noun=("archetype", "archetypes") on_change />
+            }
         }
     };
-    let with_status = {
-        let rows = rows.clone();
+
+    // The archetype to combine with: a link per archetype, with how many others it fits.
+    let with_panel = {
+        let (rows, route_for) = (rows.clone(), route_for.clone());
         move || {
-            let query = with_menu.query.get();
-            let n = rows
+            let (keep_now, with_now) = (keep.get(), with.get());
+            let options: Vec<MenuOption> = rows
                 .iter()
-                .filter(|row| {
-                    row.title
-                        .to_lowercase()
-                        .contains(&query.trim().to_lowercase())
+                .map(|row| MenuOption {
+                    value: row.id.to_string(),
+                    label: row.title.clone(),
+                    count: archetypes::compatible_with(&rows, row) as u32,
+                    href: route_for(keep_now.clone(), Some(row.id.clone())).href(),
                 })
-                .count();
-            crate::views::filter_menu::find_status(&WITH, n, &query)
+                .collect();
+            let all_href = route_for(keep_now, None).href();
+            let current = with_now.map(|id| id.to_string());
+            view! {
+                <FilterMenuPanel spec=WITH state=with_menu options current all_href />
+            }
         }
     };
 
@@ -284,11 +269,16 @@ pub fn ArchetypeList(rows: Vec<Row>, features: Vec<FeatureOption>) -> impl IntoV
             })
         }
     };
-    let unchecked = {
+    let blocked = {
         let rows = rows.clone();
+        move || with.with(|with| blocked_note(&rows, with))
+    };
+    let unchecked = {
+        let (rows, blocked) = (rows.clone(), blocked.clone());
         move || {
             shown.with(|s| {
                 (!s.unchecked.is_empty()).then(|| {
+                    let hint = blocked().unwrap_or_else(|| unchecked_hint(&rows, &s.unchecked));
                     let items = s
                         .unchecked
                         .iter()
@@ -296,42 +286,42 @@ pub fn ArchetypeList(rows: Vec<Row>, features: Vec<FeatureOption>) -> impl IntoV
                         .collect_view();
                     view! {
                         <h4 class="arch-unchecked">"Not checked"</h4>
-                        <p class="hint">
-                            "Some trades of these are not matched to a class feature, so the filter cannot say whether they fit."
-                        </p>
+                        <p class="hint">{hint}</p>
                         <ul class="entry-list arch-rows">{items}</ul>
                     }
                 })
             })
         }
     };
-    let count_line = move || {
-        let n = shown.with(|s| s.compatible.len());
-        if nothing_chosen() {
-            fmt::pluralize(total, "archetype", "archetypes")
-        } else {
-            format!(
-                "{} of {}",
-                fmt::count(n),
-                fmt::pluralize(total, "archetype", "archetypes")
-            )
+    let count_line = {
+        let rows = rows.clone();
+        move || {
+            let n = shown.with(|s| s.compatible.len());
+            let total = choice.with(|choice| {
+                archetypes::others(
+                    &rows,
+                    &Choice {
+                        keep: choice.keep.clone(),
+                        with: choice.with.clone(),
+                    },
+                )
+            });
+            let noun = fmt::pluralize(total, "archetype", "archetypes");
+            if nothing_chosen() {
+                noun
+            } else {
+                format!("{} of {noun}", fmt::count(n))
+            }
         }
     };
     let none_fit = move || !nothing_chosen() && shown.with(|s| s.compatible.is_empty());
-    let with_note = {
-        let rows = rows.clone();
-        move || {
-            with.with(|id| {
-                id.as_ref()
-                    .and_then(|id| rows.iter().find(|row| &row.id == id))
-                    .filter(|row| !row.is_checked())
-                    .map(|row| {
-                        format!(
-                            "Some trades of {} name no class feature, so they are not compared.",
-                            row.title
-                        )
-                    })
-            })
+    let show_all = {
+        let route_for = route_for.clone();
+        move |_| {
+            push(&route_for(Vec::new(), None));
+            // The button that was pressed goes away with the choice: focus moves to the first menu.
+            let target = button_id(if has_features { &KEEP } else { &WITH });
+            request_animation_frame(move || focus_by_id(&target));
         }
     };
 
@@ -347,76 +337,18 @@ pub fn ArchetypeList(rows: Vec<Row>, features: Vec<FeatureOption>) -> impl IntoV
                     <FilterMenuButton spec=WITH state=with_menu text=with_text narrowed=with_narrowed focus=false />
                 </div>
             </div>
-            {has_features.then(|| view! {
-                <div
-                    id=panel_id(&KEEP)
-                    class="filter-panel"
-                    hidden=move || !keep_menu.open.get()
-                    on:keydown=move |event| {
-                        if event.key() == "Escape" {
-                            event.prevent_default();
-                            keep_menu.dismiss(&KEEP);
-                        }
-                    }
-                >
-                    <ul class="choice-list" aria-label=KEEP.list_label>
-                        {any_row(
-                            KEEP,
-                            keep_menu,
-                            move || keep.with(Vec::is_empty),
-                            move || keep.set(Vec::new()),
-                        )}
-                        {keep_rows}
-                    </ul>
-                </div>
-            })}
-            <div
-                id=panel_id(&WITH)
-                class="filter-panel"
-                hidden=move || !with_menu.open.get()
-                on:keydown=move |event| {
-                    if event.key() == "Escape" {
-                        event.prevent_default();
-                        with_menu.dismiss(&WITH);
-                    }
-                }
-            >
-                {with_find.then(|| view! {
-                    <div class="filter-find">
-                        <input
-                            id=find_id(&WITH)
-                            type="search"
-                            class="filter-find-input"
-                            placeholder=WITH.find_label
-                            aria-label=WITH.find_label
-                            autocomplete="off"
-                            autocapitalize="off"
-                            spellcheck="false"
-                            enterkeyhint="search"
-                            prop:value=move || with_menu.query.get()
-                            on:input=move |event| with_menu.query.set(event_target_value(&event))
-                        />
-                        <p class="filter-find-status" role="status">{with_status}</p>
-                    </div>
-                })}
-                <ul class="choice-list" aria-label=WITH.list_label>
-                    {any_row(
-                        WITH,
-                        with_menu,
-                        move || with.with(Option::is_none),
-                        move || with.set(None),
-                    )}
-                    {with_rows}
-                </ul>
-            </div>
+            {has_features.then_some(keep_panel)}
+            {with_panel}
             <p class="list-count" role="status">
                 {count_line}
                 {move || (!nothing_chosen()).then(|| view! {
                     " · "
-                    <button type="button" class="count-action" on:click=move |_| show_all()>"Show all"</button>
+                    <button type="button" class="count-action" on:click=show_all.clone()>"Show all"</button>
                 })}
             </p>
-            {move || with_note().map(|note| view! { <p class="hint">{note}</p> })}
+            {move || (!nothing_chosen()).then(|| view! {
+                <p class="hint">"Worked out from the recorded trades only, not from the text of each archetype."</p>
+            })}
             {move || none_fit().then(|| view! {
                 <p class="hint">"No archetype is known to fit that choice."</p>
             })}

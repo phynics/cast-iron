@@ -412,7 +412,7 @@ document order, because a sticky grid item cannot leave its grid row.
 #### Archetype list
 
 A class page lists its archetypes in the Archetypes section, right under the `Archetypes` heading and
-before the section's introduction (#170, part D; decision
+before the section's introduction, also on a class that has no section switcher (#170, part D; decision
 `docs/decisions/2026-11-22-archetype-list-and-compatibility.md`). It replaces the printed blurbs
 (name, `Class:`, `Modifies or Replaces:`, `Description:` for each archetype) and the `Archetypes by
 Feature` matrix, and the `Archetypes` panel that used to close the page. The introduction stays.
@@ -422,20 +422,28 @@ Feature` matrix, and the `Archetypes` panel that used to close the page. The int
   Cantrips`, with `Alters …` after a `·` when the archetype alters features. The line carries the
   printed names. A row opens the archetype and shows no text inline. The list is one column at every
   width; the rows keep the browse list's target (44 px on a touch screen).
-- **Count line.** `31 archetypes`, or `12 of 31 archetypes · Show all` once a choice narrows it; it is a
-  live region and `Show all` is a `.count-action` button that clears both choices.
-- **Two filter menus**, in the filter-menu form (button, in-flow panel, 44 px rows, find field above ten
-  options): `Keep: Any feature` (several features of the class, checkbox rows with how many
-  archetypes touch each; the list leaves the archetypes that change any chosen feature) and `Combine
-  with: Any archetype` (one archetype; the list leaves the ones that change nothing it changes, and
-  not the chosen one). Both together narrow further. A choice row of the second menu is a button with
-  `aria-pressed`, ticked by a check; `Any …` is the first row of each.
-- **State is the page's, not the route's.** Unlike the filter menus of the list pages, the choice
-  lives in the page (the entry route carries the entry, anchor, book and section, and Back does not
-  walk it). Reopening the page starts unfiltered.
+- **Count line.** `31 archetypes`, or `12 of 31 archetypes · Show all` once a choice narrows it. The total
+  leaves the chosen archetype out. It is a live region, and `Show all` is a `.count-action` button that
+  clears both choices and moves focus to the first menu button, because the pressed button goes away
+  with the choice.
+- **Two filter menus**, the shared ones of "Filter menu" (`views/filter_menu.rs`), unchanged in form:
+  `Keep: Any feature` (the multi-select menu: checkbox rows, each with how many archetypes touch the
+  feature, a find field above ten rows; the list leaves the archetypes that change any chosen
+  feature) and `Combine with: Any archetype` (the single-choice menu: a link row per archetype with
+  how many others it fits, a find field; the list leaves the archetypes that change nothing it
+  changes, and not the chosen one). Both together narrow further. Choosing an archetype closes its
+  panel and returns focus to the button.
+- **State is route state**, as on every list page: `?keep=<anchor>` (once per feature, in the order
+  chosen) and `?with=<archetype id>` beside `a`, `book` and `s`. A choice is a history entry, Back
+  undoes it, a shared link opens filtered, and the page is not rebuilt for it (the frame leaves scroll
+  and focus alone). A stop of the section switcher keeps the choices.
+- **Trades only.** Compatibility is worked out from the trades recorded for each archetype and from
+  nothing else, not from the printed matrix or the text; while a choice is active a hint under the
+  count line says so. The gaps in the data are tracked in phynics/cast-iron-data#173.
 - **Not checked.** A row whose trades the data cannot place (a trade that names no class feature, or
-  no trades data) is never counted as compatible. While a choice is active it is listed apart under a
-  `Not checked` heading with a one-line hint, never among the compatible rows.
+  no trades row) is never counted as compatible. While a choice is active it is listed apart under a
+  `Not checked` heading with a hint that says what is missing, never among the compatible rows. When the
+  chosen archetype cannot be checked, nothing is compatible: every other row stands under `Not checked`.
 
 #### Class-option powers
 

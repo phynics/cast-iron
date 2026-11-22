@@ -112,6 +112,11 @@ impl Sections {
         }
     }
 
+    /// The heading key of the Archetypes section, whether or not the page has a switcher.
+    pub fn archetypes_key(&self) -> Option<&str> {
+        self.archetypes.as_deref()
+    }
+
     pub fn has(&self, section: Section) -> bool {
         match section {
             Section::Requirements => self.requirements.is_some(),

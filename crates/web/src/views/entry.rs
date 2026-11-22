@@ -3,7 +3,7 @@
 use crate::also_available;
 use crate::archetypes;
 use crate::class_options;
-use crate::class_sections::Sections;
+use crate::class_sections::{Section, Sections};
 use crate::class_summary;
 use crate::fmt;
 use crate::focus_guard::{FocusTicket, Verdict};
@@ -278,11 +278,13 @@ pub fn Entry(id: EntryId, anchor: Option<String>, book: Option<String>) -> impl 
     if aliased {
         // The route that the page keys on has no section (see `RouteView`), so the section of
         // the address is read from the live route and kept.
+        let live = route::use_route().get_untracked();
         let route = Route::Entry {
             id: id.clone(),
             anchor: anchor.clone(),
             book: book.clone(),
-            section: route::use_route().get_untracked().section(),
+            section: live.section(),
+            arch: live.arch(),
         };
         Effect::new(move |_| route::replace(&route));
     }
@@ -624,6 +626,7 @@ fn EntryView(
                 anchor: reference.anchor.clone(),
                 book: None,
                 section: None,
+                arch: Default::default(),
             }
             .href();
             view! {
@@ -908,24 +911,46 @@ fn EntryView(
                     .unwrap_or_default(),
                 false => Vec::new(),
             };
-            let (body, slot) = match (!rows.is_empty())
+            // The list opens at the Archetypes heading, so the body must have one: a page whose
+            // heading the section reader does not find keeps its blurbs, its matrix and its panel.
+            let has_list = list.is_some();
+            let folded = (!rows.is_empty())
                 .then(|| archetypes::fold_body(&body))
                 .flatten()
-            {
-                Some(folded) => {
-                    let features =
-                        archetypes::feature_options(&rows, &archetypes::feature_headings(&folded));
-                    let slot = Callback::new(move |()| {
-                        view! { <ArchetypeList rows=rows.clone() features=features.clone() /> }
-                            .into_any()
-                    });
-                    (folded, Some(slot))
-                }
+                .and_then(|folded| {
+                    let key = Sections::read(&folded, has_list)
+                        .archetypes_key()
+                        .map(str::to_owned)?;
+                    Some((folded, key))
+                });
+            let (body, folded_key) = match folded {
+                Some((folded, key)) => (folded, Some(key)),
                 None => (body, None),
             };
+            let sections = Some(Sections::read(&body, has_list)).filter(Sections::worth_a_switcher);
+            let slot = folded_key.map(|key| {
+                let (class, book) = (entry.id.clone(), book.clone());
+                let section = sections
+                    .as_ref()
+                    .filter(|sections| sections.has(Section::Archetypes))
+                    .map(|_| Section::Archetypes);
+                let features =
+                    archetypes::feature_options(&rows, &archetypes::feature_headings(&body));
+                let list = Callback::new(move |()| {
+                    view! {
+                        <ArchetypeList
+                            class=class.clone()
+                            book=book.clone()
+                            section
+                            rows=rows.clone()
+                            features=features.clone()
+                        />
+                    }
+                    .into_any()
+                });
+                (key, list)
+            });
             indexes.archetypes_in_page = slot.is_some();
-            let sections =
-                Some(Sections::read(&body, list.is_some())).filter(Sections::worth_a_switcher);
             (class_card(&read.summary, list), body, sections, slot)
         }
         false => (None, rendered_body, None, None),
@@ -993,6 +1018,7 @@ fn EntryView(
             anchor,
             book,
             section: Some(section),
+            arch,
         } = current.get()
             && id == entry_id
             && book == entry_book
@@ -1003,6 +1029,7 @@ fn EntryView(
                 anchor,
                 book,
                 section: None,
+                arch,
             });
         }
     });

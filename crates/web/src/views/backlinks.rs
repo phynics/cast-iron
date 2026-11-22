@@ -279,6 +279,7 @@ fn row_view(
             anchor: Some(anchor),
             book: None,
             section: None,
+            arch: Default::default(),
         }
         .href();
         view! { <a class="muted backlink-anchor" href=href>{format!("at {text}")}</a> }

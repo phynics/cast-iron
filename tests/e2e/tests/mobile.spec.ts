@@ -1189,3 +1189,53 @@ installedTest("Spell list at 390 px: the name field clears the filter row, and a
   await pill.click();
   await expect(pill).toHaveCount(0);
 });
+
+installedTest("A class page's archetype list fits 390 px and keeps 44 px targets on a touch screen", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/entry/ref/class/wizard?s=archetypes");
+  const list = page.locator(".arch-list");
+  await expect(list).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Sections" })).toBeVisible();
+  // The layout is the phone's: a touch screen, no sideways scroll.
+  expect(await page.evaluate(() => matchMedia("(pointer: coarse)").matches)).toBe(true);
+  const sideways = () =>
+    page.evaluate(() => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth);
+  expect(await sideways()).toBeLessThanOrEqual(0);
+  // Both menus keep their whole text and a 44 px target, each on a line of its own.
+  const keep = list.locator("#filter-btn-keep");
+  const withMenu = list.locator("#filter-btn-with");
+  for (const button of [keep, withMenu]) {
+    expect(Math.round((await button.boundingBox())!.height)).toBeGreaterThanOrEqual(44);
+    expect(await button.locator(".filter-btn-text").evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+  }
+  expect((await withMenu.boundingBox())!.y).toBeGreaterThan((await keep.boundingBox())!.y + 40);
+  // A row's link is a 44 px target, and a row never runs past the viewport.
+  const rows = list.locator("ul.arch-rows").first().locator("li.arch-row");
+  const count = await rows.count();
+  expect(count).toBeGreaterThan(10);
+  for (const index of [0, 1, count - 1]) {
+    const link = rows.nth(index).getByRole("link").first();
+    expect(Math.round((await link.boundingBox())!.height)).toBeGreaterThanOrEqual(44);
+    const row = (await rows.nth(index).boundingBox())!;
+    expect(row.x + row.width).toBeLessThanOrEqual(390.5);
+  }
+  // The choice rows of both menus are 44 px, and a tick narrows the list without sideways scroll.
+  await keep.click();
+  const feature = page.locator("#filter-panel-keep").getByRole("checkbox", { name: /^Arcane Bond, / });
+  const featureRow = feature.locator("xpath=ancestor::label");
+  expect(Math.round((await featureRow.boundingBox())!.height)).toBeGreaterThanOrEqual(44);
+  await feature.check();
+  await expect(list.locator(".list-count")).toContainText(" of ");
+  expect(await sideways()).toBeLessThanOrEqual(0);
+  await page.keyboard.press("Escape");
+  await withMenu.click();
+  const choice = page.locator("#filter-panel-with").getByRole("link").nth(1);
+  expect(Math.round((await choice.boundingBox())!.height)).toBeGreaterThanOrEqual(44);
+  // Both choices are in the address, so Back undoes them one at a time.
+  await choice.click();
+  await expect.poll(() => page.evaluate(() => location.hash)).toMatch(/keep=arcane-bond.*with=/);
+  expect(await sideways()).toBeLessThanOrEqual(0);
+  await page.goBack();
+  await expect(withMenu).toHaveText("Combine with: Any archetype");
+  await expect(keep).toHaveText("Keep: Arcane Bond");
+});

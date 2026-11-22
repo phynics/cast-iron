@@ -411,8 +411,8 @@ pub fn FilterMenuPanel(
 
 /// The multi-select panel under the filter row: an `All` link, then one checkbox row per option,
 /// each with its count. A tick calls `on_change` with the new set of values; the page turns it
-/// into a history entry. Below ten options there is no find field, and the menus that use it
-/// have fewer (the nine schools).
+/// into a history entry. Above ten options a find field narrows the rows by label (the nine
+/// schools of a spell list have none).
 #[component]
 pub fn MultiFilterMenuPanel(
     spec: MenuSpec,
@@ -427,44 +427,72 @@ pub fn MultiFilterMenuPanel(
     on_change: Callback<Vec<String>>,
 ) -> impl IntoView {
     let all_id = format!("{}-all", panel_id(&spec));
-    // Opening puts focus on the first ticked row, or on `All` when nothing is chosen.
+    // Above ten options the panel has a find field, as a single-choice menu does.
+    let find = needs_find(options.len());
+    // Opening puts focus in the find field, on the first ticked row, or on `All`.
     Effect::new({
         let all_id = all_id.clone();
         move |_| {
             if state.open.get() {
                 let (panel, all_id) = (panel_id(&spec), all_id.clone());
-                request_animation_frame(move || focus_first_checked(&panel, &all_id));
+                if find {
+                    request_animation_frame(move || focus_by_id(&find_id(&spec)));
+                } else {
+                    request_animation_frame(move || focus_first_checked(&panel, &all_id));
+                }
             }
         }
     });
-    let rows = options
-        .into_iter()
-        .map(|option| {
-            let value = option.value.clone();
-            let for_checked = option.value.clone();
-            let name = format!(
-                "{}, {}",
-                option.label,
-                fmt::pluralize(option.count, count_noun.0, count_noun.1)
-            );
-            view! {
-                <li>
-                    <label class="choice-row">
-                        <input
-                            type="checkbox"
-                            aria-label=name
-                            prop:checked=move || {
-                                chosen.with(|c| c.iter().any(|v| v.eq_ignore_ascii_case(&for_checked)))
-                            }
-                            on:change=move |_| on_change.run(toggled_choice(&chosen.get_untracked(), &value))
-                        />
-                        <span class="choice-label">{option.label.clone()}</span>
-                        <span class="choice-count">{fmt::count(option.count as u32)}</span>
-                    </label>
-                </li>
-            }
-        })
-        .collect_view();
+    let options = crate::views::util::Shared::new(options);
+    let matches = {
+        let options = options.clone();
+        move || -> Vec<MultiOption> {
+            let query = state.query.get().trim().to_lowercase();
+            options
+                .iter()
+                .filter(|option| option.label.to_lowercase().contains(&query))
+                .cloned()
+                .collect()
+        }
+    };
+    let rows = {
+        let matches = matches.clone();
+        move || {
+            matches()
+                .into_iter()
+                .map(|option| {
+                    let value = option.value.clone();
+                    let for_checked = option.value.clone();
+                    let name = format!(
+                        "{}, {}",
+                        option.label,
+                        fmt::pluralize(option.count, count_noun.0, count_noun.1)
+                    );
+                    view! {
+                        <li>
+                            <label class="choice-row">
+                                <input
+                                    type="checkbox"
+                                    aria-label=name
+                                    prop:checked=move || {
+                                        chosen.with(|c| c.iter().any(|v| v.eq_ignore_ascii_case(&for_checked)))
+                                    }
+                                    on:change=move |_| on_change.run(toggled_choice(&chosen.get_untracked(), &value))
+                                />
+                                <span class="choice-label">{option.label.clone()}</span>
+                                <span class="choice-count">{fmt::count(option.count as u32)}</span>
+                            </label>
+                        </li>
+                    }
+                })
+                .collect_view()
+        }
+    };
+    let status = {
+        let matches = matches.clone();
+        move || find_status(&spec, matches().len(), &state.query.get())
+    };
+    let none_match = move || matches().is_empty();
     let none_chosen = move || chosen.with(Vec::is_empty);
     view! {
         <div
@@ -478,6 +506,31 @@ pub fn MultiFilterMenuPanel(
                 }
             }
         >
+            {find.then(|| view! {
+                <div class="filter-find">
+                    <input
+                        id=find_id(&spec)
+                        type="search"
+                        class="filter-find-input"
+                        placeholder=spec.find_label
+                        aria-label=spec.find_label
+                        autocomplete="off"
+                        autocapitalize="off"
+                        spellcheck="false"
+                        enterkeyhint="search"
+                        prop:value=move || state.query.get()
+                        on:input=move |event| state.query.set(event_target_value(&event))
+                    />
+                    <p class="filter-find-status" role="status">{status}</p>
+                    <Show when=none_match>
+                        <button type="button" class="filter-find-clear"
+                            on:click=move |_| {
+                                state.query.set(String::new());
+                                focus_by_id(&find_id(&spec));
+                            }>"Clear"</button>
+                    </Show>
+                </div>
+            })}
             <ul class="choice-list" aria-label=spec.list_label>
                 <li>
                     <a
