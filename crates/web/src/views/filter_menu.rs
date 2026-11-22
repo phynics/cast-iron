@@ -431,9 +431,9 @@ pub fn MultiFilterMenuPanel(
     // Above ten options the panel has a find field, as a single-choice menu does.
     let find = needs_find(options.len());
     // Opening puts focus in the find field, on the first ticked row, or on `All`.
-    Effect::new({
+    crate::views::util::effect({
         let all_id = all_id.clone();
-        move |_| {
+        move || {
             if state.open.get() {
                 let (panel, all_id) = (panel_id(&spec), all_id.clone());
                 if find {

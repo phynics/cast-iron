@@ -51,8 +51,8 @@ pub fn sort<T: Ord>(v: &mut [T]) {
     sort_by(v, T::cmp);
 }
 
-/// Builds a `BTreeMap` by inserting one pair at a time; a later pair replaces an earlier one
-/// with the same key, as `collect()` does.
+/// Builds a `BTreeMap` by inserting one pair at a time. The later value wins, as with
+/// `collect()`; an equal key already present is kept.
 ///
 /// `collect()` into a `BTreeMap` (and `BTreeMap::from`) first sorts the pairs with the generic
 /// `slice::sort_by`, which the compiler copies per key and value type. Inserting needs no sort
