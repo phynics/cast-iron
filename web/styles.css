@@ -4289,6 +4289,9 @@ input::placeholder {
 /* Publication choices preserve each rule's identity without repeated top-level rows. */
 .source-variants > summary { display: flex; align-items: center; gap: var(--space-2); cursor: pointer; padding: .65rem 0; }
 .source-variant-count { color: var(--ink-muted); font-size: .85em; margin-inline-start: .5rem; }
+/* A fold in a list names its parent like a row does: the muted line sits at the end of the summary and drops under the title when the row is narrow. */
+.entry-list > li > .source-variants { flex: 1 1 100%; min-width: 0; }
+.entry-list > li > .source-variants > summary { flex-wrap: wrap; }
 .source-variants > ul { list-style: none; padding-inline-start: 1rem; margin-block: .25rem .75rem; }
 .source-variants > ul > li > a { display: block; padding: .6rem .25rem; }
 .hit-group > .source-variants > summary { display: flex; align-items: flex-start; gap: var(--space-2); padding: 1rem; }
