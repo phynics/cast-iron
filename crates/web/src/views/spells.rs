@@ -2,7 +2,7 @@
 //! level. The data is `lists.json`, an index of `SpellFields::levels`.
 
 use crate::app::use_app;
-use crate::density::{self, Density};
+use crate::density;
 use crate::fmt;
 use crate::graph::{ListedSpell, filter_list, find_list, level_counts, list_schools, list_total};
 use crate::library::{Library, LibraryError, use_library};

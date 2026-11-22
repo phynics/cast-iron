@@ -1857,7 +1857,11 @@ mod tests {
         round_trip(only_name);
         // An empty or blank name is none, and the address drops it.
         for hash in ["#/spells/Wizard?name=", "#/spells/Wizard?name=%20%20"] {
-            assert_eq!(Route::parse(hash), Route::spell_list("Wizard", None), "{hash}");
+            assert_eq!(
+                Route::parse(hash),
+                Route::spell_list("Wizard", None),
+                "{hash}"
+            );
         }
         // Only the first name counts.
         assert_eq!(
