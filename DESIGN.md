@@ -377,7 +377,7 @@ disclosure on any other table.
 
 Relationship panels are sections, not cards: an `h2` at `--step-1`, hairline rows, a muted hint under the heading when the relation needs one. They follow the add-on sections in the same stack and the same unboxed form. A feat's `Requirements` lists the feats it names; the printed prerequisite line stays in the body and appears once. A feat whose body prints no `Prerequisites` line keeps `As printed:` in the panel, so no text is lost, and a feat that names no active feat and prints its line in the body has no panel.
 
-A count beside a panel heading is Label text inside the heading (`Leads to 61`), so the heading's accessible name keeps it.
+A count beside a panel heading is Label text inside the heading (`Leads to 61`), so the heading's accessible name keeps it. A relationship list (`Leads to`, `Racial traits`) shows 8 rows, then `Show all {N}` in the Referenced-by form; `Racial traits` caps each of its groups.
 
 #### Class summary card
 
@@ -391,7 +391,8 @@ card replaces the printed bold-label paragraphs it shows; it does not repeat the
 
 On a class or prestige-class page, References and Referenced by are closed `details.ref-fold` rows
 at the page end, on every width: a 44 px summary with a chevron, the name and the count. A wide
-class page is one column with no side panel. Other entries keep them open, in the side panel.
+class page is one column with no side panel. Below 64 rem every entry folds them the same way. From
+64 rem an entry other than a class shows them open in the side panel.
 
 #### Class section switcher
 

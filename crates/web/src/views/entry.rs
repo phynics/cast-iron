@@ -646,7 +646,11 @@ fn EntryView(
         .collect_view();
     let has_references = !references.is_empty();
     let reference_count = references.len();
+    // A class page has no side panel: its rows stay folded at every width. Any other entry folds
+    // them below 64 rem and shows them open in the side panel from there.
     let fold_refs = matches!(entry.kind, EntryKind::Class | EntryKind::PrestigeClass);
+    let wide = crate::views::util::at_least_64rem();
+    let refs_open = Signal::derive(move || !fold_refs && wide.get());
 
     let copyrights = entry
         .source_ids
@@ -1089,26 +1093,17 @@ fn EntryView(
         <div id=RELATED_ANCHOR><Related library=library.clone() entry=entry.clone() indexes /></div>
         <BookPosition library=library.clone() id=entry.id.clone() book=book.clone() />
         <aside class=if fold_refs { "entry-refs entry-refs-fold" } else { "entry-refs" } aria-label="Entry links">
-            {has_references.then(|| match fold_refs {
-                // A class page ends in long lists. They fold, with the count in the summary.
-                true => view! {
-                    <details class="ref-block ref-fold">
-                        <summary>
-                            {icons::chevron_right("disclosure-chevron")}
-                            <span class="ref-fold-name">"References"</span>
-                            <span class="rel-count">{fmt::count(reference_count)}</span>
-                        </summary>
-                        <ul class="ref-list">{reference_items}</ul>
-                    </details>
-                }.into_any(),
-                false => view! {
-                    <section class="ref-block" aria-labelledby="references-heading">
-                        <h2 id="references-heading">"References"</h2>
-                        <ul class="ref-list">{reference_items}</ul>
-                    </section>
-                }.into_any(),
+            {has_references.then(|| view! {
+                <details class="ref-block ref-fold" open=move || refs_open.get()>
+                    <summary>
+                        {icons::chevron_right("disclosure-chevron")}
+                        <span class="ref-fold-name">"References"</span>
+                        <span class="rel-count">{fmt::count(reference_count)}</span>
+                    </summary>
+                    <ul class="ref-list">{reference_items}</ul>
+                </details>
             })}
-            <Backlinks library=library.clone() entry=entry.clone() fold=fold_refs />
+            <Backlinks library=library.clone() entry=entry.clone() open=refs_open />
         </aside>
         <footer class="entry-foot">
             {copyrights}

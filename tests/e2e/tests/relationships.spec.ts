@@ -1,5 +1,5 @@
 import { installedTest as test, expect, loadCorpus } from "./fixtures";
-import { bookReadingOrder, bookTrees, firstBookPlacement, installLibrary, listedChapterTitles, openBookContents, openBookEntry, waitControlled } from "./helpers";
+import { bookReadingOrder, bookTrees, firstBookPlacement, installLibrary, listedChapterTitles, openBookContents, openAllRows, openBookEntry, waitControlled } from "./helpers";
 
 const corpus = loadCorpus();
 const entries = [...corpus.entries.values()];
@@ -20,6 +20,7 @@ test("race racial traits and class archetypes link in both directions", async ({
   await expect(page.getByRole("heading", { name: race.title, level: 1 })).toBeVisible();
   await expect(page.getByRole("heading", { name: /Racial traits/ })).toBeVisible();
   // A race can list one trait from two books, so pick the link by the exact entry, not by its title.
+  await openAllRows(page.locator(".entry-rel"));
   await page.locator(`.entry-rel a[href="#/entry/${traitId}"]`).click();
   await expect(page).toHaveURL(new RegExp(`#/entry/${traitId.replaceAll("/", "\\/")}$`));
   await expect(page.getByRole("heading", { name: trait.title, level: 1 })).toBeVisible();

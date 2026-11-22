@@ -1,8 +1,8 @@
 ---
 title: "Class pages: summary card and folded references"
 date: 2026-11-17
-status: current
-superseded_by: []
+status: partly-superseded
+superseded_by: ["2026-11-22-entry-link-lists-fold-on-phones"]
 issues: [170]
 prs: []
 area: ui

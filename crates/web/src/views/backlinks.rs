@@ -142,9 +142,9 @@ pub fn heading_text(body: &[Block]) -> BTreeMap<String, String> {
 pub fn Backlinks(
     library: Library,
     entry: RuleEntry,
-    /// Fold the panel under a summary with the count (a class page). Other entries show it open.
-    #[prop(optional)]
-    fold: bool,
+    /// Whether the row is open. It starts closed; the entry page opens it in the side panel.
+    #[prop(optional, into)]
+    open: Signal<bool>,
 ) -> impl IntoView {
     let target = entry.id.clone();
     let current = entry.id.clone();
@@ -175,33 +175,42 @@ pub fn Backlinks(
                         group_view(&library, &current, &headings, group)
                     })
                     .collect_view();
-                let count_line = format!(
-                    "{} {} here.",
-                    fmt::pluralize(total, "entry", "entries"),
-                    if total == 1 { "links" } else { "link" }
-                );
-                if fold {
-                    view! {
-                        <details class="ref-block entry-backlinks ref-fold" id="entry-backlinks">
-                            <summary>
-                                {icons::chevron_right("disclosure-chevron")}
-                                <span class="ref-fold-name">"Referenced by"</span>
-                                <span class="rel-count">{fmt::count(total)}</span>
-                            </summary>
-                            {groups_view}
-                        </details>
-                    }.into_any()
-                } else {
-                    view! {
-                        <section class="ref-block entry-backlinks" id="entry-backlinks" aria-labelledby="backlinks-heading">
-                            <h2 id="backlinks-heading">"Referenced by"</h2>
-                            <p class="muted backlink-count">{count_line}</p>
-                            {groups_view}
-                        </section>
-                    }.into_any()
-                }
+                view! {
+                    <details class="ref-block entry-backlinks ref-fold" id="entry-backlinks" open=move || open.get()>
+                        <summary>
+                            {icons::chevron_right("disclosure-chevron")}
+                            <span class="ref-fold-name">"Referenced by"</span>
+                            <span class="rel-count">{fmt::count(total)}</span>
+                        </summary>
+                        {groups_view}
+                    </details>
+                }.into_any()
             }
         })}
+    }
+}
+
+/// A `Show all {count}` row under a list that shows its first rows. `rows` runs only once the
+/// row opens, so a long list builds nothing while closed. Opening keeps focus on the summary.
+pub fn show_all<V: IntoView + 'static>(
+    count: usize,
+    rows: impl Fn() -> V + 'static,
+) -> impl IntoView {
+    let opened = RwSignal::new(false);
+    // A reactive closure must be `Send`; the rows stay on this thread.
+    let rows = send_wrapper::SendWrapper::new(rows);
+    view! {
+        <details class="backlink-more" on:toggle=move |event| {
+            opened.set(
+                event
+                    .target()
+                    .and_then(|target| target.dyn_into::<web_sys::HtmlDetailsElement>().ok())
+                    .is_some_and(|details| details.open()),
+            );
+        }>
+            <summary>{icons::chevron_right("disclosure-chevron")}{format!("Show all {}", fmt::count(count))}</summary>
+            {move || opened.get().then(|| (*rows)())}
+        </details>
     }
 }
 
@@ -225,7 +234,6 @@ fn group_view(
     let lazy_library = library.clone();
     let lazy_current = current.clone();
     let lazy_headings = headings.clone();
-    let show_all = RwSignal::new(false);
     let heading = group.heading;
     view! {
         <details class="rel-group backlink-group" open=open>
@@ -235,27 +243,15 @@ fn group_view(
                 <span class="rel-count">{fmt::count(count)}</span>
             </summary>
             <ul class="ref-list">{preview_rows}</ul>
-            {(!rest.is_empty()).then(|| view! {
-                <details class="backlink-more" on:toggle=move |event| {
-                    show_all.set(
-                        event
-                            .target()
-                            .and_then(|target| target.dyn_into::<web_sys::HtmlDetailsElement>().ok())
-                            .is_some_and(|details| details.open()),
-                    );
-                }>
-                    <summary>{icons::chevron_right("disclosure-chevron")}{format!("Show all {}", fmt::count(count))}</summary>
-                    {move || show_all.get().then(|| view! {
-                        <ul class="ref-list">
-                            {rest.iter()
-                                .map(|row| {
-                                    row_view(&lazy_library, &lazy_current, &lazy_headings, row.clone())
-                                })
-                                .collect_view()}
-                        </ul>
-                    })}
-                </details>
-            })}
+            {(!rest.is_empty()).then(|| show_all(count, move || view! {
+                <ul class="ref-list">
+                    {rest.iter()
+                        .map(|row| {
+                            row_view(&lazy_library, &lazy_current, &lazy_headings, row.clone())
+                        })
+                        .collect_view()}
+                </ul>
+            }))}
         </details>
     }
 }

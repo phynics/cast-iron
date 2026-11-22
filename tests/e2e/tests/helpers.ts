@@ -1,4 +1,4 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 
 /** A count as the app writes it: digits grouped by commas. */
 export const count = (n: number) => n.toLocaleString("en-US");
@@ -88,6 +88,16 @@ export async function waitReady(page: Page) {
  * claim a short window, and otherwise reload once so the active worker controls
  * the new document.
  */
+/**
+ * Opens every closed group and every `Show all` row inside `scope`, so rows that a long list
+ * builds only on demand are on the page. Groups open first because `Show all` sits inside one.
+ */
+export async function openAllRows(scope: Locator) {
+  for (const selector of ["details.rel-group:not([open]) > summary", "details.backlink-more:not([open]) > summary"]) {
+    for (const summary of await scope.locator(selector).all()) await summary.click();
+  }
+}
+
 export async function waitControlled(page: Page) {
   await page.evaluate(() => navigator.serviceWorker.ready);
   const claimed = await page

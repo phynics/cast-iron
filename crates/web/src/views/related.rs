@@ -13,6 +13,7 @@ use crate::graph::{
 };
 use crate::library::Library;
 use crate::route::Route;
+use crate::views::backlinks::{GROUP_PREVIEW, show_all};
 use crate::views::chains::chain_tree;
 use crate::views::icons;
 use crate::views::rich::{blocks, plain_text};
@@ -21,8 +22,8 @@ use crate::views::sources::source_line;
 use crate::views::spells::spells_noun;
 use crate::views::util::{local_resource, sort_key};
 use cast_iron_schema::{
-    Block, EntryId, EntryKind, Inline, OptionGroupIndex, Relation, RelationKind, RelationLabel, RuleEntry,
-    SpellListClass, SpellLists, TradeIndex, TypedFields,
+    Block, EntryId, EntryKind, Inline, OptionGroupIndex, Relation, RelationKind, RelationLabel,
+    RuleEntry, SpellListClass, SpellLists, TradeIndex, TypedFields,
 };
 use leptos::prelude::*;
 use std::rc::Rc;
@@ -163,32 +164,46 @@ fn link(library: &Library, id: &EntryId) -> impl IntoView + use<> {
     view! { <a href=Route::entry(id.clone()).href()>{title_of(library, id)}</a> }
 }
 
-/// A group of links that opens by default when it is short.
+/// A group of links that opens by default when it is short. A group longer than the preview
+/// shows its first rows and offers `Show all {N}`, as a Referenced-by group does.
 fn group_view(heading: String, items: Vec<(EntryId, String)>, open_up_to: usize) -> impl IntoView {
-    group_view_meta(heading, items, open_up_to, None)
+    group_view_meta(heading, items, open_up_to, None, true)
 }
 
 /// A group of links, each with an optional muted line such as an archetype's `Replaces …`.
+/// `capped` keeps the first rows and builds the rest only when `Show all` opens.
 fn group_view_meta(
     heading: String,
     items: Vec<(EntryId, String)>,
     open_up_to: usize,
     meta: Option<&std::collections::BTreeMap<EntryId, String>>,
+    capped: bool,
 ) -> impl IntoView {
     let n = items.len();
-    let rows = items
+    let shown = if capped { n.min(GROUP_PREVIEW) } else { n };
+    let mut items: Vec<(EntryId, String, Option<String>)> = items
         .into_iter()
         .map(|(id, title)| {
             let detail = meta.and_then(|meta| meta.get(&id)).cloned();
-            let href = Route::entry(id).href();
-            view! {
-                <li>
-                    <a href=href>{title}</a>
-                    {detail.map(|detail| view! { <span class="muted rel-meta">{detail}</span> })}
-                </li>
-            }
+            (id, title, detail)
         })
-        .collect_view();
+        .collect();
+    let rest = items.split_off(shown);
+    let rows = |items: Vec<(EntryId, String, Option<String>)>| {
+        items
+            .into_iter()
+            .map(|(id, title, detail)| {
+                let href = Route::entry(id).href();
+                view! {
+                    <li>
+                        <a href=href>{title}</a>
+                        {detail.map(|detail| view! { <span class="muted rel-meta">{detail}</span> })}
+                    </li>
+                }
+            })
+            .collect_view()
+    };
+    let first = rows(items);
     view! {
         <details class="rel-group" open=n <= open_up_to>
             <summary>
@@ -196,7 +211,10 @@ fn group_view_meta(
                 <span class="rel-group-name">{heading}</span>
                 <span class="rel-count">{fmt::count(n)}</span>
             </summary>
-            <ul class="rel-chips">{rows}</ul>
+            <ul class="rel-chips">{first}</ul>
+            {(!rest.is_empty()).then(|| show_all(n, move || view! {
+                <ul class="rel-chips">{rows(rest.clone())}</ul>
+            }))}
         </details>
     }
 }
@@ -401,7 +419,9 @@ fn class_panels(
                     .collect(),
             )
             .into_iter()
-            .map(|(heading, items)| group_view_meta(heading, items, 16, Some(&replaces_by_id)))
+            .map(|(heading, items)| {
+                group_view_meta(heading, items, 16, Some(&replaces_by_id), false)
+            })
             .collect_view();
             out.push(
                 view! {
@@ -782,16 +802,24 @@ fn feat_panels(
         cast_iron_sort::sort_by_key(&mut leads, |(id, title)| (sort_key(title), id.clone()));
         if !leads.is_empty() {
             let n = leads.len();
-            let rows = leads
-                .into_iter()
-                .map(|(id, title)| view! { <li><a href=Route::entry(id).href()>{title}</a></li> })
-                .collect_view();
+            let rows = |leads: Vec<(EntryId, String)>| {
+                leads
+                    .into_iter()
+                    .map(|(id, title)| view! { <li><a href=Route::entry(id).href()>{title}</a></li> })
+                    .collect_view()
+            };
+            let mut leads = leads;
+            let rest = leads.split_off(n.min(GROUP_PREVIEW));
+            let first = rows(leads);
             out.push(
                 view! {
                     <section class="rel" aria-labelledby="rel-leads">
                         <h2 id="rel-leads">"Leads to "<span class="rel-count">{fmt::count(n)}</span></h2>
                         <p class="hint">"Feats that name this feat in their prerequisites."</p>
-                        <ul class="rel-list rel-cols">{rows}</ul>
+                        <ul class="rel-list rel-cols">{first}</ul>
+                        {(!rest.is_empty()).then(|| show_all(n, move || view! {
+                            <ul class="rel-list rel-cols">{rows(rest.clone())}</ul>
+                        }))}
                     </section>
                 }
                 .into_any(),

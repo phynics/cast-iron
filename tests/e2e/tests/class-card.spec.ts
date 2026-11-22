@@ -353,11 +353,13 @@ test("References and Referenced by fold with their counts on a class page at 128
   expect(await overflow(page)).toBeLessThanOrEqual(0);
 });
 
-test("Other entries keep References and Referenced by open", async ({ page }) => {
+test("Other entries show References and Referenced by open in the side panel from 64 rem", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
   await installLibrary(page);
-  const feat = [...corpus.entries.values()].find((entry) => entry.kind === "spell" && entry.title === "Fireball")!;
-  await page.goto(`#/entry/${feat.id}`);
+  const spell = [...corpus.entries.values()].find((entry) => entry.kind === "spell" && entry.title === "Fireball")!;
+  await page.goto(`#/entry/${spell.id}`);
   await expect(page.getByRole("heading", { level: 1, name: "Fireball" })).toBeVisible();
-  await expect(page.locator(".entry-refs details.ref-fold")).toHaveCount(0);
-  await expect(page.locator(".entry-refs").getByRole("heading", { level: 2, name: "Referenced by" })).toBeVisible();
+  const folds = page.locator(".entry-refs details.ref-fold");
+  await expect(folds.filter({ hasText: /^Referenced by/ })).toHaveCount(1);
+  for (const fold of await folds.all()) await expect(fold).toHaveAttribute("open", "");
 });
