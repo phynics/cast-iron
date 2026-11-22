@@ -188,10 +188,11 @@ struct NoteInfo {
 
 impl Renderer {
     fn new(body: &[Block]) -> Self {
-        let keys = keyed_headings(body)
-            .into_iter()
-            .map(|(block, key)| (std::ptr::from_ref(block), key))
-            .collect();
+        let keys = cast_iron_sort::map_of(
+            keyed_headings(body)
+                .into_iter()
+                .map(|(block, key)| (std::ptr::from_ref(block), key)),
+        );
         Self {
             keys,
             changed: BTreeSet::new(),
@@ -208,7 +209,7 @@ impl Renderer {
     }
 
     fn with_marks(mut self, marks: Vec<(String, Section)>) -> Self {
-        self.marks = marks.into_iter().collect();
+        self.marks = cast_iron_sort::map_of(marks);
         self
     }
 
@@ -846,7 +847,7 @@ pub fn RichBody(
     #[prop(optional_no_strip)]
     archetype_list: Option<(String, Callback<(), AnyView>)>,
 ) -> impl IntoView {
-    let changed = changed.into_iter().collect::<BTreeSet<_>>();
+    let changed: BTreeSet<_> = cast_iron_sort::set_of(changed);
     let mut renderer = Renderer::new(&body)
         .with_changed(changed)
         .with_marks(marks)

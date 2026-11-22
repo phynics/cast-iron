@@ -34,11 +34,12 @@ pub fn slot_map(sources: &[SourceInfo]) -> Option<BTreeMap<u32, &str>> {
 pub fn current(sources: &[SourceInfo], is_active: impl Fn(&str) -> bool) -> Option<Shared> {
     let slots = slot_map(sources)?;
     let described = slots.keys().next_back().map_or(0, |slot| slot + 1);
-    let on = slots
-        .iter()
-        .filter(|(_, id)| is_active(id))
-        .map(|(slot, _)| *slot)
-        .collect();
+    let on = cast_iron_sort::set_of(
+        slots
+            .iter()
+            .filter(|(_, id)| is_active(id))
+            .map(|(slot, _)| *slot),
+    );
     Some(Shared { described, on })
 }
 

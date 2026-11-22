@@ -512,7 +512,7 @@ fn RouteView() -> impl IntoView {
         // The address follows the page: `#/browse/source/<id>` becomes the book's own address,
         // so the Books tab is the one highlighted (the old route belongs to Home) and the
         // history holds one entry for the page, not a redirect to step back through.
-        Effect::new(move |_| {
+        crate::views::util::effect(move || {
             if let Route::BrowseSource(id) = current.get() {
                 replace(&Route::Book {
                     source: id,

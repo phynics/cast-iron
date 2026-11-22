@@ -84,11 +84,12 @@ impl Preset {
 
     /// The ids of the books this preset turns on.
     pub fn members<'a>(self, books: &[PresetBook<'a>]) -> BTreeSet<&'a str> {
-        books
-            .iter()
-            .filter(|book| self.includes(book))
-            .map(|book| book.id)
-            .collect()
+        cast_iron_sort::set_of(
+            books
+                .iter()
+                .filter(|book| self.includes(book))
+                .map(|book| book.id),
+        )
     }
 }
 
@@ -111,11 +112,8 @@ pub fn offered(books: &[PresetBook<'_>]) -> Vec<Preset> {
 
 /// The offered preset whose books are exactly the active ones, or `None` ("Custom").
 pub fn matching(books: &[PresetBook<'_>], is_active: impl Fn(&str) -> bool) -> Option<Preset> {
-    let active: BTreeSet<&str> = books
-        .iter()
-        .map(|book| book.id)
-        .filter(|id| is_active(id))
-        .collect();
+    let active: BTreeSet<&str> =
+        cast_iron_sort::set_of(books.iter().map(|book| book.id).filter(|id| is_active(id)));
     offered(books)
         .into_iter()
         .find(|preset| preset.members(books) == active)
@@ -213,27 +211,29 @@ pub enum DefaultsAction {
 pub fn fresh_install_disabled(books: &[PresetBook<'_>]) -> Option<BTreeSet<String>> {
     let rulebooks = Preset::PaizoRulebooks;
     let has_rulebooks = !rulebooks.members(books).is_empty();
-    let disabled: BTreeSet<String> = books
-        .iter()
-        .filter(|book| {
-            if has_rulebooks {
-                !rulebooks.includes(book)
-            } else {
-                book.third_party
-            }
-        })
-        .map(|book| book.id.to_string())
-        .collect();
+    let disabled: BTreeSet<String> = cast_iron_sort::set_of(
+        books
+            .iter()
+            .filter(|book| {
+                if has_rulebooks {
+                    !rulebooks.includes(book)
+                } else {
+                    book.third_party
+                }
+            })
+            .map(|book| book.id.to_string()),
+    );
     (!disabled.is_empty()).then_some(disabled)
 }
 
 /// The third-party books of a catalog. The first-run default and the arrival rule use it.
 pub fn third_party_ids(books: &[PresetBook<'_>]) -> BTreeSet<String> {
-    books
-        .iter()
-        .filter(|book| book.third_party)
-        .map(|book| book.id.to_string())
-        .collect()
+    cast_iron_sort::set_of(
+        books
+            .iter()
+            .filter(|book| book.third_party)
+            .map(|book| book.id.to_string()),
+    )
 }
 
 /// The third-party books that a library update added since `known`, and that therefore start
@@ -247,7 +247,7 @@ pub fn newly_third_party(
 ) -> BTreeSet<String> {
     let current = third_party_ids(books);
     match known {
-        Some(known) => current.difference(known).cloned().collect(),
+        Some(known) => cast_iron_sort::set_of(current.difference(known).cloned()),
         None => current,
     }
 }

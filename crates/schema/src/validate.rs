@@ -22,7 +22,8 @@ pub fn validate_library(entries: &[RuleEntry], catalog: &Catalog) -> Vec<Validat
             errors.push(error(&entry.id, "duplicate id"));
         }
     }
-    let sources: BTreeSet<&str> = catalog.sources.iter().map(|s| s.id.as_str()).collect();
+    let sources: BTreeSet<&str> =
+        cast_iron_sort::set_of(catalog.sources.iter().map(|s| s.id.as_str()));
     for entry in entries {
         validate_entry(entry, &ids, &sources, &mut errors);
     }
@@ -37,11 +38,8 @@ pub fn validate_library(entries: &[RuleEntry], catalog: &Catalog) -> Vec<Validat
         });
     }
     // Membership is one derived fact: each stub carries what its entry's `source_ids` say.
-    let stubs: std::collections::BTreeMap<&EntryId, &EntryStub> = catalog
-        .entries
-        .iter()
-        .map(|stub| (&stub.id, stub))
-        .collect();
+    let stubs: std::collections::BTreeMap<&EntryId, &EntryStub> =
+        cast_iron_sort::map_of(catalog.entries.iter().map(|stub| (&stub.id, stub)));
     for entry in entries {
         let Some(stub) = stubs.get(&entry.id) else {
             continue;
@@ -70,23 +68,21 @@ pub fn validate_derived(
     lists: &SpellLists,
 ) -> Vec<ValidationError> {
     let mut errors = Vec::new();
-    let ids: BTreeSet<&EntryId> = entries.iter().map(|e| &e.id).collect();
-    let kinds: BTreeMap<&EntryId, EntryKind> = entries.iter().map(|e| (&e.id, e.kind)).collect();
+    let ids: BTreeSet<&EntryId> = cast_iron_sort::set_of(entries.iter().map(|e| &e.id));
+    let kinds: BTreeMap<&EntryId, EntryKind> =
+        cast_iron_sort::map_of(entries.iter().map(|e| (&e.id, e.kind)));
     let problem = |entry: &str, text: String| ValidationError {
         entry: entry.to_string(),
         problem: text,
     };
 
     // relations.json
-    let expected: BTreeSet<RelationEdge> = entries
-        .iter()
-        .flat_map(|e| {
-            e.relations
-                .iter()
-                .map(|r| RelationEdge(e.id.clone(), r.kind, r.target.clone(), r.label))
-        })
-        .collect();
-    let actual: BTreeSet<RelationEdge> = relations.edges.iter().cloned().collect();
+    let expected: BTreeSet<RelationEdge> = cast_iron_sort::set_of(entries.iter().flat_map(|e| {
+        e.relations
+            .iter()
+            .map(|r| RelationEdge(e.id.clone(), r.kind, r.target.clone(), r.label))
+    }));
+    let actual: BTreeSet<RelationEdge> = cast_iron_sort::set_of(relations.edges.iter().cloned());
     if actual.len() != relations.edges.len() {
         errors.push(problem("<relations>", "duplicate edges".into()));
     }

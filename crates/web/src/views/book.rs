@@ -242,7 +242,7 @@ pub fn BookView(source: String) -> impl IntoView {
     {
         // Back and forward change the chapter in the URL without rebuilding this page.
         let source = source.clone();
-        Effect::new(move |_| {
+        crate::views::util::effect(move || {
             let wanted = chapter_of(&current.get(), &source);
             if wanted != target.get_untracked() {
                 target.set(wanted);
@@ -429,7 +429,7 @@ pub fn ChapterView(
     {
         // The chapter page arrives after `books.json` loads, so the frame's own anchor scroll
         // may run before the row exists. Repeat it when the content is on screen.
-        Effect::new(move |_| {
+        crate::views::util::effect(move || {
             let wanted = anchor
                 .clone()
                 .or_else(|| current.with(|route| route.anchor().map(|a| a.into_owned())));
@@ -769,7 +769,7 @@ fn resolve_target(
     target: RwSignal<Option<ContentsRow>>,
 ) -> RwSignal<Option<Vec<usize>>> {
     let resolved = RwSignal::new(None::<Vec<usize>>);
-    Effect::new(move |_| {
+    crate::views::util::effect(move || {
         let row = target.get();
         resolved.set(None);
         let Some(row) = row else {
@@ -801,7 +801,7 @@ fn resolve_target(
             }
         });
     });
-    Effect::new(move |_| {
+    crate::views::util::effect(move || {
         if let Some(path) = resolved.get() {
             request_animation_frame(move || {
                 crate::route::scroll_to_anchor(&toc_id(&path));

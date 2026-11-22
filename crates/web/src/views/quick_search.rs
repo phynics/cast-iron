@@ -504,7 +504,7 @@ fn reveal_option(index: usize) {
 fn watch_suggestions(quick: QuickSearch) {
     let library = use_library();
     let cache = StoredValue::new_local(None::<(u64, Rc<Discovery>)>);
-    Effect::new(move |_| {
+    crate::views::util::effect(move || {
         let query = quick.text.with(|text| normalize(text));
         let scope = quick.scope.get();
         let revision = library.selection_revision().get();
@@ -682,7 +682,7 @@ pub fn QuickSearchLayer() -> impl IntoView {
     });
     // The rows changed under the highlight, so it may name a row that is gone or a different
     // one. Drop it: Enter then searches the text instead of opening a row the reader did not see.
-    Effect::new(move |_| {
+    crate::views::util::effect(move || {
         list.track();
         quick.active.set(None);
     });

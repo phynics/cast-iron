@@ -369,7 +369,7 @@ pub fn ShareSet() -> impl IntoView {
     // A link opens the question. The address keeps the code until the reader answers. Leaving
     // the link's history entry by Back or Forward takes the question away.
     let linked = panel.clone();
-    Effect::new(move |_| match route.get() {
+    crate::views::util::effect(move || match route.get() {
         Route::BooksSet(code) => {
             // The entry that Quick search left over an answered link keeps the link's address.
             if linked.is_handled_layer() {
