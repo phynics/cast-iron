@@ -101,10 +101,87 @@ pub fn review_line(review: &[String]) -> Option<&'static str> {
     (!review.is_empty()).then_some(REVIEW_LINE)
 }
 
+/// The one line under `Contents` when the book has no row to list and `In this book` has the
+/// links.
+pub const ALL_LISTED_ABOVE_LINE: &str = "Everything in this book is listed above.";
+
 /// The one line that a book page shows while the book is turned off. It states what the reader
 /// loses, and nothing else: the choice itself lives on Manage books.
 pub const BOOK_OFF_LINE: &str =
     "This book is turned off. Its entries don't appear in search or lists.";
+
+/// The off line as a paragraph: the words, then a plain link to Manage books. The link is not a
+/// toggle; books switch only there. It opens the page as the link on Books does, with no scroll
+/// to the book's row.
+fn off_line() -> impl IntoView {
+    view! {
+        <p class="muted book-off-line" data-testid="book-off-line">
+            {BOOK_OFF_LINE}" "
+            <a class="count-action" href=Route::BooksManage.href()>"Manage books"</a>
+        </p>
+    }
+}
+
+/// A heading and a `.jump-list` of `{Kind} {count}` links to the book-filtered kind lists. The
+/// book page (`In this book`) and the chapter page (`In this chapter`) share it.
+fn kind_section(
+    heading: &'static str,
+    head_id: &'static str,
+    counts: &[(EntryKind, usize)],
+    source: &str,
+) -> AnyView {
+    let rows = counts
+        .iter()
+        .map(|&(kind, n)| {
+            let href = Route::browse_kind(kind)
+                .with_source(Some(source.to_owned()))
+                .href();
+            view! {
+                <li>
+                    <a class="jump" href=href>
+                        <span class="book-kind-label">{kind.label()}</span>" "
+                        <span class="book-kind-count">{fmt::count(n)}</span>
+                    </a>
+                </li>
+            }
+        })
+        .collect_view();
+    view! {
+        <section class="book-in-this-book" aria-labelledby=head_id>
+            <h2 id=head_id>{heading}</h2>
+            <ul class="jump-list book-kinds">{rows}</ul>
+        </section>
+    }
+    .into_any()
+}
+
+/// The list-page kinds that a chapter node holds, with their counts, in Home category order.
+/// Every entry at or below the node counts once, whatever its placements.
+fn kinds_under(
+    node: &BookNode,
+    kind_of: impl Fn(&EntryId) -> Option<EntryKind>,
+) -> Vec<(EntryKind, usize)> {
+    fn walk<'a>(node: &'a BookNode, seen: &mut HashSet<&'a EntryId>) {
+        if let Some(entry) = &node.entry {
+            seen.insert(entry);
+        }
+        for child in &node.children {
+            walk(child, seen);
+        }
+    }
+    let mut seen = HashSet::new();
+    walk(node, &mut seen);
+    let mut counts: Vec<(EntryKind, usize)> =
+        EntryKind::ALL.into_iter().map(|kind| (kind, 0)).collect();
+    for id in seen {
+        if let Some(kind) = kind_of(id)
+            && let Some(slot) = counts.iter_mut().find(|(k, _)| *k == kind)
+        {
+            slot.1 += 1;
+        }
+    }
+    kinds_in_book(&counts)
+}
 
 /// What a book address says when the library holds no such book, in the words of a player. It
 /// mirrors `Entry unavailable`: an alert, a way to Books and a way Home, and no id.
@@ -219,28 +296,12 @@ pub fn BookView(source: String) -> impl IntoView {
     };
     let has_kind_links = !kind_counts.is_empty();
     let kind_links = has_kind_links.then(|| {
-        let rows = kind_counts
-            .iter()
-            .map(|&(kind, n)| {
-                let href = Route::browse_kind(kind)
-                    .with_source(Some(source.clone()))
-                    .href();
-                view! {
-                    <li>
-                        <a class="jump" href=href>
-                            <span class="book-kind-label">{kind.label()}</span>
-                            <span class="book-kind-count">{fmt::count(n)}</span>
-                        </a>
-                    </li>
-                }
-            })
-            .collect_view();
-        view! {
-            <section class="book-in-this-book" aria-labelledby="book-in-this-book-head">
-                <h2 id="book-in-this-book-head">"In this book"</h2>
-                <ul class="jump-list book-kinds">{rows}</ul>
-            </section>
-        }
+        kind_section(
+            "In this book",
+            "book-in-this-book-head",
+            &kind_counts,
+            &source,
+        )
     });
     // The saved place in this book, under the meta line. A point whose entry left the library
     // was already dropped by the load, so this only fails when there is nothing to show.
@@ -268,10 +329,8 @@ pub fn BookView(source: String) -> impl IntoView {
         <div class="wide book">
             <h1>{title}</h1>
             {meta.map(|line| view! { <p class="muted book-meta-line" data-testid="source-count">{line}</p> })}
-            {move || book_off().then(|| view! {
-                <p class="muted book-off-line" data-testid="book-off-line">{BOOK_OFF_LINE}</p>
-            })}
             {continue_link}
+            {move || book_off().then(off_line)}
             {kind_links}
             <section class="book-contents" aria-labelledby="book-contents-head">
                 <h2 id="book-contents-head">"Contents"</h2>
@@ -302,8 +361,8 @@ pub fn BookView(source: String) -> impl IntoView {
                 }}
             </section>
             <footer class="colophon">
-                {aon_line(aon.as_deref())}
                 {notices}
+                {aon_line(aon.as_deref())}
                 <p class="muted"><a href=Route::Legal.href()>"Legal and attribution"</a></p>
             </footer>
         </div>
@@ -432,6 +491,7 @@ pub fn ChapterView(
                                 }
                                 .href()
                             });
+                        let kinds = kinds_under(node, |id| library.stub(id).map(|stub| stub.kind));
                         let anchors = section_anchors(node, &row.path);
                         let sections = listed_children(node, &hide)
                             .into_iter()
@@ -451,12 +511,11 @@ pub fn ChapterView(
                                 </ol>
                             </nav>
                             <h1 data-testid="chapter-title">{row.title.clone()}</h1>
-                            {book_off().then(|| view! {
-                                <p class="muted book-off-line" data-testid="book-off-line">{BOOK_OFF_LINE}</p>
-                            })}
+                            {book_off().then(off_line)}
                             {own.map(|href| view! {
                                 <p class="chapter-own"><a class="jump" href=href>"Read this chapter"</a></p>
                             })}
+                            {(!kinds.is_empty()).then(|| kind_section("In this chapter", "chapter-in-this-chapter-head", &kinds, &source))}
                             <div class="chapter-sections">{sections}</div>
                         }.into_any()
                     }
@@ -647,11 +706,17 @@ fn Contents(
     let chapters = chapter_rows(tree, &hide);
     let review = review_line(&tree.review);
     if chapters.is_empty() {
-        return view! {
-            {review.map(|line| view! { <p class="muted review-line">{line}</p> })}
-            {(!has_kind_links).then(|| view! { <p class="muted">"This book has no entries to show."</p> })}
-        }
-        .into_any();
+        // No rows: with kind links above, they hold everything and the review line has nothing
+        // to sit over; without them there is nothing to show.
+        return if has_kind_links {
+            view! { <p class="muted">{ALL_LISTED_ABOVE_LINE}</p> }.into_any()
+        } else {
+            view! {
+                {review.map(|line| view! { <p class="muted review-line">{line}</p> })}
+                <p class="muted">"This book has no entries to show."</p>
+            }
+            .into_any()
+        };
     }
     let items = chapters
         .into_iter()
@@ -864,6 +929,16 @@ fn TocNode(
     .into_any()
 }
 
+/// The eyebrow of the reading footer: `In the book`, plus `· draft order` while the book has open
+/// order questions (the same source as the review line under `Contents`).
+fn where_line(review: &[String]) -> &'static str {
+    if review_line(review).is_some() {
+        "In the book · draft order"
+    } else {
+        "In the book"
+    }
+}
+
 /// The place of an entry in its book: the chapters above it and its neighbours in book order.
 /// It loads `books.json` after the entry is on screen and shows nothing when the library has no
 /// book order or the entry is in no book.
@@ -880,17 +955,11 @@ pub fn BookPosition(library: Library, id: EntryId, book: Option<String>) -> impl
             let Some(Ok(Some(books))) = state else {
                 return ().into_any();
             };
-            // The reader's book wins. Without context the first active book in book order is
-            // the candidate; if it does not place this entry, the page shows no reading footer.
+            // The footer belongs to `?book=`: without it, or when that book does not place this
+            // entry, the page shows no reading footer.
             let chosen = book
                 .as_deref()
                 .and_then(|source| books.books().iter().position(|tree| tree.source == source))
-                .or_else(|| {
-                    books
-                        .books()
-                        .iter()
-                        .position(|tree| library.book_active(&tree.source))
-                })
                 .filter(|&index| {
                     library
                         .reading(index)
@@ -963,7 +1032,7 @@ pub fn BookPosition(library: Library, id: EntryId, book: Option<String>) -> impl
             };
             view! {
                 <nav class="book-bar" aria-label="Position in the book" data-testid="book-bar">
-                    <p class="book-where">"In the book · draft order"</p>
+                    <p class="book-where">{where_line(&book.review)}</p>
                     <ol class="book-trail">{crumbs}</ol>
                     <div class="book-steps">
                         {step(before.as_ref(), false)}
@@ -1044,6 +1113,7 @@ mod tests {
             "archetype" => Some(EntryKind::Archetype),
             "rule" => Some(EntryKind::Rule),
             "race" => Some(EntryKind::Race),
+            "skill" => Some(EntryKind::Skill),
             _ => None,
         }
     }
@@ -1195,6 +1265,44 @@ mod tests {
             Some("Chapter order not yet checked against the printed book")
         );
         assert_eq!(review_line(&[]), None);
+    }
+
+    #[test]
+    fn the_reading_footer_says_draft_order_only_while_the_book_has_open_questions() {
+        assert_eq!(where_line(&[]), "In the book");
+        assert_eq!(
+            where_line(&["The Classes tree is incomplete.".to_string()]),
+            "In the book · draft order"
+        );
+    }
+
+    #[test]
+    fn in_this_chapter_counts_each_listed_kind_once_in_home_order() {
+        let tree = node(
+            "Skills",
+            Some("ref/skill/a"),
+            vec![
+                node(
+                    "One",
+                    Some("ref/skill/b"),
+                    vec![node("Deep", Some("ref/skill/c"), vec![])],
+                ),
+                node("Again", Some("ref/skill/b"), vec![]),
+                node("Spell", Some("ref/spell/s"), vec![]),
+                node("Rule", Some("ref/rule/r"), vec![]),
+                node("Unknown", Some("ref/other/x"), vec![]),
+            ],
+        );
+        assert_eq!(
+            kinds_under(&tree, kind_of),
+            vec![(EntryKind::Spell, 1), (EntryKind::Skill, 3)]
+        );
+        let rules = node(
+            "Combat",
+            Some("ref/rule/r"),
+            vec![node("Turn", None, vec![])],
+        );
+        assert!(kinds_under(&rules, kind_of).is_empty());
     }
 
     #[test]
