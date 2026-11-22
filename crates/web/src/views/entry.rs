@@ -86,11 +86,12 @@ fn printed_levels(value: &[Inline]) -> Vec<(String, u8)> {
 /// `Cantrips`; classes keep the order the printed row used, so the replacement reads as a
 /// correction of the word, not a re-sort of the list.
 fn typed_level_values(levels: &[SpellLevel], printed: &[(String, u8)]) -> Vec<Inline> {
-    let printed_rank: BTreeMap<(String, u8), usize> = printed
-        .iter()
-        .enumerate()
-        .map(|(at, (class, level))| ((normalized_class(class), *level), at))
-        .collect();
+    let printed_rank: BTreeMap<(String, u8), usize> = cast_iron_sort::map_of(
+        printed
+            .iter()
+            .enumerate()
+            .map(|(at, (class, level))| ((normalized_class(class), *level), at)),
+    );
     let mut by_level: BTreeMap<u8, Vec<&str>> = BTreeMap::new();
     for level in levels {
         by_level.entry(level.level).or_default().push(&level.class);
@@ -132,11 +133,12 @@ pub fn spell_level_body(body: &[Block], fields: &TypedFields) -> Vec<Block> {
     if spell.levels.is_empty() {
         return body.to_vec();
     }
-    let typed: BTreeSet<(String, u8)> = spell
-        .levels
-        .iter()
-        .map(|level| (normalized_class(&level.class), level.level))
-        .collect();
+    let typed: BTreeSet<(String, u8)> = cast_iron_sort::set_of(
+        spell
+            .levels
+            .iter()
+            .map(|level| (normalized_class(&level.class), level.level)),
+    );
     let mut blocks = body.to_vec();
     let mut rewrote = false;
     for block in &mut blocks {
@@ -160,10 +162,11 @@ pub fn spell_level_body(body: &[Block], fields: &TypedFields) -> Vec<Block> {
             if printed.is_empty() {
                 continue;
             }
-            let stated: BTreeSet<(String, u8)> = printed
-                .iter()
-                .map(|(class, level)| (normalized_class(class), *level))
-                .collect();
+            let stated: BTreeSet<(String, u8)> = cast_iron_sort::set_of(
+                printed
+                    .iter()
+                    .map(|(class, level)| (normalized_class(class), *level)),
+            );
             if stated != typed {
                 continue;
             }
@@ -609,14 +612,15 @@ fn EntryView(
         .relations
         .as_ref()
         .map(|relations| {
-            [
-                cast_iron_schema::RelationKind::Part,
-                cast_iron_schema::RelationKind::Archetype,
-            ]
-            .into_iter()
-            .flat_map(|kind| relations.sources_of(&entry.id, kind))
-            .cloned()
-            .collect()
+            cast_iron_sort::set_of(
+                [
+                    cast_iron_schema::RelationKind::Part,
+                    cast_iron_schema::RelationKind::Archetype,
+                ]
+                .into_iter()
+                .flat_map(|kind| relations.sources_of(&entry.id, kind))
+                .cloned(),
+            )
         })
         .unwrap_or_default();
     let references: Vec<_> = unique_targets(&entry.links)

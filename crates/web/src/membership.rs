@@ -48,11 +48,12 @@ impl<'a> BookMembership<'a> {
     /// The ids of the visible entries, in one pass. Discovery tests every hit, row and relation
     /// against this set.
     pub fn visible_ids(&self, entries: &[EntryStub]) -> BTreeSet<String> {
-        entries
-            .iter()
-            .filter(|stub| self.is_visible(stub))
-            .map(|stub| stub.id.to_string())
-            .collect()
+        cast_iron_sort::set_of(
+            entries
+                .iter()
+                .filter(|stub| self.is_visible(stub))
+                .map(|stub| stub.id.to_string()),
+        )
     }
 
     /// The member book a row names for this entry under the current choice.

@@ -245,7 +245,7 @@ impl SearchIndex {
     /// [`NEUTRAL_SOURCE_RANK`], and an index that never receives ranks ranks every document the
     /// same. The ranks are plain data from the caller and are not part of the serialized index.
     pub fn set_source_ranks<'a>(&mut self, ranks: impl IntoIterator<Item = (&'a str, u8)>) {
-        let by_source: std::collections::BTreeMap<&str, u8> = ranks.into_iter().collect();
+        let by_source: std::collections::BTreeMap<&str, u8> = cast_iron_sort::map_of(ranks);
         self.doc_ranks = self
             .meta
             .docs
@@ -404,13 +404,13 @@ impl SearchIndex {
     }
 
     pub fn facet_fields_eligible(&self, eligible: impl Fn(&str) -> bool) -> Vec<String> {
-        let set: std::collections::BTreeSet<&str> = self
-            .meta
-            .docs
-            .iter()
-            .filter(|d| eligible(&d.id))
-            .flat_map(|d| d.facets.iter().map(|(f, _)| f.as_str()))
-            .collect();
+        let set: std::collections::BTreeSet<&str> = cast_iron_sort::set_of(
+            self.meta
+                .docs
+                .iter()
+                .filter(|d| eligible(&d.id))
+                .flat_map(|d| d.facets.iter().map(|(f, _)| f.as_str())),
+        );
         set.into_iter().map(String::from).collect()
     }
 }

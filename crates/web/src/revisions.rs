@@ -194,16 +194,13 @@ impl RevisionView {
         let rows = self.rows(&visible);
         // Only a single revision in force substitutes. A collision keeps the printed base and
         // its prerequisites, exactly as the page keeps the original text under its notice.
-        let prerequisites: BTreeMap<EntryId, Vec<(EntryId, Option<RelationLabel>)>> = self
-            .by_base
-            .keys()
-            .filter_map(|base| {
+        let prerequisites: BTreeMap<EntryId, Vec<(EntryId, Option<RelationLabel>)>> =
+            cast_iron_sort::map_of(self.by_base.keys().filter_map(|base| {
                 let active = self.in_force(base)?;
                 active
                     .is_revised()
                     .then(|| (base.clone(), relations.prerequisite_edges(&active.revision)))
-            })
-            .collect();
+            }));
         // A book that is inactive is not part of the effective graph either, so a chain never
         // reaches a row that its own book hides.
         relations.with_effective_revisions(

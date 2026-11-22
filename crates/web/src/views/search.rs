@@ -477,15 +477,12 @@ fn publication_page(
     choices: &BTreeMap<Tier, bool>,
 ) -> PublicationPage {
     let filter = filter.trim().to_lowercase();
-    let selected_set: BTreeSet<&str> = selected.iter().map(String::as_str).collect();
+    let selected_set: BTreeSet<&str> = cast_iron_sort::set_of(selected.iter().map(String::as_str));
     let name_matches =
         |source: &SourceInfo| filter.is_empty() || source.title.to_lowercase().contains(&filter);
     let with_results = sources.iter().filter(|s| count_of(&s.id) > 0).count();
-    let tiers_with_results: BTreeSet<Tier> = sources
-        .iter()
-        .filter(|s| count_of(&s.id) > 0)
-        .map(Tier::of)
-        .collect();
+    let tiers_with_results: BTreeSet<Tier> =
+        cast_iron_sort::set_of(sources.iter().filter(|s| count_of(&s.id) > 0).map(Tier::of));
     let only_tier = if tiers_with_results.len() == 1 {
         tiers_with_results.iter().next().copied()
     } else {
@@ -1393,10 +1390,11 @@ pub fn Search() -> impl IntoView {
     // Every publication chip is kept out of the DOM until its publication matches. The list is
     // rendered in the same order a reader sees, so keyboard focus follows the page.
     let publication_sources = library.sources().to_vec();
-    let publication_titles: BTreeMap<String, String> = publication_sources
-        .iter()
-        .map(|source| (source.id.clone(), source.title.clone()))
-        .collect();
+    let publication_titles: BTreeMap<String, String> = cast_iron_sort::map_of(
+        publication_sources
+            .iter()
+            .map(|source| (source.id.clone(), source.title.clone())),
+    );
     // The reader's open or closed answer per tier. It lives outside the keyed group list, so it
     // survives a result refresh, and a group that drops out and returns keeps it.
     let group_choice = RwSignal::new(BTreeMap::<Tier, bool>::new());
