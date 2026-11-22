@@ -8,6 +8,7 @@
 use crate::fmt;
 use crate::library::use_library;
 use crate::route::Route;
+use crate::views::fresh::IntoFresh as _;
 use crate::views::icons;
 use crate::views::util::{Shared, local_resource};
 use cast_iron_schema::{
@@ -33,27 +34,27 @@ pub fn Legal() -> impl IntoView {
             " through GitHub Issues for questions, corrections, or licensing concerns."
         </p>
         {move || legal.with(|state| match state {
-            None => view! { <p class="status" role="status">"Loading…"</p> }.into_any(),
+            None => view! { <p class="status" role="status">"Loading…"</p> }.into_fresh(),
             Some(Err(error)) => view! {
                 <div class="error" role="alert">
                     <p>{error.reader_message()}</p>
                     <p><a href=Route::Settings.href()>"Open Settings"</a></p>
                 </div>
                 {crate::views::util::recovery_details(error.to_string())}
-            }.into_any(),
-            Some(Ok(legal)) => legal_view(legal).into_any(),
+            }.into_fresh(),
+            Some(Ok(legal)) => legal_view(legal).into_fresh(),
         })}
         <h2 id="coverage" tabindex="-1">"Coverage"</h2>
         {move || coverage.with(|state| match state {
-            None => view! { <p class="status" role="status">"Loading…"</p> }.into_any(),
+            None => view! { <p class="status" role="status">"Loading…"</p> }.into_fresh(),
             Some(Err(error)) => view! {
                 <div class="error" role="alert">
                     <p>{error.reader_message()}</p>
                     <p><a href=Route::Settings.href()>"Open Settings"</a></p>
                 </div>
                 {crate::views::util::recovery_details(error.to_string())}
-            }.into_any(),
-            Some(Ok(report)) => coverage_view(report).into_any(),
+            }.into_fresh(),
+            Some(Ok(report)) => coverage_view(report).into_fresh(),
         })}
         {move || {
             let datasets = legal.with(|state| match state {
@@ -434,7 +435,7 @@ fn maintainer_details(
             "Details for maintainers".to_string(),
             move || maintainer_content(&datasets, report.as_ref()),
         )
-        .into_any(),
+        .into_fresh(),
     )
 }
 
@@ -461,7 +462,7 @@ fn maintainer_content(
         {dataset_section}
         {report_sections}
     }
-    .into_any()
+    .into_fresh()
 }
 
 /// The coverage tables that list single records and single links.
@@ -545,7 +546,7 @@ fn coverage_maintainer_sections(shared: &Shared<CoverageReport>) -> AnyView {
         {stripped}
         {relationships}
     }
-    .into_any()
+    .into_fresh()
 }
 
 fn publications_table(report: &CoverageReport) -> AnyView {
@@ -571,7 +572,7 @@ fn publications_table(report: &CoverageReport) -> AnyView {
             <tbody>{rows}</tbody>
         </table>
     }
-    .into_any()
+    .into_fresh()
 }
 
 fn excluded_table(report: &CoverageReport) -> AnyView {
@@ -597,7 +598,7 @@ fn excluded_table(report: &CoverageReport) -> AnyView {
             <tbody>{rows}</tbody>
         </table>
     }
-    .into_any()
+    .into_fresh()
 }
 
 fn rejected_table(report: &CoverageReport) -> AnyView {
@@ -613,7 +614,7 @@ fn rejected_table(report: &CoverageReport) -> AnyView {
             <tbody>{rows}</tbody>
         </table>
     }
-    .into_any()
+    .into_fresh()
 }
 
 fn unread_table(report: &CoverageReport) -> AnyView {
@@ -631,7 +632,7 @@ fn unread_table(report: &CoverageReport) -> AnyView {
             <tbody>{rows}</tbody>
         </table>
     }
-    .into_any()
+    .into_fresh()
 }
 
 fn unplaced_parts_table(report: &CoverageReport) -> AnyView {
@@ -648,7 +649,7 @@ fn unplaced_parts_table(report: &CoverageReport) -> AnyView {
             <tbody>{rows}</tbody>
         </table>
     }
-    .into_any()
+    .into_fresh()
 }
 
 fn unpromoted_table(report: &CoverageReport) -> AnyView {
@@ -665,7 +666,7 @@ fn unpromoted_table(report: &CoverageReport) -> AnyView {
             <tbody>{rows}</tbody>
         </table>
     }
-    .into_any()
+    .into_fresh()
 }
 
 fn book_placements_table(report: &CoverageReport) -> AnyView {
@@ -693,7 +694,7 @@ fn book_placements_table(report: &CoverageReport) -> AnyView {
             <tbody>{rows}</tbody>
         </table>
     }
-    .into_any()
+    .into_fresh()
 }
 
 fn book_unplaced_table(report: &CoverageReport) -> AnyView {
@@ -711,7 +712,7 @@ fn book_unplaced_table(report: &CoverageReport) -> AnyView {
             <tbody>{rows}</tbody>
         </table>
     }
-    .into_any()
+    .into_fresh()
 }
 
 fn spell_unmapped_table(report: &CoverageReport) -> AnyView {
@@ -729,7 +730,7 @@ fn spell_unmapped_table(report: &CoverageReport) -> AnyView {
             <tbody>{rows}</tbody>
         </table>
     }
-    .into_any()
+    .into_fresh()
 }
 
 /// A code-styled entry id that links to the entry when the id is valid.
@@ -737,9 +738,9 @@ fn entry_link(id: &str) -> AnyView {
     match EntryId::parse(id) {
         Ok(parsed) => {
             let href = Route::entry(parsed).href();
-            view! { <a href=href><code>{id.to_string()}</code></a> }.into_any()
+            view! { <a href=href><code>{id.to_string()}</code></a> }.into_fresh()
         }
-        Err(_) => view! { <code>{id.to_string()}</code> }.into_any(),
+        Err(_) => view! { <code>{id.to_string()}</code> }.into_fresh(),
     }
 }
 
@@ -770,7 +771,7 @@ fn relationship_coverage(r: &RelationCoverage, report: Shared<CoverageReport>) -
                 move || unread_table(&report)
             },
         )
-        .into_any()
+        .into_fresh()
     });
     let lists = &r.spell_lists;
     let unmapped_count = lists.unmapped.len();
@@ -783,12 +784,12 @@ fn relationship_coverage(r: &RelationCoverage, report: Shared<CoverageReport>) -
                 move || spell_unmapped_table(&report)
             },
         )
-        .into_any()
+        .into_fresh()
     });
     let unplaced_parts_count = r.unplaced_parts.len();
     let unplaced_parts = if unplaced_parts_count == 0 {
         view! { <p class="hint">"Every racial trait and archetype has a race or class."</p> }
-            .into_any()
+            .into_fresh()
     } else {
         view! {
             <p>{format!("{unplaced_parts_count} racial traits and archetypes have no parent.")}</p>
@@ -801,7 +802,7 @@ fn relationship_coverage(r: &RelationCoverage, report: Shared<CoverageReport>) -
                 },
             )}
         }
-        .into_any()
+        .into_fresh()
     };
     let unpromoted_count = r.unpromoted.len();
     let unpromoted = (unpromoted_count > 0).then(|| {
@@ -816,7 +817,7 @@ fn relationship_coverage(r: &RelationCoverage, report: Shared<CoverageReport>) -
                 },
             )}
         }
-        .into_any()
+        .into_fresh()
     });
     let order = &r.book_order;
     let book_unplaced_count = order.unplaced.len();
@@ -829,7 +830,7 @@ fn relationship_coverage(r: &RelationCoverage, report: Shared<CoverageReport>) -
                 move || book_unplaced_table(&report)
             },
         )
-        .into_any()
+        .into_fresh()
     });
     let placement_count = order.by_publication.len();
     let placements = lazy_details(
@@ -890,7 +891,7 @@ fn relationship_coverage(r: &RelationCoverage, report: Shared<CoverageReport>) -
                 {placements}
             </section>
         }
-        .into_any(),
+        .into_fresh(),
     )
 }
 

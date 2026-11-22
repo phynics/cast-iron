@@ -1,0 +1,35 @@
+---
+title: "Page views are replaced, not patched: the Fresh wrapper and where it is allowed"
+date: 2026-11-23
+status: current
+superseded_by: []
+issues: [426, 579, 584, 587, 592]
+prs: []
+area: ui
+---
+
+# Page views are replaced, not patched: the Fresh wrapper and where it is allowed, 2026-11-23
+
+Follows [the cuts without a speed cost](2026-11-22-wasm-cuts-without-a-speed-cost.md), which named this cut and left it for a per-view review. The owner asked for it on 2026-11-22, with that review. Refs [#426](https://github.com/phynics/cast-iron/issues/426). The room is for [#579](https://github.com/phynics/cast-iron/issues/579), [#584](https://github.com/phynics/cast-iron/issues/584), [#587](https://github.com/phynics/cast-iron/issues/587) and [#592](https://github.com/phynics/cast-iron/issues/592).
+
+- **Where the cost is.** `view.into_any()` erases a view's type. For each erased view type the compiler emits the code that patches an existing DOM tree of that type in place (`Render::rebuild`): 127 KB over 243 view types, plus the copies inlined into callers. That code runs only when one reactive closure produces the same view type twice in a row. For most erased views that never happens.
+- **The wrapper.** `views::fresh::IntoFresh::into_fresh()` erases a view like `into_any()`, but renders it again by building the new tree, inserting it before the old nodes and removing the old nodes. These are the steps `AnyView` already takes when the view type changed. The patch code of the wrapped type is then not compiled.
+- **The upper bound, and why it is not taken.** With the wrapper on all 337 `into_any()` calls of the client the WASM is 153,844 bytes smaller. That would replace lists while the reader filters them and panels while the reader types in them, and lose focus, the caret, open disclosures and inner scroll. The wrapper is allowed only under one of the two rules below.
+- **Rule 1: the view is never rendered twice with the same type.** It sits in a closure that reads only a value that settles once (a `local_resource`, a "built" flag), where each state is a different view; or it is built once in the body of a component or function that is itself only built under this rule or under rule 2. The patch code of such a view was dead. Nothing changes for the reader.
+- **Rule 2: the view is a whole page at the route level.** `RouteView` renders again only when the page key changes. For every route but Search, the key changes only with the address, and then the frame treats the page as new: it scrolls to the top, the anchor or the remembered offset, and it moves focus to `<main>`. Every case in which the frame leaves scroll and focus alone (a search edit, a chapter of the book on screen, a school of the spell list on screen, an archetype choice or a section jump on the entry on screen) keeps the page key, so the page is not rendered again at all. A menu choice that opens a new list page asks the new page to focus the menu's button by id (`filter_menu::take_focus_request`), which finds the new button. Replacing the page instead of patching it differs in one way: a node of the old page is not reused, so an uncontrolled state on it (a disclosure the reader opened, text in a field) cannot leak into the next page of the same kind.
+- **Where it is applied (90 calls).**
+
+  | View | Calls | Rule | Check |
+  |---|---|---|---|
+  | `RouteView`: Home, both Browse kind pages, Browse source, Books (both arms), Manage books, Book, Chapter, Spell lists, Spell list, Feat chains, Entry, Table, Settings, Diagnostics, Legal, Not found | 18 | 2 | As above. Manage books keeps its key across a share code, Books and Book across a toggle or a chapter, Spell list across a school choice, Entry across a section or archetype choice: none of them is rendered again for those. |
+  | `Legal` and everything it builds (`legal_view`, `coverage_view`, the tables, `lazy_details` bodies, `entry_link`) | 27 | 1 | The two closures read `legal` and `coverage`, each a `local_resource`. A `lazy_details` body is built when `built` turns true, once; its `<details>` is not inside a wrapped closure, so its open state is the reader's. |
+  | `Entry`: the retired-id page, the loading, error and loaded states, and the article | 5 | 1 | The closure reads `entry`, a `local_resource`. |
+  | `EntryView` body: the kind and parent links of the metadata line, the revision notice | 7 | 1 | Built once per `EntryView`, which the loaded state above builds once. None sits in a reactive closure. The star, the bookmark control and the section switcher are not wrapped. |
+  | `Related`: every relationship panel (`race_panel`, `class_panels`, `mythic_panel`, `stamina_panel`, `changes_panel`, `feat_panels`, `prestige_panel`, `variants_panel`, `spell_panel`, `capped_list`) | 20 | 1 | Plain functions that `Related` calls once in its body; `Related` is built once by `EntryView`. A `Show all` row builds its rows when it opens; its `<details>` is outside the wrapped view. |
+  | `AddonBody`: loading, error and body | 3 | 1 | The closure reads `body`, a `local_resource`. |
+  | `SpellsHub` and `SpellListView`: loading, error, missing and loaded states; `ListPage`: the unknown-class page and the page shell | 10 | 1 | The closures read `lists`, a `local_resource`. `ListPage` is built once by the loaded state. |
+
+- **Where it is not applied, on purpose.** Search at the route level: its page key also changes when a book is turned on from the results (`Include`), with no address change, so the frame does not move focus or scroll, and patching keeps the search field. The boot states of `App`: activating a library sets `Ready` again while the shell is on screen, and that case was not reviewed. The spell list body, the browse lists, search results, Quick search, the filter menus, Books and Manage books internals, the archetype list: they update while the reader works in them. `rich.rs`, `book.rs` and `sources.rs` were measured and give under 2 KB each.
+- **Result.** `cargo xtask build-site --public-url /cast-iron/`, then `cargo xtask size-budget`, on main `ee5f88d50`: 2,603,118 to 2,544,016 bytes (-59,102, -2.3%). By group, measured on the branch of the earlier cuts with every call of one file wrapped: `app.rs` 27 KB, `legal.rs` 19 KB, `entry.rs` 17 KB, `spells.rs` 10 KB, `browse.rs` 10 KB, `related.rs` 9 KB, `search.rs` 8 KB. `wasm_bytes` stays 2,720,000.
+- **Rule for new code.** A new erased view uses `into_any()` unless the author can name rule 1 or rule 2 for it. A view under rule 1 that later reads a second signal goes back to `into_any()`. `tests/e2e/tests/route-focus.spec.ts` holds the route-level case: from one entry to another, focus is on `<main>`, the page is at the top, and no disclosure of the first entry is open on the second.
+- **Not done: a boxed `Memo` helper.** `Memo::new` is generic over the value type and the closure; a helper can share code only between memos of one value type. The 31 memos have 18 value types and are 21 KB together. The one type with several memos is `bool` (13 memos), and those are 2 KB together, so a helper would save under 2 KB. It is left out.

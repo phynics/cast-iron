@@ -130,3 +130,38 @@ test("A newer navigation cancels the focus move and the scroll of an older one",
   await frames(page);
   expect(await moves(page)).toEqual({ main: 1, scroll: 1 });
 });
+
+// The route level replaces a page instead of patching it (decision
+// docs/decisions/2026-11-23-page-views-are-replaced-not-patched.md). Two entries are the same kind of
+// page, so this is the case where the old page's nodes could be reused: nothing the reader did on
+// the first entry may show on the second, and focus and scroll are those of a new page.
+test("From one entry to another the page is new: focus on <main>, the top, and no disclosure carried over", async ({ page }) => {
+  await installLibrary(page);
+  const openDisclosures = () => page.locator("main details[open]").count();
+  const title = page.getByTestId("entry-title");
+
+  // What the second entry looks like when it is opened on its own.
+  await page.goto("#/entry/ref/feat/mobility");
+  await expect(title).toHaveText("Mobility");
+  await frames(page);
+  const fresh = await openDisclosures();
+
+  await page.goto("#/entry/ref/feat/dodge");
+  await expect(title).toHaveText("Dodge");
+  await frames(page);
+  // Open every disclosure of the first entry, focus a link in it, and scroll down.
+  const closed = page.locator("main details:not([open]) > summary");
+  for (let left = await closed.count(); left > 0; left -= 1) await closed.first().click();
+  expect(await openDisclosures()).toBeGreaterThan(0);
+  await page.locator("main article a[href]").first().focus();
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+
+  await page.evaluate(() => {
+    location.hash = "#/entry/ref/feat/mobility";
+  });
+  await expect(title).toHaveText("Mobility");
+  await expect(page.locator("main#main")).toBeFocused();
+  await frames(page);
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
+  expect(await openDisclosures()).toBe(fresh);
+});
