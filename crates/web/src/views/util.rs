@@ -55,6 +55,19 @@ pub fn local_resource<T: 'static>(
     read
 }
 
+/// Runs `run` as an effect: once on the next tick, then again when a signal it read changes.
+///
+/// `Effect::new` is generic over the closure, so each call site compiles its own copy of the
+/// effect's task. This boxes the closure first, and every caller shares one copy
+/// (docs/decisions/2026-11-22-wasm-cuts-without-a-speed-cost.md).
+pub fn effect(run: impl FnMut() + 'static) {
+    effect_boxed(Box::new(run));
+}
+
+fn effect_boxed(mut run: Box<dyn FnMut()>) {
+    Effect::new(move |_: Option<()>| run());
+}
+
 /// True while the viewport is at least 64 rem wide (the side-panel breakpoint of the stylesheet).
 /// It is read on load and follows the media query while the owner lives.
 pub fn at_least_64rem() -> ReadSignal<bool> {

@@ -14,6 +14,7 @@
 #![forbid(unsafe_code)]
 
 use std::cmp::Ordering;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// Runs up to this length are sorted by insertion; longer ones are merged.
 const RUN: usize = 12;
@@ -48,6 +49,25 @@ pub fn sort_by_cached_key<T, K: Ord>(v: &mut [T], key: impl FnMut(&T) -> K) {
 /// Sorts `v` in ascending order.
 pub fn sort<T: Ord>(v: &mut [T]) {
     sort_by(v, T::cmp);
+}
+
+/// Builds a `BTreeMap` by inserting one pair at a time. The later value wins, as with
+/// `collect()`; an equal key already present is kept.
+///
+/// `collect()` into a `BTreeMap` (and `BTreeMap::from`) first sorts the pairs with the generic
+/// `slice::sort_by`, which the compiler copies per key and value type. Inserting needs no sort
+/// (`docs/decisions/2026-11-22-wasm-cuts-without-a-speed-cost.md`).
+pub fn map_of<K: Ord, V>(pairs: impl IntoIterator<Item = (K, V)>) -> BTreeMap<K, V> {
+    let mut map = BTreeMap::new();
+    map.extend(pairs);
+    map
+}
+
+/// Builds a `BTreeSet` by inserting one value at a time. See [`map_of`] for the reason.
+pub fn set_of<T: Ord>(values: impl IntoIterator<Item = T>) -> BTreeSet<T> {
+    let mut set = BTreeSet::new();
+    set.extend(values);
+    set
 }
 
 fn identity(len: usize) -> Vec<usize> {

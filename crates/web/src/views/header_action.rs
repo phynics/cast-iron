@@ -198,7 +198,7 @@ pub fn InstallGuide() -> impl IntoView {
     let install = use_install();
     let dialog = NodeRef::<leptos::html::Dialog>::new();
 
-    Effect::new(move |_| {
+    crate::views::util::effect(move || {
         let wanted = install.guide_open.get();
         let Some(dialog) = dialog.get() else {
             return;

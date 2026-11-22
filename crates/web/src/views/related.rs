@@ -387,14 +387,10 @@ fn class_panels(
             let total = archetypes.len();
             let replaces_by_id: std::collections::BTreeMap<EntryId, String> = trades
                 .map(|index| {
-                    index
-                        .entries
-                        .iter()
-                        .filter_map(|row| {
-                            crate::class_options::replaces_line_of(row)
-                                .map(|line| (row.id.clone(), line))
-                        })
-                        .collect()
+                    cast_iron_sort::map_of(index.entries.iter().filter_map(|row| {
+                        crate::class_options::replaces_line_of(row)
+                            .map(|line| (row.id.clone(), line))
+                    }))
                 })
                 .unwrap_or_default();
             let groups = group_sorted(

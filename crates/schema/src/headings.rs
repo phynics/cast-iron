@@ -105,11 +105,9 @@ pub fn keyed_headings(body: &[Block]) -> Vec<(&Block, Option<String>)> {
         })
         .collect();
     // Reserve every literal key first, so a generated suffix never steals one of them.
-    let literal: BTreeSet<String> = bases.iter().flatten().cloned().collect();
-    let mut used: BTreeSet<String> = RESERVED_ANCHOR_KEYS
-        .iter()
-        .map(|key| (*key).to_string())
-        .collect();
+    let literal: BTreeSet<String> = cast_iron_sort::set_of(bases.iter().flatten().cloned());
+    let mut used: BTreeSet<String> =
+        cast_iron_sort::set_of(RESERVED_ANCHOR_KEYS.iter().map(|key| (*key).to_string()));
     let mut keyed = Vec::with_capacity(bases.len());
     for (block, base) in headings.into_iter().zip(bases) {
         let Some(base) = base else {

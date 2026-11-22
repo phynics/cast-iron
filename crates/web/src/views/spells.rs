@@ -561,11 +561,12 @@ fn ListPage(
                 (l, rows)
             })
             .collect();
-        let several_tiers = tiered
-            .iter()
-            .flat_map(|(_, rows)| rows.iter().map(|(tier, _)| *tier))
-            .collect::<std::collections::BTreeSet<_>>()
-            .len()
+        let several_tiers = cast_iron_sort::set_of(
+            tiered
+                .iter()
+                .flat_map(|(_, rows)| rows.iter().map(|(tier, _)| *tier)),
+        )
+        .len()
             > 1;
         let sections = tiered
             .into_iter()

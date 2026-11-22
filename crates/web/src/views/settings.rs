@@ -83,7 +83,7 @@ pub fn Settings() -> impl IntoView {
     // The header's update action asks for the Updates section. The Reader's route effect scrolls
     // to the top and focuses <main> one animation frame later, so wait two frames to land on the
     // section instead.
-    Effect::new(move |_| {
+    crate::views::util::effect(move || {
         if route::wants_updates_section(&route::current_hash()) {
             request_animation_frame(|| request_animation_frame(focus_updates));
         }

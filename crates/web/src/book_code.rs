@@ -141,7 +141,7 @@ pub fn encode(shared: &Shared) -> String {
 /// The code without separators. The check and the tests use it.
 fn encode_plain(shared: &Shared) -> String {
     let described = shared.described.min(MAX_SLOTS);
-    let on: BTreeSet<u32> = shared.on.range(..described).copied().collect();
+    let on: BTreeSet<u32> = cast_iron_sort::set_of(shared.on.range(..described).copied());
     let runs = runs_payload(described, &on);
     let bits = bits_payload(described, &on);
     let payload = if bits.len() < runs.len() { bits } else { runs };

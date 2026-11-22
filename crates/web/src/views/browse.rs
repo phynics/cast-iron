@@ -1441,7 +1441,7 @@ fn LetterNav(
     letters: Vec<char>,
     selected: Option<char>,
 ) -> impl IntoView {
-    Effect::new(move |_| {
+    crate::views::util::effect(move || {
         // Keep the open letter visible in the phone's single scrolling row. Read the DOM
         // directly: a pending frame against a disposed NodeRef would panic after remount.
         let Some(document) = web_sys::window().and_then(|window| window.document()) else {
@@ -1636,7 +1636,7 @@ fn AzList(
         // more frame before moving focus to the group heading. Query the DOM by id: a pending
         // frame against a disposed NodeRef would panic when the route changes again.
         let heading_id = format!("{}-heading", letter_id(letter));
-        Effect::new(move |_| {
+        crate::views::util::effect(move || {
             let heading_id = heading_id.clone();
             request_animation_frame(move || {
                 let heading_id = heading_id.clone();
@@ -1885,7 +1885,7 @@ pub fn BrowseKind(
                 .cloned()
                 .collect();
             let route = Route::browse_kind_facets(kind, rest).with_source(source.clone());
-            Effect::new(move |_| replace(&route));
+            crate::views::util::effect(move || replace(&route));
         }
         return view! { <GroupedKind kind field all /> }.into_any();
     }
@@ -2184,7 +2184,7 @@ fn BrowseList(
     if letter.is_some() && requested.is_none() {
         let route =
             Route::browse_kind_facets(kind, letter_facets.clone()).with_source(source.clone());
-        Effect::new(move |_| replace(&route));
+        crate::views::util::effect(move || replace(&route));
     }
     // Removing the book pill rebuilds this page; take focus after the route frame has moved it.
     if focus_first {
