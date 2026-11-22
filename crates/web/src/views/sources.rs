@@ -263,6 +263,7 @@ pub fn expanded_line(expanded: &[Expansion], library: &Library) -> AnyView {
                     anchor: None,
                     book: None,
                     section: None,
+                    arch: Default::default(),
                 }
                 .href()
             })

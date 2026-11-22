@@ -111,11 +111,9 @@ test("Home categories connect races, class options, spell levels, and reference 
   await afterRouteFrame(page);
   await category("Classes").click();
   await page.locator(`.entry-list a[href="#/entry/${classEntry.id}"]`).click();
-  await page.locator(".entry-rel").getByRole("heading", { name: /Archetypes/ }).waitFor();
-  await page.locator(".rel-disclosure > summary").click();
-  const archetypeGroup = page.locator(".rel-group").filter({ has: page.locator(`a[href="#/entry/${archetype.id}"]`) });
-  if ((await archetypeGroup.getAttribute("open")) === null) await archetypeGroup.locator("summary").click();
-  await page.locator(`.entry-rel a[href="#/entry/${archetype.id}"]`).click();
+  // The class page lists its archetypes in the Archetypes section (#170, part D).
+  await page.locator(".arch-list").waitFor();
+  await page.locator(`.arch-list a[href="#/entry/${archetype.id}"]`).click();
   await expect(page.getByRole("heading", { level: 1, name: archetype.title })).toBeVisible();
   await expect(page.locator(".entry-rel").getByRole("heading", { name: /An archetype of/ })).toBeVisible();
 

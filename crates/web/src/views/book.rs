@@ -321,6 +321,7 @@ pub fn BookView(source: String) -> impl IntoView {
                 anchor: None,
                 book: Some(source.clone()),
                 section: None,
+                arch: Default::default(),
             }
             .href();
             Some(view! {
@@ -509,6 +510,7 @@ pub fn ChapterView(
                                     anchor: node.anchor.clone(),
                                     book: Some(source.clone()),
                                     section: None,
+                                    arch: Default::default(),
                                 }
                                 .href()
                             });
@@ -702,6 +704,7 @@ fn entry_link(node: &BookNode, source: &str, hide: Hide<'_>) -> Option<String> {
             anchor: node.anchor.clone(),
             book: Some(source.to_string()),
             section: None,
+            arch: Default::default(),
         }
         .href(),
     )
@@ -860,6 +863,7 @@ fn TocNode(
                     anchor,
                     book: Some(tree.source.clone()),
                     section: None,
+                    arch: Default::default(),
                 }
                 .href()
             })
@@ -890,6 +894,7 @@ fn TocNode(
                 anchor: node.anchor.clone(),
                 book: Some(tree.source.clone()),
                 section: None,
+                arch: Default::default(),
             }
             .href()
         });
@@ -1029,6 +1034,7 @@ pub fn BookPosition(library: Library, id: EntryId, book: Option<String>) -> impl
                         anchor: None,
                         book: Some(source.clone()),
                         section: None,
+                        arch: Default::default(),
                     }
                     .href();
                     let chapter = crate::views::util::section_label(&neighbor.chapter);
