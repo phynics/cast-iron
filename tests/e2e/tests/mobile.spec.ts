@@ -661,6 +661,16 @@ installedTest("Spell list density at 390 px: Compact is two lines, toggles witho
   await expect(toggle).toBeVisible();
   await expect(toggle).toHaveClass(/text-btn/);
   expect((await toggle.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  // The toggle also shows on an empty narrowed list, and the spell hub has none.
+  await page.goto(`#/spells/${encodeURIComponent(listClass)}/${listLevel}?name=${encodeURIComponent("no-such-spell")}`);
+  await expect(page.locator(".empty")).toBeVisible();
+  await expect(page.locator(".spell-row")).toHaveCount(0);
+  await expect(page.locator(".level-nav").getByRole("button", { name: "Compact rows" })).toBeVisible();
+  await page.goto("#/spells");
+  await expect(page.getByRole("heading", { level: 1, name: "Spell lists" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /^(Compact|Wide) rows$/ })).toHaveCount(0);
+  await page.goto(`#/spells/${encodeURIComponent(listClass)}/${listLevel}`);
+  await expect(list).toBeVisible();
   // With Wide rows, two rows fit in the first screen.
   const fullyInside = await page.locator(".spell-list .spell-row").evaluateAll((nodes, viewport) =>
     nodes.filter((n) => n.getBoundingClientRect().bottom <= viewport).length, page.viewportSize()!.height);

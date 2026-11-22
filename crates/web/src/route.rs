@@ -1856,6 +1856,23 @@ mod tests {
         };
         assert_eq!(only_name.href(), "#/spells/Wizard?name=fire");
         round_trip(only_name);
+        // Characters that mean something in an address survive the round trip, and the name stays
+        // one pair of the query.
+        for text in ["a&b#c+d é", "x=y", "100%", "  spaced  "] {
+            let route = Route::SpellList {
+                class: "Wizard".into(),
+                level: Some(2),
+                schools: vec!["evocation".into()],
+                name: text.into(),
+            };
+            let href = route.href();
+            assert!(
+                !href[1..].contains(['#', ' ', 'é']),
+                "{href} holds a raw character"
+            );
+            assert_eq!(href.matches('&').count(), 1, "{href}");
+            round_trip(route);
+        }
         // An empty or blank name is none, and the address drops it.
         for hash in ["#/spells/Wizard?name=", "#/spells/Wizard?name=%20%20"] {
             assert_eq!(
