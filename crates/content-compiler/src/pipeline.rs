@@ -750,6 +750,11 @@ mod tests {
     use super::*;
     use cast_iron_schema::{Inline, Provenance};
 
+    #[test]
+    fn the_untyped_feat_facet_is_in_the_closed_feat_type_list() {
+        assert!(cast_iron_corpus::FEAT_TYPES.contains(&UNTYPED_FEAT_FACET));
+    }
+
     fn entry(id: &str, kind: EntryKind, bytes: usize) -> RuleEntry {
         RuleEntry {
             id: EntryId::parse(id).unwrap(),

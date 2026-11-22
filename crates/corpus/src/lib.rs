@@ -50,7 +50,9 @@ pub use books::{
     BOOKS_DIR, BookLayout, PAGE_ORDER_TITLE, UNPAGED_TITLE, book_index, is_clean_page,
     is_reserved_chapter, page_in,
 };
-pub use check::{Report, base_class_ids, check, fields_kind, fields_match, heading_keys, line_of};
+pub use check::{
+    FEAT_TYPES, Report, base_class_ids, check, fields_kind, fields_match, heading_keys, line_of,
+};
 pub use config::{
     CORPUS_FORMAT, Config, DEFAULT_LICENSE_REFS, MIGRATE_COMMAND, READABLE_FORMATS,
     SPLIT_BOOKS_FORMAT, TRADES_FORMAT, read_config, write_config,
