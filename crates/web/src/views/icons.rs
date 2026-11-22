@@ -228,7 +228,7 @@ pub fn install_add_home() -> impl IntoView {
 /// The quiet header action icon: install when `update` is false, an update when it is true.
 pub fn header_action(update: bool) -> impl IntoView {
     view! {
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
             stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             {if update {
                 view! {
@@ -239,6 +239,18 @@ pub fn header_action(update: bool) -> impl IntoView {
                     <path d="M12 4v10"/><path d="m8 10 4 4 4-4"/><path d="M5 19h14"/>
                 }.into_any()
             }}
+        </svg>
+    }
+}
+
+/// A signal with a slash: the device has no connection. CSS sizes it.
+pub fn offline() -> impl IntoView {
+    view! {
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="m4 4 16 16"/><path d="M8.5 15.5a5 5 0 0 1 3-1.4"/>
+            <path d="M4.5 10.5a10 10 0 0 1 3.4-2.1M14 8.1a10 10 0 0 1 5.5 2.4"/>
+            <path d="M12 19h.01"/>
         </svg>
     }
 }

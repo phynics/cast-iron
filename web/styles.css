@@ -23,14 +23,15 @@
   --ok: #2c6a38;
   --mark-bg: #f2d675;
   --mark-ink: #2a2521;
-  --on-error: #ffffff;
   --stat-bg: #efe8da;
   --shadow-edge: rgba(42, 37, 33, 0.22);
+  --backdrop: rgba(0, 0, 0, 0.45);
 
   /* Type */
   --font-text: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   --font-display: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
-  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --font-mono: ui-monospace, "SF Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+  --step--2: 0.75rem;
   --step--1: 0.875rem;
   --step-0: 1rem;
   --step-1: 1.25rem;
@@ -50,6 +51,7 @@
   /* Shape and layout */
   --radius: 6px;
   --measure: 44rem;
+  --book-column: 52rem;
   --touch: 2.75rem;
   --wide: 66rem;
   --header-h: 3.75rem;
@@ -76,7 +78,6 @@
     --ok: #8fcb9d;
     --mark-bg: #6e5410;
     --mark-ink: #fbf3e2;
-    --on-error: #1c1917;
     --stat-bg: #2b2623;
     --shadow-edge: rgba(0, 0, 0, 0.55);
   }
@@ -103,7 +104,6 @@
   --ok: #8fcb9d;
   --mark-bg: #6e5410;
   --mark-ink: #fbf3e2;
-  --on-error: #1c1917;
   --stat-bg: #2b2623;
   --shadow-edge: rgba(0, 0, 0, 0.55);
 }
@@ -284,38 +284,49 @@ main:focus {
 
 .app-header nav {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: var(--space-1);
-  margin-right: auto;
+  margin-right: 0;
+  margin-left: auto;
 }
 
+/* The primary tab, wide form: icon beside label, and the current tab is a --surface-2 fill. */
 .nav-link {
   display: inline-flex;
   align-items: center;
+  gap: 0.45rem;
   min-height: var(--touch);
-  padding: 0 var(--space-3);
+  padding: 0 0.8rem;
   color: var(--ink-muted);
   text-decoration: none;
-  border-bottom: 3px solid transparent;
+  border: 0;
+  border-radius: 0.65rem;
   font-weight: 500;
 }
 
-.nav-link:hover {
+.nav-link:hover,
+.nav-link[aria-current="page"] {
   color: var(--ink);
 }
 
 .nav-link[aria-current="page"] {
-  color: var(--ink);
-  border-bottom-color: var(--accent);
+  background: var(--surface-2);
 }
 
-.badge {
+/* The Offline mark is Label text with a glyph: no border, no fill, no radius, not focusable. */
+.offline-mark {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
   font-size: var(--step--1);
-  padding: 0.1rem var(--space-2);
-  border: var(--border);
-  border-radius: 999px;
   color: var(--ink-muted);
-  background: var(--surface-2);
+}
+
+.offline-mark svg {
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
 }
 
 main {
@@ -758,10 +769,6 @@ html {
   min-height: var(--header-h);
 }
 
-.app-header .badge {
-  margin-left: auto;
-}
-
 main:has(> .wide, > .search-page, > .entry) {
   max-width: var(--wide);
 }
@@ -780,11 +787,15 @@ main:has(> .wide, > .search-page, > .entry) {
     flex-wrap: nowrap;
   }
 
+  /* The bottom bar: one equal column per tab, whatever the count. */
   .app-header nav {
     position: fixed;
     inset: auto 0 0 0;
     z-index: 6;
     display: grid;
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
     gap: 0;
     margin: 0;
     padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
@@ -792,18 +803,16 @@ main:has(> .wide, > .search-page, > .entry) {
     border-top: var(--border);
   }
 
+  /* The phone form: icon above label. */
   .nav-link {
+    flex-direction: column;
     justify-content: center;
+    gap: 0.15rem;
     min-height: var(--nav-h);
-    padding: 0;
+    margin: 0 0.2rem;
+    padding: 0.25rem;
     font-size: var(--step--1);
-    border-bottom: 0;
-    border-top: 3px solid transparent;
-  }
-
-  .nav-link[aria-current="page"] {
-    border-top-color: var(--accent);
-    background: var(--surface-2);
+    line-height: 1.15;
   }
 }
 
@@ -827,17 +836,6 @@ main:has(> .wide, > .search-page, > .entry) {
   border-color: var(--ink-muted);
 }
 
-.btn-danger {
-  color: var(--on-error);
-  background: var(--error);
-  border-color: var(--error);
-}
-
-.btn-danger:hover:not(:disabled) {
-  background: var(--error);
-  filter: brightness(1.1);
-}
-
 mark {
   background: var(--mark-bg);
   color: var(--mark-ink);
@@ -853,11 +851,6 @@ mark {
   padding: 0 var(--space-1);
   font-size: var(--step--1);
   color: var(--ink-muted);
-}
-
-.tag-warn {
-  color: var(--error);
-  font-weight: 600;
 }
 
 /* Navigation: a rectangle with the card radius. Never a pill. */
@@ -929,39 +922,6 @@ mark {
 .tile-count {
   color: var(--ink-muted);
   font-variant-numeric: tabular-nums;
-}
-
-.hero {
-  padding: var(--space-4) 0 var(--space-3);
-}
-
-.hero h1 {
-  font-size: var(--step-3);
-  margin: var(--space-3) 0 var(--space-4);
-  max-width: 20ch;
-}
-
-.hero-search input[type="search"] {
-  min-height: 3.25rem;
-  font-size: var(--step-1);
-  border-width: 2px;
-}
-
-.hint-keys {
-  margin-top: var(--space-2);
-  font-size: var(--step--1);
-}
-
-@media (min-width: 48rem) {
-  .hero h1 {
-    font-size: 2.6rem;
-  }
-}
-
-@media (pointer: coarse) {
-  .hint-keys {
-    display: none;
-  }
 }
 
 .crumbs ol {
@@ -1158,37 +1118,6 @@ mark {
   /* At most two wrapped rows fit at this width; the heading clears both. */
   .letter-group {
     scroll-margin-top: calc(var(--header-h) + 2 * var(--letter-h) + var(--space-1));
-  }
-}
-
-.tree,
-.tree ul {
-  list-style: none;
-  padding-left: 0;
-  margin: 0;
-}
-
-.tree ul {
-  padding-left: var(--space-4);
-  border-left: 2px solid var(--line);
-  margin-left: var(--space-2);
-}
-
-.tree li > a {
-  display: inline-flex;
-  align-items: center;
-  min-height: var(--touch);
-}
-
-.tree > li.branch > a {
-  font-family: var(--font-display);
-  font-size: var(--step-1);
-  font-weight: 600;
-}
-
-@media (pointer: fine) {
-  .tree li > a {
-    min-height: 2.25rem;
   }
 }
 
@@ -2073,7 +2002,7 @@ mark {
   padding: 0;
   border: 0;
   font-family: var(--font-text);
-  font-size: 0.75rem;
+  font-size: var(--step--2);
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -2776,7 +2705,6 @@ main,
 }
 
 .crumbs a,
-.tree li > a,
 .ref-list a {
   min-width: var(--touch);
 }
@@ -2806,13 +2734,6 @@ main,
 
 .measure {
   max-width: var(--measure);
-}
-
-.lede-line {
-  margin: 0 0 var(--space-2);
-  max-width: var(--measure);
-  font-size: var(--step-1);
-  line-height: 1.4;
 }
 
 /* Category cards. */
@@ -2923,10 +2844,6 @@ main,
   cursor: pointer;
 }
 
-.az-head {
-  margin-top: var(--space-5);
-}
-
 /* Spell levels: a numeral over a count, one tap each. */
 .lvls {
   list-style: none;
@@ -2977,7 +2894,7 @@ main,
 }
 
 .lvl-count {
-  font-size: 0.75rem;
+  font-size: var(--step--2);
   font-variant-numeric: tabular-nums;
   color: var(--ink-muted);
 }
@@ -3839,7 +3756,7 @@ main,
 
 .book-where {
   margin: 0;
-  font-size: 0.75rem;
+  font-size: var(--step--2);
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -3897,7 +3814,7 @@ main,
   display: inline-flex;
   align-items: center;
   gap: 0.3em;
-  font-size: 0.75rem;
+  font-size: var(--step--2);
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -3934,7 +3851,9 @@ main,
 /* The entry screen at desktop width: the book position gets a row of its own. The areas are
    declared once, in the last `.entry:has(> .rich)` block at the end of this file. */
 @media (min-width: 64rem) {
-  .entry > .book-bar { grid-area: book; }
+  .entry > .book-bar {
+    grid-area: book;
+  }
 }
 
 /* One disclosure chevron for every summary that is not a bare <summary>. */
@@ -3991,43 +3910,91 @@ details[open] > summary > .disclosure-chevron {
 }
 
 /* Reader navigation and home */
-.nav-icon svg { width: 1.25rem; height: 1.25rem; }
-.app-header nav { margin-right: 0; margin-left: auto; flex-wrap: nowrap; }
-.nav-link {
-  gap: .45rem;
-  border: 0;
-  border-radius: .65rem;
-  padding: 0 .8rem;
+.nav-icon svg {
+  width: 1.25rem;
+  height: 1.25rem;
 }
-.nav-link[aria-current="page"] { background: var(--surface-2); color: var(--ink); }
-.nav-icon { display: flex; }
-.home-page > h1 { margin: var(--space-4) 0 var(--space-5); }
-.home-page section { margin-block: var(--space-5); }
-.home-section-heading { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); }
-.home-section-heading h2 { margin-block: 0; }
-.home-section-heading > a, .home-section-heading > button { flex-shrink: 0; }
-.home-page h2 { margin-bottom: var(--space-1); }
+.nav-icon {
+  display: flex;
+}
+.home-page > h1 {
+  margin: var(--space-4) 0 var(--space-5);
+}
+.home-page section {
+  margin-block: var(--space-5);
+}
+.home-page h2 {
+  margin-bottom: var(--space-1);
+}
 /* One compact list for Starred and Recently viewed: plain rows, one line each, hairline
    separators. The title truncates; the kind (and, for equal titles, the book) follows it. */
-.home-list { list-style: none; padding: 0; margin: var(--space-1) 0 0; border-top: var(--border); }
-.home-row { display: flex; align-items: center; border-bottom: var(--border); min-height: var(--touch); }
-.home-row-link { display: flex; flex: 1 1 auto; min-width: 0; align-items: center; gap: var(--space-3); min-height: var(--touch); padding-block: var(--space-2); text-decoration: none; }
-.home-row-title { flex: 0 1 auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-a.home-row-link:hover .home-row-title { text-decoration: underline; }
-.home-row-meta { flex: 0 1 auto; max-width: 45%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--ink-muted); font-size: var(--step--1); }
-.home-row .star-btn { flex: none; }
-.home-list-more { margin-top: var(--space-1); }
-.home-hint { margin-block: var(--space-3); font-size: var(--step--1); }
-.home-hint svg { width: 1em; height: 1em; vertical-align: -0.12em; }
-.cats-note { font-size: var(--step--1); margin: 0 0 var(--space-3); }
-.home-books p { margin-block: var(--space-2); }
+.home-list {
+  list-style: none;
+  padding: 0;
+  margin: var(--space-1) 0 0;
+  border-top: var(--border);
+}
+.home-row {
+  display: flex;
+  align-items: center;
+  border-bottom: var(--border);
+  min-height: var(--touch);
+}
+.home-row-link {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--touch);
+  padding-block: var(--space-2);
+  text-decoration: none;
+}
+.home-row-title {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+a.home-row-link:hover .home-row-title {
+  text-decoration: underline;
+}
+.home-row-meta {
+  flex: 0 1 auto;
+  max-width: 45%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--ink-muted);
+  font-size: var(--step--1);
+}
+.home-row .star-btn {
+  flex: none;
+}
+.home-list-more {
+  margin-top: var(--space-1);
+}
+.home-hint {
+  margin-block: var(--space-3);
+  font-size: var(--step--1);
+}
+.home-hint svg {
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.12em;
+}
+.cats-note {
+  font-size: var(--step--1);
+  margin: 0 0 var(--space-3);
+}
 @media (max-width: 47.99rem) {
-  .app-header { gap: var(--space-2); }
-  .app-header .header-search-btn { margin-left: auto; }
-  /* One equal column per nav link, whatever the count. */
-  .app-header nav { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 1fr; padding-top: .25rem; }
-  .nav-link { flex-direction: column; gap: .15rem; justify-content: center; min-height: var(--nav-h); margin: 0 .2rem; padding: .25rem; border: 0; line-height: 1.15; }
-  .nav-link[aria-current="page"] { border: 0; }
+  .app-header {
+    gap: var(--space-2);
+  }
+  .app-header .header-search-btn {
+    margin-left: auto;
+  }
 }
 
 /* One row that never wraps: the quick kinds scroll sideways, and the Filters button after
@@ -4074,9 +4041,6 @@ a.home-row-link:hover .home-row-title { text-decoration: underline; }
   border-color: var(--accent);
   background: var(--surface-2);
 }
-@media (max-width: 47.99rem) {
-  .app-header nav { padding-top: 0; }
-}
 
 input::placeholder {
   color: var(--ink-muted);
@@ -4084,120 +4048,473 @@ input::placeholder {
 }
 
 /* Reading and discovery share controls; the rule text keeps the primary reading position. */
-.book-directory { list-style: none; padding: 0; margin: 0; max-width: 52rem; }
-.book-directory[hidden] { display: none; }
-.book-directory-item { border-bottom: var(--border); }
-.book-directory-item:first-child { border-top: var(--border); }
+.book-directory {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-width: var(--book-column);
+}
+.book-directory[hidden] {
+  display: none;
+}
+.book-directory-item {
+  border-bottom: var(--border);
+}
+.book-directory-item:first-child {
+  border-top: var(--border);
+}
 /* A row on Books is one link: title, a meta line and a chevron (DESIGN.md, Books). The title is
    sans 600, so a group heading (serif 700) is never mistaken for it. */
-.book-card { display: flex; align-items: center; gap: var(--space-3); min-width: 0; min-height: 3.5rem; padding: var(--space-2) 0; color: inherit; text-decoration: none; border: 0; }
-.book-card:hover { background: var(--surface-2); }
-.book-card-text { flex: 1; min-width: 0; }
-.book-card .cat-name { display: block; font: 600 var(--step-0)/var(--leading-tight) var(--font-text); overflow-wrap: anywhere; }
-.book-card .cat-blurb { display: block; margin: var(--space-1) 0 0; color: var(--ink-muted); font-size: var(--step--1); font-variant-numeric: tabular-nums; }
-.book-inactive { padding: 0; }
-.book-chevron { flex: none; width: 1.25rem; height: 1.25rem; color: var(--ink-muted); }
+.book-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  min-height: 3.5rem;
+  padding: var(--space-2) 0;
+  color: inherit;
+  text-decoration: none;
+  border: 0;
+}
+.book-card:hover {
+  background: var(--surface-2);
+}
+.book-card-text {
+  flex: 1;
+  min-width: 0;
+}
+.book-card .cat-name {
+  display: block;
+  font: 600 var(--step-0)/var(--leading-tight) var(--font-text);
+  overflow-wrap: anywhere;
+}
+.book-card .cat-blurb {
+  display: block;
+  margin: var(--space-1) 0 0;
+  color: var(--ink-muted);
+  font-size: var(--step--1);
+  font-variant-numeric: tabular-nums;
+}
+.book-inactive {
+  padding: 0;
+}
+.book-chevron {
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  color: var(--ink-muted);
+}
 /* A group is an h2 that holds one disclosure button: a chevron, the name, and a muted count at
    the right. No fill and no box; the type, the space above and the count tell it from a row. */
-.book-tier { max-width: 52rem; }
-.book-group-head { margin: var(--space-5) 0 0; font: 700 var(--step-1)/var(--leading-tight) var(--font-display); scroll-margin-top: var(--header-h); text-wrap: wrap; }
+.book-tier {
+  max-width: var(--book-column);
+}
+.book-group-head {
+  margin: var(--space-5) 0 0;
+  font: 700 var(--step-1)/var(--leading-tight) var(--font-display);
+  scroll-margin-top: var(--header-h);
+  text-wrap: wrap;
+}
 /* Adventures groups by series (#159): nested native disclosures inside the tier. A series
    heading is serif 700 like a tier heading but one step smaller; the count stays muted and
    tabular at the right. No box, no fill, and no border. */
-.adventure-series-groups { max-width: 52rem; }
-.adventure-group, .adventure-series, .adventure-season { min-width: 0; }
-.series-head { margin: var(--space-4) 0 0; font: 700 var(--step-0)/var(--leading-tight) var(--font-display); scroll-margin-top: var(--header-h); text-wrap: wrap; }
-.series-toggle { display: flex; align-items: center; gap: var(--space-2); width: 100%; min-height: var(--touch); padding: 0; border: 0; background: none; color: var(--ink); font: inherit; text-align: start; cursor: pointer; }
-.series-toggle:hover .series-name { text-decoration: underline; text-underline-offset: 0.2em; }
-.series-toggle[aria-expanded="true"] .tier-chevron { transform: rotate(90deg); }
-.series-name { min-width: 0; overflow-wrap: anywhere; }
-.series-count { margin-inline-start: auto; padding-inline-start: var(--space-3); color: var(--ink-muted); font: 400 var(--step--1)/var(--leading-tight) var(--font-text); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.series-head-row { display: flex; align-items: center; gap: var(--space-2); }
-.series-head-row .series-head { flex: 1; min-width: 0; }
-.series-bulk { flex: none; padding-inline: var(--space-1); font-size: var(--step--1); }
-.adventure-group > .series-body, .adventure-series > .series-body, .adventure-season > .series-body { padding-inline-start: var(--space-4); }
-.tier-toggle { display: flex; align-items: center; gap: var(--space-2); width: 100%; min-height: var(--touch); padding: 0; border: 0; background: none; color: var(--ink); font: inherit; text-align: start; cursor: pointer; }
-.tier-toggle:hover .tier-name { text-decoration: underline; text-underline-offset: 0.2em; }
-.tier-chevron { flex: none; color: var(--accent); transition: transform 0.12s ease; }
-.tier-toggle[aria-expanded="true"] .tier-chevron { transform: rotate(90deg); }
-.tier-name { min-width: 0; }
-.tier-active { margin-inline-start: auto; padding-inline-start: var(--space-3); color: var(--ink-muted); font: 400 var(--step--1)/var(--leading-tight) var(--font-text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.adventure-series-groups {
+  max-width: var(--book-column);
+}
+.adventure-group,
+.adventure-series,
+.adventure-season {
+  min-width: 0;
+}
+.series-head {
+  margin: var(--space-4) 0 0;
+  font: 700 var(--step-0)/var(--leading-tight) var(--font-display);
+  scroll-margin-top: var(--header-h);
+  text-wrap: wrap;
+}
+.series-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: var(--touch);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.series-toggle:hover .series-name {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+.series-toggle[aria-expanded="true"] .tier-chevron {
+  transform: rotate(90deg);
+}
+.series-name {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.series-count {
+  margin-inline-start: auto;
+  padding-inline-start: var(--space-3);
+  color: var(--ink-muted);
+  font: 400 var(--step--1)/var(--leading-tight) var(--font-text);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.series-head-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.series-head-row .series-head {
+  flex: 1;
+  min-width: 0;
+}
+.series-bulk {
+  flex: none;
+  padding-inline: var(--space-1);
+  font-size: var(--step--1);
+}
+.adventure-group > .series-body,
+.adventure-series > .series-body,
+.adventure-season > .series-body {
+  padding-inline-start: var(--space-4);
+}
+.tier-toggle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: var(--touch);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.tier-toggle:hover .tier-name {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+.tier-chevron {
+  flex: none;
+  color: var(--accent);
+  transition: transform 0.12s ease;
+}
+.tier-toggle[aria-expanded="true"] .tier-chevron {
+  transform: rotate(90deg);
+}
+.tier-name {
+  min-width: 0;
+}
+.tier-active {
+  margin-inline-start: auto;
+  padding-inline-start: var(--space-3);
+  color: var(--ink-muted);
+  font: 400 var(--step--1)/var(--leading-tight) var(--font-text);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
 /* Active books (#/books/active): a head row with Done, a count line, preset rows, then toggle rows.
    A toggle row is a whole-row label that holds a native checkbox (DESIGN.md, Toggles). */
-.head-row { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); max-width: 52rem; }
-.head-row h1 { min-width: 0; }
-.head-row h1:focus { outline: none; }
-.books-count { max-width: 52rem; margin: 0 0 var(--space-3); font-variant-numeric: tabular-nums; }
-.text-btn { display: inline-flex; align-items: center; min-height: var(--touch); padding: 0 var(--space-2); border: 0; background: none; color: var(--accent); font: inherit; font-weight: 600; cursor: pointer; }
-.text-btn:hover { text-decoration: underline; text-underline-offset: 0.2em; }
-.head-row .text-btn { flex: none; margin-inline-end: calc(-1 * var(--space-2)); }
-.preset-list { list-style: none; padding: 0; margin: 0; max-width: 52rem; }
-.preset-list li { border-bottom: var(--border); }
-.preset-list li:first-child { border-top: var(--border); }
-.preset-row { display: flex; align-items: center; gap: var(--space-3); width: 100%; min-height: var(--touch); padding: 0; border: 0; background: none; color: var(--ink); font: inherit; text-align: start; cursor: pointer; }
-.preset-row:hover { background: var(--surface-2); }
-.preset-name { flex: 1; min-width: 0; }
-.preset-size { flex: none; color: var(--ink-muted); font-size: var(--step--1); font-variant-numeric: tabular-nums; }
-.preset-mark { flex: none; display: inline-flex; width: 1.25rem; color: var(--accent); }
-.undo-line { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); min-height: 0; max-width: 52rem; margin: 0; color: var(--ink-muted); font-size: var(--step--1); }
+.head-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  max-width: var(--book-column);
+}
+.head-row h1 {
+  min-width: 0;
+}
+.head-row h1:focus {
+  outline: none;
+}
+.books-count {
+  max-width: var(--book-column);
+  margin: 0 0 var(--space-3);
+  font-variant-numeric: tabular-nums;
+}
+.text-btn {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--touch);
+  padding: 0 var(--space-2);
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.text-btn:hover {
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+.head-row .text-btn {
+  flex: none;
+  margin-inline-end: calc(-1 * var(--space-2));
+}
+.preset-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  max-width: var(--book-column);
+}
+.preset-list li {
+  border-bottom: var(--border);
+}
+.preset-list li:first-child {
+  border-top: var(--border);
+}
+.preset-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: var(--touch);
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.preset-row:hover {
+  background: var(--surface-2);
+}
+.preset-name {
+  flex: 1;
+  min-width: 0;
+}
+.preset-size {
+  flex: none;
+  color: var(--ink-muted);
+  font-size: var(--step--1);
+  font-variant-numeric: tabular-nums;
+}
+.preset-mark {
+  flex: none;
+  display: inline-flex;
+  width: 1.25rem;
+  color: var(--accent);
+}
+.undo-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 0;
+  max-width: var(--book-column);
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: var(--step--1);
+}
 /* The line takes no room until a change shows in it, so no empty band sits between the presets and the share section. */
-.undo-line.has-status { min-height: var(--touch); }
-.undo-line .text-btn { margin-inline-end: calc(-1 * var(--space-2)); font-size: var(--step-0); }
+.undo-line.has-status {
+  min-height: var(--touch);
+}
+.undo-line .text-btn {
+  margin-inline-end: calc(-1 * var(--space-2));
+  font-size: var(--step-0);
+}
 /* Share a book set (#408): a disclosure on Manage books (#504) with the code, Copy and the field,
-   and the question that a code or a link opens. Same rhythm as the presets: a 52rem column, hairlines,
+   and the question that a code or a link opens. Same rhythm as the presets: a `--book-column` column, hairlines,
    44 px targets, no card or tint. */
-.share-set { max-width: 52rem; border-block: var(--border); margin-block: var(--space-3); }
-.share-set > summary { display: flex; align-items: center; gap: var(--space-2); min-height: var(--touch); color: var(--accent); font-weight: 600; cursor: pointer; list-style: none; }
-.share-set > summary::-webkit-details-marker { display: none; }
-.share-body { padding-block: var(--space-2) var(--space-4); }
-.share-body > p { margin: 0 0 var(--space-3); }
-.share-code-line { margin: 0 0 var(--space-3); }
-.share-code { display: block; padding: var(--space-3); border: 0; border-radius: var(--radius); background: var(--surface-2); font: 600 var(--step-1)/1.5 ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; letter-spacing: 0.08em; overflow-wrap: anywhere; user-select: all; -webkit-user-select: all; }
-.share-actions { display: flex; flex-wrap: wrap; gap: var(--space-3); margin-block: var(--space-3); }
-.share-note { min-height: 1.5em; margin: 0 0 var(--space-3); }
-.share-form label { display: block; margin-block-end: var(--space-1); font-weight: 600; }
-.share-entry { display: flex; gap: var(--space-3); }
-.share-entry input { flex: 1; min-width: 0; font-family: ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace; text-transform: uppercase; }
-.share-entry input::placeholder { text-transform: none; }
-.share-form .error { margin: var(--space-3) 0 0; }
-.share-confirm { max-width: 52rem; margin-block: var(--space-3) var(--space-4); }
-.share-notice { max-width: 52rem; margin-block: var(--space-3); }
-.share-status { font-size: var(--step-0); }
-.share-confirm h2 { margin-block: 0 var(--space-2); }
-.share-confirm h2:focus { outline: none; }
-.share-confirm p { margin: 0 0 var(--space-2); }
-.share-summary { font-weight: 600; }
-.toggle-row { display: flex; align-items: center; gap: var(--space-3); min-width: 0; min-height: 3.5rem; padding: var(--space-2) 0; cursor: pointer; }
-.toggle-row:hover { background: var(--surface-2); }
-.toggle-row input { flex: none; width: 1.375rem; height: 1.375rem; margin: 0; accent-color: var(--accent); }
-.toggle-row .book-card-text { flex: 1; min-width: 0; }
-.toggle-row .cat-name { display: block; font: 600 var(--step-0)/var(--leading-tight) var(--font-text); }
-.toggle-row .cat-blurb { display: block; margin: var(--space-1) 0 0; color: var(--ink-muted); font-size: var(--step--1); }
-.book-off-line { max-width: 52rem; margin: var(--space-2) 0 var(--space-3); }
+.share-set {
+  max-width: var(--book-column);
+  border-block: var(--border);
+  margin-block: var(--space-3);
+}
+.share-set > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--touch);
+  color: var(--accent);
+  font-weight: 600;
+  cursor: pointer;
+  list-style: none;
+}
+.share-set > summary::-webkit-details-marker {
+  display: none;
+}
+.share-body {
+  padding-block: var(--space-2) var(--space-4);
+}
+.share-body > p {
+  margin: 0 0 var(--space-3);
+}
+.share-code-line {
+  margin: 0 0 var(--space-3);
+}
+.share-code {
+  display: block;
+  padding: var(--space-3);
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  font: 600 var(--step-1)/1.5 var(--font-mono);
+  letter-spacing: 0.08em;
+  overflow-wrap: anywhere;
+  user-select: all;
+  -webkit-user-select: all;
+}
+.share-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-block: var(--space-3);
+}
+.share-note {
+  min-height: 1.5em;
+  margin: 0 0 var(--space-3);
+}
+.share-form label {
+  display: block;
+  margin-block-end: var(--space-1);
+  font-weight: 600;
+}
+.share-entry {
+  display: flex;
+  gap: var(--space-3);
+}
+.share-entry input {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+}
+.share-entry input::placeholder {
+  text-transform: none;
+}
+.share-form .error {
+  margin: var(--space-3) 0 0;
+}
+.share-confirm {
+  max-width: var(--book-column);
+  margin-block: var(--space-3) var(--space-4);
+}
+.share-notice {
+  max-width: var(--book-column);
+  margin-block: var(--space-3);
+}
+.share-status {
+  font-size: var(--step-0);
+}
+.share-confirm h2 {
+  margin-block: 0 var(--space-2);
+}
+.share-confirm h2:focus {
+  outline: none;
+}
+.share-confirm p {
+  margin: 0 0 var(--space-2);
+}
+.share-summary {
+  font-weight: 600;
+}
+.toggle-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  min-height: 3.5rem;
+  padding: var(--space-2) 0;
+  cursor: pointer;
+}
+.toggle-row:hover {
+  background: var(--surface-2);
+}
+.toggle-row input {
+  flex: none;
+  width: 1.375rem;
+  height: 1.375rem;
+  margin: 0;
+  accent-color: var(--accent);
+}
+.toggle-row .book-card-text {
+  flex: 1;
+  min-width: 0;
+}
+.toggle-row .cat-name {
+  display: block;
+  font: 600 var(--step-0)/var(--leading-tight) var(--font-text);
+}
+.toggle-row .cat-blurb {
+  display: block;
+  margin: var(--space-1) 0 0;
+  color: var(--ink-muted);
+  font-size: var(--step--1);
+}
+.book-off-line {
+  max-width: var(--book-column);
+  margin: var(--space-2) 0 var(--space-3);
+}
 /* Starred rows keep their hairline per cell. One column keeps the list's own top rule and
    no gap between rows; with more columns the first row of cells carries the top rule, so the
    line stops at each cell instead of crossing the gap. */
-.home-bookmarks { row-gap: 0; }
+.home-bookmarks {
+  row-gap: 0;
+}
 @media (min-width: 36rem) {
-  .home-bookmarks { border-top: 0; }
-  .home-bookmarks > li:nth-child(-n+2) { border-top: var(--border); }
+  .home-bookmarks {
+    border-top: 0;
+  }
+  .home-bookmarks > li:nth-child(-n+2) {
+    border-top: var(--border);
+  }
 }
 @media (min-width: 64rem) {
-  .home-bookmarks > li:nth-child(3) { border-top: var(--border); }
+  .home-bookmarks > li:nth-child(3) {
+    border-top: var(--border);
+  }
 }
-.home-bookmark-row { display: flex; align-items: center; gap: var(--space-3); border-bottom: var(--border); padding-block: var(--space-1); }
-.home-bookmark-row > a, .home-bookmark-row > .home-bookmark-missing { flex: 1; min-width: 0; border: 0; justify-content: flex-start; gap: var(--space-3); }
-.home-bookmark-row .btn { flex: none; }
-.bookmark-toggle svg, .home-bookmark-row button svg { flex: none; }
-.article-contents { max-width: var(--measure); margin-block: var(--space-2) var(--space-4); }
-.article-contents > summary { display: flex; align-items: center; gap: var(--space-2); min-height: var(--touch); cursor: pointer; padding-block: var(--space-2); font-weight: 600; }
-.article-contents ol { list-style: none; padding-inline-start: var(--space-3); }
-.article-contents a { display: inline-flex; align-items: center; min-height: var(--touch); }
-#entry-related { scroll-margin-top: var(--header-h); }
-#entry-related:has(.entry-rel) { margin-top: var(--space-5); border-top: var(--border); padding-top: var(--space-3); }
-.scope-choice[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
-@media (max-width: 30rem) {
-  .home-bookmark-row > a, .home-bookmark-row > .home-bookmark-missing { flex-direction: column; align-items: flex-start; gap: var(--space-1); }
+.bookmark-toggle svg {
+  flex: none;
+}
+.article-contents {
+  max-width: var(--measure);
+  margin-block: var(--space-2) var(--space-4);
+}
+.article-contents > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--touch);
+  cursor: pointer;
+  padding-block: var(--space-2);
+  font-weight: 600;
+}
+.article-contents ol {
+  list-style: none;
+  padding-inline-start: var(--space-3);
+}
+.article-contents a {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--touch);
+}
+#entry-related {
+  scroll-margin-top: var(--header-h);
+}
+#entry-related:has(.entry-rel) {
+  margin-top: var(--space-5);
+  border-top: var(--border);
+  padding-top: var(--space-3);
+}
+.scope-choice[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+  font-weight: 600;
 }
 @media (min-width: 64rem) {
   /* The one grid template for a wide entry; the earlier rules set the display, the gap and the
@@ -4231,18 +4548,38 @@ input::placeholder {
       "foot foot" auto
       / minmax(0, 1fr) 15rem;
   }
-  .entry > .disabled-book-notice { grid-area: disabled; }
-  .entry > .revision-notice { grid-area: revision; }
+  .entry > .disabled-book-notice {
+    grid-area: disabled;
+  }
+  .entry > .revision-notice {
+    grid-area: revision;
+  }
   /* A removed revision renders a second `.rich`, so it needs its own row rather than the
      body's area. */
-  .entry > .revision-sentence { grid-area: sentence; }
-  .entry > .revision-collision { grid-area: collision; }
-  .entry > .rel-original { grid-area: original; }
-  .entry > .article-contents { grid-area: contents; }
-  .entry > .sources-line { grid-area: sources; }
-  .entry > .expanded-line { grid-area: expanded; }
-  .entry > .aon-line { grid-area: aon; }
-  .entry > #entry-related { grid-area: rel; }
+  .entry > .revision-sentence {
+    grid-area: sentence;
+  }
+  .entry > .revision-collision {
+    grid-area: collision;
+  }
+  .entry > .rel-original {
+    grid-area: original;
+  }
+  .entry > .article-contents {
+    grid-area: contents;
+  }
+  .entry > .sources-line {
+    grid-area: sources;
+  }
+  .entry > .expanded-line {
+    grid-area: expanded;
+  }
+  .entry > .aon-line {
+    grid-area: aon;
+  }
+  .entry > #entry-related {
+    grid-area: rel;
+  }
 }
 /* A class page folds its link lists, so it has no side panel: one column, and the two rows end
    the page above the footer (#170 F). Without the panel the body also gets the full column. */
@@ -4281,26 +4618,71 @@ input::placeholder {
     max-width: var(--measure);
   }
 }
-.article-contents .contents-level-3 { margin-inline-start: .75rem; }
-.article-contents .contents-level-4 { margin-inline-start: 1.5rem; }
-.article-contents .contents-level-5 { margin-inline-start: 2.25rem; }
-.article-contents .contents-level-6 { margin-inline-start: 3rem; }
+.article-contents .contents-level-3 {
+  margin-inline-start: .75rem;
+}
+.article-contents .contents-level-4 {
+  margin-inline-start: 1.5rem;
+}
+.article-contents .contents-level-5 {
+  margin-inline-start: 2.25rem;
+}
+.article-contents .contents-level-6 {
+  margin-inline-start: 3rem;
+}
 
 /* Publication choices preserve each rule's identity without repeated top-level rows. */
-.source-variants > summary { display: flex; align-items: center; gap: var(--space-2); cursor: pointer; padding: .65rem 0; }
-.source-variant-count { color: var(--ink-muted); font-size: .85em; margin-inline-start: .5rem; }
+.source-variants > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  cursor: pointer;
+  padding: .65rem 0;
+}
+.source-variant-count {
+  color: var(--ink-muted);
+  font-size: .85em;
+  margin-inline-start: .5rem;
+}
 /* A fold in a list names its parent like a row does: the muted line sits at the end of the summary and drops under the title when the row is narrow. */
-.entry-list > li > .source-variants { flex: 1 1 100%; min-width: 0; }
-.entry-list > li > .source-variants > summary { flex-wrap: wrap; }
-.source-variants > ul { list-style: none; padding-inline-start: 1rem; margin-block: .25rem .75rem; }
-.source-variants > ul > li > a { display: block; padding: .6rem .25rem; }
-.hit-group > .source-variants > summary { display: flex; align-items: flex-start; gap: var(--space-2); padding: 1rem; }
-.hit-group > .source-variants > summary .hit-text { flex: 1; min-width: 0; }
-.hit-group > .source-variants > summary .hit-meta { display: block; margin-top: .25rem; }
-.hit-group > .source-variants > ul { padding-inline: 1rem; }
-.rel-chips .source-variants { min-width: 14rem; }
+.entry-list > li > .source-variants {
+  flex: 1 1 100%;
+  min-width: 0;
+}
+.entry-list > li > .source-variants > summary {
+  flex-wrap: wrap;
+}
+.source-variants > ul {
+  list-style: none;
+  padding-inline-start: 1rem;
+  margin-block: .25rem .75rem;
+}
+.source-variants > ul > li > a {
+  display: block;
+  padding: .6rem .25rem;
+}
+.hit-group > .source-variants > summary {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: 1rem;
+}
+.hit-group > .source-variants > summary .hit-text {
+  flex: 1;
+  min-width: 0;
+}
+.hit-group > .source-variants > summary .hit-meta {
+  display: block;
+  margin-top: .25rem;
+}
+.hit-group > .source-variants > ul {
+  padding-inline: 1rem;
+}
+.rel-chips .source-variants {
+  min-width: 14rem;
+}
 
-/* ==== Header action (Install) ============================================================= */
+/* ==== Header action (Install, Update) ============================================================= */
 
 .header-action-btn {
   display: inline-flex;
@@ -4308,36 +4690,28 @@ input::placeholder {
   justify-content: center;
   gap: 0.4rem;
   flex: none;
-  min-height: 1.875rem;
-  padding: 0 var(--space-3);
+  min-width: var(--touch);
+  min-height: var(--touch);
+  padding: 0 var(--space-2);
   font: inherit;
   font-size: var(--step--1);
   font-weight: 600;
   color: var(--ink-muted);
-  background: var(--surface-2);
-  border: var(--border);
-  border-radius: 999px;
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius);
   cursor: pointer;
-  animation: header-action-in 180ms ease-out;
 }
 
 .header-action-btn:hover {
   color: var(--ink);
-  background: var(--surface);
-  border: 1px solid var(--ink-muted);
-}
-
-.header-action-btn:active {
-  filter: brightness(0.95);
-}
-
-.header-action-btn:focus-visible {
-  outline: 2px solid var(--focus);
-  outline-offset: 2px;
+  background: var(--surface-2);
 }
 
 .header-action-btn svg {
   flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
 }
 
 /* The icon wrapper carries the update pip at its top-right corner. */
@@ -4355,52 +4729,41 @@ input::placeholder {
   border-radius: 50%;
   background: var(--accent);
   /* A surface-colored ring keeps the pip distinct from the arrow tip it touches. */
-  box-shadow: 0 0 0 1.5px var(--surface-2);
-}
-
-.header-action-btn:hover .header-action-pip {
   box-shadow: 0 0 0 1.5px var(--surface);
 }
 
-@keyframes header-action-in {
-  from {
-    opacity: 0;
-    transform: translateY(-2px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
+.header-action-btn:hover .header-action-pip {
+  box-shadow: 0 0 0 1.5px var(--surface-2);
 }
 
-/* Touch screens get a real 44px button, not a small one with a larger hit area. */
-@media (pointer: coarse) {
+/* Below 64rem the header action and the Offline mark show only their glyphs, so the four tabs,
+   the search icon, the action and the mark fit one row at 48rem. The accessible names stay: the
+   button's `aria-label`, and the mark's text, which is only visually hidden. */
+@media (max-width: 63.99rem) {
   .header-action-btn {
-    min-width: var(--touch);
-    min-height: var(--touch);
-  }
-}
-
-/* Next to the action, the Offline badge keeps its place right after it. */
-.app-header .header-action-btn + .badge {
-  margin-left: 0;
-}
-
-@media (max-width: 47.99rem) {
-  /* Icon only; the accessible name stays on the button. */
-  .header-action-btn {
-    width: 1.875rem;
+    width: var(--touch);
     padding: 0;
   }
 
   .header-action-label {
     display: none;
   }
+
+  .offline-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
 }
 
-@media (max-width: 47.99rem) and (pointer: coarse) {
-  .header-action-btn {
-    width: var(--touch);
+/* From 48rem to 64rem the header row is tight: the column gap narrows. */
+@media (min-width: 48rem) and (max-width: 63.99rem) {
+  .app-header {
+    column-gap: var(--space-2);
   }
 }
 
@@ -4418,7 +4781,7 @@ input::placeholder {
 }
 
 .install-sheet::backdrop {
-  background: rgba(0, 0, 0, 0.45);
+  background: var(--backdrop);
 }
 
 .install-sheet h2 {
@@ -4528,7 +4891,7 @@ input::placeholder {
 }
 
 .quick-search::backdrop {
-  background: rgba(0, 0, 0, 0.45);
+  background: var(--backdrop);
 }
 
 html:has(.quick-search[open]) {
@@ -5205,7 +5568,7 @@ label.choice-row {
 }
 
 .panic-notice::backdrop {
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--backdrop);
 }
 
 .panic-notice p {

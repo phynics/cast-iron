@@ -10,11 +10,11 @@ The file has six layers, from the most general to the most specific: Foundations
 
 All tokens are custom properties in `web/styles.css`. The color tokens have a light and a dark value (the dark ones in `:root:not([data-theme="light"])` under `prefers-color-scheme: dark`, and in `:root[data-theme="dark"]`).
 
-- **Colors:** `--bg`, `--surface`, `--surface-2`, `--ink`, `--ink-muted`, `--ink-dim`, `--line`, `--border` (the shorthand `1px solid var(--line)`), `--accent`, `--accent-ink`, `--focus`, `--error`, `--error-bg`, `--on-error`, `--ok`, `--mark-bg`, `--mark-ink`, `--stat-bg`, `--shadow-edge`.
-- **Type:** `--font-text`, `--font-display`, `--font-mono`, `--leading` (1.55), `--leading-tight` (1.2), `--step--1` to `--step-3` (see Type scale).
+- **Colors:** `--bg`, `--surface`, `--surface-2`, `--ink`, `--ink-muted`, `--ink-dim`, `--line`, `--border` (the shorthand `1px solid var(--line)`), `--accent`, `--accent-ink`, `--focus`, `--error`, `--error-bg`, `--ok`, `--mark-bg`, `--mark-ink`, `--backdrop` (the `rgba(0, 0, 0, 0.45)` scrim behind a modal dialog: Quick search, the install guide, the panic notice), `--stat-bg`, `--shadow-edge`.
+- **Type:** `--font-text`, `--font-display`, `--font-mono`, `--leading` (1.55), `--leading-tight` (1.2), `--step--2` to `--step-3` (see Type scale).
 - **Space:** `--space-1` to `--space-6` (0.25, 0.5, 0.75, 1, 1.5 and 2.5 rem).
-- **Shape:** `--radius` (6 px) for rectangles; 999 px only for filters (today also the `Offline` badge; #589 changes it). `--touch` (2.75rem, the 44 px target).
-- **Layout:** `--measure` (44rem), `--wide` (66rem), `--header-h` (3.75rem), `--nav-h` (3.5rem), `--letter-h` (3rem), and `--switcher-h` (`calc(var(--touch) + 2 * var(--space-2))`), which `web/styles.css` declares in a second `:root` rule beside the section switcher, not in the first block.
+- **Shape:** `--radius` (6 px) for rectangles; 999 px only for filters. `--touch` (2.75rem, the 44 px target).
+- **Layout:** `--measure` (44rem), `--book-column` (52rem, the column of Books, Manage books and the share panel), `--wide` (66rem), `--header-h` (3.75rem), `--nav-h` (3.5rem), `--letter-h` (3rem), and `--switcher-h` (`calc(var(--touch) + 2 * var(--space-2))`), which `web/styles.css` declares in a second `:root` rule beside the section switcher, not in the first block.
 
 The stat block keeps its left accent rule; it is part of the identity.
 
@@ -24,6 +24,7 @@ Body text is `--font-text` at `--step-0` (1rem) with `--leading`. `h1`, `h2` and
 
 | Token | Size | Used for |
 |---|---|---|
+| `--step--2` | 0.75rem | `h2.notes-title`, spell level counts, a book's place line, a step direction |
 | `--step--1` | 0.875rem | `.hint`, `.undo-line`, the Home category note, footnotes |
 | `--step-0` | 1rem | Body text |
 | `--step-1` | 1.25rem | `h3`; Books group headings |
@@ -70,7 +71,7 @@ A small control can mean five different things. Each role has one form, so a rea
 | Filter menu | A group too large for one row (feat types, schools, creature types) | A 44 px button with the card radius, a 1 px `--line` border, the text `{Group}: {value}` and a chevron-down icon. A narrowed menu has an `--accent` border and weight 600, with no fill. It opens an in-flow panel of 44 px link rows (label, tabular count, check on the current row, `aria-current`), "All {plural}" first, and a find field above 10 options. | `.filter-btn`, `.filter-panel`, `.choice-list`, `.choice-row` | A pill; a modal, a backdrop or a focus trap; ARIA `menu` |
 | Navigation | A jump to another place: recently viewed, shortcuts, spell-list links, search suggestions (Quick search rows: plain link rows with a muted `Kind · Book` line) | A rectangle with the card radius (`--radius`, 6 px) or a plain link row. It may show `aria-current` wayfinding (the current spell level). | `.jump` in `.jump-list`, `.rel-chips li`, `.rel-list` | A pill; a check mark or other filter state |
 | Navigation: related page | A link from a list to a related page (Feat chains, Spell lists, `Manage books ›` on Books), in the filter row | Accent text, weight 600, a chevron-right icon, a 44 px hit area, no border. | `.page-link` | A bordered rectangle beside a filter menu: two same-looking shapes with different jobs |
-| Label | A short fact about the item next to it: "or", "repeats", "not in this library", `Inactive` on a book row. A count next to a heading or a group name is Label text, never a bordered shape. | Small muted text with no border, no background and no pointer cursor. | `.tag`, `.rel-count` | A border, a link, anything that looks clickable |
+| Label | A short fact about the item next to it: "or", "repeats", "not in this library", `Inactive` on a book row, `Offline` in the masthead. A count next to a heading or a group name is Label text, never a bordered shape. | Small muted text with no border, no background and no pointer cursor. | `.tag`, `.rel-count` | A border, a link, anything that looks clickable |
 
 Rules that apply to every role:
 
@@ -152,17 +153,19 @@ A sheet is a modal `<dialog>`. Only two exist; every other panel stays in the pa
 
 ### Masthead
 
-The sticky header holds the brand, the primary nav (from 48rem; below it the nav is the bottom bar), the header search icon, the install action and the Offline badge. Its height stays `--header-h` (3.75rem) and every control keeps a 44 px target.
+The sticky header holds the brand, the primary nav (from 48rem; below it the nav is the bottom bar), the header search icon, the header action (Install or Update) and the Offline mark. Its height stays `--header-h` (3.75rem) and every control keeps a 44 px target.
 
 - **Brand.** An original wordmark (#194; decision `docs/decisions/2026-11-21-svg-wordmark.md`): "Cast Iron" in outlined Rozha One (SIL OFL 1.1, `LICENSES/OFL-1.1-Rozha-One.txt`) in `web/icons/wordmark.svg`, with a 4-unit round stroke (of 200 units to the em) added to the path so the hairlines and serifs survive at 390 px. The brand link is 44 px high; the mark inside it is 1.4rem high and 6.455 times as wide, and its left edge is the brand's left edge, so the brand still lines up with the page title. A hanging hole in the capital I was tried and dropped: Rozha's stem is too narrow for it.
 - **One file, both themes.** The SVG is an alpha mask (`.brand-mark`), not an image: the paint is `--ink` under a static diagonal oil-slick gradient (blue, violet, teal, amber, each mixed into `--ink` at 30 to 34 %), so the mark takes the light and the dark theme from the tokens. Nothing moves, so Reduce Motion needs no case. In forced-colors mode the paint is `CanvasText`.
 - **Name.** The mark is `aria-hidden`; the brand link carries a `.sr-only` "Cast Iron", once. The installer's masthead uses the same two spans.
 - **Search stays secondary.** The idle header search icon is a bare 20 px glyph in `--ink-muted` with no fill and no border; hover and focus bring `--ink` and the `--surface-2` fill. It never competes with the mark.
+- **Offline mark.** Label text with an offline glyph, never a pill: a 20 px glyph (`views/icons.rs`, `aria-hidden`) and `Offline` in `--step--1` `--ink-muted`, with no border, fill or radius, not focusable. Its sentence `Everything here still works.` is visually hidden text after the word, so the accessible text reads `Offline. Everything here still works.`. Below 64rem only the glyph shows: the word `Offline` is visually hidden too, and the accessible text does not change.
+- **Header action.** It has the header search icon's form: a bare 20 px glyph (a download arrow for Install, the update glyph for Update) in `--ink-muted`, no border and no fill at rest; hover brings `--ink` and the `--surface-2` fill with the `--radius` corners; 44 px target; no entry animation. From 64rem its label (`Install`, `Update ready`) sits beside the glyph; below 64rem the glyph shows alone and the accessible name stays on the button (the target is 44 px at every width). The update pip stays. A library update names itself `Library update ready. Open Settings`, as its status does.
 - **Limits.** No remote font, no animation, no image of the wordmark in the WASM. The artwork must stay clear of Paizo and Pathfinder marks (`AGENTS.md`, rules 10 and 11).
 
 ### Primary navigation
 
-Four tabs in one order, **Home, Books, Table, Settings**, each an icon above or beside its label. Below 48rem they are the bottom bar: one equal column per tab, each at least 44 px wide and `--nav-h` tall (at 390 px, about 97 px wide). From 48rem they are the header's top nav, icon beside label, after the brand. The tab for the current section carries `aria-current="page"`, and a page inside a section keeps its tab: kind lists and spell lists belong to Home, a book and its chapters to Books, Legal to Settings. Table is the die icon (`views/icons.rs`, the set's 24 px grid and 1.8 px round stroke); its page is Quick reference, and nothing else belongs to it. The header keeps the `--wide` column edge from 48rem, so four tabs must fit beside the brand, the search icon, the install action and the Offline badge at 48rem, 1024 px and 1280 px without wrapping.
+Four tabs in one order, **Home, Books, Table, Settings**, each an icon above or beside its label. Below 48rem they are the bottom bar: one equal column per tab, each at least 44 px wide and `--nav-h` tall (at 390 px, about 97 px wide). From 48rem they are the header's top nav, icon beside label, after the brand. The tab for the current section carries `aria-current="page"`, and a page inside a section keeps its tab: kind lists and spell lists belong to Home, a book and its chapters to Books, Legal to Settings. Table is the die icon (`views/icons.rs`, the set's 24 px grid and 1.8 px round stroke); its page is Quick reference, and nothing else belongs to it. The header keeps the `--wide` column edge from 48rem, so the header is one row at every width from 48rem: four tabs beside the brand, the search icon, the header action and the Offline mark. Below 64rem the header action and the Offline mark are glyph-only and the column gap is `--space-2`; from 64rem they carry their labels.
 
 Which tab a route highlights, today:
 
@@ -373,7 +376,7 @@ No box, no tint, and no left rule; the stat block keeps the only one.
 
 A footnote is never rules text, so it must not look like it (#507). On an entry page the notes leave the flow of the text and sit in one quiet group at the end of the body, `aside.notes` (a complementary landmark named by its `Notes` heading). The corpus keeps a note as a level-six heading with a `footnote-` anchor plus the one paragraph after it; `views/footnotes.rs` classifies that pair from the typed nodes, so the serialized body does not change. Only that paragraph belongs to the note: a monster's note sits inside its stat block, and the lines after it stay in the body.
 
-- **Group.** A hairline `--line` rule above it, then an `h2.notes-title` in small uppercase muted type (`0.75rem`, weight 600). The group is always open: a disclosure would hide text that readers look for after they follow a marker. It is the last child of `.rich`, never in the contents list ("On this page" lists sections only), and it has no card, fill or accent border, so it never competes with a stat block or a quote.
+- **Group.** A hairline `--line` rule above it, then an `h2.notes-title` in small uppercase muted type (`--step--2`, weight 600). The group is always open: a disclosure would hide text that readers look for after they follow a marker. It is the last child of `.rich`, never in the contents list ("On this page" lists sections only), and it has no card, fill or accent border, so it never competes with a stat block or a quote.
 - **Type.** Notes use `--step--1` in `--ink-muted` with a `1.5` line height, below the `1.0625rem` rules text. Sizes are rem, so they scale with Dynamic Type. The label (`1`, `B`) is `--ink-dim`, weight 600, tabular, in a fixed column; a screen reader hears `Note 1`. The note's DOM id is the id its heading would have had (`h-footnote-1`), so an old link to `#footnote-1` still lands on it.
 - **Markers.** A marker (`^1^`, the `^B^` after a monster's bonus feat) in a paragraph becomes `sup.fn-ref`, a quiet annotation and not part of the word before it (#517): `max(0.7em, 0.6875rem)`, so smaller than the text with a floor for small stat lines; `--ink-muted`, the colour of the notes; weight 400 and no underline, so it never reads as a bold or accented part of a feat name. It is a link to its note. Hover and keyboard focus bring back `--accent` and an underline, and the focus ring stays. The accessible name says what the mark is: `Note 1`, and `Bonus feat, note B` for a `B` whose note reads `Bonus feat.` (the note decides, because other books use `B` for other things). The same treatment applies to every marker, number or letter, linked in the corpus or not, because a footnote mark is one kind of thing. The hit area is an invisible `::after`, so it takes no space: about 29 px tall and as wide as the comma after it. It grows up, down and to the right, never left onto the feat name, and on a touch screen (`pointer: coarse`) it is about 36 px tall. A linked marker follows its explicit anchor. A bare marker links to the first note with its label that follows it, or to the last one before it. A number straight after a digit (`10^2^`) is an exponent, not a marker. A marker in a table cell or a stat row is the same link (#534): the same size, colour, name and back link, and the note lists its back links in the order the page renders in. A marker that cites no note of the entry, such as an exponent, stays a plain superscript. A way back to a marker inside a closed disclosure (the spell columns of a class progression) opens the disclosure first.
 - **Way back.** Each note ends with one icon-only link per marker that cites it (`Back to note 1 in the text`). The icon is small and the hit area reaches 44 px through `::after`, so a note stays compact. A note whose marker is missing from the text (a common case) shows its label and text and no way back.
@@ -574,6 +577,16 @@ An entry opened from a book or a chapter carries `?book=<id>` and ends with the 
 
 `#/settings/diagnostics` belongs to Settings. It is an `h1` and two paragraphs that say what the page holds (counts, lengths and times, not what was searched for; nothing is sent anywhere), then one row of `.btn` buttons (`Copy results` as the `.btn-primary`, `Refresh`, `Clear diagnostics`), a live status line, one `section.settings-section` per report section with its text in a focusable `<pre>`, and a `Back to Settings` link. While the report is collected it reads `Collecting...`.
 
+### Legal
+
+`#/legal` belongs to Settings. It opens with the `h1` `Legal and attribution` and the contact sentence, then an `On this page` jump list: a `nav` named `On this page` with an `h2.sub-head` and a `.jump-list` of `.jump` links, one for each `h2` of the page in page order (`Community Use notice`, `Sources using the Community Use Policy` and `Section 15 notice pending` when they show, `Product Identity declaration`, `Open Game License`, `Section 15: copyright notices`, `Dataset`, `Coverage`). A link scrolls to its heading and moves focus to it (the headings take `tabindex="-1"`); headings keep their ids. The sections follow in that order, one `--measure` column. No notice is folded away: the Community Use notice and the Product Identity declaration are always open.
+
+Each licence text is a native `details.legal-license` that starts closed, with the shared chevron, a 44 px summary and the licence name as the label; the text stays in the page. The Section 15 lines and the dataset lines are open lists. A dataset line gives the dataset name and its repository; the commit hashes sit in the maintainer details.
+
+Coverage keeps its summary tables open: `Publications`, `Entries by category`, `Excluded from this library`. Everything made for the people who maintain the corpus sits in one closed `details.coverage-more` with the summary `Details for maintainers`, built when it first opens like the other coverage details: the dataset commits, every excluded upstream path, `Rejected records`, `Links between entries`, `Upstream content removed on purpose` and `Relationships, spell lists, and book order`. The excluded material stays listed in the summary tables (AGENTS.md rule 6).
+
+While `legal.json` or `coverage.json` loads, the place of its content shows `Loading…` (`role="status"`). A file that cannot be read shows the page's `.error` with `Open Settings` and the closed `Details for a bug report` disclosure (see Recovery and unavailable pages); the other file's content still shows.
+
 ### Installer screen
 
 The installer screen shows when no library is installed yet. It has the masthead (the brand only), then `main.install-main`: the `h1` `Install the rules library`, a lede that says the library downloads once and works offline afterwards, an optional `.notice`, and one `.install-panel`. The panel shows the download size and the entry count as `dl.facts`, a paragraph that starts `On iPhone?` and names the Home Screen install and its separate library, a `Download` `.btn-primary` (`Download update` when it updates a library), and then a progress bar named `Download progress` with a live `.status` line. A failure is an `.error` with `role="alert"` and a `.btn-primary` `Retry` (`Check again` when the manifest must be fetched again); after a failed integrity check the panel adds that verified files are kept, so a retry continues where it stopped. The footer carries the unofficial line without the legal link.
@@ -583,10 +596,8 @@ The installer screen shows when no library is installed yet. It has the masthead
 These views exist and have no design section yet. Each entry names the ticket that writes it.
 
 - Settings and the update flow: `#584`
-- Legal: `#588`
 - Not found and the other recovery states: `#582`
 - Storage failure screen: `#583`
-- Header action and Offline mark: `#589`
 - Search filter panel contents: `#579`
 - Find a book: `#587`
 
@@ -619,7 +630,7 @@ The entry page of a turned-off book shows a `.notice`: `This entry's book is tur
 
 ### Offline
 
-While the device has no connection the header shows `Offline`, a `.badge` (small `--ink-muted` text on `--surface-2` with a hairline) at the right end, titled `No connection. Everything here still works.`. It has the 999 px radius that Shape reserves for filters. `#589` owns the Offline mark and the header action.
+While the device has no connection the header shows the Offline mark (see Shell › Masthead) at the right end: the glyph and `Offline`, with the visually hidden `Everything here still works.`. Below 64rem the glyph shows alone.
 
 ## Copy
 

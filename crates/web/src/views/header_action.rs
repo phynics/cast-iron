@@ -44,7 +44,7 @@ impl HeaderActionKind {
             Self::Update {
                 app: false,
                 library: true,
-            } => "Library update available. Open Settings",
+            } => "Library update ready. Open Settings",
             Self::Update { .. } => "Updates available. Open Settings",
         }
     }
@@ -177,7 +177,7 @@ mod tests {
         );
         assert_eq!(
             update(false, true).aria_label(),
-            "Library update available. Open Settings"
+            "Library update ready. Open Settings"
         );
         assert_eq!(
             update(true, true).aria_label(),

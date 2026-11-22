@@ -62,7 +62,7 @@ function newerLibraryOverlay() {
 const header = page => page.locator('header.app-header');
 const UPDATE_BUTTONS = {
   app: 'App update ready. Open Settings',
-  library: 'Library update available. Open Settings',
+  library: 'Library update ready. Open Settings',
   both: 'Updates available. Open Settings',
 };
 

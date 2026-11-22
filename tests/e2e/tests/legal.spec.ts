@@ -44,6 +44,34 @@ test("Licensing information is preserved and accessible", async ({ page }) => {
   await expect(page.getByRole("link", { name: "Contact the maintainer" }))
     .toHaveAttribute("href", "https://github.com/phynics/cast-iron/issues");
 
+  // The contents list names every section, in page order, and a link moves focus to its heading.
+  const contents = page.getByRole("navigation", { name: "On this page" });
+  await expect(contents.getByRole("heading", { level: 2, name: "On this page" })).toBeVisible();
+  const headings = await page.locator("main h2[id]").evaluateAll((nodes) =>
+    nodes.map((node) => ({ id: node.id, text: node.textContent })),
+  );
+  expect(headings.map((heading) => heading.id)).toContain("coverage");
+  await expect(contents.getByRole("link")).toHaveText(headings.map((heading) => heading.text!));
+  await contents.getByRole("link", { name: "Dataset" }).click();
+  await expect(page.locator("#dataset")).toBeFocused();
+  await expect(page).toHaveURL(/#\/legal$/);
+
+  // Nothing that a notice needs is folded: the Community Use notice and the Product Identity
+  // declaration are open, and every licence starts closed but stays in the page.
+  await expect(page.locator("#community-use + .legal-text")).toBeVisible();
+  await expect(page.locator("#product-identity + .legal-text")).toBeVisible();
+  const licences = page.locator("details.legal-license");
+  await expect(licences).toHaveCount(legal.licenses.length);
+  for (let index = 0; index < legal.licenses.length; index += 1) {
+    await expect(licences.nth(index)).not.toHaveAttribute("open", "");
+  }
+  // No commit hash shows on load; the maintainer details hold them.
+  await expect(page.locator("main")).not.toHaveText(/\b[0-9a-f]{40}\b/, { useInnerText: true });
+  const maintainers = page.locator('details.coverage-more[data-detail="maintainers"]');
+  await expect(maintainers.locator(":scope > summary")).toHaveText("Details for maintainers");
+  await expect(maintainers).not.toHaveAttribute("open", "");
+  await expect(page.getByText("Upstream path", { exact: true })).toHaveCount(0);
+
   const text = page.locator(".legal-text");
   await expect(text.filter({ hasText: "15. COPYRIGHT NOTICE" })).toHaveCount(1);
   await expect(text.filter({ hasText: "OPEN GAME LICENSE Version 1.0a" })).toHaveCount(1);
@@ -92,12 +120,14 @@ test("Licensing information is preserved and accessible", async ({ page }) => {
     expect(catalog.entries.some((candidate: any) => candidate.id === id), id).toBe(true);
   }
 
-  // Both dataset pins and their commits are shown, whichever library is installed.
+  // Both dataset pins are shown with their repository, whichever library is installed. Their
+  // commits are in the maintainer details, checked below.
   const datasets = page.locator("#dataset ~ .legal-list > li");
   await expect(datasets).toHaveCount(legal.datasets.length);
   for (const dataset of legal.datasets) {
     await expect(datasets.filter({ hasText: dataset.id })).toHaveCount(1);
-    await expect(datasets.filter({ hasText: dataset.commit })).toHaveCount(1);
+    await expect(datasets.filter({ hasText: dataset.repository })).toHaveCount(1);
+    await expect(datasets.filter({ hasText: dataset.commit })).toHaveCount(0);
   }
 
   // Every Section 15 line the compiler collected is shown.
@@ -149,15 +179,23 @@ test("Licensing information is preserved and accessible", async ({ page }) => {
     coverage.excluded.reduce((sum: number, row: any) => sum + row.records, 0),
   );
 
-  // The full tables remain available on demand.
+  // The full tables remain available on demand. The record-level tables sit in the maintainer
+  // details, which build their content when they first open.
+  await maintainers.locator(":scope > summary").click();
+  const commits = maintainers.locator("#coverage-datasets + .legal-list > li");
+  await expect(commits).toHaveCount(legal.datasets.length);
+  for (const dataset of legal.datasets) {
+    await expect(commits.filter({ hasText: dataset.id }).filter({ hasText: dataset.commit })).toHaveCount(1);
+  }
   const publications = page.locator('[data-detail="publications"]');
   await publications.locator("summary").click();
   const byPublication = publications.locator("table", { has: page.locator("caption", { hasText: "By publication" }) });
   await expect(byPublication.locator("tbody tr")).toHaveCount(coverage.by_publication.length);
   await expect(byPublication).toContainText(String(coverage.by_publication[0].included_entries));
 
-  const excluded = page.locator('[data-detail="excluded"]');
+  const excluded = maintainers.locator('[data-detail="excluded"]');
   await excluded.locator("summary").click();
+  await expect(excluded.getByText("Upstream path", { exact: true })).toBeVisible();
   const excludedTable = excluded.locator("table", { has: page.locator("caption", { hasText: "Excluded from this library" }) });
   await expect(excludedTable.locator("tbody tr")).toHaveCount(coverage.excluded.length);
   await expect(excludedTable).toContainText(coverage.excluded[0].path);
@@ -170,12 +208,12 @@ test("Licensing information is preserved and accessible", async ({ page }) => {
     const rejectedGroups = new Set(coverage.rejected.map((row: any) => reasonGroup(row.reason)));
     const rejectedSummary = page.locator("table", { has: page.locator("caption", { hasText: "Rejected records by reason" }) });
     await expect(rejectedSummary.locator("tbody tr")).toHaveCount(rejectedGroups.size);
-    const rejected = page.locator('[data-detail="rejected"]');
+    const rejected = maintainers.locator('[data-detail="rejected"]');
     await rejected.locator("summary").click();
     await expect(rejected.locator("table").locator("tbody tr")).toHaveCount(coverage.rejected.length);
   }
 
-  await expect(page.locator("table", { has: page.locator("caption", { hasText: "Link coverage" }) })).toBeVisible();
+  await expect(maintainers.locator("table", { has: page.locator("caption", { hasText: "Link coverage" }) })).toBeVisible();
 
   // An entry carries the Section 15 line of every publication it came from, and a link back here.
   const sourceIds: string[] = (entry as any).source_ids ?? [stub.source];
