@@ -323,6 +323,14 @@ impl Library {
             selection_write_in_flight: RefCell::new(false),
             migration_refused: RwSignal::new(false),
         })));
+        // The racial-trait facet holds the race's slug; its menu and pill read the race's title.
+        crate::views::search::register_facet_titles(
+            "racial_trait_race",
+            library.entries_of_kind(EntryKind::Race).filter_map(|stub| {
+                let slug = stub.id.as_str().rsplit('/').next()?;
+                Some((slug.to_string(), stub.title.clone()))
+            }),
+        );
         // A refused transaction is not fatal: every read still resolves the old id, and the
         // next load retries. Settings shows the non-blocking conversion notice meanwhile.
         let migration = library.migrate_stored_ids().await;

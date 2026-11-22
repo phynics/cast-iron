@@ -411,21 +411,29 @@ pub(crate) fn canonical_facets(entries: &[RuleEntry]) -> BTreeMap<EntryId, Vec<(
             TypedFields::Trait(fields) => push(&mut facets, "trait_category", &fields.category),
             // A class option's group is the slug of `option-groups.toml`.
             TypedFields::ClassOption(fields) => push(&mut facets, "group", &fields.group),
+            // A racial trait's race comes from its `part` edge, below.
             TypedFields::RacialTrait(_) | TypedFields::Archetype(_) | TypedFields::None => {}
         }
         // A race's group is an optional entry field, not part of `TypedFields`.
         if let Some(group) = entry.race_group {
             push(&mut facets, "race_group", group.slug());
         }
-        // An archetype's class comes from its typed edge, not from a text field.
-        if let Some(target) = entry
-            .relations
-            .iter()
-            .find(|relation| relation.kind == RelationKind::Archetype)
-            .map(|relation| relation.target.as_str())
-        {
-            let class = target.rsplit('/').next().unwrap_or_default();
+        // An archetype's class and a racial trait's race come from their typed edges, not from a
+        // text field. The facet value is the last segment of the target id.
+        let target_of = |kind: RelationKind| {
+            entry
+                .relations
+                .iter()
+                .find(|relation| relation.kind == kind)
+                .and_then(|relation| relation.target.as_str().rsplit('/').next())
+        };
+        if let Some(class) = target_of(RelationKind::Archetype) {
             push(&mut facets, "archetype_class", class);
+        }
+        if matches!(entry.fields, TypedFields::RacialTrait(_))
+            && let Some(race) = target_of(RelationKind::Part)
+        {
+            push(&mut facets, "racial_trait_race", race);
         }
         if !facets.is_empty() {
             out.insert(entry.id.clone(), facets);
@@ -854,7 +862,7 @@ mod tests {
     }
 
     #[test]
-    fn a_class_option_has_its_group() {
+    fn a_class_option_has_its_group_and_a_racial_trait_its_race() {
         let mut option = entry(
             "ref/rage-power/lesser-celestial-totem",
             EntryKind::ClassOption,
@@ -864,11 +872,39 @@ mod tests {
             group: "rage-power".into(),
             ..Default::default()
         });
-        let facets = canonical_facets(&[option]);
+        let part = |race: &str| cast_iron_schema::Relation {
+            kind: RelationKind::Part,
+            target: EntryId::parse(race).unwrap(),
+            label: None,
+        };
+        let mut standard = entry(
+            "ref/racial-trait/darkvision-dwarf",
+            EntryKind::RacialTrait,
+            0,
+        );
+        standard.fields = TypedFields::RacialTrait(cast_iron_schema::RacialTraitFields::default());
+        standard.relations = vec![part("ref/race/dwarf")];
+        let mut alternate = entry("ref/racial-trait/relic-seeker", EntryKind::RacialTrait, 0);
+        alternate.fields =
+            TypedFields::RacialTrait(cast_iron_schema::RacialTraitFields { alternate: true });
+        alternate.relations = vec![part("ref/race/half-elf")];
+        // A part of something that is not a racial trait gets no race facet.
+        let mut other = entry("ref/rule/part", EntryKind::Rule, 0);
+        other.relations = vec![part("ref/race/dwarf")];
+        let facets = canonical_facets(&[option, standard, alternate, other]);
         assert_eq!(
             facets[&EntryId::parse("ref/rage-power/lesser-celestial-totem").unwrap()],
             vec![("group".into(), "rage-power".into())]
         );
+        assert_eq!(
+            facets[&EntryId::parse("ref/racial-trait/darkvision-dwarf").unwrap()],
+            vec![("racial_trait_race".into(), "dwarf".into())]
+        );
+        assert_eq!(
+            facets[&EntryId::parse("ref/racial-trait/relic-seeker").unwrap()],
+            vec![("racial_trait_race".into(), "half-elf".into())]
+        );
+        assert!(!facets.contains_key(&EntryId::parse("ref/rule/part").unwrap()));
     }
 
     #[test]

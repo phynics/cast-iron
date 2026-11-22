@@ -356,10 +356,14 @@ mod tests {
     }
 
     #[test]
-    fn a_class_option_group_is_a_scope_like_any_facet() {
+    fn a_class_option_group_and_a_racial_trait_race_are_scopes_like_any_facet() {
         crate::views::search::register_facet_titles(
             "group",
             [("rage-power".to_string(), "Rage powers".to_string())],
+        );
+        crate::views::search::register_facet_titles(
+            "racial_trait_race",
+            [("dwarf".to_string(), "Dwarf".to_string())],
         );
         let rage = Route::browse_kind_facets(
             EntryKind::ClassOption,
@@ -376,6 +380,15 @@ mod tests {
         assert_eq!(rage.remove_label(), "Remove scope: Rage powers");
         assert_eq!(rage.results_line("12 results"), "12 results in Rage powers");
         assert_eq!(rage.show_all_label(), "Show all class options");
+
+        let dwarf = Route::browse_kind_facets(
+            EntryKind::RacialTrait,
+            vec![("racial_trait_race".into(), "dwarf".into())],
+        );
+        let dwarf = Scope::of_page(&dwarf).unwrap();
+        assert_eq!(dwarf.placeholder(), "Search Dwarf racial traits");
+        assert_eq!(dwarf.label(), "Dwarf racial traits");
+        assert_eq!(dwarf.remove_label(), "Remove scope: Dwarf racial traits");
     }
 
     #[test]

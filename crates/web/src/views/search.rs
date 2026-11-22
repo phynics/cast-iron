@@ -84,6 +84,7 @@ pub fn facet_fields_of(kind: EntryKind) -> &'static [(&'static str, &'static str
         EntryKind::Trait => &[("trait_category", "Trait category")],
         EntryKind::Archetype => &[("archetype_class", "Class")],
         EntryKind::ClassOption => &[("group", "Group")],
+        EntryKind::RacialTrait => &[("racial_trait_race", "Race")],
         _ => &[],
     }
 }
@@ -195,9 +196,9 @@ pub fn facet_label(field: &str, value: &str) -> String {
         | ("class_type" | "trait_category" | "archetype_class" | "school" | "size", _) => {
             capitalize_words(value)
         }
-        // A group's label comes from the library (see `register_facet_titles`). The fallback is
-        // for a screen that has the slug and no library data yet.
-        ("group", _) => {
+        // A group's label and a race's title come from the library (see `register_facet_titles`).
+        // The fallback is for a screen that has the slug and no library data yet.
+        ("group" | "racial_trait_race", _) => {
             facet_title(field, value).unwrap_or_else(|| capitalize_words(&value.replace('-', " ")))
         }
         _ => value.to_string(),
@@ -206,8 +207,9 @@ pub fn facet_label(field: &str, value: &str) -> String {
 
 thread_local! {
     /// Display titles of facet values that the index holds as slugs: the class-option groups'
-    /// plural labels (`rage-power` is `Rage powers`). The library fills it when it reads the
-    /// data, so a pill built from a route names the value the way the menu does.
+    /// plural labels (`rage-power` is `Rage powers`) and the race titles of the racial-trait
+    /// facet (`half-elf` is `Half-Elf`). The library fills it when it reads the data, so a pill
+    /// built from a route names the value the way the menu does.
     static FACET_TITLES: std::cell::RefCell<BTreeMap<(String, String), String>> =
         const { std::cell::RefCell::new(BTreeMap::new()) };
 }
@@ -2355,6 +2357,7 @@ mod tests {
             (EntryKind::Trait, "trait_category"),
             (EntryKind::Archetype, "archetype_class"),
             (EntryKind::ClassOption, "group"),
+            (EntryKind::RacialTrait, "racial_trait_race"),
         ] {
             assert_eq!(facet_fields_for(&[kind])[0].0, field);
         }
@@ -2381,12 +2384,15 @@ mod tests {
         let group = [facet("group", "rage-power")];
         assert_eq!(list_facets(&group, EntryKind::ClassOption), group);
         assert!(list_facets(&group, EntryKind::Feat).is_empty());
+        let race = [facet("racial_trait_race", "dwarf")];
+        assert_eq!(list_facets(&race, EntryKind::RacialTrait), race);
     }
 
     #[test]
-    fn a_group_reads_by_the_label_the_library_registered() {
+    fn a_group_and_a_race_read_by_the_title_the_library_registered() {
         // Before the library has read its data the slug reads as words.
         assert_eq!(facet_label("group", "arcane-discovery"), "Arcane Discovery");
+        assert_eq!(facet_label("racial_trait_race", "half-elf"), "Half Elf");
         register_facet_titles(
             "group",
             [(
@@ -2394,12 +2400,17 @@ mod tests {
                 "Arcane discoveries".to_string(),
             )],
         );
+        register_facet_titles(
+            "racial_trait_race",
+            [("half-elf".to_string(), "Half-Elf".to_string())],
+        );
         assert_eq!(
             facet_label("group", "arcane-discovery"),
             "Arcane discoveries"
         );
-        // A label belongs to its field.
-        assert_eq!(facet_label("cr", "arcane-discovery"), "arcane-discovery");
+        assert_eq!(facet_label("racial_trait_race", "half-elf"), "Half-Elf");
+        // A title belongs to its field.
+        assert_eq!(facet_label("cr", "half-elf"), "half-elf");
     }
 
     #[test]
