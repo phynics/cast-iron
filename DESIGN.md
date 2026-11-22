@@ -248,9 +248,22 @@ From the top, at 390 px:
 4. Notices.
 5. The filter row (not sticky): filter menus on the left, a `.page-link` on the right, and an open menu's panel under the row. Feats, spells, traits, items, archetypes, class options and racial traits have it. Classes and races have no filter: they sit under group headings (see Grouped lists). Creatures have the `Type` and `CR` menus. Racial traits have `Race: All races`, with a find field (`Find a race`) because there are more than 10 races; its labels are the race titles from the catalog and the empty state reads `No Dwarf racial traits in your active books.`.
 6. The letter bar (sticky, 48 px, `--letter-h`), only above 200 entries. It is the only sticky element below the masthead.
-7. The letter heading with its count, then the rows. A row is a title, plus a muted book when a title is printed in several, or the revision's book when the row shows a revision.
+7. The letter heading with its count, then the rows. A row is a title, plus a muted line: the parent, when the kind has one, and the book when a title is printed in several, or the revision's book when the row shows a revision (see Repeated titles).
 
 No lede, no subhead and no explanatory prose sit above the rows. The blurb that describes a category lives on its Home card. Provenance prose goes below the list.
+
+### Repeated titles
+
+A list folds entries into one `{title} · N publication entries` disclosure only when they are printings of one rule: the same kind, title and parent (race, class, option group, creature). Entries with different parents are separate rows whose muted line names the parent first: `{Parent} · {Book}`. A variant link names its book, adding the page or the parent when two would read the same; two links in one fold never read the same.
+
+- **The parent.** A racial trait names its race (`Dwarf · Advanced Race Guide`), an archetype its class (`Rogue · Advanced Player's Guide`), a class option its group (`Rage power · Core Rulebook`), an affliction the creature, template or rule it belongs to (`Giant Ant · Bestiary`). An alternate racial trait starts the line with `Alternate` (`Alternate · Dwarf · Advanced Race Guide`), so standard and alternate traits of one race read apart. An entry with no parent (the 41 archetypes whose class is not stated, most creatures, spells and feats) keeps the book alone, and folds by title as before.
+- **Narrowed by the parent.** When the list is narrowed by its parent (the `Race`, `Class` or `Group` menu), the parent is the menu's value and the line leaves it out: `Alternate · Advanced Race Guide`, `Core Rulebook`. When the list does not span books (`?source=`) the book is left out: `Dwarf`.
+- **A fold names its parent too.** The disclosure carries the same muted `.row-source` text inside its summary, parent only (`Dwarf`, or `Alternate · Dwarf`), so two folds of one title read apart.
+- **Variant links.** A link reads `{Book}`; the page is the list's kind. Two printings in one book add `p. {page}` from the first citation row, read when the disclosure first opens. If two links would still read the same, they add the parent's title, and once the pages are read a final `(n)` keeps any two apart. A panel that is not a list of one kind (the requirements panel of a prestige class) keeps `{Book}, {Kind}`.
+- **States.** The rows render with the book line at once; the parent joins the line, the folds and the order when the lookup (`relations.json`, `option-groups.json`) arrives, as the chain marker does. A library without the lookup keeps the book alone. A parent whose book is off still names itself in plain text, with no `Inactive` Label in a list row.
+- **Order.** Inside a letter group, rows sort by title, then by parent title, then by id.
+- **Accessibility.** The row link's accessible name is the title. The muted line follows as text, so a screen reader reads `Attributes, Dwarf · Advanced Race Guide`. No `aria-label` override.
+- **Phone and wide.** The muted line wraps under the title when it is long, as class-option rows do.
 
 ### Grouped lists
 
@@ -568,7 +581,6 @@ These views exist and have no design section yet. Each entry names the ticket th
 - Not found and the other recovery states: `#582`
 - Storage failure screen: `#583`
 - Header action and Offline mark: `#589`
-- Repeated titles in lists (the publication-entries fold): `#575`
 - Search filter panel contents: `#579`
 - Find a book: `#587`
 

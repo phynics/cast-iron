@@ -1,3 +1,4 @@
+import type { Locator, Page } from "@playwright/test";
 import { installedTest as test, expect, loadCorpus, goOffline } from "./fixtures";
 import { groupLetter, memberBooks, installLibrary, openBookGroups, waitControlled, waitResults } from "./helpers";
 
@@ -10,10 +11,28 @@ const corpus = loadCorpus();
 const BROWSABLE = new Set(["spell", "feat", "trait", "item", "creature", "class", "race",
   "prestige_class", "affliction", "archetype", "skill", "trap", "racial_trait"]);
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+type Stub = (typeof corpus.catalog.entries)[number];
+const stubTitle = (id: string) => corpus.catalog.entries.find((stub: Stub) => stub.id === id)?.title as string;
+/**
+ * What the list calls a row's parent (#575): a racial trait's race and an archetype's class from
+ * their relation, an affliction's parent from the catalog. A fold joins only entries of one kind,
+ * title and parent.
+ */
+const parentIds = (stub: Stub): string[] => {
+  const relation = stub.kind === "racial_trait" ? "part" : stub.kind === "archetype" ? "archetype" : null;
+  if (relation) {
+    return ((corpus.entries.get(stub.id)?.relations ?? []) as any[])
+      .filter((r) => r.kind === relation)
+      .map((r) => r.target as string)
+      .sort();
+  }
+  return stub.kind === "affliction" && stub.parent ? [stub.parent] : [];
+};
+const parentTitle = (stub: Stub) => parentIds(stub).map(stubTitle).sort().join(", ");
 const groups = new Map<string, typeof corpus.catalog.entries>();
 for (const stub of corpus.catalog.entries) {
   if (!BROWSABLE.has(stub.kind)) continue;
-  const key = `${stub.kind}\u0000${stub.title}`;
+  const key = `${stub.kind}\u0000${stub.title}\u0000${parentIds(stub).join(",")}`;
   groups.set(key, [...(groups.get(key) ?? []), stub]);
 }
 const variants = [...groups.values()].find((stubs) => {
@@ -30,8 +49,10 @@ test("Source variants retain distinct entries in browse and search after book fi
   expect(variants.length).toBeGreaterThan(1);
   await installLibrary(page); await waitControlled(page); await goOffline(context, server);
   await page.goto(`#/browse/kind/${kind}?l=${encodeURIComponent(groupLetter(title))}`);
-  const group = page.locator(".entry-list .source-variants").filter({ has: page.locator("summary", { hasText: new RegExp(`^${escape(title)} `) }) });
+  // Other folds may share the title under another parent; the fold is the one that holds these links.
+  const group = page.locator(".entry-list .source-variants").filter({ has: page.locator(`a[href="#/entry/${variants[0].id}"]`) });
   await expect(group).toHaveCount(1);
+  await expect(group.locator("summary")).toContainText(new RegExp(`^${escape(title)} `));
   await group.locator("summary").press("Enter");
   for (const stub of variants) await expect(group.locator(`a[href="#/entry/${stub.id}"]`)).toBeVisible();
   await group.locator(`a[href="#/entry/${variants[0].id}"]`).click();
@@ -57,4 +78,112 @@ test("Source variants retain distinct entries in browse and search after book fi
   await expect(page.locator("h1")).toHaveText(title);
   await expect(page.getByText(/This entry's book is turned off/)).toBeVisible();
   await expect(page.getByText("It stays in your Starred list.")).toBeVisible();
+});
+
+// ---- List rows name their parent, and the fold joins only printings of one rule (#575) ----
+
+const stubsOf = (kind: string, title: string): Stub[] =>
+  corpus.catalog.entries.filter((stub: Stub) => stub.kind === kind && stub.title === title);
+const rowsTitled = (page: Page, title: string) =>
+  page.locator(".entry-list > li").filter({ has: page.getByRole("link", { name: title, exact: true }) });
+/** The muted lines of the rows, once the parents have loaded: each starts with a parent title. */
+const mutedLines = (rows: Locator) => rows.locator(".row-source").allInnerTexts();
+
+test("Racial traits that share a title are separate rows, each naming its own race", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/browse/kind/racial_trait?l=A");
+  const attributes = stubsOf("racial_trait", "Attributes");
+  const races = attributes.map(parentTitle);
+  expect(new Set(races).size).toBeGreaterThanOrEqual(7);
+  // The rows exist at once; the race joins the line when the relations have loaded.
+  const rows = rowsTitled(page, "Attributes");
+  await expect(rows).toHaveCount(attributes.length);
+  await expect(page.locator(".source-variants").filter({ hasText: /^\s*Attributes/ })).toHaveCount(0);
+  await expect
+    .poll(async () => (await mutedLines(rows)).map((line) => line.split(" · ")[0]).sort())
+    .toEqual([...races].sort());
+  const lines = await mutedLines(rows);
+  expect(new Set(lines).size, lines.join(" | ")).toBe(lines.length);
+});
+
+test("An alternate racial trait starts its line with Alternate and its fold names the race", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/browse/kind/racial_trait?l=A");
+  // The trait printed in two books under one race is one fold, and the race says whose it is.
+  const printings = stubsOf("racial_trait", "Ancient Enmity").filter((stub: Stub) => parentTitle(stub) === "Dwarf");
+  expect(printings.length).toBeGreaterThan(1);
+  const fold = page.locator(".entry-list .source-variants").filter({ has: page.locator(`a[href="#/entry/${printings[0].id}"]`) });
+  await expect(fold).toHaveCount(1);
+  await expect(fold.locator("summary .row-source")).toHaveText("Alternate · Dwarf");
+  // A single alternate trait: the marker, the race, the book.
+  const single = (corpus.catalog.entries as Stub[]).find(
+    (stub) =>
+      stub.kind === "racial_trait" &&
+      stub.id.includes("/alternate-racial-traits/") &&
+      groupLetter(stub.title) === "A" &&
+      stubsOf("racial_trait", stub.title).filter((other) => parentTitle(other) === parentTitle(stub)).length === 1,
+  )!;
+  const row = page.locator(".entry-list > li").filter({ has: page.locator(`a[href="#/entry/${single.id}"]`) });
+  await expect(row.locator(".row-source")).toHaveText(new RegExp(`^Alternate · ${escape(parentTitle(single))} · .+`));
+  // Narrowed by race, the race is the menu's value: the marker stays and the race goes.
+  await page.goto("#/browse/kind/racial_trait?facet=racial_trait_race:dwarf&l=A");
+  const dwarf = page.locator(".entry-list > li .row-source");
+  await expect(dwarf.first()).toBeVisible();
+  for (const text of await dwarf.allInnerTexts()) expect(text).not.toContain("Dwarf");
+  await expect(page.locator(".entry-list > li .row-source", { hasText: /^Alternate · / }).first()).toBeVisible();
+});
+
+test("Afflictions that share a title name their creature", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/browse/kind/affliction?l=P");
+  const poisons = stubsOf("affliction", "Poison (Ex)");
+  expect(poisons.length).toBeGreaterThan(1);
+  const rows = rowsTitled(page, "Poison (Ex)");
+  await expect(rows).toHaveCount(poisons.length);
+  await expect
+    .poll(async () => (await mutedLines(rows)).map((line) => line.split(" · ")[0]).sort())
+    .toEqual(poisons.map(parentTitle).sort());
+  for (const line of await mutedLines(rows)) expect(line).toContain(" · ");
+});
+
+test("An archetype row names its class", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/browse/kind/archetype?l=A");
+  const acrobats = stubsOf("archetype", "Acrobat");
+  expect(acrobats.length).toBeGreaterThan(0);
+  const rows = rowsTitled(page, "Acrobat");
+  await expect(rows).toHaveCount(acrobats.length);
+  await expect
+    .poll(async () => (await mutedLines(rows)).map((line) => line.split(" · ")[0]).sort())
+    .toEqual(acrobats.map(parentTitle).sort());
+});
+
+test("Every open fold lists its printings under links that never read the same", async ({ page }) => {
+  await installLibrary(page);
+  for (const hash of ["#/browse/kind/racial_trait?l=A", "#/browse/kind/affliction?l=D", "#/browse/kind/creature?l=A"]) {
+    await page.goto(hash);
+    const folds = page.locator(".entry-list .source-variants");
+    await expect(folds.first()).toBeVisible();
+    await folds.evaluateAll((all) => all.forEach((fold) => ((fold as HTMLDetailsElement).open = true)));
+    await expect
+      .poll(async () => {
+        const unlike: string[] = [];
+        for (const fold of await folds.all()) {
+          const texts = await fold.locator("ul a").allInnerTexts();
+          if (new Set(texts).size !== texts.length) unlike.push(texts.join(" | "));
+        }
+        return unlike;
+      }, hash)
+      .toEqual([]);
+    // A link names its book alone: the kind is the page's.
+    for (const text of await folds.first().locator("ul a").allInnerTexts()) expect(text, hash).not.toMatch(/, (Racial traits|Afflictions|Creatures)$/);
+  }
+});
+
+test("Creatures with one title still fold, since they have no parent", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/browse/kind/creature?l=A");
+  const fold = page.locator(".entry-list .source-variants").filter({ has: page.locator("summary", { hasText: /^\s*Acolyte / }) });
+  await expect(fold).toHaveCount(1);
+  await expect(fold.locator("summary .row-source")).toHaveCount(0);
 });
