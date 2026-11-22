@@ -15,6 +15,7 @@ name = "cast-iron-web"
 path = "src/main.rs"
 
 [dependencies]
+cast-iron-sort.workspace = true
 cast-iron-schema.workspace = true
 cast-iron-search.workspace = true
 serde.workspace = true

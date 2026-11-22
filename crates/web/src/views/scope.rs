@@ -183,7 +183,7 @@ impl Scope {
                 1
             }
         };
-        groups.sort_by_key(|(field, phrases)| rank(field, phrases));
+        cast_iron_sort::sort_by_key(&mut groups, |(field, phrases)| rank(field, phrases));
         let facets: Vec<String> = groups
             .into_iter()
             .map(|(_, phrases)| phrases.join(" or "))

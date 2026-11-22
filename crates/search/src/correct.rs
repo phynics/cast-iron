@@ -56,7 +56,7 @@ impl NameTerms {
                 }
             }
         }
-        pairs.sort_unstable();
+        cast_iron_sort::sort(&mut pairs);
         pairs.dedup();
         let mut terms: Vec<String> = Vec::new();
         let mut lists: Vec<Vec<u32>> = Vec::new();
@@ -218,7 +218,7 @@ impl SearchIndex {
             }
             picks = next;
         }
-        picks.sort();
+        cast_iron_sort::sort(&mut picks);
         for (distance, chosen) in picks.into_iter().take(MAX_COMBINATIONS) {
             let corrected: Vec<String> = words
                 .iter()
@@ -337,7 +337,7 @@ impl SearchIndex {
         }
         // Fewest edits, then whole words before prefixes, then the name that more documents
         // carry, then the term text: a total order, so ties never depend on how it was built.
-        found.sort_by(|a, b| {
+        cast_iron_sort::sort_by(&mut found, |a, b| {
             a.cost
                 .cmp(&b.cost)
                 .then(a.prefix_only.cmp(&b.prefix_only))

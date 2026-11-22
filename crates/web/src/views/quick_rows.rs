@@ -268,7 +268,7 @@ pub fn shortest_completion_first(hits: Vec<HitSummary>, typed: &str) -> Vec<HitS
             run.push(next);
         }
         // A stable sort: completions first, shortest first, the rest in engine order.
-        run.sort_by_key(|hit| {
+        cast_iron_sort::sort_by_key(&mut run, |hit| {
             if completes(hit) {
                 (0, hit.title.chars().count())
             } else {

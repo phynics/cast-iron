@@ -77,7 +77,9 @@ pub fn rows(library: &Library, sources: &[BacklinkSource]) -> Vec<BacklinkRow> {
             anchor,
         });
     }
-    out.sort_by(|a, b| (sort_key(&a.title), &a.source).cmp(&(sort_key(&b.title), &b.source)));
+    cast_iron_sort::sort_by(&mut out, |a, b| {
+        (sort_key(&a.title), &a.source).cmp(&(sort_key(&b.title), &b.source))
+    });
     out
 }
 
@@ -90,13 +92,13 @@ pub fn group(rows: Vec<BacklinkRow>) -> Vec<BacklinkGroup> {
     let mut out: Vec<BacklinkGroup> = groups
         .into_iter()
         .map(|(heading, mut rows)| {
-            rows.sort_by(|a, b| {
+            cast_iron_sort::sort_by(&mut rows, |a, b| {
                 (sort_key(&a.title), &a.source).cmp(&(sort_key(&b.title), &b.source))
             });
             BacklinkGroup { heading, rows }
         })
         .collect();
-    out.sort_by_cached_key(|a| sort_key(&a.heading));
+    cast_iron_sort::sort_by_cached_key(&mut out, |a| sort_key(&a.heading));
     out
 }
 

@@ -41,7 +41,7 @@ pub fn picker_groups(lists: &SpellLists) -> (Vec<&SpellListClass>, Vec<&SpellLis
         .iter()
         .filter(|l| !COMMON_CLASSES.contains(&l.name.to_lowercase().as_str()))
         .collect();
-    rest.sort_by_key(|l| l.name.to_lowercase());
+    cast_iron_sort::sort_by_key(&mut rest, |l| l.name.to_lowercase());
     (common, rest)
 }
 
@@ -644,7 +644,7 @@ fn ListPage(
             school_counts.push((chosen, 0));
         }
     }
-    school_counts.sort();
+    cast_iron_sort::sort(&mut school_counts);
     let options: Vec<MultiOption> = school_counts
         .into_iter()
         .map(|(value, count)| MultiOption {

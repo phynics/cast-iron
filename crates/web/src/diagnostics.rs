@@ -170,7 +170,7 @@ pub fn percentile(values: &mut [f64], p: f64) -> Option<f64> {
     if values.is_empty() {
         return None;
     }
-    values.sort_by(f64::total_cmp);
+    cast_iron_sort::sort_by(values, f64::total_cmp);
     let rank = (p * values.len() as f64).ceil() as usize;
     Some(values[rank.clamp(1, values.len()) - 1])
 }

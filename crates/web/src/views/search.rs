@@ -41,7 +41,7 @@ pub fn highlight_segments(text: &str, ranges: &[(usize, usize)]) -> Vec<(usize, 
             a < b && b <= text.len() && text.is_char_boundary(a) && text.is_char_boundary(b)
         })
         .collect();
-    valid.sort();
+    cast_iron_sort::sort(&mut valid);
     let mut merged: Vec<(usize, usize)> = Vec::new();
     for (a, b) in valid {
         match merged.last_mut() {
@@ -143,12 +143,12 @@ pub fn toggled<T: PartialEq + Clone>(list: &[T], item: &T) -> Vec<T> {
 
 /// Orders facet values for display: levels numerically, CR by value, the rest alphabetically.
 pub fn sort_facet_values(field: &str, values: &mut [String]) {
-    values.sort_by_cached_key(|v| facet_sort_key(field, v));
+    cast_iron_sort::sort_by_cached_key(values, |v| facet_sort_key(field, v));
 }
 
 /// The same order for `(value, count)` pairs.
 pub fn sort_facet_pairs(field: &str, values: &mut [(String, u32)]) {
-    values.sort_by_cached_key(|(v, _)| facet_sort_key(field, v));
+    cast_iron_sort::sort_by_cached_key(values, |(v, _)| facet_sort_key(field, v));
 }
 
 fn facet_sort_key(field: &str, value: &str) -> (u32, String) {
@@ -456,7 +456,7 @@ fn publication_page(
             })
         })
         .collect();
-    candidates.sort_by(|a, b| {
+    cast_iron_sort::sort_by(&mut candidates, |a, b| {
         a.0.cmp(&b.0)
             .then_with(|| b.3.cmp(&a.3))
             .then_with(|| b.2.cmp(&a.2))

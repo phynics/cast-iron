@@ -1110,7 +1110,7 @@ impl TradeIndex {
                     .collect(),
             })
             .collect();
-        entries.sort_by(|a, b| a.id.cmp(&b.id));
+        cast_iron_sort::sort_by(&mut entries, |a, b| a.id.cmp(&b.id));
         Self { entries }
     }
 }

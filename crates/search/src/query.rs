@@ -243,7 +243,7 @@ impl SearchIndex {
                 found.truncate(MAX_PREFIX_TERMS);
                 // Back to term order: scores add up in this order, and a stable order keeps the
                 // floating-point sums the same between runs.
-                found.sort_unstable();
+                cast_iron_sort::sort(&mut found);
             }
             out.extend(found.into_iter().map(|i| (i, PREFIX_WEIGHT)));
         }
@@ -636,7 +636,7 @@ impl SearchIndex {
                 .collect();
             timer.exit(Phase::Scoring);
             timer.enter(Phase::Sort);
-            ords.sort();
+            cast_iron_sort::sort(&mut ords);
             timer.exit(Phase::Sort);
             let ranked = ords
                 .into_iter()
@@ -869,7 +869,7 @@ fn sort_scored(
         scored.select_nth_unstable_by(limit, order);
         scored.truncate(limit);
     }
-    scored.sort_unstable_by(order);
+    cast_iron_sort::sort_by(scored, order);
 }
 
 fn snippet(body: &str, m: &Matcher) -> Snippet {

@@ -161,7 +161,7 @@ pub struct ContinuePoint {
 
 /// Newest first, with the source as a stable tie-break.
 pub fn sort_continue_points(points: &mut [ContinuePoint]) {
-    points.sort_by(|a, b| {
+    cast_iron_sort::sort_by(points, |a, b| {
         b.read_at
             .total_cmp(&a.read_at)
             .then_with(|| a.source.cmp(&b.source))
@@ -238,7 +238,7 @@ pub struct IdMigration {
 
 /// Newest bookmark first, with the entry id as a tie-break so the order is stable.
 pub fn sort_bookmarks(bookmarks: &mut [Bookmark]) {
-    bookmarks.sort_by(|a, b| {
+    cast_iron_sort::sort_by(bookmarks, |a, b| {
         b.added_at
             .total_cmp(&a.added_at)
             .then_with(|| a.entry_id.cmp(&b.entry_id))
@@ -924,7 +924,7 @@ fn plan_migration(
             }
         }
     }
-    deletes.sort();
+    cast_iron_sort::sort(&mut deletes);
     deletes.dedup();
     let (recent, recent_changed) = rewrite_recent(recents, aliases, known);
     MigrationPlan {

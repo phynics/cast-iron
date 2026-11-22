@@ -168,7 +168,7 @@ impl Relations {
                 })
             })
             .collect();
-        edges.sort_by(|a, b| a.0.cmp(b.0).then_with(|| a.2.cmp(b.2)));
+        cast_iron_sort::sort_by(&mut edges, |a, b| a.0.cmp(b.0).then_with(|| a.2.cmp(b.2)));
         edges
     }
 
@@ -464,7 +464,9 @@ impl Relations {
                 })
             })
             .collect();
-        heads.sort_by(|a, b| b.total.cmp(&a.total).then_with(|| a.id.cmp(&b.id)));
+        cast_iron_sort::sort_by(&mut heads, |a, b| {
+            b.total.cmp(&a.total).then_with(|| a.id.cmp(&b.id))
+        });
         heads
     }
 }

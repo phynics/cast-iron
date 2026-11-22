@@ -1,0 +1,10 @@
+[package]
+name = "cast-iron-sort"
+description = "One non-generic stable sort, shared by the client, the schema and the search engine"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true

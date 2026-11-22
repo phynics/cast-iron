@@ -48,7 +48,7 @@ pub fn group_by_letter(titles: &[&str]) -> Vec<(char, Vec<usize>)> {
             None => groups.push((letter, vec![i])),
         }
     }
-    groups.sort_by_key(|(l, _)| (*l == '#', *l));
+    cast_iron_sort::sort_by_key(&mut groups, |(l, _)| (*l == '#', *l));
     groups
 }
 
@@ -81,7 +81,7 @@ pub fn build_tree(items: &[(EntryId, Option<EntryId>, String)]) -> Vec<TreeNode>
             .collect()
     }
     let mut order: Vec<usize> = (0..items.len()).collect();
-    order.sort_by_key(|&i| (sort_key(&items[i].2), items[i].0.clone()));
+    cast_iron_sort::sort_by_key(&mut order, |&i| (sort_key(&items[i].2), items[i].0.clone()));
     order
         .iter()
         .copied()
@@ -132,13 +132,13 @@ fn feat_sort_key(title: &str) -> (String, u8) {
 
 fn sort_rows(list: &mut [EntryStub], kind: EntryKind) {
     if kind == EntryKind::Feat {
-        list.sort_by(|a, b| {
+        cast_iron_sort::sort_by(list, |a, b| {
             feat_sort_key(&a.title)
                 .cmp(&feat_sort_key(&b.title))
                 .then_with(|| a.id.cmp(&b.id))
         });
     } else {
-        list.sort_by_key(|s| (sort_key(&s.title), s.id.clone()));
+        cast_iron_sort::sort_by_key(list, |s| (sort_key(&s.title), s.id.clone()));
     }
 }
 
@@ -448,7 +448,7 @@ pub fn book_groups(books: &[BookListEntry]) -> Vec<BookGroup> {
             if indices.is_empty() {
                 return None;
             }
-            indices.sort_by(|&a, &b| {
+            cast_iron_sort::sort_by(&mut indices, |&a, &b| {
                 let left = dated(books[a].publication_date.as_deref());
                 let right = dated(books[b].publication_date.as_deref());
                 // ISO dates compare as text. A missing or malformed date sorts after all others.
@@ -1326,7 +1326,7 @@ fn class_option_menu(
                     })
                 })
                 .collect();
-            options.sort_by_key(|option| option.label.to_lowercase());
+            cast_iron_sort::sort_by_key(&mut options, |option| option.label.to_lowercase());
             Ok(options)
         })
     };
@@ -2511,7 +2511,7 @@ pub fn BrowseSource(id: String, #[prop(optional)] bare: bool) -> impl IntoView {
             if stubs.is_empty() {
                 return None;
             }
-            stubs.sort_by_key(|s| (sort_key(&s.title), s.id.clone()));
+            cast_iron_sort::sort_by_key(&mut stubs, |s| (sort_key(&s.title), s.id.clone()));
             Some((kind, stubs))
         })
         .map(|(kind, stubs)| {

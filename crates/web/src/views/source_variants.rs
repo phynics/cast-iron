@@ -51,7 +51,7 @@ pub fn group_variants(entries: Vec<SourceVariant>) -> Vec<SourceGroup> {
         }
     }
     for group in &mut groups {
-        group.variants.sort_by(|a, b| {
+        cast_iron_sort::sort_by(&mut group.variants, |a, b| {
             a.source
                 .to_lowercase()
                 .cmp(&b.source.to_lowercase())
