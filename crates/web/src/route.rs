@@ -571,32 +571,34 @@ impl Route {
         }
     }
 
-    /// Whether `other` is the entry page that `self` shows with other archetype choices and
-    /// nothing else changed. The page reads the choices from the route and is not rebuilt, so the
-    /// frame leaves scroll and focus alone (the reader is looking at the list).
+    /// Whether `other` is a choice of the archetype list on the entry page that `self` shows: the
+    /// same entry and book, other choices, no heading anchor, and the section the page is at or
+    /// the Archetypes stop that the list's own links name. The page reads the choices from the route
+    /// and is not rebuilt, so the frame leaves scroll and focus alone (the reader is looking at the
+    /// list). The first choice from a bare address or from an `?a=` address is one too: the list's
+    /// links add the stop and drop the anchor, and that must not read as a jump to the section.
     pub fn only_arch_differs(&self, other: &Route) -> bool {
         match (self, other) {
             (
                 Route::Entry {
                     id,
-                    anchor,
                     book,
                     section,
                     arch,
+                    ..
                 },
                 Route::Entry {
                     id: other_id,
-                    anchor: other_anchor,
+                    anchor: None,
                     book: other_book,
                     section: other_section,
                     arch: other_arch,
                 },
             ) => {
                 id == other_id
-                    && anchor == other_anchor
                     && book == other_book
-                    && section == other_section
                     && arch != other_arch
+                    && (section == other_section || *other_section == Some(Section::Archetypes))
             }
             _ => false,
         }
@@ -1907,9 +1909,9 @@ mod tests {
     #[test]
     fn a_change_of_archetype_choices_alone_is_not_a_navigation_of_the_page() {
         let id = EntryId::parse("ref/class/wizard").unwrap();
-        let at = |keep: &[&str], section: Option<Section>| Route::Entry {
+        let at = |keep: &[&str], section: Option<Section>, anchor: Option<&str>| Route::Entry {
             id: id.clone(),
-            anchor: None,
+            anchor: anchor.map(str::to_owned),
             book: None,
             section,
             arch: ArchFilter {
@@ -1918,14 +1920,54 @@ mod tests {
             },
         };
         let archetypes = Some(Section::Archetypes);
-        assert!(at(&[], archetypes).only_arch_differs(&at(&["cantrips"], archetypes)));
-        assert!(at(&["cantrips"], archetypes).only_arch_differs(&at(&[], archetypes)));
-        // The same choices, or another section, anchor or entry, is a different move.
-        assert!(!at(&[], archetypes).only_arch_differs(&at(&[], archetypes)));
-        assert!(!at(&[], archetypes).only_arch_differs(&at(&["cantrips"], None)));
-        assert!(!at(&[], None).only_arch_differs(&Route::Home));
+        assert!(at(&[], archetypes, None).only_arch_differs(&at(&["cantrips"], archetypes, None)));
+        assert!(at(&["cantrips"], archetypes, None).only_arch_differs(&at(&[], archetypes, None)));
+        // The first choice from a bare address, from another stop, and from an `?a=` address: the
+        // list's own links name the Archetypes stop and no anchor.
+        assert!(at(&[], None, None).only_arch_differs(&at(&["cantrips"], archetypes, None)));
+        assert!(
+            at(&[], Some(Section::Features), None).only_arch_differs(&at(
+                &["cantrips"],
+                archetypes,
+                None
+            ))
+        );
+        assert!(at(&[], None, Some("arcane-bond")).only_arch_differs(&at(
+            &["cantrips"],
+            archetypes,
+            None
+        )));
+        // A class without the stop keeps its section: none stays none.
+        assert!(at(&[], None, None).only_arch_differs(&at(&["cantrips"], None, None)));
+        // The same choices, or a move to another stop, another anchor or another entry, is a
+        // different move.
+        assert!(!at(&[], archetypes, None).only_arch_differs(&at(&[], archetypes, None)));
+        assert!(!at(&[], archetypes, None).only_arch_differs(&at(
+            &["cantrips"],
+            Some(Section::Features),
+            None
+        )));
+        assert!(!at(&[], archetypes, None).only_arch_differs(&at(&["cantrips"], None, None)));
+        assert!(!at(&[], None, None).only_arch_differs(&at(
+            &["cantrips"],
+            archetypes,
+            Some("arcane-bond")
+        )));
+        assert!(!at(&[], None, None).only_arch_differs(&Route::Home));
         let other = Route::entry(EntryId::parse("ref/class/fighter").unwrap());
-        assert!(!at(&[], archetypes).only_arch_differs(&other));
+        assert!(!at(&[], archetypes, None).only_arch_differs(&other));
+        // Another book is another page.
+        let in_book = Route::Entry {
+            id: id.clone(),
+            anchor: None,
+            book: Some("core-rulebook".into()),
+            section: archetypes,
+            arch: ArchFilter {
+                keep: vec!["cantrips".into()],
+                with: None,
+            },
+        };
+        assert!(!at(&[], archetypes, None).only_arch_differs(&in_book));
     }
 
     #[test]

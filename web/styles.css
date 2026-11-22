@@ -5071,34 +5071,6 @@ label.choice-row {
   outline-offset: -2px;
 }
 
-/* A choice row that is a button (the archetype list's menus keep their state in the page, not in
-   the route): the same row as a link, with `aria-pressed` for the chosen one. */
-button.choice-row {
-  width: 100%;
-  border: 0;
-  background: none;
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-button.choice-row:hover {
-  background: var(--surface-2);
-}
-
-.choice-row[aria-pressed="true"] {
-  font-weight: 600;
-}
-
-.choice-row[aria-pressed="true"] .choice-box {
-  border-color: var(--accent);
-  background: var(--accent);
-}
-
-.choice-row .choice-check:last-child {
-  margin-left: auto;
-}
-
 /* The archetype list of a class page (#170, part D): rows of the browse list, with the muted
    replaces line on a line of its own under the name and the book. */
 .arch-list {

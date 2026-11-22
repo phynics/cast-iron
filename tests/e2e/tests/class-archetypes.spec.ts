@@ -335,3 +335,37 @@ test("The Keep menu has a find field above ten features", async ({ page }) => {
   await expect.poll(() => page.evaluate(() => location.hash)).toContain("keep=");
   await expect(keep).toContainText(label);
 });
+
+test("The first choice from a bare or an anchored address leaves scroll and focus where they are", async ({ page }) => {
+  await installLibrary(page);
+  const scrollY = () => page.evaluate(() => Math.round(window.scrollY));
+  for (const width of WIDTHS) {
+    for (const start of [`#/entry/${WIZARD}`, `#/entry/${WIZARD}?a=arcane-bond`]) {
+      const label = `${start} at ${width}px`;
+      await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+      await page.goto(start);
+      // A fresh page: the previous round left a menu open on the page that is on screen.
+      await page.reload();
+      await expect(page.getByRole("heading", { level: 1, name: "Wizard" })).toBeVisible();
+      await expect(list(page)).toBeAttached();
+      // The reader scrolls to the list by hand, with no stop chosen.
+      const keep = menu(page, "keep");
+      await keep.evaluate((el) => el.scrollIntoView({ block: "start" }));
+      await keep.click();
+      const checkbox = panel(page, "keep").getByRole("checkbox", { name: /^Arcane Bond, / });
+      await expect(checkbox, label).toBeVisible();
+      await checkbox.scrollIntoViewIfNeeded();
+      const before = await scrollY();
+      expect(before, label).toBeGreaterThan(300);
+      await checkbox.check();
+      await expect.poll(() => page.evaluate(() => location.hash), label).toContain("keep=arcane-bond");
+      // The address now names the stop and the choice; the page did not jump to the heading.
+      expect(await page.evaluate(() => location.hash), label).toContain("s=archetypes");
+      expect(await page.evaluate(() => location.hash), label).not.toContain("a=");
+      await expect(menu(page, "keep"), label).toHaveText("Keep: Arcane Bond");
+      await page.waitForTimeout(600);
+      await expect(checkbox, label).toBeFocused();
+      expect(Math.abs((await scrollY()) - before), label).toBeLessThanOrEqual(2);
+    }
+  }
+});

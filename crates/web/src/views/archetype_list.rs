@@ -7,7 +7,7 @@
 //! The choices are the route's (`?keep=` and `?with=`): a choice is one more history entry that
 //! this page reads without being rebuilt, so Back undoes it and a shared link opens filtered.
 
-use crate::archetypes::{self, Choice, FeatureOption, Row};
+use crate::archetypes::{self, FeatureOption, Row};
 use crate::class_sections::Section;
 use crate::fmt;
 use crate::graph::Relations;
@@ -128,7 +128,17 @@ pub fn ArchetypeList(
     let route = use_route();
     let rows = Shared::new(rows);
     let features = Shared::new(features);
-    let choice = Memo::new(move |_| route.with(Route::arch));
+    // The choices of the address, less any `?keep=` that is not a feature of this class: the
+    // menu, the count and the list never show it, and the next choice drops it from the address.
+    let choice = {
+        let features = features.clone();
+        Memo::new(move |_| {
+            let mut arch = route.with(Route::arch);
+            arch.keep
+                .retain(|anchor| features.iter().any(|feature| &feature.anchor == anchor));
+            arch
+        })
+    };
     let keep = Memo::new(move |_| choice.with(|choice| choice.keep.clone()));
     let with = Memo::new(move |_| choice.with(|choice| choice.with.clone()));
     let route_for = {
@@ -145,15 +155,7 @@ pub fn ArchetypeList(
     };
     let shown = {
         let rows = rows.clone();
-        Memo::new(move |_| {
-            archetypes::narrow(
-                &rows,
-                &Choice {
-                    keep: keep.get(),
-                    with: with.get(),
-                },
-            )
-        })
+        Memo::new(move |_| choice.with(|choice| archetypes::narrow(&rows, choice)))
     };
     let nothing_chosen = move || choice.with(ArchFilter::is_empty);
     let has_features = !features.is_empty();
@@ -199,11 +201,17 @@ pub fn ArchetypeList(
     let with_narrowed = Signal::derive(move || with.with(Option::is_some));
 
     // A choice of archetype closes its panel and puts focus back on the button, as a choice
-    // in a single-choice menu does on a list page.
+    // in a single-choice menu does on a list page. Back and Forward change the choice with the
+    // panel shut, and leave focus where it is.
     Effect::new(move |previous: Option<Option<EntryId>>| {
         let now = with.get();
         if previous.is_some_and(|before| before != now) {
-            with_menu.dismiss(&WITH);
+            // The panel's link asked the next list page to focus the button; this page has no
+            // rebuild to read the request, so it is read here.
+            crate::views::filter_menu::take_focus_request();
+            if with_menu.open.get_untracked() {
+                with_menu.dismiss(&WITH);
+            }
         }
         now
     });
@@ -238,16 +246,22 @@ pub fn ArchetypeList(
     };
 
     // The archetype to combine with: a link per archetype, with how many others it fits.
+    // How many others each archetype fits does not depend on the choices: counted once.
+    let fits: Vec<u32> = rows
+        .iter()
+        .map(|row| archetypes::compatible_with(&rows, row) as u32)
+        .collect();
     let with_panel = {
         let (rows, route_for) = (rows.clone(), route_for.clone());
         move || {
             let (keep_now, with_now) = (keep.get(), with.get());
             let options: Vec<MenuOption> = rows
                 .iter()
-                .map(|row| MenuOption {
+                .zip(&fits)
+                .map(|(row, &count)| MenuOption {
                     value: row.id.to_string(),
                     label: row.title.clone(),
-                    count: archetypes::compatible_with(&rows, row) as u32,
+                    count,
                     href: route_for(keep_now.clone(), Some(row.id.clone())).href(),
                 })
                 .collect();
@@ -299,15 +313,7 @@ pub fn ArchetypeList(
         let rows = rows.clone();
         move || {
             let n = shown.with(|s| s.compatible.len());
-            let total = choice.with(|choice| {
-                archetypes::others(
-                    &rows,
-                    &Choice {
-                        keep: choice.keep.clone(),
-                        with: choice.with.clone(),
-                    },
-                )
-            });
+            let total = choice.with(|choice| archetypes::others(&rows, choice));
             let noun = fmt::pluralize(total, "archetype", "archetypes");
             if nothing_chosen() {
                 noun

@@ -16,6 +16,7 @@
 //! over typed content, and has native tests.
 
 use crate::class_options::replaces_line_of;
+use crate::route::ArchFilter;
 use cast_iron_schema::headings::plain_text;
 use cast_iron_schema::power::split_ability_tag;
 use cast_iron_schema::{Block, EntryId, FeatureRef, Inline, Trade, TradeOp, TradeRow};
@@ -197,19 +198,6 @@ pub fn feature_options(rows: &[Row], headings: &[(String, String)]) -> Vec<Featu
     found
 }
 
-/// What the reader asked for: features to keep, and an archetype to combine with.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct Choice {
-    pub keep: Vec<String>,
-    pub with: Option<EntryId>,
-}
-
-impl Choice {
-    pub fn is_empty(&self) -> bool {
-        self.keep.is_empty() && self.with.is_none()
-    }
-}
-
 /// The rows a choice leaves, in their given order.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Shown {
@@ -220,7 +208,7 @@ pub struct Shown {
 }
 
 /// How many archetypes the `Combine with` choice is made among: every row but the chosen one.
-pub fn others(rows: &[Row], choice: &Choice) -> usize {
+pub fn others(rows: &[Row], choice: &ArchFilter) -> usize {
     let chosen = choice
         .with
         .as_ref()
@@ -232,7 +220,7 @@ pub fn others(rows: &[Row], choice: &Choice) -> usize {
 pub fn compatible_with(rows: &[Row], row: &Row) -> usize {
     narrow(
         rows,
-        &Choice {
+        &ArchFilter {
             keep: Vec::new(),
             with: Some(row.id.clone()),
         },
@@ -245,7 +233,7 @@ pub fn compatible_with(rows: &[Row], row: &Row) -> usize {
 /// Otherwise a row is compatible when it touches none of the kept features and conflicts with
 /// none of the chosen archetype's trades, and it is *unchecked* when the data cannot say (a trade
 /// that names no feature, or no trades data). The chosen archetype itself is left out.
-pub fn narrow(rows: &[Row], choice: &Choice) -> Shown {
+pub fn narrow(rows: &[Row], choice: &ArchFilter) -> Shown {
     if choice.is_empty() {
         return Shown {
             compatible: (0..rows.len()).collect(),
@@ -523,7 +511,7 @@ mod tests {
         let all = vec![alters_only, replacer, other];
         let shown = narrow(
             &all,
-            &Choice {
+            &ArchFilter {
                 keep: vec!["arcane-bond".into()],
                 with: None,
             },
@@ -554,7 +542,7 @@ mod tests {
     #[test]
     fn a_chosen_archetype_the_data_cannot_place_leaves_nothing_compatible() {
         let all = rows();
-        let with = |value: &str| Choice {
+        let with = |value: &str| ArchFilter {
             keep: Vec::new(),
             with: Some(id(value)),
         };
@@ -589,7 +577,7 @@ mod tests {
         // The count's total leaves the chosen archetype out only when it is among the rows.
         assert_eq!(others(&all, &with(odd.id.as_str())), 4);
         assert_eq!(others(&all, &with("ref/arc-wizard/gone")), 5);
-        assert_eq!(others(&all, &Choice::default()), 5);
+        assert_eq!(others(&all, &ArchFilter::default()), 5);
     }
 
     #[test]
@@ -629,11 +617,11 @@ mod tests {
     #[test]
     fn keeping_features_leaves_the_archetypes_that_do_not_touch_them() {
         let rows = rows();
-        let none = narrow(&rows, &Choice::default());
+        let none = narrow(&rows, &ArchFilter::default());
         assert_eq!(none.compatible, [0, 1, 2, 3, 4]);
         assert!(none.unchecked.is_empty());
 
-        let keep = |anchors: &[&str]| Choice {
+        let keep = |anchors: &[&str]| ArchFilter {
             keep: anchors.iter().map(|a| a.to_string()).collect(),
             with: None,
         };
@@ -658,7 +646,7 @@ mod tests {
     #[test]
     fn choosing_an_archetype_leaves_the_ones_it_can_combine_with() {
         let rows = rows();
-        let with = |name: &str| Choice {
+        let with = |name: &str| ArchFilter {
             keep: Vec::new(),
             with: Some(
                 rows.iter()
@@ -682,7 +670,7 @@ mod tests {
             ["Arcane Bomber", "Chronomancer"]
         );
         // Both choices together.
-        let both = Choice {
+        let both = ArchFilter {
             keep: vec!["cantrips".into()],
             with: with("Arcane Physician").with,
         };
@@ -704,7 +692,7 @@ mod tests {
         all.push(nodata);
         let shown = narrow(
             &all,
-            &Choice {
+            &ArchFilter {
                 keep: vec!["cantrips".into()],
                 with: None,
             },
