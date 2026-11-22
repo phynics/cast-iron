@@ -4,7 +4,7 @@ date: 2026-11-22
 status: current
 superseded_by: []
 issues: [592, 594]
-prs: [608]
+prs: [608, 610]
 area: corpus
 ---
 
