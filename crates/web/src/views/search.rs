@@ -85,6 +85,7 @@ pub fn facet_fields_of(kind: EntryKind) -> &'static [(&'static str, &'static str
         EntryKind::Archetype => &[("archetype_class", "Class")],
         EntryKind::ClassOption => &[("group", "Group")],
         EntryKind::RacialTrait => &[("racial_trait_race", "Race")],
+        EntryKind::Affliction => &[("affliction_type", "Type")],
         _ => &[],
     }
 }
@@ -102,8 +103,8 @@ pub fn facet_fields_for(kinds: &[EntryKind]) -> Vec<(&'static str, &'static str)
     out
 }
 
-/// Facet fields that a library compiled before #577 and #578 does not hold in its index.
-pub const NEWER_FACET_FIELDS: [&str; 2] = ["group", "racial_trait_race"];
+/// Facet fields that a library compiled before #577, #578 and #592 does not hold in its index.
+pub const NEWER_FACET_FIELDS: [&str; 3] = ["group", "racial_trait_race", "affliction_type"];
 
 /// Drops the facets of [`NEWER_FACET_FIELDS`] that `index` has no field for, as a link made with
 /// a newer library may name them and would match nothing. Says whether it dropped any.
@@ -213,9 +214,11 @@ pub fn facet_label(field: &str, value: &str) -> String {
         ("creature_type", "magicalBeast") => "Magical Beast".into(),
         ("creature_type", "monstrousHumanoid") => "Monstrous Humanoid".into(),
         ("creature_type", _)
-        | ("class_type" | "trait_category" | "archetype_class" | "school" | "size", _) => {
-            capitalize_words(value)
-        }
+        | (
+            "class_type" | "trait_category" | "archetype_class" | "school" | "size"
+            | "affliction_type",
+            _,
+        ) => capitalize_words(value),
         // A group's label and a race's title come from the library (see `register_facet_titles`).
         // The fallback is for a screen that has the slug and no library data yet.
         ("group" | "racial_trait_race", _) => {
@@ -2384,6 +2387,7 @@ mod tests {
             (EntryKind::Archetype, "archetype_class"),
             (EntryKind::ClassOption, "group"),
             (EntryKind::RacialTrait, "racial_trait_race"),
+            (EntryKind::Affliction, "affliction_type"),
         ] {
             assert_eq!(facet_fields_for(&[kind])[0].0, field);
         }
@@ -2412,6 +2416,10 @@ mod tests {
         assert!(list_facets(&group, EntryKind::Feat).is_empty());
         let race = [facet("racial_trait_race", "dwarf")];
         assert_eq!(list_facets(&race, EntryKind::RacialTrait), race);
+        let poison = [facet("affliction_type", "poison")];
+        assert_eq!(list_facets(&poison, EntryKind::Affliction), poison);
+        assert!(list_facets(&poison, EntryKind::Rule).is_empty());
+        assert_eq!(facet_label("affliction_type", "poison"), "Poison");
     }
 
     #[test]
