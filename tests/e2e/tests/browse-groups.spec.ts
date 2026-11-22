@@ -331,6 +331,32 @@ test("The feat type menu opens, finds a type, filters the list in place, and Bac
   await expect(main.locator(".list-count")).toHaveText(`${count(featCount)} feats`);
 });
 
+// phynics/cast-iron-data#169: feat types are a closed list. A feat that print gives no type is
+// General in the Type menu, and a book abbreviation, a title qualifier or a race is no type.
+test("The feat type menu lists General for every untyped feat and no book abbreviation, qualifier or race", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/browse/kind/feat");
+  const main = page.locator("main");
+  const button = typeButton(page);
+  await expect(button).toBeEnabled();
+  await button.click();
+  const panel = page.locator(`#${await button.getAttribute("aria-controls")}`);
+  const list = panel.getByRole("list", { name: "Feat type" });
+  const general = list.getByRole("link", { name: /^General, [\d,]+$/ });
+  await expect(general).toHaveCount(1);
+  const generalCount = num((await general.innerText()).match(/([\d,]+)\s*$/)?.[1]);
+  expect(generalCount).toBeGreaterThan(1000);
+  for (const name of [/^BoA\b/, /^UW\b/, /^UM\b/, /^MC\b/, /^Dhampir\b/, /^Taldor Variant\b/]) {
+    await expect(list.getByRole("link", { name })).toHaveCount(0);
+  }
+
+  await general.click();
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/browse/kind/feat?facet=feat_type:General");
+  await expect(typeButton(page)).toHaveText("Type: General");
+  await expect(main.locator(".list-count")).toHaveText(new RegExp(`^${count(generalCount)} of ${count(featCount)} feats`));
+  await expect(main.getByRole("link", { name: "Acrobatic", exact: true })).toBeVisible();
+});
+
 test("Escape closes the feat type menu and returns focus to its button without changing the route", async ({ page }) => {
   await installLibrary(page);
   await page.goto("#/browse/kind/feat");

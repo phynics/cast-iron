@@ -172,6 +172,10 @@ test("A feat names its types in the facts line, and a feat without types has non
   expect(power, "Power Attack is in the corpus").toBeTruthy();
   await page.goto("#/entry/ref/feat/power-attack");
   await expect(page.locator(".entry-head > .entry-facts")).toHaveText("Combat");
+  // The type shows in the facts line only: the body repeats neither the title nor its type
+  // as a `Power Attack (Combat)` heading (phynics/cast-iron-data#168).
+  await expect(page.getByRole("heading", { name: /^Power Attack \(Combat\)$/ })).toHaveCount(0);
+  await expect(page.locator(".entry > .rich")).not.toContainText("Power Attack (Combat)");
 
   const plain = firstEntry("a feat without types", (entry) => entry.kind === "feat" && (entry.fields?.feat_types ?? []).length === 0);
   await page.goto(`#/entry/${plain.id}`);
