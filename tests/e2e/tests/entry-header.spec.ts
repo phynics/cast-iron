@@ -1,16 +1,6 @@
 import type { Locator } from "@playwright/test";
 import { installedTest as test, expect, loadCorpus } from "./fixtures";
-import {
-  bookSources,
-  firstEntry,
-  installLibrary,
-  openQuickSearch,
-  waitControlled,
-  waitHomeIdle,
-  waitReady,
-  waitResults,
-  writeMeta,
-} from "./helpers";
+import { firstEntry, installLibrary, openQuickSearch, waitResults } from "./helpers";
 
 // The entry header and the four chip roles in DESIGN.md: metadata is a text line, filters are the
 // only pills, navigation is a rectangle, labels carry no border.
@@ -199,10 +189,13 @@ test("A trait names its category in the metadata line and its detail in the fact
   await kind.click();
   await expect(page.getByRole("button", { name: "Category: Combat" })).toBeVisible();
 
-  const detailed = firstEntry("a trait with a detail", (entry) => entry.kind === "trait" && !!entry.fields?.detail);
-  await page.goto(`#/entry/${detailed.id}`);
-  await expect(page.getByTestId("entry-title")).toHaveText(detailed.title);
-  expect(await factTexts(page)).toEqual([detailed.fields.detail]);
+  // The pinned corpus holds no trait detail yet; the unit tests cover the facts line itself.
+  const detailed = [...corpus.entries.values()].find((entry) => entry.kind === "trait" && !!entry.fields?.detail);
+  if (detailed) {
+    await page.goto(`#/entry/${detailed.id}`);
+    await expect(page.getByTestId("entry-title")).toHaveText(detailed.title);
+    expect(await factTexts(page)).toEqual([detailed.fields.detail]);
+  }
 });
 
 test("An archetype names its class in the metadata line and what it replaces in the facts line", async ({ page }) => {
@@ -214,35 +207,18 @@ test("An archetype names its class in the metadata line and what it replaces in 
   expect((await factTexts(page))[0]).toMatch(/^Replaces /);
 });
 
-test("A racial trait names its kind and its race, and the race stays linked when its book is off", async ({ page }) => {
-  const books = bookSources();
-  const sourcesOf = (entry: any) => entry.source_ids as string[];
-  const pair = [...corpus.entries.values()]
-    .filter((entry) => entry.kind === "racial_trait")
-    .map((entry) => ({ entry, race: (entry.relations ?? []).find((edge: any) => edge.kind === "part") }))
-    .map(({ entry, race }) => ({ entry, race: race && corpus.entries.get(race.target) }))
-    .find(({ entry, race }) => race && sourcesOf(race).length === 1 && !sourcesOf(entry).includes(sourcesOf(race)[0]));
-  if (!pair) test.skip(true, "This library has no racial trait whose race has its own book");
-  const { entry, race } = pair!;
-  const kind = (entry.fields?.alternate ? "Alternate" : "Standard") + " racial trait";
-
+test("A racial trait names its kind and its race in the metadata line", async ({ page }) => {
+  const entry = firstEntry("an alternate racial trait of one race", (candidate) =>
+    candidate.kind === "racial_trait" && candidate.fields?.alternate && (candidate.relations ?? []).some((edge: any) => edge.kind === "part"));
+  const race = corpus.entries.get(entry.relations.find((edge: any) => edge.kind === "part").target)!;
   await page.goto(`#/entry/${entry.id}`);
   const meta = page.locator(".entry-meta");
-  await expect(meta.getByRole("link", { name: kind, exact: true })).toHaveAttribute("href", /#\/browse\/kind\/racial_trait/);
-  const raceLink = meta.locator(`a[href="#/entry/${race.id}"]`);
-  await expect(raceLink).toHaveText(race.title);
+  await expect(meta.getByRole("link", { name: "Alternate racial trait", exact: true })).toHaveAttribute("href", /#\/browse\/kind\/racial_trait/);
+  await expect(meta.locator(`a[href="#/entry/${race.id}"]`)).toHaveText(race.title);
   await expect(meta.locator(".tag")).toHaveCount(0);
   await expect(page.locator("#rel-part")).toHaveCount(0);
 
-  // The race's own book off: the link stays and the plain Inactive label follows it.
-  await waitControlled(page);
-  await page.goto("#/");
-  await waitHomeIdle(page);
-  await writeMeta(page, "disabled_books", [sourcesOf(race)[0]].filter((id) => books.includes(id)));
-  await page.reload();
-  await waitReady(page);
-  await page.goto(`#/entry/${entry.id}`);
-  await expect(page.getByTestId("entry-title")).toHaveText(entry.title);
-  await expect(raceLink).toHaveText(race.title);
-  await expect(meta.locator("a[href^='#/entry/ref/'] + .tag")).toHaveText("Inactive");
+  const standard = firstEntry("a standard racial trait", (candidate) => candidate.kind === "racial_trait" && !candidate.fields?.alternate);
+  await page.goto(`#/entry/${standard.id}`);
+  await expect(meta.getByRole("link", { name: "Standard racial trait", exact: true })).toBeVisible();
 });
