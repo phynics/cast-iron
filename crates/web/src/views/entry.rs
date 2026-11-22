@@ -1,6 +1,7 @@
 //! The entry screen: title, chips, breadcrumb, rich body, references, copyright, provenance.
 
 use crate::also_available;
+use crate::archetypes;
 use crate::class_options;
 use crate::class_sections::Sections;
 use crate::class_summary;
@@ -13,6 +14,7 @@ use crate::powers;
 use crate::revisions::{self, ActiveRevision, RevisionLabel};
 use crate::route::{self, Route};
 use crate::store::{self, Bookmark};
+use crate::views::archetype_list::{self, ArchetypeList};
 use crate::views::backlinks::Backlinks;
 use crate::views::book::BookPosition;
 use crate::views::book_tier::Tier;
@@ -470,6 +472,7 @@ fn EntryView(
     anchor: Option<String>,
     book: Option<String>,
 ) -> impl IntoView {
+    let mut indexes = indexes;
     set_title(&entry.title);
     {
         let (id, title) = (entry.id.clone(), entry.title.clone());
@@ -867,7 +870,7 @@ fn EntryView(
     // A class page opens with its summary card. The printed paragraphs that the card replaces
     // leave the body, so no fact shows twice; every other paragraph stays.
     let is_class = matches!(kind, EntryKind::Class | EntryKind::PrestigeClass);
-    let (class_card, rendered_body, class_sections) = match is_class && !hide_body {
+    let (class_card, rendered_body, class_sections, archetype_slot) = match is_class && !hide_body {
         true => {
             let read = class_summary::read(&entry.fields, &entry.body);
             let list = indexes
@@ -887,11 +890,45 @@ fn EntryView(
             // The switcher's stops come from the body that is rendered, so the heading keys
             // they name are the ones on the page. A class with fewer than three stops keeps
             // the contents disclosure instead.
+            // A class lists its archetypes as rows in the Archetypes section, in place of the
+            // printed blurbs and the matrix of X marks (#170, part D). A page that cannot be read
+            // keeps its text and its panel.
+            let rows = match kind == EntryKind::Class {
+                true => indexes
+                    .relations
+                    .as_deref()
+                    .map(|relations| {
+                        archetype_list::rows_of(
+                            &library,
+                            &entry.id,
+                            relations,
+                            indexes.trades.as_deref(),
+                        )
+                    })
+                    .unwrap_or_default(),
+                false => Vec::new(),
+            };
+            let (body, slot) = match (!rows.is_empty())
+                .then(|| archetypes::fold_body(&body))
+                .flatten()
+            {
+                Some(folded) => {
+                    let features =
+                        archetypes::feature_options(&rows, &archetypes::feature_headings(&folded));
+                    let slot = Callback::new(move |()| {
+                        view! { <ArchetypeList rows=rows.clone() features=features.clone() /> }
+                            .into_any()
+                    });
+                    (folded, Some(slot))
+                }
+                None => (body, None),
+            };
+            indexes.archetypes_in_page = slot.is_some();
             let sections =
                 Some(Sections::read(&body, list.is_some())).filter(Sections::worth_a_switcher);
-            (class_card(&read.summary, list), body, sections)
+            (class_card(&read.summary, list), body, sections, slot)
         }
-        false => (None, rendered_body, None),
+        false => (None, rendered_body, None, None),
     };
     // A class option's powers take the layout. On a one-power page the power's facts sit in the
     // entry head, and its name is the title.
@@ -1003,7 +1040,7 @@ fn EntryView(
         {class_card}
         {switcher}
         {contents}
-        <RichBody body=rendered_body anchor=live_anchor changed=changed_labels marks=section_marks entry=entry.id.clone() book=live_book power_title />
+        <RichBody body=rendered_body anchor=live_anchor changed=changed_labels marks=section_marks entry=entry.id.clone() book=live_book power_title archetype_list=archetype_slot />
         {source_line(&body_sources, &library, None)}
         {expanded_line(&entry.expanded_in, &library)}
         {aon_line(entry.aon.as_deref())}

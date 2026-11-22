@@ -5133,6 +5133,61 @@ label.choice-row {
   outline-offset: -2px;
 }
 
+/* A choice row that is a button (the archetype list's menus keep their state in the page, not in
+   the route): the same row as a link, with `aria-pressed` for the chosen one. */
+button.choice-row {
+  width: 100%;
+  border: 0;
+  background: none;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+button.choice-row:hover {
+  background: var(--surface-2);
+}
+
+.choice-row[aria-pressed="true"] {
+  font-weight: 600;
+}
+
+.choice-row[aria-pressed="true"] .choice-box {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.choice-row .choice-check:last-child {
+  margin-left: auto;
+}
+
+/* The archetype list of a class page (#170, part D): rows of the browse list, with the muted
+   replaces line on a line of its own under the name and the book. */
+.arch-list {
+  margin: var(--space-3) 0 var(--space-4);
+}
+
+/* One column at every width: a row has a replaces line, which the browse list's columns cramp. */
+.arch-list .arch-rows {
+  columns: auto;
+}
+
+.arch-list .list-count {
+  margin: var(--space-3) 0 var(--space-2);
+}
+
+.arch-row .arch-meta {
+  flex: 1 0 100%;
+  margin: 0 0 var(--space-2);
+  font-size: var(--step--1);
+  overflow-wrap: break-word;
+}
+
+.arch-unchecked {
+  margin: var(--space-4) 0 var(--space-1);
+  font-size: var(--step-0);
+}
+
 /* The counts of a current row sit before its check mark. */
 .choice-row[aria-current="true"] .choice-label + .choice-check {
   margin-left: auto;

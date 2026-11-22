@@ -14,6 +14,7 @@
 
 pub mod also_available;
 pub mod app;
+pub mod archetypes;
 pub mod book_code;
 pub mod book_presets;
 pub mod book_share;

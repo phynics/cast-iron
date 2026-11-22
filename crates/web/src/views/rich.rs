@@ -128,6 +128,11 @@ struct Renderer {
     marks: BTreeMap<String, Section>,
     /// The footnotes of an entry page, once its body is split (#507).
     notes: Option<NoteState>,
+    /// A view that takes its place right after the class page's Archetypes heading, before the
+    /// section's introduction, so the list is the first thing a reader finds there (#170, part D).
+    slot: Option<Callback<(), AnyView>>,
+    /// True when the Archetypes heading has just been rendered and the slot is next.
+    slot_open: bool,
 }
 
 /// What the renderer knows about the footnotes of the entry it renders: where each note stands,
@@ -191,7 +196,14 @@ impl Renderer {
             changed: BTreeSet::new(),
             marks: BTreeMap::new(),
             notes: None,
+            slot: None,
+            slot_open: false,
         }
+    }
+
+    fn with_slot(mut self, slot: Option<Callback<(), AnyView>>) -> Self {
+        self.slot = slot;
+        self
     }
 
     fn with_marks(mut self, marks: Vec<(String, Section)>) -> Self {
@@ -300,11 +312,20 @@ impl Renderer {
                 out.push(view! { <ul class="entry-links">{list}</ul> }.into_any());
             }
             out.push(self.block(item));
+            if top && self.slot_open {
+                out.extend(self.take_slot());
+            }
         }
         if !run.is_empty() {
             out.push(view! { <ul class="entry-links">{run}</ul> }.into_any());
         }
         out
+    }
+
+    /// The slot's view, once: the section it ends is over.
+    fn take_slot(&mut self) -> Option<AnyView> {
+        self.slot_open = false;
+        self.slot.take().map(|slot| slot.run(()))
     }
 
     fn block(&mut self, item: &Block) -> AnyView {
@@ -317,6 +338,9 @@ impl Renderer {
                 );
                 let id = key.as_deref().map(heading_dom_id);
                 let section = key.as_ref().and_then(|key| self.marks.get(key)).copied();
+                if section == Some(Section::Archetypes) && self.slot.is_some() {
+                    self.slot_open = true;
+                }
                 heading(*level, id, section, None, inlines(content))
             }
             Block::Paragraph { style, content } => {
@@ -811,9 +835,15 @@ pub fn RichBody(
     /// `2026-11-20-class-option-power-layout`. Any other entry renders its body as printed.
     #[prop(optional_no_strip)]
     power_title: Option<String>,
+    /// A class page's archetype list: it takes its place right after the Archetypes heading.
+    #[prop(optional_no_strip)]
+    archetype_list: Option<Callback<(), AnyView>>,
 ) -> impl IntoView {
     let changed = changed.into_iter().collect::<BTreeSet<_>>();
-    let mut renderer = Renderer::new(&body).with_changed(changed).with_marks(marks);
+    let mut renderer = Renderer::new(&body)
+        .with_changed(changed)
+        .with_marks(marks)
+        .with_slot(archetype_list);
     let plan = power_title
         .map(|title| powers::plan(&title, &body))
         .unwrap_or_default();

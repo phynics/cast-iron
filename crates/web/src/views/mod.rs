@@ -1,6 +1,7 @@
 //! One module per screen, plus the shared renderers (`rich`) and small helpers.
 
 pub mod active_books;
+pub mod archetype_list;
 pub mod backlinks;
 pub mod book;
 pub mod book_series;

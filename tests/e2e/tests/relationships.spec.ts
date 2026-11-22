@@ -31,11 +31,9 @@ test("race racial traits and class archetypes link in both directions", async ({
     entries.some((a) => a.kind === "archetype" && related(a, "archetype").some((r: any) => r.target === e.id)))!;
   const archetype = entries.find((a) => a.kind === "archetype" && related(a, "archetype").some((r: any) => r.target === classEntry.id))!;
   await page.goto(`#/entry/${classEntry.id}`);
-  await expect(page.locator(".entry-rel").getByRole("heading", { name: /Archetypes/ })).toBeVisible();
-  await page.locator(".rel-disclosure > summary").click();
-  const archetypeGroup = page.locator(".rel-group").filter({ has: page.locator(`a[href="#/entry/${archetype.id}"]`) });
-  if ((await archetypeGroup.getAttribute("open")) === null) await archetypeGroup.locator("summary").click();
-  await page.locator(`.entry-rel a[href="#/entry/${archetype.id}"]`).click();
+  // The class page lists its archetypes in the Archetypes section (#170, part D).
+  await page.locator(".arch-list").waitFor();
+  await page.locator(`.arch-list a[href="#/entry/${archetype.id}"]`).click();
   await expect(page).toHaveURL(new RegExp(`#/entry/${archetype.id.replaceAll("/", "\\/")}$`));
   await expect(page.getByRole("heading", { name: /An archetype of/ })).toBeVisible();
   await page.locator(`.entry-rel a[href="#/entry/${classEntry.id}"]`).click();

@@ -150,19 +150,19 @@ fn request_focus(field: &'static str) {
     FOCUS_BUTTON_NEXT.with(|slot| slot.set(Some(field)));
 }
 
-fn button_id(spec: &MenuSpec) -> String {
+pub(crate) fn button_id(spec: &MenuSpec) -> String {
     format!("filter-btn-{}", spec.field)
 }
 
-fn panel_id(spec: &MenuSpec) -> String {
+pub(crate) fn panel_id(spec: &MenuSpec) -> String {
     format!("filter-panel-{}", spec.field)
 }
 
-fn find_id(spec: &MenuSpec) -> String {
+pub(crate) fn find_id(spec: &MenuSpec) -> String {
     format!("filter-find-{}", spec.field)
 }
 
-fn focus_by_id(id: &str) {
+pub(crate) fn focus_by_id(id: &str) {
     let Some(element) = web_sys::window()
         .and_then(|window| window.document())
         .and_then(|document| document.get_element_by_id(id))
@@ -187,8 +187,8 @@ fn focus_by_id_later(id: String) {
 /// route builds a new page, which starts closed.
 #[derive(Clone, Copy)]
 pub struct MenuState {
-    open: RwSignal<bool>,
-    query: RwSignal<String>,
+    pub(crate) open: RwSignal<bool>,
+    pub(crate) query: RwSignal<String>,
 }
 
 impl MenuState {
@@ -200,7 +200,7 @@ impl MenuState {
     }
 
     /// Closes the panel and puts focus back on its button.
-    fn dismiss(self, spec: &MenuSpec) {
+    pub(crate) fn dismiss(self, spec: &MenuSpec) {
         self.open.set(false);
         self.query.set(String::new());
         focus_by_id(&button_id(spec));
