@@ -239,14 +239,14 @@ async fn load_row_parents(library: &Library, kind: EntryKind, stubs: &[EntryStub
     let title_of = |id: &EntryId| library.stub(id).map(|stub| stub.title.clone());
     match kind {
         EntryKind::RacialTrait | EntryKind::Archetype => match library.relations().await {
-            Ok(Some(relations)) => row_parents::from_relations(&relations, kind, stubs, title_of),
+            Ok(Some(relations)) => row_parents::from_relations(&relations, kind, stubs, &title_of),
             _ => ParentMap::new(),
         },
         EntryKind::ClassOption => match library.option_groups().await {
             Ok(Some(index)) => row_parents::from_option_groups(&index),
             _ => ParentMap::new(),
         },
-        EntryKind::Affliction => row_parents::from_stub_parents(stubs, title_of),
+        EntryKind::Affliction => row_parents::from_stub_parents(stubs, &title_of),
         _ => ParentMap::new(),
     }
 }

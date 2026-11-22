@@ -10,8 +10,35 @@ use crate::views::source_variants::Parent;
 use cast_iron_schema::{EntryId, EntryKind, EntryStub, OptionGroupIndex, RelationKind};
 use std::collections::HashMap;
 
-/// The parent of each entry that has one.
-pub type ParentMap = HashMap<EntryId, Parent>;
+/// The parent of each entry that has one. The map holds the position of the parent in a list, so
+/// it is the same `HashMap<EntryId, usize>` the list page already uses, not a new one.
+#[derive(Debug, Default)]
+pub struct ParentMap {
+    index: HashMap<EntryId, usize>,
+    parents: Vec<Parent>,
+}
+
+impl ParentMap {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn get(&self, id: &EntryId) -> Option<&Parent> {
+        self.index.get(id).map(|&position| &self.parents[position])
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.parents.is_empty()
+    }
+
+    /// Records the parent of `id`; the first one recorded for an entry stays.
+    fn add(&mut self, id: &EntryId, parent: Parent) {
+        if !self.index.contains_key(id) {
+            self.index.insert(id.clone(), self.parents.len());
+            self.parents.push(parent);
+        }
+    }
+}
 
 /// The search facet whose menu narrows a list of `kind` by its parent. A list narrowed by it
 /// names the parent once, in the menu, so its rows leave the parent out.
@@ -50,29 +77,23 @@ pub fn line(alternate: bool, parent: Option<&Parent>, book: Option<&str>) -> Opt
 
 /// A parent made of the targets of an entry, which are named by `title_of`. A target the catalog
 /// does not know is left out. Several targets join into one parent.
-fn parent_of_targets<'a>(
-    targets: impl IntoIterator<Item = &'a EntryId>,
-    title_of: &impl Fn(&EntryId) -> Option<String>,
+fn parent_of_targets(
+    targets: &[&EntryId],
+    title_of: &dyn Fn(&EntryId) -> Option<String>,
 ) -> Option<Parent> {
     let mut named: Vec<(String, &EntryId)> = targets
-        .into_iter()
-        .filter_map(|target| Some((title_of(target)?, target)))
+        .iter()
+        .filter_map(|target| Some((title_of(target)?, *target)))
         .collect();
     cast_iron_sort::sort_by(&mut named, |a, b| a.0.cmp(&b.0).then(a.1.cmp(b.1)));
     if named.is_empty() {
         return None;
     }
+    let ids: Vec<&str> = named.iter().map(|(_, id)| id.as_str()).collect();
+    let titles: Vec<&str> = named.iter().map(|(title, _)| title.as_str()).collect();
     Some(Parent {
-        key: named
-            .iter()
-            .map(|(_, id)| id.as_str())
-            .collect::<Vec<_>>()
-            .join(","),
-        title: named
-            .iter()
-            .map(|(title, _)| title.as_str())
-            .collect::<Vec<_>>()
-            .join(", "),
+        key: ids.join(","),
+        title: titles.join(", "),
     })
 }
 
@@ -82,20 +103,21 @@ pub fn from_relations(
     relations: &Relations,
     kind: EntryKind,
     stubs: &[EntryStub],
-    title_of: impl Fn(&EntryId) -> Option<String>,
+    title_of: &dyn Fn(&EntryId) -> Option<String>,
 ) -> ParentMap {
     let relation = match kind {
         EntryKind::RacialTrait => RelationKind::Part,
         EntryKind::Archetype => RelationKind::Archetype,
         _ => return ParentMap::new(),
     };
-    stubs
-        .iter()
-        .filter_map(|stub| {
-            let parent = parent_of_targets(relations.targets_of(&stub.id, relation), &title_of)?;
-            Some((stub.id.clone(), parent))
-        })
-        .collect()
+    let mut parents = ParentMap::new();
+    for stub in stubs {
+        let targets = relations.targets_of(&stub.id, relation);
+        if let Some(parent) = parent_of_targets(&targets, title_of) {
+            parents.add(&stub.id, parent);
+        }
+    }
+    parents
 }
 
 /// The group of each class option, named by its singular label (`Rage power`).
@@ -103,10 +125,13 @@ pub fn from_option_groups(index: &OptionGroupIndex) -> ParentMap {
     let mut parents = ParentMap::new();
     for group in &index.groups {
         for id in &group.entries {
-            parents.entry(id.clone()).or_insert_with(|| Parent {
-                key: group.slug.clone(),
-                title: group.singular.clone(),
-            });
+            parents.add(
+                id,
+                Parent {
+                    key: group.slug.clone(),
+                    title: group.singular.clone(),
+                },
+            );
         }
     }
     parents
@@ -116,15 +141,16 @@ pub fn from_option_groups(index: &OptionGroupIndex) -> ParentMap {
 /// affliction belongs to.
 pub fn from_stub_parents(
     stubs: &[EntryStub],
-    title_of: impl Fn(&EntryId) -> Option<String>,
+    title_of: &dyn Fn(&EntryId) -> Option<String>,
 ) -> ParentMap {
-    stubs
-        .iter()
-        .filter_map(|stub| {
-            let parent = parent_of_targets(stub.parent.as_ref(), &title_of)?;
-            Some((stub.id.clone(), parent))
-        })
-        .collect()
+    let mut parents = ParentMap::new();
+    for stub in stubs {
+        let targets: Vec<&EntryId> = stub.parent.iter().collect();
+        if let Some(parent) = parent_of_targets(&targets, title_of) {
+            parents.add(&stub.id, parent);
+        }
+    }
+    parents
 }
 
 #[cfg(test)]
@@ -254,14 +280,14 @@ mod tests {
             ),
             stub("ref/racial-trait/orc/loose", EntryKind::RacialTrait, None),
         ];
-        let map = from_relations(&relations, EntryKind::RacialTrait, &traits, titles);
-        assert_eq!(map[&traits[0].id].title, "Dwarf");
-        assert_eq!(map[&traits[0].id].key, "ref/race/dwarf");
-        assert!(!map.contains_key(&traits[1].id), "no edge, no parent");
+        let map = from_relations(&relations, EntryKind::RacialTrait, &traits, &titles);
+        assert_eq!(map.get(&traits[0].id).unwrap().title, "Dwarf");
+        assert_eq!(map.get(&traits[0].id).unwrap().key, "ref/race/dwarf");
+        assert!(map.get(&traits[1].id).is_none(), "no edge, no parent");
         let archetypes = [stub("ref/arc-rogue/acrobat", EntryKind::Archetype, None)];
-        let map = from_relations(&relations, EntryKind::Archetype, &archetypes, titles);
-        assert_eq!(map[&archetypes[0].id].title, "Rogue");
-        assert!(from_relations(&relations, EntryKind::Spell, &archetypes, titles).is_empty());
+        let map = from_relations(&relations, EntryKind::Archetype, &archetypes, &titles);
+        assert_eq!(map.get(&archetypes[0].id).unwrap().title, "Rogue");
+        assert!(from_relations(&relations, EntryKind::Spell, &archetypes, &titles).is_empty());
     }
 
     #[test]
@@ -288,8 +314,8 @@ mod tests {
             EntryKind::RacialTrait,
             None,
         )];
-        let map = from_relations(&relations, EntryKind::RacialTrait, &traits, titles);
-        let parent = &map[&traits[0].id];
+        let map = from_relations(&relations, EntryKind::RacialTrait, &traits, &titles);
+        let parent = map.get(&traits[0].id).unwrap();
         assert_eq!(parent.title, "Dwarf, Gnome");
         assert_eq!(parent.key, "ref/race/dwarf,ref/race/gnome");
     }
@@ -307,12 +333,12 @@ mod tests {
             ..Default::default()
         };
         let map = from_option_groups(&index);
-        let parent = &map[&id("ref/ragepower/lesser-spirit")];
+        let parent = map.get(&id("ref/ragepower/lesser-spirit")).unwrap();
         assert_eq!(
             (parent.key.as_str(), parent.title.as_str()),
             ("rage-power", "Rage power")
         );
-        assert!(!map.contains_key(&id("ref/ragepower/other")));
+        assert!(map.get(&id("ref/ragepower/other")).is_none());
     }
 
     #[test]
@@ -323,8 +349,8 @@ mod tests {
             Some("ref/monster/giant-ant"),
         );
         let loose = stub("ref/affliction/x/poison", EntryKind::Affliction, None);
-        let map = from_stub_parents(&[poison.clone(), loose.clone()], titles);
-        assert_eq!(map[&poison.id].title, "Giant Ant");
-        assert!(!map.contains_key(&loose.id));
+        let map = from_stub_parents(&[poison.clone(), loose.clone()], &titles);
+        assert_eq!(map.get(&poison.id).unwrap().title, "Giant Ant");
+        assert!(map.get(&loose.id).is_none());
     }
 }

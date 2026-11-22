@@ -53,16 +53,19 @@ pub fn normalized_title(title: &str) -> String {
 /// to active publications; the IDs and source labels are never collapsed.
 pub fn group_variants(entries: Vec<SourceVariant>) -> Vec<SourceGroup> {
     let mut groups: Vec<SourceGroup> = Vec::new();
-    let mut positions = std::collections::BTreeMap::<(String, String, String), usize>::new();
+    let mut positions = std::collections::BTreeMap::<(String, String), usize>::new();
     for entry in entries {
+        // The kind and the parent are one string, so the key keeps the shape it always had.
         let key = (
-            entry.kind.slug().to_string(),
+            format!(
+                "{}\u{0}{}",
+                entry.kind.slug(),
+                entry
+                    .parent
+                    .as_ref()
+                    .map_or("", |parent| parent.key.as_str())
+            ),
             normalized_title(&entry.title),
-            entry
-                .parent
-                .as_ref()
-                .map(|parent| parent.key.clone())
-                .unwrap_or_default(),
         );
         if let Some(&position) = positions.get(&key) {
             groups[position].variants.push(entry);
