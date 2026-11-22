@@ -1904,35 +1904,40 @@ fn out_of_vocabulary(corpus: &Corpus) -> Vec<(String, &str, &'static str, String
     out
 }
 
-/// Warns, once per field and run, about values outside a closed vocabulary. It is a warning
-/// while the corpus is cleaned up (phynics/cast-iron-data#169, #171): the count measures what is
-/// left. When it reaches 0 it becomes an error, as the footnote findings did.
+/// Reports, once per field and run, values outside a closed vocabulary. `feat_types`, `size` and
+/// `affliction_type` are errors: the corpus pinned at v0.1.38 has none (phynics/cast-iron-data#169,
+/// #171). `slot` stays a warning because print itself gives 9 values that the list does not hold,
+/// and the owner left them open (phynics/cast-iron-data#171). The count measures what is left.
 fn check_closed_vocabularies(corpus: &Corpus, report: &mut Report) {
     let found = out_of_vocabulary(corpus);
-    for (field, list, fix, issue) in [
+    for (field, list, fix, issue, is_error) in [
         (
             "feat_types",
             "FEAT_TYPES",
             "move a book abbreviation, a title qualifier or a race out of it, as print gives them",
             169,
+            true,
         ),
         (
             "size",
             "SIZE_CATEGORIES",
             "give it the size category that print gives",
             169,
+            true,
         ),
         (
             "affliction_type",
             "AFFLICTION_TYPES",
             "tag the affliction with the first word of its printed `**Type:**` line",
             171,
+            true,
         ),
         (
             "slot",
             "ITEM_BODY_SLOTS, ITEM_TECH_SLOTS, ITEM_QUALITY_SLOTS and the `or` pairs of ITEM_BODY_SLOTS",
             "map a spelling to the printed slot, or move text that is no slot out of it, as print gives them",
             171,
+            false,
         ),
     ] {
         let rows: Vec<_> = found.iter().filter(|row| row.2 == field).collect();
@@ -1945,12 +1950,17 @@ fn check_closed_vocabularies(corpus: &Corpus, report: &mut Report) {
             .take(3)
             .map(|(at, id, _, value)| format!("{at}: `{id}` has `{value}`"))
             .collect();
-        report.warnings.push(format!(
+        let message = format!(
             "{} `{field}` values in {} entries are outside the closed vocabulary `{list}` (for example {}); a filter menu shows the field, so {fix} (phynics/cast-iron-data#{issue})",
             rows.len(),
             entries.len(),
             examples.join(", ")
-        ));
+        );
+        if is_error {
+            report.problems.push(message);
+        } else {
+            report.warnings.push(message);
+        }
     }
 }
 
@@ -2852,30 +2862,31 @@ mod tests {
     }
 
     #[test]
-    fn a_feat_type_outside_the_closed_vocabulary_is_a_warning() {
+    fn a_feat_type_outside_the_closed_vocabulary_is_an_error() {
         let report = check(&corpus(vec![
             feat("ref/feat/ok", &["Combat", "General"]),
             feat("ref/feat/untyped", &[]),
         ]));
         assert!(report.warnings.is_empty(), "{:?}", report.warnings);
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
 
         let report = check(&corpus(vec![
             feat("ref/feat/boa", &["BoA"]),
             feat("ref/feat/race", &["Combat", "Dhampir"]),
         ]));
-        assert!(report.problems.is_empty(), "{:?}", report.problems);
-        assert_eq!(report.warnings.len(), 1, "{:?}", report.warnings);
-        let warning = &report.warnings[0];
+        assert!(report.warnings.is_empty(), "{:?}", report.warnings);
+        assert_eq!(report.problems.len(), 1, "{:?}", report.problems);
+        let problem = &report.problems[0];
         assert!(
-            warning
+            problem
                 .contains("2 `feat_types` values in 2 entries are outside the closed vocabulary"),
-            "{warning}"
+            "{problem}"
         );
-        assert!(warning.contains("`ref/feat/boa` has `BoA`"), "{warning}");
+        assert!(problem.contains("`ref/feat/boa` has `BoA`"), "{problem}");
     }
 
     #[test]
-    fn a_size_outside_the_categories_is_a_warning_without_regard_to_case() {
+    fn a_size_outside_the_categories_is_an_error_without_regard_to_case() {
         let sized = |id: &str, size: &str| {
             let mut entry = creature(id, "construct");
             if let TypedFields::Creature(fields) = &mut entry.fields {
@@ -2888,13 +2899,14 @@ mod tests {
             sized("ref/creature/b", "colossal"),
         ]));
         assert!(report.warnings.is_empty(), "{:?}", report.warnings);
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
 
         let report = check(&corpus(vec![sized("ref/creature/c", "artificial")]));
-        assert_eq!(report.warnings.len(), 1, "{:?}", report.warnings);
+        assert_eq!(report.problems.len(), 1, "{:?}", report.problems);
         assert!(
-            report.warnings[0].contains("1 `size` values in 1 entries are outside"),
+            report.problems[0].contains("1 `size` values in 1 entries are outside"),
             "{:?}",
-            report.warnings
+            report.problems
         );
     }
 
@@ -3015,24 +3027,25 @@ mod tests {
             affliction("ref/affliction/b", &["fog", "disease"]),
         ]));
         assert!(report.warnings.is_empty(), "{:?}", report.warnings);
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
 
         let report = check(&corpus(vec![
             affliction("ref/affliction/c", &[]),
             affliction("ref/affliction/d", &["poison", "curse"]),
             affliction("ref/affliction/e", &["Poison"]),
         ]));
-        assert!(report.problems.is_empty(), "{:?}", report.problems);
-        assert_eq!(report.warnings.len(), 1, "{:?}", report.warnings);
-        let warning = &report.warnings[0];
+        assert!(report.warnings.is_empty(), "{:?}", report.warnings);
+        assert_eq!(report.problems.len(), 1, "{:?}", report.problems);
+        let problem = &report.problems[0];
         assert!(
-            warning.contains(
+            problem.contains(
                 "3 `affliction_type` values in 3 entries are outside the closed vocabulary"
             ),
-            "{warning}"
+            "{problem}"
         );
         assert!(
-            warning.contains("`ref/affliction/c` has `no type tag`"),
-            "{warning}"
+            problem.contains("`ref/affliction/c` has `no type tag`"),
+            "{problem}"
         );
     }
 
