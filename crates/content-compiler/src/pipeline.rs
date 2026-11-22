@@ -26,6 +26,10 @@ pub const SHARD_TARGET_BYTES: usize = 512 * 1024;
 /// Name of the alias file, relative to the content version directory.
 pub const ALIASES_FILE: &str = "aliases.json";
 
+/// The `feat_type` facet value of a feat that has no type (phynics/cast-iron-data#169). It is
+/// one of the values of `FEAT_TYPES` in `cast_iron_corpus::check`.
+const UNTYPED_FEAT_FACET: &str = "General";
+
 fn hex(bytes: &[u8]) -> String {
     use std::fmt::Write;
     bytes
@@ -378,6 +382,13 @@ pub(crate) fn canonical_facets(entries: &[RuleEntry]) -> BTreeMap<EntryId, Vec<(
             TypedFields::Feat(fields) => {
                 for kind in &fields.feat_types {
                     push(&mut facets, "feat_type", kind);
+                }
+                // Print gives a feat with no type tag no label, and the corpus keeps it
+                // untyped. The facet names the rest `General`, so that the Type menu reaches
+                // every feat (phynics/cast-iron-data#169). A feat that the corpus types
+                // `General` already carries the value; `push` skips the duplicate.
+                if fields.feat_types.is_empty() {
+                    push(&mut facets, "feat_type", UNTYPED_FEAT_FACET);
                 }
             }
             TypedFields::Creature(fields) => {
@@ -739,6 +750,11 @@ mod tests {
     use super::*;
     use cast_iron_schema::{Inline, Provenance};
 
+    #[test]
+    fn the_untyped_feat_facet_is_in_the_closed_feat_type_list() {
+        assert!(cast_iron_corpus::FEAT_TYPES.contains(&UNTYPED_FEAT_FACET));
+    }
+
     fn entry(id: &str, kind: EntryKind, bytes: usize) -> RuleEntry {
         RuleEntry {
             id: EntryId::parse(id).unwrap(),
@@ -812,6 +828,31 @@ mod tests {
             vec![("size".to_string(), "huge".to_string())]
         );
         assert_eq!(size("ref/creature/titan"), size("ref/creature/giant"));
+    }
+
+    #[test]
+    fn an_untyped_feat_has_the_general_facet() {
+        let feat = |id: &str, types: &[&str]| {
+            let mut feat = entry(id, EntryKind::Feat, 0);
+            feat.fields = TypedFields::Feat(cast_iron_schema::FeatFields {
+                feat_types: types.iter().map(|kind| kind.to_string()).collect(),
+                ..Default::default()
+            });
+            feat
+        };
+        let facets = canonical_facets(&[
+            feat("ref/feat/acrobatic", &[]),
+            feat("ref/feat/power-attack", &["Combat"]),
+            feat("ref/feat/spider-step", &["General"]),
+        ]);
+        let of = |id: &str| facets[&EntryId::parse(id).unwrap()].clone();
+        let general = vec![("feat_type".to_string(), "General".to_string())];
+        assert_eq!(of("ref/feat/acrobatic"), general);
+        assert_eq!(of("ref/feat/spider-step"), general);
+        assert_eq!(
+            of("ref/feat/power-attack"),
+            vec![("feat_type".to_string(), "Combat".to_string())]
+        );
     }
 
     #[test]
