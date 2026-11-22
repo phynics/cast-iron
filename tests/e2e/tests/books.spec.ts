@@ -443,9 +443,9 @@ test("A chapter page opens an entry, and Next continues the book before Back ret
 });
 
 test("An entry opened from search outside the first active book shows no previous or next", async ({ page }) => {
-  // The default selection keeps every book active, so the first book in book order is the
-  // fallback context. An entry that only another book places has no reading footer. Stay in the
-  // Rulebooks tier, which search opens by default, so the hit is visible.
+  // The reading footer belongs to `?book=`: an entry opened from a search result carries none, so
+  // an entry that only another book places has no reading footer, whatever the first book in
+  // book order is. Stay in the Rulebooks tier, which search opens by default, so the hit is visible.
   const first = bookTrees()[0];
   const otherBook = sources.find(
     (source) => source.category === "RPG" && source.id !== first.source && !source.third_party,

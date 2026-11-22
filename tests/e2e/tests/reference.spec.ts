@@ -260,9 +260,14 @@ test("Home is category-only and Books is the publication directory", async ({ pa
     else if (await page.locator(".book-in-this-book .jump").count()) await expect(page.locator(".book-in-this-book")).toBeVisible();
     else await expect(page.getByText("This book has no entries to show.")).toBeVisible();
     // A web supplement the corpus has no chapter tree for shows the notice instead of a
-    // draft-order line.
+    // draft-order line. A book with Contents rows carries the review line; a book with none
+    // says `Everything in this book is listed above.` and has no review line.
     if (trees.has(source.id)) {
-      await expect(page.getByText(/draft|checked against/i).first()).toBeVisible();
+      if (await page.locator(".toc").count()) {
+        await expect(page.getByText(/draft|checked against/i).first()).toBeVisible();
+      } else if (await page.locator(".book-in-this-book .jump").count()) {
+        await expect(page.getByText("Everything in this book is listed above.")).toBeVisible();
+      }
     } else {
       await expect(page.getByText("This library has no chapter order for this book.")).toBeVisible();
     }

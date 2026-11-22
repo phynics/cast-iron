@@ -61,7 +61,8 @@ async function openManageAdventures(page: any) {
 }
 
 // A series count is the tier's form: `6 books` while every book of the group is active.
-const allActive = (n: number) => `${n} ${n === 1 ? "book" : "books"}`;
+const grouped = (n: number) => n.toLocaleString("en-US");
+const allActive = (n: number) => `${grouped(n)} ${n === 1 ? "book" : "books"}`;
 
 test.beforeEach(async ({ page }) => {
   await installLibrary(page);
