@@ -1,6 +1,6 @@
 # Status
 
-Updated 2026-11-21. This page holds the current state and nothing else. The history is a log with one file per entry: [`docs/status/`](status/README.md) (pins, releases, acceptance records). Decisions are in [`docs/decisions/`](decisions/README.md). Open work is in [GitHub Issues](https://github.com/phynics/cast-iron/issues).
+Updated 2026-11-22. This page holds the current state and nothing else. The history is a log with one file per entry: [`docs/status/`](status/README.md) (pins, releases, acceptance records). Decisions are in [`docs/decisions/`](decisions/README.md). Open work is in [GitHub Issues](https://github.com/phynics/cast-iron/issues).
 
 Edit this page only where a change makes a line untrue, and add a log file for the event (`docs/status/YYYY-MM-DD-<slug>.md`). Keep local verification, CI and deployment apart.
 
@@ -8,8 +8,8 @@ Edit this page only where a change makes a line untrue, and add a log file for t
 
 | | |
 |---|---|
-| Corpus | `phynics/cast-iron-data` tag `v0.1.37`, commit `76517ea3cda1169892b8fd32eb297c091d984b9b` (`sources/corpus.toml`), corpus format 3. Pin entry: [2026-11-21](status/2026-11-21-corpus-pinned-to-v0-1-37.md) |
-| Content version | `v28481793019cf75c` (`cargo xtask content` on `main` at `80d0cf0c9` plus the v0.1.37 pin, 2026-11-21). The release serves the same version. |
+| Corpus | `phynics/cast-iron-data` tag `v0.1.38`, commit `5f4f84cfd394e6f8d205da021da334812759dc4b` (`sources/corpus.toml`), corpus format 3. Pin entry: [2026-11-22](status/2026-11-22-pin-corpus-v0-1-38.md) |
+| Content version | `vd8785578729b3bfc` (`cargo xtask content` on `main` at `6df0a44fa` plus the v0.1.38 pin, 2026-11-22). The release still serves `v28481793019cf75c` (corpus v0.1.37). |
 | Library | 31,825 entries, 443 publications, 443 books; 0 unreachable entries, 0 broken links |
 | `SCHEMA_VERSION` | 6 (`crates/schema/src/lib.rs`; the client reads 1 to 6) |
 | `INDEX_FORMAT_VERSION` | 2 (`crates/search/src/lib.rs`) |

@@ -1,7 +1,8 @@
 +++
 # EXAMPLE: a `affliction` entry. Comments like this one are allowed in this example only;
 # `cast-iron-corpus fmt` removes them from a real entry file.
-# A disease, curse, or poison. No typed fields; the numbers sit in the stat block.
+# A disease, curse, or poison. No typed fields; the numbers sit in the stat block. The type is
+# a tag: exactly one of `addiction`, `curse`, `disease`, `infestation`, `insanity` and `poison`.
 # Body: the stat block, then the description.
 # There is no `provenance` (frozen import history: leave it out of new entries) and no
 # `license_refs` (the default in corpus.toml applies).
@@ -14,6 +15,8 @@ kind = "affliction"
 title = "Marsh Fever"
 # Publication ids, first = primary. Each one must be listed in publications.toml.
 source_ids = ["example-book"]
+# Stable labels. Exactly one of them is the affliction type: the first word of the printed `Type:` line.
+tags = ["disease"]
 
 # Typed fields: what search, facets, and the entry page read. They must match the kind.
 [fields]

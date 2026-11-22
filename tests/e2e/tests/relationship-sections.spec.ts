@@ -120,7 +120,7 @@ test("A race caps each long Racial traits group at 8 rows", async ({ page }) => 
 });
 
 test("A mythic feat that prints its prerequisites under a heading does not repeat them", async ({ page }) => {
-  await open(page, "#/entry/ref/carried/mythic-adventures/feats/acrobatic/mythic", 1280, 900);
+  await open(page, "#/entry/ref/carried/mythic-adventures/feats/arcane-blast/mythic", 1280, 900);
   await expect(page.getByRole("heading", { level: 2, name: "Prerequisites" })).toBeVisible();
   await expect(page.locator(".prereq-text")).toHaveCount(0);
 });
