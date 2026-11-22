@@ -126,7 +126,7 @@ test("With Chronicle of Legends off, the Also available names still link and the
   await expect(link).toHaveAttribute("href", "#/entry/ref/ability/capstones");
   await link.click();
   await expect(page.getByRole("heading", { level: 1, name: "Alternate Capstones" })).toBeVisible();
-  await expect(page.locator(".disabled-book-notice")).toContainText("This book is disabled");
+  await expect(page.locator(".disabled-book-notice")).toContainText("This entry's book is turned off");
 });
 
 test("A group shared by several classes names the class it was opened from", async ({ page }) => {

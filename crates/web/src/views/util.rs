@@ -115,6 +115,16 @@ pub fn section_label(title: &str) -> String {
     .to_string()
 }
 
+/// The engine's own text for a bug report, behind a closed disclosure under a recovery message.
+pub fn recovery_details(text: String) -> impl IntoView {
+    view! {
+        <details class="recovery-details">
+            <summary>{super::icons::chevron_right("disclosure-chevron")}"Details for a bug report"</summary>
+            <p class="muted"><code>{text}</code></p>
+        </details>
+    }
+}
+
 /// Sets `document.title`. Every screen calls this so that history entries read well.
 pub fn set_title(title: &str) {
     if let Some(document) = web_sys::window().and_then(|w| w.document()) {

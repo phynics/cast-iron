@@ -25,7 +25,7 @@ const SECTIONS = [
 async function openDiagnostics(page: Page) {
   await page.goto("#/settings/diagnostics");
   await expect(page.getByRole("heading", { level: 1, name: "Diagnostics" })).toBeVisible();
-  await expect(page.getByText("Collecting...")).toHaveCount(0);
+  await expect(page.getByText("Collecting…")).toHaveCount(0);
   await expect(page.locator(".diagnostics-section").first()).toBeVisible();
 }
 
@@ -49,7 +49,7 @@ installedTest("Settings links to Diagnostics, which lists the launch, the librar
   await page.getByRole("link", { name: "Timings and storage" }).click();
   await expect(page).toHaveURL(/#\/settings\/diagnostics$/);
   await expect(page.getByRole("heading", { level: 1, name: "Diagnostics" })).toBeVisible();
-  await expect(page.getByText("Collecting...")).toHaveCount(0);
+  await expect(page.getByText("Collecting…")).toHaveCount(0);
   // Diagnostics belongs to Settings in the navigation.
   await expect(page.getByRole("navigation", { name: "Primary" }).getByRole("link", { name: "Settings" })).toHaveAttribute("aria-current", "page");
 
@@ -175,7 +175,7 @@ installedTest("Two tabs take two launch numbers and keep both records", async ({
   expect(a).not.toBe(b);
   // Refresh the first tab: it lists the second launch, and the second tab's record stayed.
   await page.getByRole("button", { name: "Refresh", exact: true }).click();
-  await expect(page.getByText("Collecting...")).toHaveCount(0);
+  await expect(page.getByText("Collecting…")).toHaveCount(0);
   expect((await shown(page)).text).toMatch(new RegExp(`#${b}: browser tab, online at start yes`));
 });
 
@@ -187,7 +187,7 @@ installedTest("Copy puts the text on the clipboard, and no request leaves the pa
   await server.clearLog();
 
   await page.getByRole("button", { name: "Refresh", exact: true }).click();
-  await expect(page.getByText("Collecting...")).toHaveCount(0);
+  await expect(page.getByText("Collecting…")).toHaveCount(0);
   await page.getByRole("button", { name: "Copy results", exact: true }).click();
   const status = page.getByTestId("diagnostics-status");
   if (browserName === "chromium") {

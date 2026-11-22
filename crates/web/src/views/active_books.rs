@@ -514,7 +514,7 @@ pub fn ActiveBooks() -> impl IntoView {
             </div>
             <p class="muted books-count" aria-live="polite">{line}</p>
             {move || (empty() == 0).then(|| view! {
-                <p class="muted">"Search and lists show nothing until a book is active."</p>
+                <p class="muted">"No books are active. Turn some on below."</p>
             })}
             <section aria-labelledby="presets-heading">
                 <h2 id="presets-heading" class="sub-head">"Presets"</h2>

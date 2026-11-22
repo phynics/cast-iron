@@ -215,7 +215,7 @@ pub fn App() -> impl IntoView {
         <a class="skip-link" href="#main" on:click=skip_to_main>"Skip to content"</a>
         {move || match app.boot.get() {
             Boot::Starting => view! {
-                <div class="app app-loading" role="status">"Loading Cast Iron..."</div>
+                <div class="app app-loading" role="status">"Loading Cast Iron…"</div>
             }.into_any(),
             Boot::Install { notice } => view! { <InstallerScreen notice /> }.into_any(),
             Boot::Ready(library) => view! { <Reader library /> }.into_any(),
@@ -269,10 +269,7 @@ fn BookSelectionRecovery(active: ActiveLibrary, message: String) -> impl IntoVie
                 }>"Reset book choices"</button>
             </div>
             {move || failure.get().then(|| view! { <p class="error" role="alert">{RECOVERY_RESET_FAILED}</p> })}
-            <details class="recovery-details">
-                <summary>{views::icons::chevron_right("disclosure-chevron")}"Details for a bug report"</summary>
-                <p class="muted"><code>{message}</code></p>
-            </details>
+            {views::util::recovery_details(message)}
         </main>
     }
 }
@@ -619,7 +616,7 @@ fn RouteView() -> impl IntoView {
         Route::Settings => view! { <Settings /> }.into_any(),
         Route::Diagnostics => view! { <Diagnostics /> }.into_any(),
         Route::Legal => view! { <Legal /> }.into_any(),
-        Route::NotFound(hash) => view! { <NotFound hash /> }.into_any(),
+        Route::NotFound(_) => view! { <NotFound /> }.into_any(),
     }
 }
 

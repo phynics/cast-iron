@@ -32,14 +32,20 @@ pub fn Legal() -> impl IntoView {
             " through GitHub Issues for questions, corrections, or licensing concerns."
         </p>
         {move || legal.with(|state| match state {
-            None => view! { <p>"Loading..."</p> }.into_any(),
-            Some(Err(error)) => view! { <p class="error" role="alert">{error.to_string()}</p> }.into_any(),
+            None => view! { <p class="status" role="status">"Loading…"</p> }.into_any(),
+            Some(Err(error)) => view! {
+                <div class="error" role="alert"><p>{error.reader_message()}</p></div>
+                {crate::views::util::recovery_details(error.to_string())}
+            }.into_any(),
             Some(Ok(legal)) => legal_view(legal).into_any(),
         })}
         <h2 id="coverage">"Coverage"</h2>
         {move || coverage.with(|state| match state {
-            None => view! { <p>"Loading..."</p> }.into_any(),
-            Some(Err(error)) => view! { <p class="error" role="alert">{error.to_string()}</p> }.into_any(),
+            None => view! { <p class="status" role="status">"Loading…"</p> }.into_any(),
+            Some(Err(error)) => view! {
+                <div class="error" role="alert"><p>{error.reader_message()}</p></div>
+                {crate::views::util::recovery_details(error.to_string())}
+            }.into_any(),
             Some(Ok(report)) => coverage_view(report).into_any(),
         })}
     }

@@ -537,15 +537,26 @@ The installer screen is described above under Installer screen, and the iOS guid
 
 ### Loading
 
-Loading text is a `.status` line with `role="status"` (see Callouts and status lines) at the place where the content will appear: `Loading entry…`, `Loading contents…`, `Loading chapter…`, `Loading feat chains…`. A filter menu that is waiting reads `{Group}: Loading…` and is disabled. Starred on Home shows nothing while it loads and nothing when it is empty. The app frame itself shows `Loading Cast Iron...` until the library is ready.
+Loading text is a `.status` line with `role="status"` (see Callouts and status lines) at the place where the content will appear: `Loading entry…`, `Loading contents…`, `Loading chapter…`, `Loading feat chains…`. A filter menu that is waiting reads `{Group}: Loading…` and is disabled. Starred on Home shows nothing while it loads and nothing when it is empty. The app frame itself shows `Loading Cast Iron…` until the library is ready.
 
 ### Empty
 
-A filtered list that has no rows says so in one sentence and offers the way out: `No Combat feats in your active books.` with `Show all feats` and `Manage books` (see Filter menu). The search results page and the spell lists draw their empty state as `.empty`: a 1 px dashed `--ink-muted` box on `--surface` with the card radius. Home with no active book shows a `.notice` that links `Open Manage books`.
+A filtered list that has no rows says so in one sentence and offers the way out: `No Combat feats in your active books.` with `Show all feats` and `Manage books` (see Filter menu). The search results page and the spell lists draw their empty state as `.empty`: a 1 px dashed `--ink-muted` box on `--surface` with the card radius. Home with no active book shows a `.notice`, `No books are active. Turn some on in Manage books.`, with Manage books as the link; Manage books itself says `No books are active. Turn some on below.`. When a narrowed list has no rows, its count line reads `0 of 1,885 feats` and drops `Show all`; the block below it offers that link once.
 
 ### Recovery and unavailable pages (#445)
 
-A page that cannot show what was asked for follows `Entry unavailable`: an H1 that names the state (`Book unavailable`, never the raw id), then one `.error` with `role="alert"` that says what happened and, where it matters, what was kept (only where the page has no content to show), then one or two links out (`Browse all books`, `go to Home`). A state that still shows content uses a `.notice` instead and says what the page does: the kind list reads `That book isn't in your library, so this list shows all spells.`, and a search with a missing book shows the muted `.inactive-books-hint` line with a `Remove it` action. The book-choice recovery screen puts the alert, one sentence of next steps, and `Try again` (filled) and `Reset book choices` (bordered) together, and keeps the engine's own text under a closed `Details for a bug report` disclosure with the shared chevron. The removed-book line above Books is a `.notice`, because the page still shows Books. No message shows an id, a slot, a schema or a manifest.
+A page that cannot show what was asked for follows `Entry unavailable`: an H1 that names the state (`Book unavailable`, never the raw id), then one `.error` with `role="alert"` that says what happened and, where it matters, what was kept (only where the page has no content to show), then one or two links out (`Browse all books`, `go to Home`). A state that still shows content uses a `.notice` instead and says what the page does: the kind list reads `That book isn't in your library, so this list shows all spells.`, and a search with a missing book shows the muted `.inactive-books-hint` line with a `Remove it` action. The book-choice recovery screen puts the alert, one sentence of next steps, and `Try again` (filled) and `Reset book choices` (bordered) together, and keeps the engine's own text under a closed `Details for a bug report` disclosure with the shared chevron. The removed-book line above Books is a `.notice`, because the page still shows Books. No message shows an id, a path, a file name, a slot, a schema or a manifest; the engine's text sits under the closed `Details for a bug report` disclosure.
+
+| State | `h1` | Message | Links |
+|---|---|---|---|
+| Entry unavailable (the link names no entry) | `Entry unavailable`, or the catalog title when the stub exists | `.error`: `This entry isn't in your library. The link may come from another version of Cast Iron.` | `Search for it` (to a search for the last id segment), `go to Home` |
+| Entry unavailable (its file is missing or damaged) | same | `.error`: `Part of the library can't be read on this device. Open Settings and verify the library.`, with the details disclosure | `Open Settings`, `go to Home` |
+| Not in this library (a retired entry) | `Not in this library` | `.notice`: `This saved entry is not part of the current library ({reason}).` | `Go to Home`, a plain link |
+| Page not found | `Page not found` | `.error`: `There is nothing at this address. The link may be old or mistyped.` The address is not printed | `Search the rules`, `go to Home` |
+| Chapter unavailable | `Chapter unavailable`, and the document title says the same | `.error`: `This chapter isn't in this book. The link may be old or mistyped.` | `Open the book`, `Browse all books` |
+| A book's contents or chapter cannot load | the page keeps its `h1` (a chapter shows `Chapter unavailable`) | `.error`: `This book's contents can't be read on this device. Open Settings and verify the library.`, with the details disclosure | `Open Settings` |
+
+The entry page of a turned-off book shows a `.notice`: `This entry's book is turned off, so it doesn't appear in search or lists.`, then `It stays in your Starred list.` only when the entry is starred, then the link `Manage books`.
 
 ### Offline
 
@@ -555,22 +566,11 @@ While the device has no connection the header shows `Offline`, a `.badge` (small
 
 ### Vocabulary
 
-Book state is described in more than one way today. The words in the shipped text:
-
-| Where | Words |
-|---|---|
-| Counts and empty lists | `active` (`28 of 439 books active`, `No Combat feats in your active books.`) |
-| A book row, an `Expanded in:` credit | the `Inactive` Label |
-| The book page | `This book is turned off. Its entries don't appear in search or lists.` |
-| The entry page of a turned-off book | `This book is disabled for search and browsing.` with `Open Books` |
-| Home, the third-party notice | `Third-party books are now off by default.` |
-| Actions | `Turn on`, `Turn all on`, `Turn all off` |
-
-`#582` decides one vocabulary. Until it lands, keep each message as the table shows it and do not add a fourth word.
+A book is active or inactive (count lines such as `28 of 443 books active`, the `Inactive` Label, checkbox names `Active {title}`). A reader turns a book on or off, and one book's state reads `This book is turned off.` Never write disabled, enabled or reactivate; stored keys such as `disabled_books` are not copy.
 
 ### Ellipsis
 
-The loading and progress text in the library views uses the single character `…` (`Loading entry…`, `Type: Loading…`). The app frame, Legal, Diagnostics, Settings and the installer still write three full stops (`Loading...`, `Collecting...`, `Checking...`). No ticket has decided which one stays.
+Loading and progress text uses the single character `…` (`Loading entry…`, `Type: Loading…`, `Loading Cast Iron…`, `Collecting…`) and is `role="status"`. Settings and the installer still write three full stops (`Checking...`) until `#584`.
 
 ### Numbers
 
