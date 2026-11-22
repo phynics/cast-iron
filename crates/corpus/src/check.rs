@@ -97,6 +97,69 @@ pub const SIZE_CATEGORIES: [&str; 9] = [
     "colossal",
 ];
 
+/// The affliction types that print uses, one lower-case spelling each (phynics/cast-iron-data#171).
+///
+/// An affliction carries exactly one of them as a tag, so that a type filter reaches every
+/// affliction, including the creature afflictions whose titles are generic (`Poison (Ex)`). The
+/// first word of the printed `**Type:**` line names the tag. The data repository keeps the print
+/// citation of each value in `scripts/affliction-slot-vocabulary-171.tsv`; the lists must be equal.
+pub const AFFLICTION_TYPES: [&str; 6] = [
+    "addiction",
+    "curse",
+    "disease",
+    "infestation",
+    "insanity",
+    "poison",
+];
+
+/// The `slot` value of an item that occupies no body slot. The compiler leaves it out of the
+/// `slot` facet, so the Slot menu lists only real slots (phynics/cast-iron-data#171).
+pub const ITEM_SLOT_NONE: &str = "none";
+
+/// The body slots that print gives a magic item, plus `none` (phynics/cast-iron-data#171). Two of
+/// them, joined by ` or `, make one value (`neck or shoulders`, `none or neck`). The data
+/// repository keeps the print citation of each value in `scripts/affliction-slot-vocabulary-171.tsv`.
+pub const ITEM_BODY_SLOTS: [&str; 15] = [
+    "armor",
+    "belt",
+    "body",
+    "chest",
+    "eyes",
+    "feet",
+    "hands",
+    "head",
+    "headband",
+    ITEM_SLOT_NONE,
+    "neck",
+    "ring",
+    "shield",
+    "shoulders",
+    "wrists",
+];
+
+/// The `slot` values of an item enhancement, which attaches to a weapon, armor or shield instead
+/// of a body slot. They do not combine.
+pub const ITEM_QUALITY_SLOTS: [&str; 4] = [
+    "weapon quality",
+    "armor quality",
+    "shield quality",
+    "armor/shield quality",
+];
+
+/// Whether `value` is a closed `slot` value: one body slot, one enhancement value, or two distinct
+/// body slots joined by ` or `. Case counts: the corpus spells every value in lower case.
+pub fn is_item_slot(value: &str) -> bool {
+    if ITEM_BODY_SLOTS.contains(&value) || ITEM_QUALITY_SLOTS.contains(&value) {
+        return true;
+    }
+    match value.split(" or ").collect::<Vec<_>>().as_slice() {
+        [first, second] => {
+            first != second && ITEM_BODY_SLOTS.contains(first) && ITEM_BODY_SLOTS.contains(second)
+        }
+        _ => false,
+    }
+}
+
 /// What a check found. Every problem fails the run; warnings do not.
 #[derive(Debug, Default, Clone)]
 pub struct Report {
@@ -1779,18 +1842,77 @@ fn out_of_vocabulary(corpus: &Corpus) -> Vec<(String, &str, &'static str, String
                     out.push((at, id, "size", size.clone()));
                 }
             }
+            TypedFields::Item(fields) => {
+                if let Some(slot) = &fields.slot
+                    && !is_item_slot(slot)
+                {
+                    let at = format!(
+                        "{}:{}",
+                        stored.path.display(),
+                        line_of(&stored.text, "slot")
+                    );
+                    out.push((at, id, "slot", slot.clone()));
+                }
+            }
             _ => {}
+        }
+        // An affliction's type is a tag, and every affliction has exactly one.
+        if entry.kind == EntryKind::Affliction {
+            let types: Vec<&str> = entry
+                .tags
+                .iter()
+                .map(String::as_str)
+                .filter(|tag| AFFLICTION_TYPES.contains(tag))
+                .collect();
+            if types.len() != 1 {
+                let at = format!(
+                    "{}:{}",
+                    stored.path.display(),
+                    line_of(&stored.text, "tags")
+                );
+                let value = if types.is_empty() {
+                    "no type tag".to_string()
+                } else {
+                    format!("the type tags {}", types.join(", "))
+                };
+                out.push((at, id, "affliction_type", value));
+            }
         }
     }
     out
 }
 
 /// Warns, once per field and run, about values outside a closed vocabulary. It is a warning
-/// while the corpus is cleaned up (phynics/cast-iron-data#169): the count measures what is
+/// while the corpus is cleaned up (phynics/cast-iron-data#169, #171): the count measures what is
 /// left. When it reaches 0 it becomes an error, as the footnote findings did.
 fn check_closed_vocabularies(corpus: &Corpus, report: &mut Report) {
     let found = out_of_vocabulary(corpus);
-    for (field, list) in [("feat_types", "FEAT_TYPES"), ("size", "SIZE_CATEGORIES")] {
+    for (field, list, fix, issue) in [
+        (
+            "feat_types",
+            "FEAT_TYPES",
+            "move a book abbreviation, a title qualifier or a race out of it, as print gives them",
+            169,
+        ),
+        (
+            "size",
+            "SIZE_CATEGORIES",
+            "give it the size category that print gives",
+            169,
+        ),
+        (
+            "affliction_type",
+            "AFFLICTION_TYPES",
+            "tag the affliction with the first word of its printed `**Type:**` line",
+            171,
+        ),
+        (
+            "slot",
+            "ITEM_BODY_SLOTS, ITEM_QUALITY_SLOTS and their `or` pairs",
+            "map a spelling to the printed slot, or move text that is no slot out of it, as print gives them",
+            171,
+        ),
+    ] {
         let rows: Vec<_> = found.iter().filter(|row| row.2 == field).collect();
         if rows.is_empty() {
             continue;
@@ -1802,7 +1924,7 @@ fn check_closed_vocabularies(corpus: &Corpus, report: &mut Report) {
             .map(|(at, id, _, value)| format!("{at}: `{id}` has `{value}`"))
             .collect();
         report.warnings.push(format!(
-            "{} `{field}` values in {} entries are outside the closed vocabulary `{list}` (for example {}); a filter menu shows the field, so move a book abbreviation, a title qualifier or a race out of it, as print gives them (phynics/cast-iron-data#169)",
+            "{} `{field}` values in {} entries are outside the closed vocabulary `{list}` (for example {}); a filter menu shows the field, so {fix} (phynics/cast-iron-data#{issue})",
             rows.len(),
             entries.len(),
             examples.join(", ")
@@ -2751,6 +2873,126 @@ mod tests {
             report.warnings[0].contains("1 `size` values in 1 entries are outside"),
             "{:?}",
             report.warnings
+        );
+    }
+
+    fn item(id: &str, slot: Option<&str>) -> RuleEntry {
+        typed(
+            rule(id, vec![]),
+            EntryKind::Item,
+            TypedFields::Item(cast_iron_schema::ItemFields {
+                slot: slot.map(str::to_string),
+                ..Default::default()
+            }),
+        )
+    }
+
+    fn affliction(id: &str, tags: &[&str]) -> RuleEntry {
+        let mut entry = rule(id, vec![]);
+        entry.kind = EntryKind::Affliction;
+        entry.tags = tags.iter().map(|tag| tag.to_string()).collect();
+        entry
+    }
+
+    #[test]
+    fn the_item_slot_lists_hold_one_spelling_each() {
+        let all: Vec<&str> = ITEM_BODY_SLOTS
+            .iter()
+            .chain(ITEM_QUALITY_SLOTS.iter())
+            .copied()
+            .collect();
+        let unique: BTreeSet<&str> = all.iter().copied().collect();
+        assert_eq!(all.len(), unique.len(), "{all:?}");
+        assert!(all.iter().all(|slot| *slot == slot.trim()));
+        assert!(all.iter().all(|slot| *slot == slot.to_lowercase()));
+        // The compiler leaves `none` out of the `slot` facet by this name.
+        assert!(ITEM_BODY_SLOTS.contains(&ITEM_SLOT_NONE));
+        let types: BTreeSet<&str> = AFFLICTION_TYPES.iter().copied().collect();
+        assert_eq!(types.len(), AFFLICTION_TYPES.len());
+    }
+
+    #[test]
+    fn an_item_slot_is_a_listed_value_or_an_or_pair_of_body_slots() {
+        for ok in [
+            "neck",
+            "none",
+            "headband",
+            "armor/shield quality",
+            "neck or shoulders",
+            "none or neck",
+        ] {
+            assert!(is_item_slot(ok), "{ok}");
+        }
+        for bad in [
+            "",
+            "-",
+            "shoulder",
+            "Neck",
+            "see text",
+            "neck (see text)",
+            "veemod goggles",
+            "neck, ring, or none",
+            "head and eyes",
+            "neck or neck",
+            "neck or shoulders or belt",
+            "weapon quality or neck",
+            "neck or",
+        ] {
+            assert!(!is_item_slot(bad), "{bad}");
+        }
+    }
+
+    #[test]
+    fn an_item_slot_outside_the_closed_vocabulary_is_a_warning() {
+        let report = check(&corpus(vec![
+            item("ref/item/ring", Some("ring")),
+            item("ref/item/cloak", Some("neck or shoulders")),
+            item("ref/item/plain", None),
+        ]));
+        assert!(report.warnings.is_empty(), "{:?}", report.warnings);
+
+        let report = check(&corpus(vec![
+            item("ref/item/goggles", Some("veemod goggles")),
+            item("ref/item/lenses", Some("face")),
+        ]));
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
+        assert_eq!(report.warnings.len(), 1, "{:?}", report.warnings);
+        let warning = &report.warnings[0];
+        assert!(
+            warning.contains("2 `slot` values in 2 entries are outside the closed vocabulary"),
+            "{warning}"
+        );
+        assert!(
+            warning.contains("`ref/item/goggles` has `veemod goggles`"),
+            "{warning}"
+        );
+    }
+
+    #[test]
+    fn an_affliction_needs_exactly_one_type_tag() {
+        let report = check(&corpus(vec![
+            affliction("ref/affliction/a", &["poison"]),
+            affliction("ref/affliction/b", &["fog", "disease"]),
+        ]));
+        assert!(report.warnings.is_empty(), "{:?}", report.warnings);
+
+        let report = check(&corpus(vec![
+            affliction("ref/affliction/c", &[]),
+            affliction("ref/affliction/d", &["poison", "curse"]),
+            affliction("ref/affliction/e", &["Poison"]),
+        ]));
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
+        assert_eq!(report.warnings.len(), 1, "{:?}", report.warnings);
+        let warning = &report.warnings[0];
+        assert!(
+            warning.contains(
+                "3 `affliction_type` values in 3 entries are outside the closed vocabulary"
+            ),
+            "{warning}"
+        );
+        assert!(
+            warning.contains("`ref/affliction/c` has `no type tag`"),
+            "{warning}"
         );
     }
 

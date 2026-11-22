@@ -17,7 +17,6 @@ use crate::views::backlinks::{GROUP_PREVIEW, show_all};
 use crate::views::chains::chain_tree;
 use crate::views::icons;
 use crate::views::rich::{blocks, plain_text};
-use crate::views::search::facet_label;
 use crate::views::sources::source_line;
 use crate::views::spells::spells_noun;
 use crate::views::util::{local_resource, sort_key};
@@ -79,8 +78,15 @@ pub fn needs(kind: EntryKind) -> Needs {
         | EntryKind::Affliction
         | EntryKind::Trap
         | EntryKind::Trait
-        | EntryKind::RacialTrait
-        | EntryKind::Archetype => Needs::default(),
+        | EntryKind::RacialTrait => Needs::default(),
+        // The metadata line names the class and the facts line the replaced and altered
+        // features, so an archetype page reads the trades.
+        EntryKind::Archetype => Needs {
+            relations: false,
+            spell_lists: false,
+            option_groups: false,
+            trades: true,
+        },
     }
 }
 
@@ -311,40 +317,6 @@ fn race_panel(library: &Library, id: &EntryId, relations: &Relations) -> Option<
     )
 }
 
-fn racial_trait_panel(library: &Library, entry: &RuleEntry) -> Option<AnyView> {
-    let alternate = matches!(&entry.fields, TypedFields::RacialTrait(f) if f.alternate);
-    let races: Vec<&Relation> = entry
-        .relations
-        .iter()
-        .filter(|r| r.kind == RelationKind::Part && library.is_entry_active(&r.target))
-        .collect();
-    if races.is_empty() {
-        return None;
-    }
-    let rows = races
-        .iter()
-        .map(|r| {
-            let race_link = link(library, &r.target);
-            view! { <li>{race_link}</li> }
-        })
-        .collect_view();
-    let kind = if alternate {
-        "An alternate racial trait of"
-    } else {
-        "A standard racial trait of"
-    };
-    Some(
-        view! {
-            <section class="rel" aria-labelledby="rel-part">
-                <h2 id="rel-part">{kind}</h2>
-                <ul class="rel-list">{rows}</ul>
-                <p class="hint">"Open the race to see its other traits."</p>
-            </section>
-        }
-        .into_any(),
-    )
-}
-
 fn class_panels(
     library: &Library,
     id: &EntryId,
@@ -451,35 +423,6 @@ fn class_panels(
         }
     }
     out
-}
-
-fn archetype_panel(library: &Library, entry: &RuleEntry) -> Option<AnyView> {
-    let classes: Vec<&Relation> = entry
-        .relations
-        .iter()
-        .filter(|r| r.kind == RelationKind::Archetype)
-        .filter(|r| library.is_entry_active(&r.target))
-        .collect();
-    if classes.is_empty() {
-        return None;
-    }
-    let rows = classes
-        .iter()
-        .map(|r| {
-            let class_link = link(library, &r.target);
-            view! { <li>{class_link}</li> }
-        })
-        .collect_view();
-    Some(
-        view! {
-            <section class="rel" aria-labelledby="rel-archetype-of">
-                <h2 id="rel-archetype-of">"An archetype of"</h2>
-                <ul class="rel-list">{rows}</ul>
-                <p class="hint">"Open the class to see its other archetypes."</p>
-            </section>
-        }
-        .into_any(),
-    )
 }
 
 /// The add-ons that attach to `base` with `label` and pass `eligible`, in index order. The
@@ -981,33 +924,6 @@ fn prestige_panel(library: &Library, entry: &RuleEntry) -> Option<AnyView> {
     )
 }
 
-fn trait_panel(entry: &RuleEntry) -> Option<AnyView> {
-    let TypedFields::Trait(fields) = &entry.fields else {
-        return None;
-    };
-    let route = Route::Search {
-        q: String::new(),
-        kinds: vec![EntryKind::Trait],
-        sources: Vec::new(),
-        facets: vec![("trait_category".into(), fields.category.to_lowercase())],
-        sections: false,
-    };
-    let detail = fields.detail.clone();
-    Some(
-        view! {
-            <section class="rel" aria-labelledby="rel-trait">
-                <h2 id="rel-trait">"Trait category"</h2>
-                <p>
-                    <a href=route.href()>{facet_label("trait_category", &fields.category)}</a>
-                    {detail.map(|d| view! { <span class="muted">{format!(" · {d}")}</span> })}
-                </p>
-                <p class="hint">"The link lists every trait of this category."</p>
-            </section>
-        }
-        .into_any(),
-    )
-}
-
 /// The direct variants of a base spell, after the body. Each row links the variant and names
 /// its levels and book from the indexes already in memory, so the panel opens no shard. The
 /// variant's own book alone gates the row; the base's book never does.
@@ -1123,7 +1039,6 @@ pub fn Related(library: Library, entry: RuleEntry, indexes: Indexes) -> impl Int
         EntryKind::Race => {
             panels.extend(relations.and_then(|r| race_panel(&library, &entry.id, r)))
         }
-        EntryKind::RacialTrait => panels.extend(racial_trait_panel(&library, &entry)),
         EntryKind::Class => {
             panels.extend(changes_panel(&library, &entry.id, all_relations));
             panels.extend(class_panels(
@@ -1136,7 +1051,6 @@ pub fn Related(library: Library, entry: RuleEntry, indexes: Indexes) -> impl Int
                 indexes.archetypes_in_page,
             ));
         }
-        EntryKind::Archetype => panels.extend(archetype_panel(&library, &entry)),
         EntryKind::PrestigeClass => panels.extend(prestige_panel(&library, &entry)),
         EntryKind::Feat => {
             panels.extend(mythic_panel(&library, &entry.id, all_relations));
@@ -1144,7 +1058,6 @@ pub fn Related(library: Library, entry: RuleEntry, indexes: Indexes) -> impl Int
             panels.extend(stamina_panel(&library, &entry.id, all_relations));
             panels.extend(feat_panels(&library, &entry, relations));
         }
-        EntryKind::Trait => panels.extend(trait_panel(&entry)),
         EntryKind::Spell => {
             panels.extend(mythic_panel(&library, &entry.id, all_relations));
             panels.extend(changes_panel(&library, &entry.id, all_relations));
@@ -1156,7 +1069,13 @@ pub fn Related(library: Library, entry: RuleEntry, indexes: Indexes) -> impl Int
         EntryKind::Rule | EntryKind::Item | EntryKind::ClassOption => {
             panels.extend(changes_panel(&library, &entry.id, all_relations));
         }
-        EntryKind::Creature | EntryKind::Skill | EntryKind::Affliction | EntryKind::Trap => {}
+        EntryKind::Creature
+        | EntryKind::Skill
+        | EntryKind::Affliction
+        | EntryKind::Trap
+        | EntryKind::Trait
+        | EntryKind::RacialTrait
+        | EntryKind::Archetype => {}
     }
     (!panels.is_empty()).then(|| view! { <div class="entry-rel">{panels}</div> })
 }
@@ -1324,8 +1243,11 @@ mod tests {
         assert!(needs(EntryKind::Item).relations);
         assert!(needs(EntryKind::ClassOption).relations);
         assert_eq!(needs(EntryKind::Creature), Needs::default());
-        // Racial traits, archetypes, and traits read their own entry: no extra file.
-        assert_eq!(needs(EntryKind::Archetype), Needs::default());
+        // Racial traits and traits read their own entry: no extra file.
+        assert_eq!(needs(EntryKind::Trait), Needs::default());
+        assert_eq!(needs(EntryKind::RacialTrait), Needs::default());
+        // An archetype's facts line reads the trades.
+        assert!(needs(EntryKind::Archetype).trades);
     }
 
     fn labelled_edges(edges: &[(&str, &str, &str, Option<&str>)]) -> Relations {

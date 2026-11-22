@@ -307,7 +307,7 @@ Focusing a field never navigates. The scope control is never a second field in t
 `#/entry/<id>` is the entry page. From the top at 390 px, the shipped order is:
 
 1. The breadcrumb (see Breadcrumbs).
-2. The head: the `h1` with the star beside it, the metadata line (kind, book, an add-on's `Variant of …` fragment), and, on a one-power class option page, the muted `.entry-facts` line.
+2. The head: the `h1` with the star beside it, the metadata line (kind, the parent where there is one, book, an add-on's `Variant of …` fragment), and the muted `.entry-facts` line where the entry has typed facts to classify it (see Class page, Parent and classification).
 3. Notices: a book that is turned off, a revision in force, and a collision of revisions.
 4. The original-text disclosure of a revised entry.
 5. On a class page, the summary card and the section switcher, and `On this page` where the page keeps it.
@@ -354,6 +354,12 @@ for the same citation. A mythic version with no printed citation falls back to i
 No box, no tint, and no left rule; the stat block keeps the only one.
 
 **Class page.** `Class options` is a `.jump-list` of `.jump` rectangles `{Group} {count}`, each opening `#/browse/kind/class_option?facet=group:{slug}`. The list page has the H1 `Class options`, a count line, and a group filter menu that reads the group facet from the search index (`option-groups.json` gives its labels); a class `.scope-pill` appears only when a group serves several classes. Archetype rows show a muted `Replaces {items}` from `replaces`. Option rows show only `{book}`, because the group is the selected filter.
+
+**Parent and classification.** An entry that belongs to a parent (a class option, an archetype, a racial trait) names it in the metadata line, as a link. Typed facts that classify the entry (feat types, a trait's detail, an archetype's replaced and altered features, a one-power option's tag) form the `.entry-facts` line under it. No end panel repeats them.
+- A feat reads `Feat · {book}` with its types in the facts line (`Combat`, `Combat · Teamwork`).
+- A trait reads `{Category} trait · {book}`; the kind link opens the Traits list filtered to that category. The trait's detail (`Half-Elf`) is its facts line. A trait with no category keeps `Trait`.
+- A racial trait reads `Alternate racial trait` or `Standard racial trait` (a link to the Racial traits list), then its race as a link, then the book. A race whose book is off keeps its link and ends with the `Inactive` Label.
+- An archetype reads `Archetype · {Class}`, one link per class, then the book. Its facts line is `Replaces {names} · Alters {names}`, the text of its row in the class's Archetypes list; the line is absent while the library has no trades for it.
 
 **A revision in force.** A `.notice` reads `Revised by {book}. Changed: {fields}.`, or `Removed by {book}.` / `Merged by {book}.` followed by the printed sentence. Each changed field row carries the Label `changed` (plain muted `.tag`, never accent or bold), then a collapsed `details.rel-disclosure` `Original text · {book}` with a 44 px summary; its body ends with the base's own `Sources` line. The page's `Sources` line follows the revision's text: a revision with typed rows replaces the base citation, and a revision with none keeps the base's rows. A removed or merged page shows the revision's citation under the printed sentence. A list row adds the revision's book as its muted line. Removed feats leave the list, and one prose line under it states the count. When two or more revisions are in force the page shows the original plus `Revised by` and a `.rel-list`; there is no substitution and no last-writer-wins.
 

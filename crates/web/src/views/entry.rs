@@ -25,6 +25,7 @@ use crate::views::icons;
 use crate::views::recent;
 use crate::views::related::{Indexes, Related, needs};
 use crate::views::rich::{RELATED_ANCHOR, RichBody, blocks, muted_line, plain_text};
+use crate::views::search::facet_label;
 use crate::views::section_switcher::SectionSwitcher;
 use crate::views::sources::{aon_line, expanded_line, source_line};
 use crate::views::util::{
@@ -32,7 +33,7 @@ use crate::views::util::{
 };
 use cast_iron_schema::{
     Block, EntryId, EntryKind, EntryReference, Inline, RelationKind, RetirementReason, RuleEntry,
-    SpellLevel, TypedFields,
+    SpellLevel, TradeIndex, TradeOp, TypedFields,
 };
 use leptos::prelude::*;
 use leptos::task::spawn_local;
@@ -718,11 +719,6 @@ fn EntryView(
                 {inactive.then(|| view! { <span class="tag">"Inactive"</span> })}
             }
         });
-    let category_route = if kind == EntryKind::Rule {
-        Route::Books
-    } else {
-        Route::browse_kind(kind)
-    };
     // A class option's metadata line names its group, and links the class when the group has
     // exactly one. A group shared by several classes has no single class to link.
     let class_option_group = indexes
@@ -754,10 +750,37 @@ fn EntryView(
             }
             .into_any()
         }
-        None => view! {
-            <a class="meta-link" href=category_route.href()>{kind_name(kind)}</a>
+        None => {
+            let (route, label) = kind_link(&entry);
+            // A racial trait names its race and an archetype its class, each as a link. A parent
+            // whose book is off keeps its link and shows the plain `Inactive` label.
+            let parent = match kind {
+                EntryKind::RacialTrait => Some(RelationKind::Part),
+                EntryKind::Archetype => Some(RelationKind::Archetype),
+                _ => None,
+            };
+            let parents = parent
+                .into_iter()
+                .flat_map(|wanted| entry.relations.iter().filter(move |r| r.kind == wanted))
+                .map(|relation| {
+                    let target = relation.target.clone();
+                    let title = library
+                        .stub(&target)
+                        .map_or_else(|| target.to_string(), |stub| stub.title.clone());
+                    let inactive = !library.is_entry_active(&target);
+                    view! {
+                        <span class="meta-sep" aria-hidden="true">"·"</span>
+                        <a class="meta-link" href=Route::entry(target).href()>{title}</a>
+                        {inactive.then(|| view! { <span class="tag">"Inactive"</span> })}
+                    }
+                })
+                .collect_view();
+            view! {
+                <a class="meta-link" href=route.href()>{label}</a>
+                {parents}
+            }
+            .into_any()
         }
-        .into_any(),
     };
     let disabled_book = !library.is_entry_active(&entry.id);
     // The star lives here so the turned-off notice can say whether the entry stays in Starred.
@@ -976,7 +999,13 @@ fn EntryView(
             let facts = (!facts.is_empty()).then(|| muted_line("entry-facts", &facts));
             (Some(entry.title.clone()), facts)
         }
-        false => (None, None),
+        false => {
+            let facts = head_facts(&entry, indexes.trades.as_deref());
+            (
+                None,
+                (!facts.is_empty()).then(|| muted_line("entry-facts", &facts)),
+            )
+        }
     };
     let switcher = class_sections.as_ref().map(|sections| {
         view! { <SectionSwitcher id=entry.id.clone() book=book.clone() stops=sections.present() /> }
@@ -1120,6 +1149,58 @@ fn EntryView(
     }
 }
 
+/// The kind link of the metadata line: where it goes and what it says. A trait names its
+/// category and a racial trait whether it is standard or alternate; every other kind names itself.
+fn kind_link(entry: &RuleEntry) -> (Route, String) {
+    match &entry.fields {
+        TypedFields::Trait(fields) if !fields.category.trim().is_empty() => (
+            Route::browse_kind_facets(
+                EntryKind::Trait,
+                vec![("trait_category".into(), fields.category.to_lowercase())],
+            ),
+            format!("{} trait", facet_label("trait_category", &fields.category)),
+        ),
+        TypedFields::RacialTrait(fields) => (
+            Route::browse_kind(EntryKind::RacialTrait),
+            format!(
+                "{} racial trait",
+                if fields.alternate {
+                    "Alternate"
+                } else {
+                    "Standard"
+                }
+            ),
+        ),
+        _ => {
+            let route = if entry.kind == EntryKind::Rule {
+                Route::Books
+            } else {
+                Route::browse_kind(entry.kind)
+            };
+            (route, kind_name(entry.kind).to_string())
+        }
+    }
+}
+
+/// The typed facts that classify an entry, under its metadata line: a feat's types, a trait's
+/// detail, an archetype's replaced and altered features. Empty when the entry has none.
+fn head_facts(entry: &RuleEntry, trades: Option<&TradeIndex>) -> Vec<String> {
+    match &entry.fields {
+        TypedFields::Feat(fields) => fields.feat_types.clone(),
+        TypedFields::Trait(fields) => fields.detail.iter().cloned().collect(),
+        TypedFields::Archetype(_) => trades
+            .and_then(|index| index.row(&entry.id))
+            .map(|row| {
+                [TradeOp::Replaces, TradeOp::Alters]
+                    .into_iter()
+                    .filter_map(|op| class_options::trade_line_of(row, op))
+                    .collect()
+            })
+            .unwrap_or_default(),
+        _ => Vec::new(),
+    }
+}
+
 /// The footer's licence sentence for an entry's `license_refs`. Open Game License wins when the
 /// entry names it (the line every entry carried before per-entry bases); an entry that names only
 /// the Community Use Policy says so; an entry that names neither says nothing about a licence.
@@ -1221,7 +1302,9 @@ fn EntryStar(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use cast_iron_schema::{SpellFields, StatRow};
+    use cast_iron_schema::{
+        FeatFields, RacialTraitFields, SpellFields, StatRow, Trade, TradeRow, TraitFields,
+    };
 
     #[test]
     fn the_licence_line_follows_the_entry_license_refs() {
@@ -1364,5 +1447,105 @@ mod tests {
             vec!["Actions".to_string()]
         );
         assert_eq!(extra_sections(&section, &[]).len(), 2);
+    }
+
+    fn of_kind(kind: EntryKind, fields: TypedFields) -> RuleEntry {
+        RuleEntry {
+            id: EntryId::parse("ref/x/y").unwrap(),
+            kind,
+            title: "Y".into(),
+            aon: None,
+            source_ids: vec!["c".into()],
+            sources: vec![],
+            expanded_in: vec![],
+            section: vec![],
+            parent: None,
+            body: vec![],
+            fields,
+            tags: vec![],
+            race_group: None,
+            links: vec![],
+            provenance: vec![],
+            license_refs: vec![],
+            relations: vec![],
+        }
+    }
+
+    #[test]
+    fn a_feat_names_its_types_and_a_trait_its_detail_in_the_facts_line() {
+        let feat = |types: &[&str]| {
+            of_kind(
+                EntryKind::Feat,
+                TypedFields::Feat(FeatFields {
+                    feat_types: types.iter().map(|t| t.to_string()).collect(),
+                    ..Default::default()
+                }),
+            )
+        };
+        assert_eq!(
+            head_facts(&feat(&["Combat", "Teamwork"]), None),
+            ["Combat", "Teamwork"]
+        );
+        assert!(head_facts(&feat(&[]), None).is_empty());
+        let tr = |detail: Option<&str>| {
+            of_kind(
+                EntryKind::Trait,
+                TypedFields::Trait(TraitFields {
+                    category: "Race".into(),
+                    detail: detail.map(str::to_string),
+                }),
+            )
+        };
+        assert_eq!(head_facts(&tr(Some("Half-Elf")), None), ["Half-Elf"]);
+        assert!(head_facts(&tr(None), None).is_empty());
+    }
+
+    #[test]
+    fn an_archetype_facts_line_reads_the_trades_and_is_absent_without_them() {
+        let archetype = of_kind(
+            EntryKind::Archetype,
+            TypedFields::Archetype(Default::default()),
+        );
+        assert!(head_facts(&archetype, None).is_empty());
+        let index = TradeIndex {
+            entries: vec![TradeRow {
+                id: archetype.id.clone(),
+                trades: vec![
+                    Trade::unresolved(TradeOp::Replaces, "Mutagen"),
+                    Trade::unresolved(TradeOp::Replaces, "Discovery"),
+                    Trade::unresolved(TradeOp::Alters, "Bomb"),
+                ],
+            }],
+        };
+        assert_eq!(
+            head_facts(&archetype, Some(&index)),
+            ["Replaces Mutagen, Discovery", "Alters Bomb"]
+        );
+        let empty = TradeIndex { entries: vec![] };
+        assert!(head_facts(&archetype, Some(&empty)).is_empty());
+    }
+
+    #[test]
+    fn the_kind_link_names_a_trait_category_and_a_racial_trait_kind() {
+        let tr = of_kind(
+            EntryKind::Trait,
+            TypedFields::Trait(TraitFields {
+                category: "Combat".into(),
+                detail: None,
+            }),
+        );
+        let (route, label) = kind_link(&tr);
+        assert_eq!(label, "Combat trait");
+        assert!(route.href().contains("facet=trait_category:combat"));
+        let uncategorised = of_kind(EntryKind::Trait, TypedFields::Trait(TraitFields::default()));
+        assert_eq!(kind_link(&uncategorised).1, "Trait");
+        let racial = |alternate| {
+            of_kind(
+                EntryKind::RacialTrait,
+                TypedFields::RacialTrait(RacialTraitFields { alternate }),
+            )
+        };
+        assert_eq!(kind_link(&racial(true)).1, "Alternate racial trait");
+        assert_eq!(kind_link(&racial(false)).1, "Standard racial trait");
     }
 }
