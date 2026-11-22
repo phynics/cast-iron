@@ -13,6 +13,7 @@ use crate::graph::{
 };
 use crate::library::Library;
 use crate::route::Route;
+use crate::views::backlinks::{GROUP_PREVIEW, show_all};
 use crate::views::chains::chain_tree;
 use crate::views::icons;
 use crate::views::rich::{blocks, plain_text};
@@ -21,8 +22,8 @@ use crate::views::sources::source_line;
 use crate::views::spells::spells_noun;
 use crate::views::util::{local_resource, sort_key};
 use cast_iron_schema::{
-    Block, EntryId, EntryKind, OptionGroupIndex, Relation, RelationKind, RelationLabel, RuleEntry,
-    SpellListClass, SpellLists, TradeIndex, TypedFields,
+    Block, EntryId, EntryKind, Inline, OptionGroupIndex, Relation, RelationKind, RelationLabel,
+    RuleEntry, SpellListClass, SpellLists, TradeIndex, TypedFields,
 };
 use leptos::prelude::*;
 use std::rc::Rc;
@@ -163,32 +164,30 @@ fn link(library: &Library, id: &EntryId) -> impl IntoView + use<> {
     view! { <a href=Route::entry(id.clone()).href()>{title_of(library, id)}</a> }
 }
 
-/// A group of links that opens by default when it is short.
+/// A group of links that opens by default when it is short. A group longer than the preview
+/// shows its first rows and offers `Show all {N}`, as a Referenced-by group does.
 fn group_view(heading: String, items: Vec<(EntryId, String)>, open_up_to: usize) -> impl IntoView {
-    group_view_meta(heading, items, open_up_to, None)
+    group_view_meta(heading, items, open_up_to, None, true)
 }
 
 /// A group of links, each with an optional muted line such as an archetype's `Replaces …`.
+/// `capped` keeps the first rows and builds the rest only when `Show all` opens.
 fn group_view_meta(
     heading: String,
     items: Vec<(EntryId, String)>,
     open_up_to: usize,
     meta: Option<&std::collections::BTreeMap<EntryId, String>>,
+    capped: bool,
 ) -> impl IntoView {
     let n = items.len();
-    let rows = items
+    let cap = if capped { GROUP_PREVIEW } else { n };
+    let items: Vec<RelRow> = items
         .into_iter()
         .map(|(id, title)| {
             let detail = meta.and_then(|meta| meta.get(&id)).cloned();
-            let href = Route::entry(id).href();
-            view! {
-                <li>
-                    <a href=href>{title}</a>
-                    {detail.map(|detail| view! { <span class="muted rel-meta">{detail}</span> })}
-                </li>
-            }
+            (id, title, detail)
         })
-        .collect_view();
+        .collect();
     view! {
         <details class="rel-group" open=n <= open_up_to>
             <summary>
@@ -196,9 +195,41 @@ fn group_view_meta(
                 <span class="rel-group-name">{heading}</span>
                 <span class="rel-count">{fmt::count(n)}</span>
             </summary>
-            <ul class="rel-chips">{rows}</ul>
+            {capped_list("rel-chips", items, cap)}
         </details>
     }
+}
+
+/// A link row with an optional muted line.
+type RelRow = (EntryId, String, Option<String>);
+
+/// A list that shows its first `cap` rows, then `Show all {N}` for the rest. The rest is built
+/// only when the row opens.
+fn capped_list(class: &'static str, mut items: Vec<RelRow>, cap: usize) -> AnyView {
+    let n = items.len();
+    let rest = items.split_off(cap.min(n));
+    let rows = |items: Vec<RelRow>| {
+        items
+            .into_iter()
+            .map(|(id, title, detail)| {
+                let href = Route::entry(id).href();
+                view! {
+                    <li>
+                        <a href=href>{title}</a>
+                        {detail.map(|detail| view! { <span class="muted rel-meta">{detail}</span> })}
+                    </li>
+                }
+            })
+            .collect_view()
+    };
+    let first = rows(items);
+    view! {
+        <ul class=class>{first}</ul>
+        {(!rest.is_empty()).then(|| show_all(n, Rc::new(move || view! {
+            <ul class=class>{rows(rest.clone())}</ul>
+        }.into_any())))}
+    }
+    .into_any()
 }
 
 /// Level links of one list, as in the spell hub.
@@ -401,12 +432,14 @@ fn class_panels(
                     .collect(),
             )
             .into_iter()
-            .map(|(heading, items)| group_view_meta(heading, items, 16, Some(&replaces_by_id)))
+            .map(|(heading, items)| {
+                group_view_meta(heading, items, 16, Some(&replaces_by_id), false)
+            })
             .collect_view();
             out.push(
                 view! {
                     <section class="rel" aria-labelledby="rel-archetypes">
-                        <h2 id="rel-archetypes">"Archetypes · "<span class="rel-count">{fmt::count(total)}</span></h2>
+                        <h2 id="rel-archetypes">"Archetypes "<span class="rel-count">{fmt::count(total)}</span></h2>
                         <details class="rel-disclosure">
                             <summary>{icons::chevron_right("disclosure-chevron")}{format!("Show {}", fmt::pluralize(total, "archetype", "archetypes"))}</summary>
                             {groups}
@@ -692,6 +725,20 @@ fn changes_panel(library: &Library, id: &EntryId, all: Option<&Relations>) -> Ve
     .collect()
 }
 
+/// True when the body prints the prerequisites: a bold `Prerequisites` label in a paragraph (it
+/// often follows a flavour sentence after a line break), or a heading that starts with the word
+/// (a mythic feat prints its line under `Prerequisites`).
+fn body_prints_prerequisites(body: &[Block]) -> bool {
+    let starts = |inlines: &[Inline]| plain_text(inlines).trim_start().starts_with("Prerequisite");
+    body.iter().any(|block| match block {
+        Block::Paragraph { content, .. } => content
+            .iter()
+            .any(|inline| matches!(inline, Inline::Strong { c } if starts(c))),
+        Block::Heading { content, .. } => starts(content),
+        _ => false,
+    })
+}
+
 fn feat_panels(
     library: &Library,
     entry: &RuleEntry,
@@ -706,8 +753,11 @@ fn feat_panels(
         .into_iter()
         .filter(|(id, _)| library.is_entry_active(id))
         .collect();
-    if text.is_some() || !named.is_empty() {
-        let printed = text.map(|t| {
+    // The body prints a `Prerequisites` line for most feats, so the panel lists the feats it names
+    // and nothing else. A feat whose body prints none keeps the line here, so no text is lost.
+    let printed = text.filter(|_| !body_prints_prerequisites(&entry.body));
+    if printed.is_some() || !named.is_empty() {
+        let printed = printed.map(|t| {
             view! {
                 <p class="prereq-text"><span class="rel-label">"As printed: "</span>{t}</p>
             }
@@ -769,16 +819,17 @@ fn feat_panels(
         cast_iron_sort::sort_by_key(&mut leads, |(id, title)| (sort_key(title), id.clone()));
         if !leads.is_empty() {
             let n = leads.len();
-            let rows = leads
+            let leads: Vec<RelRow> = leads
                 .into_iter()
-                .map(|(id, title)| view! { <li><a href=Route::entry(id).href()>{title}</a></li> })
-                .collect_view();
+                .map(|(id, title)| (id, title, None))
+                .collect();
+            let list = capped_list("rel-list rel-cols", leads, GROUP_PREVIEW);
             out.push(
                 view! {
                     <section class="rel" aria-labelledby="rel-leads">
                         <h2 id="rel-leads">"Leads to "<span class="rel-count">{fmt::count(n)}</span></h2>
                         <p class="hint">"Feats that name this feat in their prerequisites."</p>
-                        <ul class="rel-list rel-cols">{rows}</ul>
+                        {list}
                     </section>
                 }
                 .into_any(),
@@ -1234,6 +1285,33 @@ mod tests {
         let flat = feat(&["c/z"], vec![]);
         assert_eq!(prerequisite_links(&flat), [(id("c/z"), false)]);
         assert!(prerequisite_links(&feat(&[], vec![])).is_empty());
+    }
+
+    #[test]
+    fn a_printed_prerequisites_line_is_found_after_a_flavour_sentence() {
+        let paragraph = |content: Vec<Inline>| Block::Paragraph {
+            style: Default::default(),
+            content,
+        };
+        let strong = |label: &str| Inline::Strong {
+            c: vec![Inline::text(label)],
+        };
+        let printed = paragraph(vec![
+            Inline::text("Flavour."),
+            Inline::Break,
+            strong("Prerequisites:"),
+            Inline::text(" Str 13."),
+        ]);
+        assert!(body_prints_prerequisites(&[printed]));
+        let other = paragraph(vec![strong("Benefit:"), Inline::text(" Prerequisites.")]);
+        assert!(!body_prints_prerequisites(&[other]));
+        let heading = Block::Heading {
+            level: 2,
+            anchor: Some("prerequisites".into()),
+            content: vec![Inline::text("Prerequisites")],
+        };
+        assert!(body_prints_prerequisites(&[heading]));
+        assert!(!body_prints_prerequisites(&[]));
     }
 
     #[test]

@@ -55,6 +55,31 @@ pub fn local_resource<T: 'static>(
     read
 }
 
+/// True while the viewport is at least 64 rem wide (the side-panel breakpoint of the stylesheet).
+/// It is read on load and follows the media query while the owner lives.
+pub fn at_least_64rem() -> ReadSignal<bool> {
+    use wasm_bindgen::JsCast;
+    use wasm_bindgen::closure::Closure;
+    let (wide, set_wide) = signal(false);
+    let Some(query) =
+        web_sys::window().and_then(|w| w.match_media("(min-width: 64rem)").ok().flatten())
+    else {
+        return wide;
+    };
+    set_wide.set(query.matches());
+    let watched = query.clone();
+    let callback =
+        Closure::<dyn FnMut()>::new(move || set_wide.set(watched.matches())).into_js_value();
+    let _ = query.add_event_listener_with_callback("change", callback.unchecked_ref());
+    // `on_cleanup` needs a `Send + Sync` closure; the values stay on this thread.
+    let query = SendWrapper::new(query);
+    let callback = SendWrapper::new(callback);
+    on_cleanup(move || {
+        let _ = query.remove_event_listener_with_callback("change", callback.unchecked_ref());
+    });
+    wide
+}
+
 /// Singular display name of a kind, for chips and result lines.
 pub fn kind_name(kind: EntryKind) -> &'static str {
     match kind {

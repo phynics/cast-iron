@@ -11,6 +11,7 @@ import {
   waitReady,
   waitResults,
   writeMeta,
+  openAllRows,
 } from "./helpers";
 
 const CORE = "core-rulebook";
@@ -98,8 +99,9 @@ test("Pathfinder Unchained active: the base folds one collapsed Stamina row", as
   await expect(row.locator(".stat-block")).toHaveCount(0);
 
   // The add-on is not a chain follower: the base's Leads to panel omits it.
+  await openAllRows(page.locator('section[aria-labelledby="rel-leads"]'));
   await expect(
-    page.locator("#rel-leads").getByRole("link", { name: "Power Attack (Stamina)", exact: true }),
+    page.locator('section[aria-labelledby="rel-leads"]').getByRole("link", { name: "Power Attack (Stamina)", exact: true }),
   ).toHaveCount(0);
 
   // The add-on's own page names the base once.

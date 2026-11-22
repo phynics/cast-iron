@@ -1,4 +1,4 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 
 /** A count as the app writes it: digits grouped by commas. */
 export const count = (n: number) => n.toLocaleString("en-US");
@@ -78,6 +78,18 @@ async function settleBookDefaults(page: Page) {
 
 export async function waitReady(page: Page) {
   await expect(page.getByRole("navigation", { name: "Primary" })).toBeVisible({ timeout: 90_000 });
+}
+
+/**
+ * Opens every closed group and every `Show all` row inside `scope`, so rows that a long list
+ * builds only on demand are on the page. Groups open first because `Show all` sits inside one.
+ * The selector excludes open rows, so each click shrinks the set: always click the first.
+ */
+export async function openAllRows(scope: Locator) {
+  for (const selector of ["details.rel-group:not([open]) > summary", "details.backlink-more:not([open]) > summary"]) {
+    const closed = scope.locator(selector);
+    while (await closed.count()) await closed.first().click();
+  }
 }
 
 /**

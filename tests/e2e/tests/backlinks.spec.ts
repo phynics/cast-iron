@@ -110,7 +110,6 @@ test("A library without the reverse index shows no Referenced by panel", async (
     // Give the optional resource the same chance the installed library would give it.
     await page.waitForTimeout(500);
     await expect(page.locator("#entry-backlinks")).toHaveCount(0);
-    await expect(page.getByRole("heading", { level: 2, name: "Referenced by" })).toHaveCount(0);
     // Nothing asks for the index that the manifest does not list.
     expect((await server.requests()).filter((p) => p.includes("backlinks"))).toEqual([]);
   } finally {
@@ -140,7 +139,7 @@ test("Referenced by lists a body link's source and returns to it offline", async
 
   // The target now lists the source under "Referenced by", read from the installed cache.
   const section = page.locator("#entry-backlinks");
-  await expect(section.getByRole("heading", { level: 2, name: "Referenced by" })).toBeVisible();
+  await expect(section.locator("> summary")).toContainText("Referenced by");
   // Every row fits the preview, so there is no "Show all" and no empty list.
   await expect(section.locator("details.backlink-more")).toHaveCount(0);
   for (const list of await section.locator("ul.ref-list").all()) {
