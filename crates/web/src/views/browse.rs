@@ -1055,76 +1055,6 @@ pub(crate) fn tier_section(
     .into_any()
 }
 
-/// One group of lens chips, with the first few shown and the rest behind a disclosure. Each
-/// chip narrows this list in place, and the current value carries `aria-current`.
-#[component]
-fn FacetLens(
-    kind: EntryKind,
-    field: &'static str,
-    label: &'static str,
-    applied: Vec<(String, String)>,
-    source: Option<String>,
-) -> impl IntoView {
-    const VISIBLE: usize = 16;
-    let library = use_library();
-    let values = local_resource(async move {
-        library.discovery().facet_values(field).await.map(|values| {
-            let mut values: Vec<(String, u32)> = values
-                .into_iter()
-                .filter(|(v, _)| !categories::lens_skips(kind, field, v))
-                .collect();
-            sort_facet_pairs(field, &mut values);
-            values
-        })
-    });
-    let current = applied
-        .iter()
-        .find(|(name, _)| name == field)
-        .map(|(_, value)| value.clone());
-    let chip = move |(value, n): (String, u32)| {
-        let route = Route::browse_kind_facets(kind, facets_with(&applied, field, Some(&value)))
-            .with_source(source.clone());
-        let is_current = current.as_deref() == Some(value.as_str());
-        view! {
-            <li>
-                <a class="lens-chip" href=route.href() aria-current=is_current.then_some("true")>
-                    {facet_label(field, &value)}<small>{fmt::count(n)}</small>
-                </a>
-            </li>
-        }
-    };
-    view! {
-        <section class="lens" aria-labelledby=format!("lens-{field}")>
-            <h2 id=format!("lens-{field}") class="sub-head">{label}</h2>
-            {move || values.with(|state| match state {
-                None => view! { <p class="hint lens-wait" role="status">"Loading filters…"</p> }.into_any(),
-                Some(Err(_)) => view! {
-                    <p class="hint">"The filters could not be loaded. Search still works."</p>
-                }.into_any(),
-                Some(Ok(values)) if values.is_empty() => ().into_any(),
-                Some(Ok(values)) => {
-                    let (first, rest) = values.split_at(values.len().min(VISIBLE));
-                    let first = first.iter().cloned().map(&chip).collect_view();
-                    let rest_view = (!rest.is_empty()).then(|| {
-                        let n = rest.len();
-                        let rest = rest.iter().cloned().map(&chip).collect_view();
-                        view! {
-                            <details class="lens-more">
-                                <summary>{icons::chevron_right("disclosure-chevron")}{format!("{} more", fmt::count(n))}</summary>
-                                <ul class="lens-chips">{rest}</ul>
-                            </details>
-                        }
-                    });
-                    view! {
-                        <ul class="lens-chips">{first}</ul>
-                        {rest_view}
-                    }.into_any()
-                }
-            })}
-        </section>
-    }
-}
-
 /// The facets with one value changed: `value` replaces the field's value, and `None` removes the
 /// field. The other fields keep theirs, so two menus on one page do not undo each other.
 pub fn facets_with(
@@ -1384,8 +1314,7 @@ fn class_option_menu(
 }
 
 /// The filter row of a list page: the filter menus on the left, the related pages as plain
-/// links on the right, and each menu's panel under the row. A short facet such as the race
-/// group stays inline pills that narrow the list in place.
+/// links on the right, and each menu's panel under the row.
 #[component]
 fn Lenses(
     kind: EntryKind,
@@ -1401,13 +1330,11 @@ fn Lenses(
         return ().into_any();
     }
     let library = use_library();
-    let mut facets = Vec::new();
     let mut buttons = Vec::new();
     let mut panels = Vec::new();
     let mut links = Vec::new();
     for lens in all {
         match lens {
-            Lens::Facet { field, label } => facets.push((field, label)),
             Lens::Menu(spec) => {
                 let menu_focus = focus == Some(spec.field);
                 let (button, panel) = if kind == EntryKind::ClassOption
@@ -1433,14 +1360,6 @@ fn Lenses(
             }
         }
     }
-    let facets = facets
-        .into_iter()
-        .map(|(field, label)| {
-            view! {
-                <FacetLens kind field label applied=applied.clone() source=source.clone() />
-            }
-        })
-        .collect_view();
     let row = (!buttons.is_empty() || !links.is_empty()).then(|| {
         let links = links
             .into_iter()
@@ -1459,7 +1378,6 @@ fn Lenses(
         <div class="lenses">
             {row}
             {panels}
-            {facets}
         </div>
     }
     .into_any()
@@ -1500,7 +1418,7 @@ fn focus_first_filter(tries: u32) {
         return;
     };
     if let Some(control) = document
-        .query_selector(".filter-btn:not([disabled]), .lens-chip")
+        .query_selector(".filter-btn:not([disabled])")
         .ok()
         .flatten()
     {
@@ -1984,6 +1902,16 @@ pub fn BrowseKind(
         if focus_first {
             focus_heading_later();
         }
+        // An old link that names a group shows the grouped list; make the address match it.
+        if facets.iter().any(|(name, _)| name == field) {
+            let rest = facets
+                .iter()
+                .filter(|(name, _)| name != field)
+                .cloned()
+                .collect();
+            let route = Route::browse_kind_facets(kind, rest).with_source(source.clone());
+            Effect::new(move |_| replace(&route));
+        }
         return view! { <GroupedKind kind field all /> }.into_any();
     }
     if applied.is_empty() {
@@ -2087,7 +2015,7 @@ pub fn BrowseKind(
 }
 
 /// Entries under headings by a facet, for a short kind whose few groups are better seen than
-/// chosen: classes by type. The groups come from the search index, so they follow the active
+/// chosen: classes by type and races by printed group. The groups come from the search index, so they follow the active
 /// books and show a group only while one of its entries is active. Until the index answers the
 /// page shows its head alone, and if it fails the list falls back to plain A to Z.
 #[component]
@@ -2106,7 +2034,7 @@ fn GroupedKind(kind: EntryKind, field: &'static str, all: Shared<Vec<EntryStub>>
                 .map(|(value, _)| value)
                 .collect();
             let mut found = Vec::new();
-            for value in categories::order_class_groups(&values) {
+            for value in categories::order_groups(kind, &values) {
                 let ids = discovery.facet_entry_ids(field, &value).await?;
                 found.push((value, ids));
             }
@@ -2147,9 +2075,21 @@ fn GroupedKind(kind: EntryKind, field: &'static str, all: Shared<Vec<EntryStub>>
 /// A group heading and the entries under it.
 type Section = (String, Vec<EntryStub>);
 
+/// The heading of a group: the page's label for the value, which the value itself does not
+/// change. A race group drops the book suffix that the search facet carries, because the order
+/// of the groups already names the Advanced Race Guide.
+fn group_heading(field: &str, value: &str) -> String {
+    match (field, value) {
+        ("race_group", "core_race") => "Core races".into(),
+        _ => facet_label(field, value),
+    }
+}
+
 /// The entries under their group headings, in the order given, then the entries no group holds
-/// under a final `Other`. A group with no entry is left out, so the page never shows an empty
-/// heading. The heading is the page's label for the value; the value itself is not changed.
+/// under a final `Other`. For races that final section is `Other races`, the heading of the
+/// group of races printed outside the Advanced Race Guide, so the two are one section. A group
+/// with no entry is left out, so the page never shows an empty heading. Entries keep the A to
+/// Z order of `all` inside each section.
 fn sections_by_group(
     field: &str,
     all: &[EntryStub],
@@ -2163,7 +2103,7 @@ fn sections_by_group(
             .cloned()
             .collect();
         if !members.is_empty() {
-            sections.push((facet_label(field, value), members));
+            sections.push((group_heading(field, value), members));
         }
     }
     let rest: Vec<EntryStub> = all
@@ -2172,7 +2112,23 @@ fn sections_by_group(
         .cloned()
         .collect();
     if !rest.is_empty() {
-        sections.push(("Other".to_string(), rest));
+        let fallback = if field == categories::RACE_GROUP_FIELD {
+            group_heading(field, "other_race")
+        } else {
+            "Other".to_string()
+        };
+        match sections.iter_mut().find(|(label, _)| *label == fallback) {
+            Some((_, members)) => {
+                members.extend(rest);
+                let position: HashMap<&str, usize> = all
+                    .iter()
+                    .enumerate()
+                    .map(|(i, stub)| (stub.id.as_str(), i))
+                    .collect();
+                cast_iron_sort::sort_by_key(members, |stub| position[stub.id.as_str()]);
+            }
+            None => sections.push((fallback, rest)),
+        }
     }
     sections
 }
@@ -2762,6 +2718,44 @@ mod tests {
         // With every class in a group there is no `Other`.
         let none = sections_by_group("class_type", &all[..2], &groups[..2]);
         assert_eq!(none.len(), 2);
+    }
+
+    #[test]
+    fn races_sit_under_the_printed_chapters_and_a_race_without_a_group_joins_other_races() {
+        let all = [
+            stub("ref/race/aasimar", "Aasimar"),
+            stub("ref/race/dwarf", "Dwarf"),
+            stub("ref/race/elf", "Elf"),
+            stub("ref/race/legacy", "Legacy"),
+            stub("ref/race/oread", "Oread"),
+        ];
+        let groups = [
+            (
+                "core_race".to_string(),
+                ids(&["ref/race/dwarf", "ref/race/elf"]),
+            ),
+            // A group no active book holds shows no heading.
+            ("featured_race".to_string(), ids(&[])),
+            ("uncommon_race".to_string(), ids(&[])),
+            (
+                "other_race".to_string(),
+                ids(&["ref/race/aasimar", "ref/race/oread"]),
+            ),
+        ];
+        let sections = sections_by_group("race_group", &all, &groups);
+        let names: Vec<&str> = sections.iter().map(|(label, _)| label.as_str()).collect();
+        // The core heading drops the book suffix; the ungrouped race joins Other races, in
+        // its A to Z place, and no second `Other` heading appears.
+        assert_eq!(names, ["Core races", "Other races"]);
+        let titles =
+            |i: usize| -> Vec<&str> { sections[i].1.iter().map(|s| s.title.as_str()).collect() };
+        assert_eq!(titles(0), ["Dwarf", "Elf"]);
+        assert_eq!(titles(1), ["Aasimar", "Legacy", "Oread"]);
+
+        // With no other group present the ungrouped race still gets the `Other races` heading.
+        let only_core = sections_by_group("race_group", &all, &groups[..1]);
+        let names: Vec<&str> = only_core.iter().map(|(label, _)| label.as_str()).collect();
+        assert_eq!(names, ["Core races", "Other races"]);
     }
 
     #[test]

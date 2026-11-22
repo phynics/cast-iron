@@ -120,14 +120,15 @@ test("Feat chains and the spell pages start their crumbs below a tab destination
   await expect(crumbs.getByRole("link", { name: "Home" })).toHaveCount(0);
 });
 
-// ---- Races: the printed group filter (#196) ----
+// ---- Races: a list under the printed group headings (#196, #576) ----
 
-const RACE_GROUP_LABELS: Record<string, string> = {
-  core_race: "Core races (Advanced Race Guide)",
-  featured_race: "Featured races",
-  uncommon_race: "Uncommon races",
-  other_race: "Other races",
-};
+// The headings of the Advanced Race Guide's chapters, in that order, as the list shows them.
+const RACE_GROUP_HEADINGS: [string, string][] = [
+  ["core_race", "Core races"],
+  ["featured_race", "Featured races"],
+  ["uncommon_race", "Uncommon races"],
+  ["other_race", "Other races"],
+];
 const typedRaces = [...corpus.entries.values()].filter(
   (entry) => entry.kind === "race" && entry.id.startsWith("ref/race/") && activeIds.has(entry.id),
 );
@@ -138,7 +139,7 @@ const raceGroupCounts = typedRaces.reduce((counts, entry) => {
 }, new Map<string, number>());
 const raceCount = activeStubs.filter((stub) => stub.kind === "race").length;
 
-test("The Races list shows every printed group with its count and filters in place", async ({ page }) => {
+test("The Races list sits under the printed group headings, with no filter", async ({ page }) => {
   // The pinned corpus carries all four printed race groups (#196). No skip: a corpus
   // without them must fail here.
   expect([...raceGroupCounts.keys()].sort()).toEqual([
@@ -151,63 +152,46 @@ test("The Races list shows every printed group with its count and filters in pla
   await waitControlled(page);
   await page.goto("#/browse/kind/race");
   const main = page.locator("main");
-  const lens = main.locator("section.lens").filter({
-    has: page.getByRole("heading", { name: "By group" }),
-  });
-  await expect(lens).toBeVisible();
-  const chips = lens.locator(".lens-chip");
-  await expect(chips).toHaveCount(4);
+  await expect(main.locator(".list-count")).toHaveText(`${count(raceCount)} races`);
+  await expect(main.locator("h2.letter-head").first()).toBeVisible();
 
-  for (const [group, n] of raceGroupCounts) {
-    const label = RACE_GROUP_LABELS[group];
-    expect(label, `a label for ${group}`).toBeTruthy();
-    const chip = chips.filter({ hasText: label });
-    await expect(chip).toHaveCount(1);
-    await expect(chip).toContainText(String(n));
-    await expect(chip).toHaveAttribute("href", new RegExp(`facet=race_group:${group}`));
+  // No pill, no filter and no letter bar: the groups are all visible at once.
+  await expect(main.locator(".lens-chip, .lens-more, .filter-btn, .filter-row")).toHaveCount(0);
+  await expect(main.getByRole("navigation", { name: "Jump to letter" })).toHaveCount(0);
+
+  // The headings follow the Advanced Race Guide order, each with its count. Other races also
+  // holds a race that has no group, so its count is at least the typed group's.
+  const heads = await main.locator("h2.letter-head").allInnerTexts();
+  const labels = heads.map((head) => head.replace(/\s*[\d,]+$/, "").trim());
+  expect(labels).toEqual(RACE_GROUP_HEADINGS.map(([, label]) => label));
+  const headCounts = heads.map((head) => num(head.match(/([\d,]+)$/)?.[1]));
+  for (const [index, [group]] of RACE_GROUP_HEADINGS.entries()) {
+    const typed = raceGroupCounts.get(group)!;
+    if (group === "other_race") expect(headCounts[index]).toBeGreaterThanOrEqual(typed);
+    else expect(headCounts[index]).toBe(typed);
   }
+  expect(headCounts.reduce((sum, value) => sum + value, 0)).toBe(raceCount);
 
-  // A chip filters the list in place, and the count line compares the part with the whole.
-  const core = raceGroupCounts.get("core_race")!;
-  const coreChip = chips.filter({ hasText: RACE_GROUP_LABELS.core_race });
-  await coreChip.click();
-  await expect.poll(() => new URL(page.url()).hash).toBe("#/browse/kind/race?facet=race_group:core_race");
-  await expect(main.locator(".list-count")).toHaveText(`${count(core)} of ${count(raceCount)} races · Show all`);
-  await expect(main.locator(".entry-list a[href^='#/entry/']").first()).toBeVisible();
-  await expect(chips.filter({ hasText: RACE_GROUP_LABELS.core_race })).toHaveAttribute("aria-current", "true");
+  // The first group holds the core races, and a race opens, and Back returns to the list.
+  const core = main.locator("section.letter-group").first();
+  await expect(core.getByRole("link", { name: "Dwarf" }).first()).toBeVisible();
+  await core.getByRole("link", { name: "Dwarf" }).first().click();
+  await expect(page.getByRole("heading", { level: 1, name: "Dwarf" })).toBeVisible();
+  await page.goBack();
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/browse/kind/race");
+  await expect(main.locator("h2.letter-head")).toHaveCount(RACE_GROUP_HEADINGS.length);
 
-  // Selection must be visible, including a check mark and readable count in both themes.
-  for (const theme of ["light", "dark"]) {
-    await page.evaluate((theme) => document.documentElement.setAttribute("data-theme", theme), theme);
-    const selected = chips.filter({ hasText: RACE_GROUP_LABELS.core_race });
-    const style = await selected.evaluate((el) => {
-      const css = getComputedStyle(el);
-      const check = getComputedStyle(el, "::before");
-      const root = document.createElement("span");
-      root.style.backgroundColor = "var(--accent)";
-      el.append(root);
-      const accent = getComputedStyle(root).backgroundColor;
-      root.remove();
-      return {
-        background: css.backgroundColor,
-        accent,
-        color: css.color,
-        countColor: getComputedStyle(el.querySelector("small")!).color,
-        check: check.content,
-        checkBorder: check.borderBottomWidth,
-        height: el.getBoundingClientRect().height,
-      };
-    });
-    expect(style.background).toBe(style.accent);
-    expect(style.countColor).toBe(style.color);
-    expect(style.check).not.toBe("none");
-    expect(style.checkBorder).toBe("2px");
-    expect(style.height).toBeGreaterThanOrEqual(44);
-  }
-
-  await main.getByRole("link", { name: "Show all races" }).click();
+  // An old link with a group in it shows the same grouped list, and the address drops the group.
+  await page.goto("#/browse/kind/race?facet=race_group:core_race");
+  await expect(main.locator("h2.letter-head")).toHaveCount(RACE_GROUP_HEADINGS.length);
   await expect.poll(() => new URL(page.url()).hash).toBe("#/browse/kind/race");
   await expect(main.locator(".list-count")).toHaveText(`${count(raceCount)} races`);
+
+  // A book-filtered list stays one A to Z list.
+  await page.goto("#/browse/kind/race?source=core-rulebook");
+  await expect(main.locator(".entry-list a[href^='#/entry/']").first()).toBeVisible();
+  // It has no printed-group headings.
+  await expect(main.locator("h2.letter-head", { hasText: /races/i })).toHaveCount(0);
 });
 
 // ---- Feats: the filter menu, filtering in place, Feat chains and the chain marker (#193 PR 2) ----
@@ -572,9 +556,10 @@ test("Classes are listed under their data group headings, without pills or a men
   await expect.poll(() => new URL(page.url()).hash).toBe("#/browse/kind/class");
   await expect(main.locator("section.letter-group")).toHaveCount(groupCount);
 
-  // An old link with a group in it shows the same grouped list instead of a broken page.
+  // An old link with a group in it shows the same grouped list, and the address drops the group.
   await page.goto("#/browse/kind/class?facet=class_type:core");
   await expect(main.locator("section.letter-group")).toHaveCount(groupCount);
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/browse/kind/class");
   await expect(main.locator(".list-count")).toHaveText(`${count(classes.length)} classes`);
 });
 

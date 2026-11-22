@@ -86,11 +86,6 @@ pub fn arrange(
 /// A way to look at a category besides the A to Z list.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Lens {
-    /// A small facet whose values fit as inline pills, each narrowing this list in place.
-    Facet {
-        field: &'static str,
-        label: &'static str,
-    },
     /// A facet too large for a row of pills: one filter menu that narrows the list in place.
     Menu(MenuSpec),
     /// A related page, as a plain link in the filter row.
@@ -187,13 +182,20 @@ pub const CREATURE_CR_MENU: MenuSpec = MenuSpec {
     plural: "ratings",
 };
 
-/// The facet that sorts a kind's list into headed sections instead of A to Z. A short list with
-/// a handful of well-known groups shows them all at once, so it needs no filter.
+/// The facet that sorts the Classes list into headed sections instead of A to Z. A short list
+/// with a handful of well-known groups shows them all at once, so it needs no filter.
 pub const CLASS_GROUP_FIELD: &str = "class_type";
+
+/// The facet that sorts the Races list into headed sections, the printed race chapters.
+pub const RACE_GROUP_FIELD: &str = "race_group";
 
 /// The facet a kind's list is grouped by, if it is.
 pub fn grouped_by(kind: EntryKind) -> Option<&'static str> {
-    (kind == EntryKind::Class).then_some(CLASS_GROUP_FIELD)
+    match kind {
+        EntryKind::Class => Some(CLASS_GROUP_FIELD),
+        EntryKind::Race => Some(RACE_GROUP_FIELD),
+        _ => None,
+    }
 }
 
 /// The class groups in the order the books present them: the Core Rulebook classes, then the
@@ -209,19 +211,27 @@ const CLASS_GROUP_ORDER: [&str; 7] = [
     "npc",
 ];
 
-/// The class group values in display order. A value that is not in the known list keeps its
-/// place after them, alphabetically, so a new group in the corpus is shown rather than lost.
-/// The values are the corpus's own and are not renamed here.
-pub fn order_class_groups(values: &[String]) -> Vec<String> {
+/// The race groups in the order of the Advanced Race Guide's race chapters: the Core Races,
+/// the Featured Races, the Uncommon Races, then the races printed elsewhere.
+const RACE_GROUP_ORDER: [&str; 4] = ["core_race", "featured_race", "uncommon_race", "other_race"];
+
+/// The group values of a grouped kind in display order. A value that is not in the known list
+/// keeps its place after them, alphabetically, so a new group in the corpus is shown rather
+/// than lost. The values are the corpus's own and are not renamed here.
+pub fn order_groups(kind: EntryKind, values: &[String]) -> Vec<String> {
+    let known: &[&str] = match kind {
+        EntryKind::Race => &RACE_GROUP_ORDER,
+        _ => &CLASS_GROUP_ORDER,
+    };
     let rank = |value: &str| {
-        CLASS_GROUP_ORDER
+        known
             .iter()
             .position(|known| known.eq_ignore_ascii_case(value))
-            .unwrap_or(CLASS_GROUP_ORDER.len())
+            .unwrap_or(known.len())
     };
     let mut ordered: Vec<String> = values
         .iter()
-        .filter(|value| !lens_skips(EntryKind::Class, CLASS_GROUP_FIELD, value))
+        .filter(|value| !lens_skips(kind, grouped_by(kind).unwrap_or_default(), value))
         .cloned()
         .collect();
     cast_iron_sort::sort_by_key(&mut ordered, |value| (rank(value), value.to_lowercase()));
@@ -229,7 +239,6 @@ pub fn order_class_groups(values: &[String]) -> Vec<String> {
 }
 
 pub fn lenses(kind: EntryKind) -> Vec<Lens> {
-    let facet = |field, label| Lens::Facet { field, label };
     match kind {
         EntryKind::Spell => vec![
             Lens::Menu(SCHOOL_MENU),
@@ -247,7 +256,8 @@ pub fn lenses(kind: EntryKind) -> Vec<Lens> {
         ],
         // Classes are listed under headings by `class_type`, see `grouped_by`.
         EntryKind::Class => Vec::new(),
-        EntryKind::Race => vec![facet("race_group", "By group")],
+        // Races are listed under headings by `race_group`, see `grouped_by`.
+        EntryKind::Race => Vec::new(),
         EntryKind::Trait => vec![Lens::Menu(TRAIT_CATEGORY_MENU)],
         EntryKind::Item => vec![Lens::Menu(ITEM_CATEGORY_MENU)],
         EntryKind::Creature => vec![Lens::Menu(CREATURE_TYPE_MENU), Lens::Menu(CREATURE_CR_MENU)],
@@ -269,7 +279,6 @@ pub fn applied_facets(kind: EntryKind, facets: &[(String, String)]) -> Vec<(Stri
         .into_iter()
         .filter_map(|lens| match lens {
             Lens::Menu(spec) => Some(spec.field),
-            Lens::Facet { field, .. } => Some(field),
             Lens::Link { .. } => None,
         })
         .collect();
@@ -425,12 +434,15 @@ mod tests {
             "arcane-discovery".to_string(),
         )];
         assert_eq!(applied_facets(EntryKind::ClassOption, &group), group);
-        // Classes: headed sections, no menu, no pills. Races keep their old lens until the
-        // library has group data.
+        // Classes and races: headed sections, no menu, no pills.
         assert!(lenses(EntryKind::Class).is_empty());
+        assert!(lenses(EntryKind::Race).is_empty());
         assert_eq!(grouped_by(EntryKind::Class), Some("class_type"));
+        assert_eq!(grouped_by(EntryKind::Race), Some("race_group"));
         assert_eq!(grouped_by(EntryKind::Item), None);
-        assert!(matches!(lenses(EntryKind::Race)[..], [Lens::Facet { .. }]));
+        // A race group in a URL is not applied: the grouped list shows every group.
+        let race_url = [("race_group".to_string(), "core_race".to_string())];
+        assert!(applied_facets(EntryKind::Race, &race_url).is_empty());
     }
 
     #[test]
@@ -463,16 +475,19 @@ mod tests {
     fn class_groups_follow_the_order_of_the_books_and_keep_unknown_ones() {
         let values = |list: &[&str]| list.iter().map(|v| v.to_string()).collect::<Vec<_>>();
         assert_eq!(
-            order_class_groups(&values(&[
-                "npc",
-                "alternate",
-                "prestige",
-                "unchained",
-                "occult",
-                "hybrid",
-                "base",
-                "core"
-            ])),
+            order_groups(
+                EntryKind::Class,
+                &values(&[
+                    "npc",
+                    "alternate",
+                    "prestige",
+                    "unchained",
+                    "occult",
+                    "hybrid",
+                    "base",
+                    "core"
+                ])
+            ),
             [
                 "core",
                 "base",
@@ -485,9 +500,17 @@ mod tests {
         );
         // A group the list does not know goes last, alphabetically; casing is the corpus's.
         assert_eq!(
-            order_class_groups(&values(&["Zeta", "core", "alpha", "NPC"])),
+            order_groups(EntryKind::Class, &values(&["Zeta", "core", "alpha", "NPC"])),
             ["core", "NPC", "alpha", "Zeta"]
         );
-        assert!(order_class_groups(&[]).is_empty());
+        assert!(order_groups(EntryKind::Class, &[]).is_empty());
+        // Races follow the chapters of the Advanced Race Guide.
+        assert_eq!(
+            order_groups(
+                EntryKind::Race,
+                &values(&["other_race", "uncommon_race", "core_race", "featured_race"])
+            ),
+            ["core_race", "featured_race", "uncommon_race", "other_race"]
+        );
     }
 }

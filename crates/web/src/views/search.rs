@@ -158,9 +158,30 @@ fn facet_sort_key(field: &str, value: &str) -> (u32, String) {
             ChallengeRating::parse(value).map_or(u32::MAX, |c| c.twenty_fourths),
             String::new(),
         ),
+        // Fine to Colossal, not A to Z. A size this list does not know follows them.
+        "size" => (
+            SIZE_ORDER
+                .iter()
+                .position(|known| known.eq_ignore_ascii_case(value))
+                .map_or(u32::MAX, |rank| rank as u32),
+            value.to_lowercase(),
+        ),
         _ => (0, value.to_lowercase()),
     }
 }
+
+/// The creature sizes from smallest to largest, as the index holds them.
+const SIZE_ORDER: [&str; 9] = [
+    "fine",
+    "diminutive",
+    "tiny",
+    "small",
+    "medium",
+    "large",
+    "huge",
+    "gargantuan",
+    "colossal",
+];
 
 /// The text of a facet value on screen. The value itself stays what the index holds, because
 /// routes and filters use it. Most values read well as they are; the ones below do not.
@@ -178,7 +199,7 @@ pub fn facet_label(field: &str, value: &str) -> String {
         ("creature_type", "magicalBeast") => "Magical Beast".into(),
         ("creature_type", "monstrousHumanoid") => "Monstrous Humanoid".into(),
         ("creature_type", _)
-        | ("class_type" | "trait_category" | "archetype_class" | "school", _) => {
+        | ("class_type" | "trait_category" | "archetype_class" | "school" | "size", _) => {
             capitalize_words(value)
         }
         // The class-option list prints the group's own label; this is only the fallback for a
@@ -2355,6 +2376,7 @@ mod tests {
         ] {
             assert_eq!(facet_label("creature_type", value), label);
         }
+        assert_eq!(facet_label("size", "gargantuan"), "Gargantuan");
         assert_eq!(facet_label("class_type", "base"), "Base");
         assert_eq!(facet_label("trait_category", "combat"), "Combat");
         assert_eq!(
@@ -2377,6 +2399,38 @@ mod tests {
         // Spell level 0 reads as the word the rest of the app uses; other values stay numeric.
         assert_eq!(facet_label("spell_level", "0"), "Cantrips");
         assert_eq!(facet_label("spell_level", "5"), "5");
+    }
+
+    #[test]
+    fn sizes_sort_from_fine_to_colossal() {
+        let mut values: Vec<String> = [
+            "medium",
+            "colossal",
+            "tiny",
+            "Huge",
+            "fine",
+            "large",
+            "gargantuan",
+            "small",
+            "diminutive",
+        ]
+        .map(String::from)
+        .to_vec();
+        sort_facet_values("size", &mut values);
+        assert_eq!(
+            values,
+            [
+                "fine",
+                "diminutive",
+                "tiny",
+                "small",
+                "medium",
+                "large",
+                "Huge",
+                "gargantuan",
+                "colossal"
+            ]
+        );
     }
 
     #[test]
