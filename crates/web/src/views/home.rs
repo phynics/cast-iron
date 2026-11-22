@@ -115,7 +115,7 @@ pub fn Home() -> impl IntoView {
         <div class="wide home-page" data-index-ready=move || index_ready.get().then_some("true")>
             <h1 id="home-title" tabindex="-1" node_ref=title_ref>"Your rules reference"</h1>
             <Show when=move || use_library().discovery().entries().next().is_none()>
-                <p class="notice">"No books are active. "<a href=Route::BooksManage.href()>"Open Manage books"</a>" to turn some on."</p>
+                <p class="notice">"No books are active. Turn some on in "<a href=Route::BooksManage.href()>"Manage books"</a>"."</p>
             </Show>
             <Show when=move || third_party_notice.get()>
                 <p class="notice third-party-notice" role="status">

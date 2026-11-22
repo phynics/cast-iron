@@ -132,7 +132,7 @@ pub fn Diagnostics() -> impl IntoView {
         </p>
         <div role="status" aria-live="polite" data-testid="diagnostics-status">{move || status.get()}</div>
         {move || match report.get() {
-            None => view! { <p class="muted" role="status">"Collecting..."</p> }.into_any(),
+            None => view! { <p class="muted" role="status">"Collecting…"</p> }.into_any(),
             Some(report) => report
                 .sections
                 .into_iter()

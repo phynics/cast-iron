@@ -315,3 +315,77 @@ test("Removing a missing book from a search keeps the other restrictions", async
   await expect.poll(() => page.url()).toBe(before);
   await expect(page.getByTestId("missing-book-hint")).toBeVisible();
 });
+
+const corebook = corpus.catalog.sources.find((row: any) => row.id === "core-rulebook")!;
+
+/** Words that name the old book-state vocabulary (#582): a reader turns books on and off. */
+const OLD_STATE_WORDS = /disabled|enabled|reactivate/i;
+
+test("An unknown entry says so in plain words and offers a search, not Settings", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/entry/ref/spell/does-not-exist");
+  const main = page.locator("main");
+  await expect(main.getByRole("heading", { level: 1, name: "Entry unavailable", exact: true })).toBeVisible();
+  await expect(main.getByRole("alert")).toHaveCount(1);
+  await expect(main.getByRole("alert")).toContainText(
+    "This entry isn't in your library. The link may come from another version of Cast Iron.",
+  );
+  const text = await visibleText(page);
+  expect(text).not.toContain("ref/");
+  expect(text).not.toMatch(DEVELOPER_WORDS);
+  expect(text).not.toMatch(OLD_STATE_WORDS);
+  await expect(main.getByRole("link", { name: "Open Settings" })).toHaveCount(0);
+  await expect(main.getByRole("link", { name: "Search for it", exact: true })).toHaveAttribute(
+    "href",
+    "#/search?q=does%20not%20exist",
+  );
+  await capture(page, "entry-unavailable");
+  await main.getByRole("link", { name: "go to Home", exact: true }).click();
+  await expect(page.locator('a.nav-link[aria-current="page"]')).toHaveText("Home");
+});
+
+test("A page that does not exist is Page not found, without the address", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/nope/here");
+  const main = page.locator("main");
+  await expect(main.getByRole("heading", { level: 1, name: "Page not found", exact: true })).toBeVisible();
+  await expect(main.getByRole("alert")).toHaveCount(1);
+  await expect(main.getByRole("alert")).toHaveText("There is nothing at this address. The link may be old or mistyped.");
+  expect(await visibleText(page)).not.toContain("#/nope");
+  await expect(main.getByRole("link", { name: "Search the rules", exact: true })).toHaveAttribute("href", "#/search");
+  await capture(page, "page-not-found");
+  await main.getByRole("link", { name: "go to Home", exact: true }).click();
+  await expect(page.locator('a.nav-link[aria-current="page"]')).toHaveText("Home");
+});
+
+test("A chapter that the book does not have is Chapter unavailable, with its own title", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/browse/book/core-rulebook");
+  await expect(page.getByRole("heading", { level: 1, name: corebook.title, exact: true })).toBeVisible();
+  await page.goto("#/browse/book/core-rulebook/zzz");
+  const main = page.locator("main");
+  await expect(main.getByRole("heading", { level: 1, name: "Chapter unavailable", exact: true })).toBeVisible();
+  await expect(main.getByRole("alert")).toHaveCount(1);
+  await expect(page).toHaveTitle(/^Chapter unavailable/);
+  expect(await visibleText(page)).not.toMatch(DEVELOPER_WORDS);
+  await capture(page, "chapter-unavailable");
+  await main.getByRole("link", { name: "Open the book", exact: true }).click();
+  await expect(page.getByRole("heading", { level: 1, name: corebook.title, exact: true })).toBeVisible();
+});
+
+test("An entry of a turned-off book says so, and mentions Starred only when it is starred", async ({ page }) => {
+  expect(thirdParty.length).toBeGreaterThan(0);
+  const stub = corpus.catalog.entries.find((candidate: any) => candidate.source === thirdParty[0].id)!;
+  await installLibrary(page);
+  await waitControlled(page);
+  await page.goto(`#/entry/${stub.id}`);
+  const notice = page.locator(".disabled-book-notice");
+  await expect(notice).toContainText("This entry's book is turned off, so it doesn't appear in search or lists.");
+  await expect(notice.getByRole("link", { name: "Manage books", exact: true })).toHaveAttribute("href", "#/books/manage");
+  await expect(notice).not.toContainText("Starred");
+  expect(await visibleText(page)).not.toMatch(OLD_STATE_WORDS);
+  await page.locator(".bookmark-toggle").click();
+  await expect(page.locator(".bookmark-toggle")).toHaveAttribute("aria-pressed", "true");
+  await expect(notice).toContainText("It stays in your Starred list.");
+  await capture(page, "entry-book-turned-off");
+});
