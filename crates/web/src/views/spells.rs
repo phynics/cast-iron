@@ -634,29 +634,34 @@ fn ListPage(
     // for the next animation frame, so a fast typist rebuilds the list once per frame, not once
     // per key. The field keeps focus and caret: the frame writes the text it already shows.
     let typed: StoredValue<Option<String>> = StoredValue::new(None);
-    let on_name = {
-        let (route_with, class) = (route_with.clone(), class.clone());
-        move |text: String| {
-            let waiting = typed.with_value(Option::is_some);
-            typed.set_value(Some(text));
-            if waiting {
-                return;
-            }
-            let (route_with, class) = (route_with.clone(), class.clone());
-            request_animation_frame(move || {
-                let Some(text) = typed.try_update_value(Option::take).flatten() else {
-                    return;
-                };
-                // The reader may have left the list in this frame.
-                let here = matches!(
-                    route.get_untracked(),
-                    Route::SpellList { class: c, level: l, .. } if c == class && l == level
-                );
-                if here {
-                    replace(&route_with(schools.get_untracked(), text));
-                }
-            });
+    let on_name = move |text: String| {
+        let waiting = typed.with_value(Option::is_some);
+        typed.set_value(Some(text));
+        if waiting {
+            return;
         }
+        request_animation_frame(move || {
+            let Some(text) = typed.try_update_value(Option::take).flatten() else {
+                return;
+            };
+            // Read the route as it is now, not as it was when this field rendered: a level link
+            // pushes the address before the list remounts, so a stale field can type into the
+            // new list. The reader may also have left the list in this frame.
+            if let Route::SpellList {
+                class,
+                level,
+                schools,
+                ..
+            } = route.get_untracked()
+            {
+                replace(&Route::SpellList {
+                    class,
+                    level,
+                    schools,
+                    name: text,
+                });
+            }
+        });
     };
     let show_all_href = route_with(Vec::new(), String::new()).href();
     let count_view = move || {
