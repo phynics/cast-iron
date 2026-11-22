@@ -57,8 +57,48 @@ test("spell lists filter by class, level, and query; search supports source filt
     entry.title.toLowerCase().includes(spell.title.toLowerCase()) &&
     entry.fields?.levels?.some((level: any) => level.class === listClass));
   await expect(page.locator('.spell-rows a[href^="#/entry/"]')).toHaveCount(matching.length);
+  // The name field is route state (#581): typing replaces the history entry, so the typed
+  // states add none.
+  const hash = () => decodeURIComponent(new URL(page.url()).hash);
+  await expect.poll(hash).toContain(`name=${spell.title}`);
+  // The write to the address leaves focus in the field.
+  await expect(page.locator("#list-filter")).toBeFocused();
+  const narrowedCount = (await page.locator(".list-count").innerText()).trim();
+  expect(narrowedCount).toMatch(/ of /);
+  // Back from a spell shows the typed name and the narrowed count.
+  await page.locator(`.spell-rows a[href="#/entry/${spell.id}"]`).click();
+  await expect(page).toHaveURL(/#\/entry\//);
+  await page.goBack();
+  await expect(page.locator("#list-filter")).toHaveValue(spell.title);
+  await expect(page.locator(".list-count")).toHaveText(narrowedCount);
+  // A school chosen in the filter menu keeps the name.
+  const schoolMenu = page.getByRole("button", { name: /^School: / });
+  await schoolMenu.click();
+  await page.locator(`#${await schoolMenu.getAttribute("aria-controls")}`).getByRole("checkbox").first().check();
+  await expect.poll(hash).toMatch(/school=/);
+  expect(hash()).toContain(`name=${spell.title}`);
+  // A level link, clicked, keeps the name and the school.
+  await page.locator(`a.lvl[aria-label^="${level === 0 ? "Cantrips" : `Level ${level}`},"]`).click();
+  await expect.poll(hash).toContain(`/${level}?`);
+  expect(hash()).toContain(`name=${spell.title}`);
+  expect(hash()).toMatch(/school=/);
+  await expect(page.locator("#list-filter")).toHaveValue(spell.title);
+  const entriesBefore = await page.evaluate(() => history.length);
   await page.locator("#list-filter").fill("no-such-spell");
   await expect(page.getByRole("status").filter({ hasText: /No spell on this list matches/ })).toBeVisible();
+  await expect(page).toHaveURL(/name=no-such-spell/);
+  expect(await page.evaluate(() => history.length)).toBe(entriesBefore);
+  // A reload reads the name back from the address.
+  await page.reload();
+  await expect(page.locator("#list-filter")).toHaveValue("no-such-spell");
+  await expect(page.getByRole("status").filter({ hasText: /No spell on this list matches/ })).toBeVisible();
+  // Show all clears the name, and Back returns to the narrowed list.
+  await page.getByRole("link", { name: "Show all spells" }).click();
+  await expect(page).not.toHaveURL(/name=/);
+  await expect(page.locator("#list-filter")).toHaveValue("");
+  await page.goBack();
+  await expect(page).toHaveURL(/name=no-such-spell/);
+  await expect(page.locator("#list-filter")).toHaveValue("no-such-spell");
 
   await page.goto(`#/spells/${encodeURIComponent(listClass)}/${level}`);
   const heading = level === 0 ? `${listClass} cantrips` : `${listClass} spells, level ${level}`;

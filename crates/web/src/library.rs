@@ -71,6 +71,24 @@ impl fmt::Display for LibraryError {
     }
 }
 
+impl LibraryError {
+    /// What a reader sees: no id, path or file name. The technical text of `Display` goes under
+    /// a `Details for a bug report` disclosure.
+    pub fn reader_message(&self) -> &'static str {
+        match self {
+            LibraryError::UnknownEntry(_) => {
+                "This entry isn't in your library. The link may come from another version of Cast Iron."
+            }
+            LibraryError::Missing(_)
+            | LibraryError::Corrupt { .. }
+            | LibraryError::Storage(_)
+            | LibraryError::BookSelection(_) => {
+                "Part of the library can't be read on this device. Open Settings and verify the library."
+            }
+        }
+    }
+}
+
 impl std::error::Error for LibraryError {}
 
 /// What an entry id means in the active library. Resolution is one step: an alias target

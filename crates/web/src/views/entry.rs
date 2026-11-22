@@ -27,7 +27,9 @@ use crate::views::related::{Indexes, Related, needs};
 use crate::views::rich::{RELATED_ANCHOR, RichBody, blocks, muted_line, plain_text};
 use crate::views::section_switcher::SectionSwitcher;
 use crate::views::sources::{aon_line, expanded_line, source_line};
-use crate::views::util::{addon_base_phrase, kind_name, local_resource, set_title};
+use crate::views::util::{
+    addon_base_phrase, kind_name, local_resource, recovery_details, set_title,
+};
 use cast_iron_schema::{
     Block, EntryId, EntryKind, EntryReference, Inline, RelationKind, RetirementReason, RuleEntry,
     SpellLevel, TypedFields,
@@ -295,12 +297,10 @@ pub fn Entry(id: EntryId, anchor: Option<String>, book: Option<String>) -> impl 
         return view! {
             <article class="entry">
                 <h1 data-testid="entry-title">"Not in this library"</h1>
-                <p class="notice">"This saved entry is not part of the current library."</p>
-                <p class="muted">"Reason: " {retirement_reason_label(reason)}"."</p>
-                <p class="muted"><code>{id.to_string()}</code></p>
-                <p>
-                    <a class="btn" href=Route::Home.href()>"Go to Home"</a>
+                <p class="notice">
+                    {format!("This saved entry is not part of the current library ({}).", retirement_reason_label(reason))}
                 </p>
+                <p><a href=Route::Home.href()>"Go to Home"</a></p>
             </article>
         }
         .into_any();
@@ -436,17 +436,24 @@ pub fn Entry(id: EntryId, anchor: Option<String>, book: Option<String>) -> impl 
                     <h1>{stub_title.clone().unwrap_or_else(|| "Entry".to_string())}</h1>
                     <p class="status" role="status">"Loading entry…"</p>
                 }.into_any(),
-                Some(Err(error)) => view! {
-                    <h1>{stub_title.clone().unwrap_or_else(|| "Entry unavailable".to_string())}</h1>
-                    <div class="error" role="alert">
-                        <p>{error.to_string()}</p>
-                        <p>
-                            <a href=Route::Settings.href()>"Open Settings"</a>" to check or reinstall the library, or "
-                            <a href=Route::Home.href()>"go to Home"</a>"."
-                        </p>
-                        <p class="muted"><code>{shown_id.to_string()}</code></p>
-                    </div>
-                }.into_any(),
+                Some(Err(error)) => {
+                    let unknown = matches!(error, crate::library::LibraryError::UnknownEntry(_));
+                    let title = stub_title.clone().unwrap_or_else(|| "Entry unavailable".to_string());
+                    let search = Route::search(search_words(&shown_id)).href();
+                    view! {
+                        <h1>{title}</h1>
+                        <div class="error" role="alert">
+                            <p>{error.reader_message()}</p>
+                            {unknown.then(|| view! {
+                                <p><a href=search.clone()>"Search for it"</a>" or "<a href=Route::Home.href()>"go to Home"</a>"."</p>
+                            })}
+                            {(!unknown).then(|| view! {
+                                <p><a href=Route::Settings.href()>"Open Settings"</a>" or "<a href=Route::Home.href()>"go to Home"</a>"."</p>
+                                {recovery_details(error.to_string())}
+                            })}
+                        </div>
+                    }.into_any()
+                }
                 Some(Ok(loaded)) => view! {
                     <EntryView
                         library=library.clone()
@@ -749,6 +756,8 @@ fn EntryView(
         .into_any(),
     };
     let disabled_book = !library.is_entry_active(&entry.id);
+    // The star lives here so the turned-off notice can say whether the entry stays in Starred.
+    let bookmark = RwSignal::new(None::<Bookmark>);
     // The line follows the text on screen. A revision in force supplies its own citations;
     // an unconverted revision with none keeps the base's rows. The original-text disclosure
     // always ends with the base's own line.
@@ -1050,7 +1059,7 @@ fn EntryView(
         <header class="entry-head">
             <div class="entry-title-row">
                 <h1 data-testid="entry-title">{entry.title.clone()}</h1>
-                <EntryStar id=entry.id.clone() title=plain_title kind />
+                <EntryStar id=entry.id.clone() title=plain_title kind bookmark />
             </div>
             <div class="entry-meta">
                 {kind_meta}
@@ -1060,7 +1069,13 @@ fn EntryView(
             </div>
             {facts}
         </header>
-        {disabled_book.then(|| view! { <p class="notice disabled-book-notice">"This book is disabled for search and browsing. "<a href=Route::Books.href()>"Open Books"</a>" to reactivate it. Your starred entry is still available."</p> })}
+        {disabled_book.then(|| view! {
+            <p class="notice disabled-book-notice">
+                "This entry's book is turned off, so it doesn't appear in search or lists. "
+                {move || bookmark.with(|b| b.is_some()).then_some("It stays in your Starred list. ")}
+                <a href=Route::BooksManage.href()>"Manage books"</a>
+            </p>
+        })}
         {revision_notice}
         {collision_block}
         {original_disclosure}
@@ -1124,10 +1139,23 @@ fn licence_line(license_refs: &[String]) -> &'static str {
     }
 }
 
+/// The words of an entry id's last segment, for the `Search for it` link of an unknown entry.
+fn search_words(id: &EntryId) -> String {
+    id.as_str()
+        .rsplit('/')
+        .next()
+        .unwrap_or_default()
+        .replace('-', " ")
+}
+
 #[component]
-fn EntryStar(id: EntryId, title: String, kind: EntryKind) -> impl IntoView {
+fn EntryStar(
+    id: EntryId,
+    title: String,
+    kind: EntryKind,
+    bookmark: RwSignal<Option<Bookmark>>,
+) -> impl IntoView {
     let library = use_library();
-    let bookmark = RwSignal::new(None::<Bookmark>);
     let loaded = RwSignal::new(false);
     let writing = RwSignal::new(false);
     let error = RwSignal::new(None::<String>);

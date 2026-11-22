@@ -5,10 +5,8 @@
 
 use crate::store;
 
-/// The radio group on spell-list pages. Each group needs its own `name` so arrow-key
-/// navigation stays inside the group that holds focus.
-pub const LIST_RADIO_GROUP: &str = "spell-density-list";
-/// The radio group under Settings > Appearance.
+/// The radio group under Settings > Appearance. A spell list has no radio group: it switches with
+/// one text button.
 pub const SETTINGS_RADIO_GROUP: &str = "spell-density-settings";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -38,6 +36,23 @@ impl Density {
         match self {
             Density::Compact => "Compact",
             Density::Wide => "Wide",
+        }
+    }
+
+    /// The other layout, which a press of the list's toggle switches to.
+    pub fn other(self) -> Self {
+        match self {
+            Density::Compact => Density::Wide,
+            Density::Wide => Density::Compact,
+        }
+    }
+
+    /// The layout named as rows: `Compact rows`. The list's toggle is named for the layout that
+    /// a press switches to; the live line names the layout that is now shown.
+    pub fn rows_label(self) -> &'static str {
+        match self {
+            Density::Compact => "Compact rows",
+            Density::Wide => "Wide rows",
         }
     }
 }
@@ -79,9 +94,12 @@ mod tests {
     }
 
     #[test]
-    fn the_two_radio_groups_have_distinct_names() {
-        assert_ne!(LIST_RADIO_GROUP, SETTINGS_RADIO_GROUP);
-        assert!(LIST_RADIO_GROUP.ends_with("-list"));
-        assert!(SETTINGS_RADIO_GROUP.ends_with("-settings"));
+    fn the_toggle_is_named_for_the_layout_a_press_switches_to() {
+        for density in Density::ALL {
+            assert_ne!(density.other(), density);
+            assert_eq!(density.other().other(), density);
+        }
+        assert_eq!(Density::Wide.other().rows_label(), "Compact rows");
+        assert_eq!(Density::Compact.other().rows_label(), "Wide rows");
     }
 }

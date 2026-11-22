@@ -1,8 +1,8 @@
 ---
 title: "Spell row density: Compact and Wide"
 date: 2026-11-07
-status: current
-superseded_by: []
+status: partly-superseded
+superseded_by: ["2026-11-22-spell-row-density-is-a-text-toggle"]
 issues: [153, 167, 182, 185]
 prs: []
 area: ui

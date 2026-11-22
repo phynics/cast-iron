@@ -877,7 +877,7 @@ test("An old chapter address of a deleted book tree opens the printed book, not 
     await page.goto("#/");
     await page.goto(address);
     await expect(page.getByRole("heading", { level: 1, name: titleOf("core-rulebook"), exact: true }), address).toBeVisible();
-    await expect(page.getByText("This chapter is not in this book.")).toHaveCount(0);
+    await expect(page.getByText("This chapter isn't in this book.")).toHaveCount(0);
     await expect(page.getByText("This library has no chapter order for this book.")).toHaveCount(0);
     // The address stays a book page: no chapter heading, and the contents list is shown.
     await expect(page.getByTestId("chapter-title")).toHaveCount(0);

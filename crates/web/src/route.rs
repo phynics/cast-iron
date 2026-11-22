@@ -116,6 +116,8 @@ pub enum Route {
         /// The schools the list is narrowed to, in the order they were chosen: a spell of any of
         /// them stays. Lower case, as the search index holds them. Empty is every school.
         schools: Vec<String>,
+        /// The text of the name field, as typed. Empty is no name filter.
+        name: String,
     },
     /// Feats that other feats require, with their chains.
     FeatChains,
@@ -160,6 +162,7 @@ impl Route {
             class: class.into(),
             level,
             schools: Vec::new(),
+            name: String::new(),
         }
     }
 
@@ -340,6 +343,7 @@ impl Route {
                     class,
                     level: None,
                     schools: parse_schools(query),
+                    name: parse_name(query),
                 },
                 _ => not_found(),
             },
@@ -352,6 +356,7 @@ impl Route {
                         class,
                         level: Some(level),
                         schools: parse_schools(query),
+                        name: parse_name(query),
                     },
                     _ => not_found(),
                 }
@@ -503,6 +508,7 @@ impl Route {
                 class,
                 level,
                 schools,
+                name,
             } => {
                 let mut href = match level {
                     Some(level) => format!("#/spells/{}/{level}", percent_encode(class)),
@@ -511,6 +517,10 @@ impl Route {
                 for (i, school) in schools.iter().enumerate() {
                     href.push(if i == 0 { '?' } else { '&' });
                     href.push_str(&format!("school={}", percent_encode(school)));
+                }
+                if !name.trim().is_empty() {
+                    href.push(if schools.is_empty() { '?' } else { '&' });
+                    href.push_str(&format!("name={}", percent_encode(name)));
                 }
                 href
             }
@@ -725,6 +735,18 @@ fn parse_schools(query: Option<&str>) -> Vec<String> {
         }
     }
     schools
+}
+
+/// The `name=<text>` of a spell list's query: the first one, empty when it has none or holds
+/// only blanks.
+fn parse_name(query: Option<&str>) -> String {
+    query
+        .into_iter()
+        .flat_map(query_pairs)
+        .find(|(key, _)| key == "name")
+        .map(|(_, value)| value)
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_default()
 }
 
 /// The `source=<id>` of a list page's query, when it has one.
@@ -1995,6 +2017,7 @@ mod tests {
             class: "Wizard".into(),
             level: Some(3),
             schools: vec!["evocation".into(), "conjuration".into()],
+            name: String::new(),
         };
         assert_eq!(
             list.href(),
@@ -2005,6 +2028,7 @@ mod tests {
             class: "Wizard".into(),
             level: None,
             schools: vec!["illusion".into()],
+            name: String::new(),
         });
         // Case and repeats do not make a second choice, and an empty value is none.
         assert_eq!(
@@ -2013,6 +2037,65 @@ mod tests {
                 class: "Wizard".into(),
                 level: None,
                 schools: vec!["evocation".into()],
+                name: String::new(),
+            }
+        );
+    }
+
+    #[test]
+    fn a_spell_list_keeps_its_name_filter_after_the_schools() {
+        let list = Route::SpellList {
+            class: "Wizard".into(),
+            level: Some(1),
+            schools: vec!["evocation".into()],
+            name: "fire ball".into(),
+        };
+        assert_eq!(
+            list.href(),
+            "#/spells/Wizard/1?school=evocation&name=fire%20ball"
+        );
+        round_trip(list);
+        let only_name = Route::SpellList {
+            class: "Wizard".into(),
+            level: None,
+            schools: Vec::new(),
+            name: "fire".into(),
+        };
+        assert_eq!(only_name.href(), "#/spells/Wizard?name=fire");
+        round_trip(only_name);
+        // Characters that mean something in an address survive the round trip, and the name stays
+        // one pair of the query.
+        for text in ["a&b#c+d é", "x=y", "100%", "  spaced  "] {
+            let route = Route::SpellList {
+                class: "Wizard".into(),
+                level: Some(2),
+                schools: vec!["evocation".into()],
+                name: text.into(),
+            };
+            let href = route.href();
+            assert!(
+                !href[1..].contains(['#', ' ', 'é']),
+                "{href} holds a raw character"
+            );
+            assert_eq!(href.matches('&').count(), 1, "{href}");
+            round_trip(route);
+        }
+        // An empty or blank name is none, and the address drops it.
+        for hash in ["#/spells/Wizard?name=", "#/spells/Wizard?name=%20%20"] {
+            assert_eq!(
+                Route::parse(hash),
+                Route::spell_list("Wizard", None),
+                "{hash}"
+            );
+        }
+        // Only the first name counts.
+        assert_eq!(
+            Route::parse("#/spells/Wizard/1?name=a&name=b"),
+            Route::SpellList {
+                class: "Wizard".into(),
+                level: Some(1),
+                schools: Vec::new(),
+                name: "a".into(),
             }
         );
     }
@@ -2023,6 +2106,7 @@ mod tests {
             class: "Elementalist Wizard".into(),
             level: Some(3),
             schools: Vec::new(),
+            name: String::new(),
         };
         assert_eq!(list.href(), "#/spells/Elementalist%20Wizard/3");
         round_trip(list);
@@ -2030,6 +2114,7 @@ mod tests {
             class: "Wizard".into(),
             level: None,
             schools: Vec::new(),
+            name: String::new(),
         };
         assert_eq!(all.href(), "#/spells/Wizard");
         round_trip(all);
@@ -2037,6 +2122,7 @@ mod tests {
             class: "Witch".into(),
             level: Some(0),
             schools: Vec::new(),
+            name: String::new(),
         });
         for bad in [
             "#/spells/Wizard/x",
