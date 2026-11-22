@@ -35,6 +35,68 @@ pub const CREATURE_TYPES: [&str; 13] = [
     "vermin",
 ];
 
+/// The feat types that print uses, one spelling each (phynics/cast-iron-data#169).
+///
+/// A filter menu or a search facet group shows the values of `feat_types`, so the field has a
+/// closed vocabulary. Book abbreviations, title qualifiers and races are not types. A feat that
+/// print gives no type tag stays untyped in the corpus; the compiler shows it as `General`.
+/// The data repository keeps the print citation of each value in
+/// `scripts/feat-type-vocabulary-169.tsv`; the two lists must be equal.
+pub const FEAT_TYPES: [&str; 37] = [
+    "Achievement",
+    "Alignment",
+    "Armor Mastery",
+    "Betrayal",
+    "Blood Hex",
+    "Called Shot",
+    "Combat",
+    "Combination",
+    "Conduit",
+    "Coven",
+    "Critical",
+    "Damnation",
+    "Esoteric",
+    "Faction",
+    "Familiar",
+    "Gathlain Court Title",
+    "General",
+    "Grit",
+    "Hero Point",
+    "Item Creation",
+    "Item Mastery",
+    "Meditation",
+    "Metamagic",
+    "Monster",
+    "Mythic",
+    "Origin",
+    "Panache",
+    "Performance",
+    "Shield Mastery",
+    "Stare",
+    "Story",
+    "Style",
+    "Targeting",
+    "Teamwork",
+    "Trick",
+    "Weapon Mastery",
+    "Words of Power",
+];
+
+/// The creature size categories of Pathfinder First Edition, in the spelling of the compiler's
+/// `size` facet, which lower-cases the corpus value (phynics/cast-iron#593). The check compares
+/// without case: the corpus keeps the case of the printed stat block.
+pub const SIZE_CATEGORIES: [&str; 9] = [
+    "fine",
+    "diminutive",
+    "tiny",
+    "small",
+    "medium",
+    "large",
+    "huge",
+    "gargantuan",
+    "colossal",
+];
+
 /// What a check found. Every problem fails the run; warnings do not.
 #[derive(Debug, Default, Clone)]
 pub struct Report {
@@ -1484,6 +1546,7 @@ pub fn check(corpus: &Corpus) -> Report {
     check_relations(corpus, &mut report);
     check_third_party_sharing(corpus, &mut report);
     check_uncited_memberships(corpus, &mut report);
+    check_closed_vocabularies(corpus, &mut report);
     check_option_groups(corpus, &ids, &mut report);
     check_replaces_features(corpus, &keys, &mut report);
     crate::check_trades::check_trades(corpus, &keys, &mut report);
@@ -1683,6 +1746,68 @@ fn check_uncited_memberships(corpus: &Corpus, report: &mut Report) {
         entries.len(),
         examples.join(", ")
     ));
+}
+
+/// Values outside a closed vocabulary: `(location, id, field, value)` (phynics/cast-iron-data#169).
+fn out_of_vocabulary(corpus: &Corpus) -> Vec<(String, &str, &'static str, String)> {
+    let mut out = Vec::new();
+    for stored in corpus.entries.values() {
+        let entry = &stored.entry;
+        let id = entry.id.as_str();
+        match &entry.fields {
+            TypedFields::Feat(fields) => {
+                for value in &fields.feat_types {
+                    if !FEAT_TYPES.contains(&value.as_str()) {
+                        let at = format!(
+                            "{}:{}",
+                            stored.path.display(),
+                            line_of(&stored.text, "feat_types")
+                        );
+                        out.push((at, id, "feat_types", value.clone()));
+                    }
+                }
+            }
+            TypedFields::Creature(fields) => {
+                if let Some(size) = &fields.size
+                    && !SIZE_CATEGORIES.contains(&size.trim().to_lowercase().as_str())
+                {
+                    let at = format!(
+                        "{}:{}",
+                        stored.path.display(),
+                        line_of(&stored.text, "size")
+                    );
+                    out.push((at, id, "size", size.clone()));
+                }
+            }
+            _ => {}
+        }
+    }
+    out
+}
+
+/// Warns, once per field and run, about values outside a closed vocabulary. It is a warning
+/// while the corpus is cleaned up (phynics/cast-iron-data#169): the count measures what is
+/// left. When it reaches 0 it becomes an error, as the footnote findings did.
+fn check_closed_vocabularies(corpus: &Corpus, report: &mut Report) {
+    let found = out_of_vocabulary(corpus);
+    for (field, list) in [("feat_types", "FEAT_TYPES"), ("size", "SIZE_CATEGORIES")] {
+        let rows: Vec<_> = found.iter().filter(|row| row.2 == field).collect();
+        if rows.is_empty() {
+            continue;
+        }
+        let entries: BTreeSet<&str> = rows.iter().map(|row| row.1).collect();
+        let examples: Vec<String> = rows
+            .iter()
+            .take(3)
+            .map(|(at, id, _, value)| format!("{at}: `{id}` has `{value}`"))
+            .collect();
+        report.warnings.push(format!(
+            "{} `{field}` values in {} entries are outside the closed vocabulary `{list}` (for example {}); a filter menu shows the field, so move a book abbreviation, a title qualifier or a race out of it, as print gives them (phynics/cast-iron-data#169)",
+            rows.len(),
+            entries.len(),
+            examples.join(", ")
+        ));
+    }
 }
 
 fn check_relations(corpus: &Corpus, report: &mut Report) {
@@ -2580,6 +2705,53 @@ mod tests {
             "{problem}"
         );
         assert!(problem.contains("magicalBeast"), "{problem}");
+    }
+
+    #[test]
+    fn a_feat_type_outside_the_closed_vocabulary_is_a_warning() {
+        let report = check(&corpus(vec![
+            feat("ref/feat/ok", &["Combat", "General"]),
+            feat("ref/feat/untyped", &[]),
+        ]));
+        assert!(report.warnings.is_empty(), "{:?}", report.warnings);
+
+        let report = check(&corpus(vec![
+            feat("ref/feat/boa", &["BoA"]),
+            feat("ref/feat/race", &["Combat", "Dhampir"]),
+        ]));
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
+        assert_eq!(report.warnings.len(), 1, "{:?}", report.warnings);
+        let warning = &report.warnings[0];
+        assert!(
+            warning
+                .contains("2 `feat_types` values in 2 entries are outside the closed vocabulary"),
+            "{warning}"
+        );
+        assert!(warning.contains("`ref/feat/boa` has `BoA`"), "{warning}");
+    }
+
+    #[test]
+    fn a_size_outside_the_categories_is_a_warning_without_regard_to_case() {
+        let sized = |id: &str, size: &str| {
+            let mut entry = creature(id, "construct");
+            if let TypedFields::Creature(fields) = &mut entry.fields {
+                fields.size = Some(size.into());
+            }
+            entry
+        };
+        let report = check(&corpus(vec![
+            sized("ref/creature/a", "Medium"),
+            sized("ref/creature/b", "colossal"),
+        ]));
+        assert!(report.warnings.is_empty(), "{:?}", report.warnings);
+
+        let report = check(&corpus(vec![sized("ref/creature/c", "artificial")]));
+        assert_eq!(report.warnings.len(), 1, "{:?}", report.warnings);
+        assert!(
+            report.warnings[0].contains("1 `size` values in 1 entries are outside"),
+            "{:?}",
+            report.warnings
+        );
     }
 
     #[test]

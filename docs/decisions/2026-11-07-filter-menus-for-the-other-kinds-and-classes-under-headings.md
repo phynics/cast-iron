@@ -2,7 +2,7 @@
 title: "Filter menus for the other kinds, and classes under headings"
 date: 2026-11-07
 status: partly-superseded
-superseded_by: ["2026-11-22-races-are-a-grouped-list"]
+superseded_by: ["2026-11-22-filter-fields-have-closed-vocabularies", "2026-11-22-races-are-a-grouped-list"]
 issues: [193, 195, 196]
 prs: [2, 3, 4]
 area: ui
