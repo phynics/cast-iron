@@ -289,7 +289,7 @@ pub fn Entry(id: EntryId, anchor: Option<String>, book: Option<String>) -> impl 
             section: live.section(),
             arch: live.arch(),
         };
-        Effect::new(move |_| route::replace(&route));
+        crate::views::util::effect(move || route::replace(&route));
     }
     // A retired id has no canonical record and is never redirected to a guessed article.
     // Show the standard "not in this library" state with its reason category.
@@ -423,7 +423,7 @@ pub fn Entry(id: EntryId, anchor: Option<String>, book: Option<String>) -> impl 
     let opened = crate::diagnostics::now();
     let sampled = StoredValue::new(false);
     let sample_title = stub_title.clone().unwrap_or_else(|| "Entry".to_string());
-    Effect::new(move |_| {
+    crate::views::util::effect(move || {
         if entry.with(|state| matches!(state, Some(Ok(_)))) && !sampled.get_value() {
             sampled.set_value(true);
             crate::diagnostics::sample_page(sample_title.clone(), opened);
@@ -1054,7 +1054,7 @@ fn EntryView(
         .unwrap_or_default();
     let (entry_id, entry_book) = (entry.id.clone(), book.clone());
     let current = route::use_route();
-    Effect::new(move |_| {
+    crate::views::util::effect(move || {
         if let Route::Entry {
             id,
             anchor,

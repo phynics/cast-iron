@@ -288,7 +288,7 @@ pub fn FilterMenuPanel(
     let options = crate::views::util::Shared::new(options);
 
     // Opening puts focus in the find field, or on the current choice when there is no field.
-    Effect::new(move |_| {
+    crate::views::util::effect(move || {
         if state.open.get() {
             let target = if find {
                 find_id(&spec)

@@ -959,7 +959,7 @@ pub fn Search() -> impl IntoView {
     let publications_open = RwSignal::new(false);
     let input_ref = NodeRef::<leptos::html::Input>::new();
 
-    Effect::new(move |_| {
+    crate::views::util::effect(move || {
         let q = state.with(|s| s.q.clone());
         if q != written.get_value() && q != text.get_untracked() {
             written.set_value(q.clone());
@@ -967,7 +967,7 @@ pub fn Search() -> impl IntoView {
         }
     });
 
-    Effect::new(move |_| {
+    crate::views::util::effect(move || {
         if let Some(input) = input_ref.get()
             && pointer_is_fine()
         {
@@ -1998,7 +1998,7 @@ pub fn Search() -> impl IntoView {
     // the sidebar and the button is hidden, so neither runs there.
     // The scope row scrolls sideways. A kind chosen elsewhere (a link, the panel, Back) can sit
     // out of sight, so the pressed choice is brought into view after each change of kinds.
-    Effect::new(move |_| {
+    crate::views::util::effect(move || {
         state.with(|s| s.kinds.clone());
         spawn_local(async move {
             js::sleep(0).await;
