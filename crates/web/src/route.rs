@@ -577,6 +577,7 @@ impl Route {
     /// and is not rebuilt, so the frame leaves scroll and focus alone (the reader is looking at the
     /// list). The first choice from a bare address or from an `?a=` address is one too: the list's
     /// links add the stop and drop the anchor, and that must not read as a jump to the section.
+    /// Back from that first choice to the bare address is one as well.
     pub fn only_arch_differs(&self, other: &Route) -> bool {
         match (self, other) {
             (
@@ -598,7 +599,9 @@ impl Route {
                 id == other_id
                     && book == other_book
                     && arch != other_arch
-                    && (section == other_section || *other_section == Some(Section::Archetypes))
+                    && (section == other_section
+                        || *other_section == Some(Section::Archetypes)
+                        || (*section == Some(Section::Archetypes) && other_section.is_none()))
             }
             _ => false,
         }
@@ -1939,6 +1942,20 @@ mod tests {
         )));
         // A class without the stop keeps its section: none stays none.
         assert!(at(&[], None, None).only_arch_differs(&at(&["cantrips"], None, None)));
+        // Back from that first choice to the bare address undoes the choice in place too.
+        assert!(at(&["cantrips"], archetypes, None).only_arch_differs(&at(&[], None, None)));
+        // Leaving the stop for another one with other choices is a move.
+        assert!(!at(&["cantrips"], archetypes, None).only_arch_differs(&at(
+            &[],
+            Some(Section::Features),
+            None
+        )));
+        // Back to an `?a=` address is a move to that heading.
+        assert!(!at(&["cantrips"], archetypes, None).only_arch_differs(&at(
+            &[],
+            None,
+            Some("arcane-bond")
+        )));
         // The same choices, or a move to another stop, another anchor or another entry, is a
         // different move.
         assert!(!at(&[], archetypes, None).only_arch_differs(&at(&[], archetypes, None)));
@@ -1947,7 +1964,6 @@ mod tests {
             Some(Section::Features),
             None
         )));
-        assert!(!at(&[], archetypes, None).only_arch_differs(&at(&["cantrips"], None, None)));
         assert!(!at(&[], None, None).only_arch_differs(&at(
             &["cantrips"],
             archetypes,
