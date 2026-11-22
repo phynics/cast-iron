@@ -1553,17 +1553,6 @@ mark {
   font-variant-numeric: tabular-nums;
 }
 
-.ms {
-  font-size: var(--step--1);
-}
-
-/* The timing is a diagnostic; on a phone it would wrap the count line onto a second row. */
-@media (max-width: 47.99rem) {
-  .result-count .ms {
-    display: none;
-  }
-}
-
 .inactive-books-hint {
   margin: var(--space-1) 0 0;
   padding-left: var(--space-2);

@@ -609,7 +609,7 @@ test("Cross-reference navigation works: deep link opens an entry in a fresh page
   await expect(fresh.locator(".entry-foot .copyright").first()).toContainText(
     source.copyright.includes("Paizo") ? "Paizo" : source.copyright.slice(0, 30));
   await fresh.goto("#/entry/no-such/entry");
-  await expect(fresh.getByText("No entry no-such/entry exists")).toBeVisible();
+  await expect(fresh.getByRole("heading", { level: 1, name: "Entry unavailable" })).toBeVisible();
   await fresh.goto("#/garbage");
   await expect(fresh.getByRole("heading", { name: "Page not found" })).toBeVisible();
 });

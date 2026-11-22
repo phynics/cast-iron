@@ -21,7 +21,7 @@ use crate::route::{Route, replace, toc_id, use_route};
 use crate::views::continue_reading;
 use crate::views::icons;
 use crate::views::sources::aon_line;
-use crate::views::util::{Shared, local_resource, set_title};
+use crate::views::util::{Shared, local_resource, recovery_details, set_title};
 use cast_iron_schema::books::{
     ChapterRow, ContentsRow, Hide, chapter_rows as schema_chapter_rows, contents_row,
     hidden_from_contents, legacy_anchor_path, listed_children, listed_under, resolve_contents_row,
@@ -189,6 +189,11 @@ pub const BOOK_UNAVAILABLE_TITLE: &str = "Book unavailable";
 pub const BOOK_UNAVAILABLE_LINE: &str =
     "This book isn't in your library. The link may be old or mistyped.";
 
+/// A book's contents or chapter that cannot be read: no file name, which goes under details.
+const BOOK_UNREADABLE_LINE: &str =
+    "This book's contents can't be read on this device. Open Settings and verify the library.";
+const CHAPTER_UNAVAILABLE_TITLE: &str = "Chapter unavailable";
+
 #[component]
 pub fn BookUnavailable() -> impl IntoView {
     set_title(BOOK_UNAVAILABLE_TITLE);
@@ -341,9 +346,10 @@ pub fn BookView(source: String) -> impl IntoView {
                         None => view! { <p class="status" role="status">"Loading contents…"</p> }.into_any(),
                         Some(Err(error)) => view! {
                             <div class="error" role="alert">
-                                <p>{error.to_string()}</p>
+                                <p>{BOOK_UNREADABLE_LINE}</p>
                                 <p><a href=Route::Settings.href()>"Open Settings"</a></p>
                             </div>
+                            {recovery_details(error.to_string())}
                         }.into_any(),
                         Some(Ok(None)) => view! {
                             <p class="notice">"This library has no chapter order. Open Settings to check for a library update."</p>
@@ -449,9 +455,17 @@ pub fn ChapterView(
                 let library = library.clone();
                 lookup.with(|state| match state {
                     None => view! { <p class="status" role="status">"Loading chapter…"</p> }.into_any(),
-                    Some(Err(error)) => view! {
-                        <div class="error" role="alert"><p>{error.to_string()}</p></div>
-                    }.into_any(),
+                    Some(Err(error)) => {
+                        set_title(CHAPTER_UNAVAILABLE_TITLE);
+                        view! {
+                        <h1>{CHAPTER_UNAVAILABLE_TITLE}</h1>
+                        <div class="error" role="alert">
+                            <p>{BOOK_UNREADABLE_LINE}</p>
+                            <p><a href=Route::Settings.href()>"Open Settings"</a></p>
+                        </div>
+                        {recovery_details(error.to_string())}
+                        }.into_any()
+                    }
                     Some(Ok(None)) => view! {
                         <p class="notice">"This library has no chapter order. Open Settings to check for a library update."</p>
                     }.into_any(),
@@ -464,9 +478,16 @@ pub fn ChapterView(
                         let hide = hides_from_contents(&library);
                         let rows = chapter_rows(tree, &hide);
                         let Some(row) = rows.iter().find(|row| row.id == chapter) else {
+                            set_title(CHAPTER_UNAVAILABLE_TITLE);
                             return view! {
-                                <p class="notice">"This chapter is not in this book."</p>
-                                <p><a href=Route::Book { source: source.clone(), chapter: None }.href()>"Back to the book"</a></p>
+                                <h1>{CHAPTER_UNAVAILABLE_TITLE}</h1>
+                                <div class="error" role="alert">
+                                    <p>"This chapter isn't in this book. The link may be old or mistyped."</p>
+                                    <p>
+                                        <a href=Route::Book { source: source.clone(), chapter: None }.href()>"Open the book"</a>" or "
+                                        <a href=Route::Books.href()>"Browse all books"</a>"."
+                                    </p>
+                                </div>
                             }.into_any();
                         };
                         let Some(node) = node_at(tree, &row.path) else {

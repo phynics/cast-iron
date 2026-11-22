@@ -122,7 +122,7 @@ test("Book visibility persists offline and filters discovery while keeping stars
   await page.goto("#/");
   await page.locator(".home-bookmarks").getByRole("link", { name: entry.title, exact: true }).click();
   await expect(page.getByRole("heading", { name: entry.title, level: 1, exact: true })).toBeVisible();
-  await expect(page.locator(".disabled-book-notice")).toContainText("This book is disabled for search and browsing.");
+  await expect(page.locator(".disabled-book-notice")).toContainText("This entry's book is turned off, so it doesn't appear in search or lists.");
   await expect(page.locator(".bookmark-toggle")).toHaveAttribute("aria-pressed", "true");
 });
 
@@ -445,6 +445,7 @@ installedTest("A preset keeps downloads and stars, and changes what search finds
   await expect(page.getByRole("heading", { name: entry.title, level: 1, exact: true })).toBeVisible();
   await expect(page.locator(".bookmark-toggle")).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator(".disabled-book-notice")).toBeVisible();
+  await expect(page.locator(".disabled-book-notice")).toContainText("It stays in your Starred list.");
   expect(await cacheContents(page)).toEqual(downloads);
   await page.goto("#/");
   await expect(page.locator(".home-bookmarks").getByRole("link", { name: entry.title, exact: true })).toBeVisible();
@@ -550,8 +551,10 @@ test("No active books offers a direct recovery path from Home", async ({ page })
     };
   }), books);
   await page.reload();
-  await expect(page.getByText("No books are active.")).toBeVisible();
-  await page.getByRole("link", { name: "Open Manage books" }).click();
+  await expect(page.locator(".notice", { hasText: "No books are active." })).toHaveText(
+    "No books are active. Turn some on in Manage books.",
+  );
+  await page.getByRole("link", { name: "Manage books", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Manage books", exact: true })).toBeVisible();
   await expect(page.getByText("No books active", { exact: true })).toBeVisible();
   const first = page.getByRole("checkbox", { name: /^Active / }).first();

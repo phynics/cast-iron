@@ -2347,7 +2347,8 @@ fn BrowseList(
     // A facet widens back to the book's whole kind when a book filter is on. Without a book it
     // widens to the whole kind, as before.
     let show_all_route = Route::browse_kind(kind).with_source(source.clone());
-    let show_all = narrowed.then(|| {
+    // An empty result says `Show all` once, in the block below the line.
+    let show_all = (narrowed && count > 0).then(|| {
         view! {
             " · "
             <a class="count-action" href=show_all_route.href()
