@@ -92,9 +92,27 @@ test("spell lists filter by class, level, and query; search supports source filt
   await expect.poll(hash).toContain(`/${level}?`);
   expect(hash()).toContain(`name=${spell.title}`);
   expect(hash()).toMatch(/school=/);
+  // The level change remounts the list on a later flush: wait for the new list before typing, or
+  // the fill can reach the old field.
+  await expect(page.getByRole("heading", {
+    name: level === 0 ? `${listClass} cantrips` : `${listClass} spells, level ${level}`,
+    level: 1,
+  })).toBeVisible();
   await expect(page.locator("#list-filter")).toHaveValue(spell.title);
   const entriesBefore = await page.evaluate(() => history.length);
-  await page.locator("#list-filter").fill("no-such-spell");
+  const field = page.locator("#list-filter");
+  await field.fill("no-such-spell");
+  await expect(field).toHaveValue("no-such-spell");
+  // Two input events in one frame: the address ends with the last text (#616).
+  await field.evaluate((el: HTMLInputElement) => {
+    for (const text of ["no-such", "no-such-spell-last"]) {
+      el.value = text;
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  });
+  await expect.poll(hash).toContain("name=no-such-spell-last");
+  await field.fill("no-such-spell");
+  await expect.poll(hash).toMatch(/name=no-such-spell(&|$)/);
   await expect(page.getByRole("status").filter({ hasText: /No spell on this list matches/ })).toBeVisible();
   await expect(page).toHaveURL(/name=no-such-spell/);
   expect(await page.evaluate(() => history.length)).toBe(entriesBefore);
