@@ -116,15 +116,18 @@ pub const AFFLICTION_TYPES: [&str; 6] = [
 /// `slot` facet, so the Slot menu lists only real slots (phynics/cast-iron-data#171).
 pub const ITEM_SLOT_NONE: &str = "none";
 
-/// The body slots that print gives a magic item, plus `none` (phynics/cast-iron-data#171). Two of
-/// them, joined by ` or `, make one value (`neck or shoulders`, `none or neck`). The data
-/// repository keeps the print citation of each value in `scripts/affliction-slot-vocabulary-171.tsv`.
-pub const ITEM_BODY_SLOTS: [&str; 15] = [
+/// The slots that print gives a magic item, plus `none` (phynics/cast-iron-data#171). `weapon` is
+/// the slot print gives a specific weapon, and `face` the one of the mask and the lenses (owner
+/// decisions of 2026-11-22). Two of them, joined by ` or `, make one value (`neck or shoulders`,
+/// `none or neck`). The data repository keeps the print citation of each value in
+/// `scripts/affliction-slot-vocabulary-171.tsv`.
+pub const ITEM_BODY_SLOTS: [&str; 17] = [
     "armor",
     "belt",
     "body",
     "chest",
     "eyes",
+    "face",
     "feet",
     "hands",
     "head",
@@ -134,7 +137,22 @@ pub const ITEM_BODY_SLOTS: [&str; 15] = [
     "ring",
     "shield",
     "shoulders",
+    "weapon",
     "wrists",
+];
+
+/// The `slot` values of the sockets and the cybertech of the Technology Guide, in the spelling of
+/// print (Technology Guide pp. 36, 52 and 53; owner decision of 2026-11-22). They are a separate
+/// closed list: a magic item never takes one, and a tech slot stands alone, never in an `or` pair.
+/// `arms (cybernetic)` is the spelling of the adventure volume that prints it.
+pub const ITEM_TECH_SLOTS: [&str; 7] = [
+    "arm",
+    "arms (cybernetic)",
+    "brain",
+    "ears",
+    "legs",
+    "skillslot",
+    "veemod goggles",
 ];
 
 /// The `slot` values of an item enhancement, which attaches to a weapon, armor or shield instead
@@ -146,10 +164,14 @@ pub const ITEM_QUALITY_SLOTS: [&str; 4] = [
     "armor/shield quality",
 ];
 
-/// Whether `value` is a closed `slot` value: one body slot, one enhancement value, or two distinct
-/// body slots joined by ` or `. Case counts: the corpus spells every value in lower case.
+/// Whether `value` is a closed `slot` value: one body slot, one tech slot, one enhancement value, or
+/// two distinct body slots joined by ` or `. A tech slot or an enhancement value never joins a pair.
+/// Case counts: the corpus spells every value in lower case.
 pub fn is_item_slot(value: &str) -> bool {
-    if ITEM_BODY_SLOTS.contains(&value) || ITEM_QUALITY_SLOTS.contains(&value) {
+    if ITEM_BODY_SLOTS.contains(&value)
+        || ITEM_TECH_SLOTS.contains(&value)
+        || ITEM_QUALITY_SLOTS.contains(&value)
+    {
         return true;
     }
     match value.split(" or ").collect::<Vec<_>>().as_slice() {
@@ -1908,7 +1930,7 @@ fn check_closed_vocabularies(corpus: &Corpus, report: &mut Report) {
         ),
         (
             "slot",
-            "ITEM_BODY_SLOTS, ITEM_QUALITY_SLOTS and their `or` pairs",
+            "ITEM_BODY_SLOTS, ITEM_TECH_SLOTS, ITEM_QUALITY_SLOTS and the `or` pairs of ITEM_BODY_SLOTS",
             "map a spelling to the printed slot, or move text that is no slot out of it, as print gives them",
             171,
         ),
@@ -2898,6 +2920,7 @@ mod tests {
     fn the_item_slot_lists_hold_one_spelling_each() {
         let all: Vec<&str> = ITEM_BODY_SLOTS
             .iter()
+            .chain(ITEM_TECH_SLOTS.iter())
             .chain(ITEM_QUALITY_SLOTS.iter())
             .copied()
             .collect();
@@ -2907,6 +2930,12 @@ mod tests {
         assert!(all.iter().all(|slot| *slot == slot.to_lowercase()));
         // The compiler leaves `none` out of the `slot` facet by this name.
         assert!(ITEM_BODY_SLOTS.contains(&ITEM_SLOT_NONE));
+        // A tech slot is no magic-item slot, so the two lists share no value.
+        assert!(
+            ITEM_TECH_SLOTS
+                .iter()
+                .all(|slot| !ITEM_BODY_SLOTS.contains(slot))
+        );
         let types: BTreeSet<&str> = AFFLICTION_TYPES.iter().copied().collect();
         assert_eq!(types.len(), AFFLICTION_TYPES.len());
     }
@@ -2916,6 +2945,10 @@ mod tests {
         for ok in [
             "neck",
             "none",
+            "weapon",
+            "face",
+            "veemod goggles",
+            "arms (cybernetic)",
             "headband",
             "armor/shield quality",
             "neck or shoulders",
@@ -2930,12 +2963,17 @@ mod tests {
             "Neck",
             "see text",
             "neck (see text)",
-            "veemod goggles",
+            "amulet",
+            "cloak",
+            "veemod goggles or neck",
+            "neck or skillslot",
+            "arm or wrist",
+            "arm or arm",
+            "weapon quality or neck",
             "neck, ring, or none",
             "head and eyes",
             "neck or neck",
             "neck or shoulders or belt",
-            "weapon quality or neck",
             "neck or",
         ] {
             assert!(!is_item_slot(bad), "{bad}");
@@ -2947,13 +2985,15 @@ mod tests {
         let report = check(&corpus(vec![
             item("ref/item/ring", Some("ring")),
             item("ref/item/cloak", Some("neck or shoulders")),
+            item("ref/item/goggles", Some("veemod goggles")),
+            item("ref/item/blade", Some("weapon")),
             item("ref/item/plain", None),
         ]));
         assert!(report.warnings.is_empty(), "{:?}", report.warnings);
 
         let report = check(&corpus(vec![
-            item("ref/item/goggles", Some("veemod goggles")),
-            item("ref/item/lenses", Some("face")),
+            item("ref/item/hat", Some("head and eyes")),
+            item("ref/item/lenses", Some("neck, ring, or none")),
         ]));
         assert!(report.problems.is_empty(), "{:?}", report.problems);
         assert_eq!(report.warnings.len(), 1, "{:?}", report.warnings);
@@ -2963,7 +3003,7 @@ mod tests {
             "{warning}"
         );
         assert!(
-            warning.contains("`ref/item/goggles` has `veemod goggles`"),
+            warning.contains("`ref/item/hat` has `head and eyes`"),
             "{warning}"
         );
     }

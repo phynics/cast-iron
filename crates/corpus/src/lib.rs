@@ -51,8 +51,9 @@ pub use books::{
     is_reserved_chapter, page_in,
 };
 pub use check::{
-    AFFLICTION_TYPES, FEAT_TYPES, ITEM_BODY_SLOTS, ITEM_QUALITY_SLOTS, ITEM_SLOT_NONE, Report,
-    base_class_ids, check, fields_kind, fields_match, heading_keys, is_item_slot, line_of,
+    AFFLICTION_TYPES, FEAT_TYPES, ITEM_BODY_SLOTS, ITEM_QUALITY_SLOTS, ITEM_SLOT_NONE,
+    ITEM_TECH_SLOTS, Report, base_class_ids, check, fields_kind, fields_match, heading_keys,
+    is_item_slot, line_of,
 };
 pub use config::{
     CORPUS_FORMAT, Config, DEFAULT_LICENSE_REFS, MIGRATE_COMMAND, READABLE_FORMATS,
