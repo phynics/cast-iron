@@ -410,7 +410,11 @@ pub(crate) fn canonical_facets(entries: &[RuleEntry]) -> BTreeMap<EntryId, Vec<(
                 if let Some(value) = &fields.category {
                     push(&mut facets, "item_category", value);
                 }
-                if let Some(value) = fields.slot.as_deref().filter(|slot| *slot != "none") {
+                if let Some(value) = fields
+                    .slot
+                    .as_deref()
+                    .filter(|slot| *slot != cast_iron_corpus::ITEM_SLOT_NONE)
+                {
                     push(&mut facets, "slot", value);
                 }
             }
@@ -861,6 +865,57 @@ mod tests {
             of("ref/feat/power-attack"),
             vec![("feat_type".to_string(), "Combat".to_string())]
         );
+    }
+
+    #[test]
+    fn the_slot_facet_carries_each_closed_slot_except_none() {
+        // The compiler emits the corpus `slot` as written, so the closed list of the corpus check
+        // is the list of facet values (phynics/cast-iron-data#171). `none` has no facet value.
+        let slots: Vec<String> = cast_iron_corpus::ITEM_BODY_SLOTS
+            .iter()
+            .chain(cast_iron_corpus::ITEM_QUALITY_SLOTS.iter())
+            .map(|slot| slot.to_string())
+            .chain(["neck or shoulders".to_string(), "none or neck".to_string()])
+            .collect();
+        let items: Vec<RuleEntry> = slots
+            .iter()
+            .enumerate()
+            .map(|(index, slot)| {
+                let mut item = entry(&format!("ref/item/i{index}"), EntryKind::Item, 0);
+                item.fields = TypedFields::Item(cast_iron_schema::ItemFields {
+                    slot: Some(slot.clone()),
+                    ..Default::default()
+                });
+                item
+            })
+            .collect();
+        let facets = canonical_facets(&items);
+        let mut emitted = Vec::new();
+        for item in &items {
+            let values: Vec<&String> = facets
+                .get(&item.id)
+                .into_iter()
+                .flatten()
+                .filter(|(name, _)| name == "slot")
+                .map(|(_, value)| value)
+                .collect();
+            let TypedFields::Item(fields) = &item.fields else {
+                unreachable!()
+            };
+            let slot = fields.slot.as_deref().unwrap();
+            if slot == cast_iron_corpus::ITEM_SLOT_NONE {
+                assert!(values.is_empty());
+            } else {
+                assert_eq!(values, vec![slot]);
+                emitted.push(slot.to_string());
+            }
+        }
+        assert!(
+            emitted
+                .iter()
+                .all(|slot| cast_iron_corpus::is_item_slot(slot))
+        );
+        assert_eq!(emitted.len(), slots.len() - 1);
     }
 
     #[test]
