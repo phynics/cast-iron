@@ -314,17 +314,24 @@ test("A shared link opens filtered, and a chosen archetype the data cannot place
 
 test("The Keep menu has a find field above ten features", async ({ page }) => {
   await installLibrary(page);
-  await openClass(page, FIGHTER, 390);
+  // The Monk has more than ten features that its archetypes touch (the Wizard and Fighter have fewer).
+  const MONK = "ref/class/monk";
+  await openClass(page, MONK, 390);
   const keep = menu(page, "keep");
   await keep.click();
   const choices = panel(page, "keep");
   const total = await choices.getByRole("checkbox").count();
-  expect(total, "the Fighter has more than ten features that archetypes touch").toBeGreaterThan(10);
+  expect(total, "the Monk has more than ten features that archetypes touch").toBeGreaterThan(10);
   const find = choices.getByRole("searchbox", { name: "Find a feature" });
   await expect(find).toBeFocused();
-  await find.fill("bravery");
+  // Narrow by the label of the last feature; the status line and the rows follow.
+  const label = ((await choices.getByRole("checkbox").last().getAttribute("aria-label")) ?? "").split(", ")[0];
+  await find.fill(label.toLowerCase());
   await expect(choices.getByRole("status")).toContainText("feature");
-  await expect(choices.getByRole("checkbox")).toHaveCount(1);
-  await choices.getByRole("checkbox").check();
-  await expect(keep).toHaveText("Keep: Bravery");
+  const left = await choices.getByRole("checkbox").count();
+  expect(left).toBeGreaterThan(0);
+  expect(left).toBeLessThan(total);
+  await choices.getByRole("checkbox").first().check();
+  await expect.poll(() => page.evaluate(() => location.hash)).toContain("keep=");
+  await expect(keep).toContainText(label);
 });

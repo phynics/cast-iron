@@ -208,12 +208,11 @@ pub fn ArchetypeList(
         now
     });
 
-    // The features to keep. The panel reads the choices from the route; it is rebuilt only when
-    // the archetype changes, because its `Any feature` link keeps that choice.
+    // The features to keep. The panel reads the choices from the route, and its `Any feature`
+    // link follows the archetype that is chosen.
     let keep_panel = {
         let (features, route_for) = (features.clone(), route_for.clone());
         move || {
-            let with_now = with.get();
             let options: Vec<MultiOption> = features
                 .iter()
                 .map(|feature| MultiOption {
@@ -222,7 +221,10 @@ pub fn ArchetypeList(
                     count: feature.count,
                 })
                 .collect();
-            let all_href = route_for(Vec::new(), with_now).href();
+            let all_href = Signal::derive({
+                let route_for = route_for.clone();
+                move || route_for(Vec::new(), with.get()).href()
+            });
             let on_change = {
                 let route_for = route_for.clone();
                 Callback::new(move |next: Vec<String>| push(&route_for(next, with.get_untracked())))
@@ -337,7 +339,7 @@ pub fn ArchetypeList(
                     <FilterMenuButton spec=WITH state=with_menu text=with_text narrowed=with_narrowed focus=false />
                 </div>
             </div>
-            {has_features.then_some(keep_panel)}
+            {has_features.then(keep_panel)}
             {with_panel}
             <p class="list-count" role="status">
                 {count_line}
