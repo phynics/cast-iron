@@ -1,8 +1,9 @@
 //! Legal and attribution, and the coverage report. Both render the files of the active library.
 //!
-//! The legal notices are shown in full and are never collapsed. The coverage report is large
-//! (thousands of upstream paths), so its overview is a set of counts and every full table is
-//! built only when its disclosure opens.
+//! The Community Use notice and the Product Identity declaration are always open. The licence
+//! texts start closed but stay in the page. The coverage report is large (thousands of upstream
+//! paths), so its overview is a set of counts, and everything made for the maintainers sits in one
+//! closed disclosure that builds its tables only when it opens.
 
 use crate::fmt;
 use crate::library::use_library;
@@ -42,7 +43,7 @@ pub fn Legal() -> impl IntoView {
             }.into_any(),
             Some(Ok(legal)) => legal_view(legal).into_any(),
         })}
-        <h2 id="coverage">"Coverage"</h2>
+        <h2 id="coverage" tabindex="-1">"Coverage"</h2>
         {move || coverage.with(|state| match state {
             None => view! { <p class="status" role="status">"Loading…"</p> }.into_any(),
             Some(Err(error)) => view! {
@@ -54,6 +55,69 @@ pub fn Legal() -> impl IntoView {
             }.into_any(),
             Some(Ok(report)) => coverage_view(report).into_any(),
         })}
+        {move || {
+            let datasets = legal.with(|state| match state {
+                None => None,
+                Some(Ok(legal)) => Some(
+                    legal
+                        .datasets
+                        .iter()
+                        .map(|dataset| (dataset.id.clone(), dataset.commit.clone()))
+                        .collect::<Vec<_>>(),
+                ),
+                Some(Err(_)) => Some(Vec::new()),
+            });
+            let report = coverage.with(|state| match state {
+                None => None,
+                Some(Ok(report)) => Some(Some(Shared::from_rc(report.clone()))),
+                Some(Err(_)) => Some(None),
+            });
+            // Both files have settled, so the disclosure is built once and keeps its state.
+            datasets.zip(report).and_then(|(datasets, report)| maintainer_details(datasets, report))
+        }}
+    }
+}
+
+/// The `h2` anchors of the page, in page order, for the `On this page` list.
+fn contents_links(links: Vec<(&'static str, &'static str)>) -> impl IntoView {
+    let items = links
+        .into_iter()
+        .map(|(id, label)| {
+            view! {
+                <li>
+                    <a class="jump" href=Route::Legal.href() on:click=move |event: leptos::ev::MouseEvent| {
+                        if event.button() == 0 && !event.ctrl_key() && !event.meta_key() && !event.shift_key() && !event.alt_key() {
+                            event.prevent_default();
+                            jump_to_heading(id);
+                        }
+                    }>{label}</a>
+                </li>
+            }
+        })
+        .collect_view();
+    view! {
+        <nav aria-label="On this page">
+            <h2 class="sub-head">"On this page"</h2>
+            <ul class="jump-list">{items}</ul>
+        </nav>
+    }
+}
+
+/// Scrolls to a heading of this page and puts focus on it, so that the next Tab enters its section
+/// and a screen reader reads it. The hash holds the route, so the link cannot be a plain anchor.
+fn jump_to_heading(id: &str) {
+    use wasm_bindgen::JsCast;
+    let Some(target) = web_sys::window()
+        .and_then(|w| w.document())
+        .and_then(|d| d.get_element_by_id(id))
+    else {
+        return;
+    };
+    target.scroll_into_view();
+    if let Ok(target) = target.dyn_into::<web_sys::HtmlElement>() {
+        let options = web_sys::FocusOptions::new();
+        options.set_prevent_scroll(true);
+        let _ = target.focus_with_options(&options);
     }
 }
 
@@ -63,7 +127,7 @@ fn legal_view(legal: &Rc<LegalNotices>) -> impl IntoView + use<> {
         .iter()
         .map(|license| {
             view! {
-                <details class="legal-license" open>
+                <details class="legal-license">
                     <summary>{icons::chevron_right("disclosure-chevron")}{license.title.clone()}</summary>
                     <pre class="legal-text">{license.text.clone()}</pre>
                 </details>
@@ -95,7 +159,7 @@ fn legal_view(legal: &Rc<LegalNotices>) -> impl IntoView + use<> {
     let notice_pending_section = (!legal.notice_pending.is_empty()).then(|| {
         view! {
             <section aria-labelledby="notice-pending">
-                <h2 id="notice-pending">"Section 15 notice pending"</h2>
+                <h2 id="notice-pending" tabindex="-1">"Section 15 notice pending"</h2>
                 <p>
                     "These publications have no Section 15 notice in any pinned source. Their records ship as assumed Open Game Content under the Open Game License; the project tracks their notice coverage as open work. A record whose own licence line names only the Community Use Policy is not covered by this assumption."
                 </p>
@@ -120,7 +184,7 @@ fn legal_view(legal: &Rc<LegalNotices>) -> impl IntoView + use<> {
         .then(|| {
         view! {
             <section aria-labelledby="community-use-sources">
-                <h2 id="community-use-sources">"Sources using the Community Use Policy"</h2>
+                <h2 id="community-use-sources" tabindex="-1">"Sources using the Community Use Policy"</h2>
                 <p>"These Paizo sources are used under the Community Use notice above. A source marked \"Community Use Policy only\" carries no Open Game License text and no Section 15 notice; its per-source basis is recorded in the corpus."</p>
                 <ul class="legal-list">{community_use_sources}</ul>
             </section>
@@ -133,32 +197,48 @@ fn legal_view(legal: &Rc<LegalNotices>) -> impl IntoView + use<> {
             view! {
                 <li>
                     <strong>{dataset.id.clone()}</strong>
-                    {format!(" ({}, commit {}). {}", dataset.repository, dataset.commit, dataset.note)}
+                    {format!(" ({}). {}", dataset.repository, dataset.note)}
                 </li>
             }
         })
         .collect_view();
+    let mut links = vec![("community-use", "Community Use notice")];
+    if community_use_sources_section.is_some() {
+        links.push((
+            "community-use-sources",
+            "Sources using the Community Use Policy",
+        ));
+    }
+    links.push(("product-identity", "Product Identity declaration"));
+    links.push(("licenses", "Open Game License"));
+    links.push(("section-15", "Section 15: copyright notices"));
+    if notice_pending_section.is_some() {
+        links.push(("notice-pending", "Section 15 notice pending"));
+    }
+    links.push(("dataset", "Dataset"));
+    links.push(("coverage", "Coverage"));
     view! {
+        {contents_links(links)}
         <section aria-labelledby="community-use">
-            <h2 id="community-use">"Community Use notice"</h2>
+            <h2 id="community-use" tabindex="-1">"Community Use notice"</h2>
             <pre class="legal-text">{legal.community_use_notice.clone()}</pre>
         </section>
         {community_use_sources_section}
         <section aria-labelledby="product-identity">
-            <h2 id="product-identity">"Product Identity declaration"</h2>
+            <h2 id="product-identity" tabindex="-1">"Product Identity declaration"</h2>
             <pre class="legal-text">{legal.product_identity.clone()}</pre>
         </section>
         <section aria-labelledby="licenses">
-            <h2 id="licenses">"Open Game License"</h2>
+            <h2 id="licenses" tabindex="-1">"Open Game License"</h2>
             {licenses}
         </section>
         <section aria-labelledby="section-15">
-            <h2 id="section-15">"Section 15: copyright notices"</h2>
+            <h2 id="section-15" tabindex="-1">"Section 15: copyright notices"</h2>
             <ul class="legal-list">{section_15}</ul>
         </section>
         {notice_pending_section}
         <section aria-labelledby="dataset">
-            <h2 id="dataset">"Dataset"</h2>
+            <h2 id="dataset" tabindex="-1">"Dataset"</h2>
             <ul class="legal-list">{datasets}</ul>
         </section>
     }
@@ -273,7 +353,6 @@ fn coverage_view(report: &Rc<CoverageReport>) -> impl IntoView + use<> {
     let excluded_paths = report.excluded.len();
     let excluded_records: u64 = report.excluded.iter().map(|e| u64::from(e.records)).sum();
     let exclusions = exclusion_summary(&report.excluded);
-    let rejections = rejection_summary(&report.rejected);
     let labels = report
         .by_kind
         .iter()
@@ -297,6 +376,99 @@ fn coverage_view(report: &Rc<CoverageReport>) -> impl IntoView + use<> {
             }
         })
         .collect_view();
+    let publications_detail = {
+        let report = shared.clone();
+        move || publications_table(&report)
+    };
+    view! {
+        <div class="coverage-summary" data-coverage-summary>
+            <p>"This library holds a selection of the published rules. The counts below say what is in it and what was left out; every full list opens on demand."</p>
+            <section aria-labelledby="coverage-publications">
+                <h3 id="coverage-publications">"Publications"</h3>
+                <p>{format!(
+                    "{}, {}, and {}.",
+                    fmt::pluralize(publication_count, "publication", "publications"),
+                    fmt::pluralize(upstream_records, "upstream record", "upstream records"),
+                    fmt::pluralize(included_entries, "included publication entry", "included publication entries"),
+                )}</p>
+                {lazy_details("publications", format!("All publications ({publication_count})"), publications_detail)}
+            </section>
+            <section aria-labelledby="coverage-categories">
+                <h3 id="coverage-categories">"Entries by category"</h3>
+                <table class="data-table">
+                    <caption>"By category"</caption>
+                    <thead><tr><th scope="col">"Category"</th><th scope="col" class="num">"Entries"</th></tr></thead>
+                    <tbody>{labels}</tbody>
+                </table>
+            </section>
+            <section aria-labelledby="coverage-excluded">
+                <h3 id="coverage-excluded">"Excluded from this library"</h3>
+                <p>{format!(
+                    "{excluded_paths} upstream paths and {excluded_records} records are excluded, grouped by reason. The full path and reason for every row remains in the coverage report."
+                )}</p>
+                <table class="data-table">
+                    <caption>"Exclusions by reason"</caption>
+                    <thead>
+                        <tr><th scope="col">"Reason"</th><th scope="col" class="num">"Paths"</th><th scope="col" class="num">"Records"</th></tr>
+                    </thead>
+                    <tbody>{exclusion_rows}</tbody>
+                </table>
+            </section>
+        </div>
+    }
+}
+
+/// The disclosure for the people who maintain the corpus: the dataset commits and the record-level
+/// coverage tables. It exists when at least one of the two files could be read. Nothing in it is
+/// built before it first opens.
+fn maintainer_details(
+    datasets: Vec<(String, String)>,
+    report: Option<Shared<CoverageReport>>,
+) -> Option<AnyView> {
+    if datasets.is_empty() && report.is_none() {
+        return None;
+    }
+    Some(
+        lazy_details(
+            "maintainers",
+            "Details for maintainers".to_string(),
+            move || maintainer_content(&datasets, report.as_ref()),
+        )
+        .into_any(),
+    )
+}
+
+fn maintainer_content(
+    datasets: &[(String, String)],
+    report: Option<&Shared<CoverageReport>>,
+) -> AnyView {
+    let dataset_section = (!datasets.is_empty()).then(|| {
+        let rows = datasets
+            .iter()
+            .map(|(id, commit)| {
+                view! { <li><strong>{id.clone()}</strong>{format!(" commit {commit}")}</li> }
+            })
+            .collect_view();
+        view! {
+            <section aria-labelledby="coverage-datasets">
+                <h3 id="coverage-datasets">"Dataset commits"</h3>
+                <ul class="legal-list">{rows}</ul>
+            </section>
+        }
+    });
+    let report_sections = report.map(coverage_maintainer_sections);
+    view! {
+        {dataset_section}
+        {report_sections}
+    }
+    .into_any()
+}
+
+/// The coverage tables that list single records and single links.
+fn coverage_maintainer_sections(shared: &Shared<CoverageReport>) -> AnyView {
+    let report: &CoverageReport = shared;
+    let excluded_paths = report.excluded.len();
+    let rejections = rejection_summary(&report.rejected);
     let rejection_section = (!report.rejected.is_empty()).then(|| {
         let rows = rejections
             .iter()
@@ -348,66 +520,32 @@ fn coverage_view(report: &Rc<CoverageReport>) -> impl IntoView + use<> {
         }
     });
     let links = report.links.clone();
-    let publications_detail = {
-        let report = shared.clone();
-        move || publications_table(&report)
-    };
     let excluded_detail = {
         let report = shared.clone();
         move || excluded_table(&report)
     };
     let relationships = relationship_coverage(&report.relations, shared.clone());
     view! {
-        <div class="coverage-summary" data-coverage-summary>
-            <p>"This library holds a selection of the published rules. The counts below say what is in it and what was left out; every full list opens on demand."</p>
-            <section aria-labelledby="coverage-publications">
-                <h3 id="coverage-publications">"Publications"</h3>
-                <p>{format!(
-                    "{}, {}, and {}.",
-                    fmt::pluralize(publication_count, "publication", "publications"),
-                    fmt::pluralize(upstream_records, "upstream record", "upstream records"),
-                    fmt::pluralize(included_entries, "included publication entry", "included publication entries"),
-                )}</p>
-                {lazy_details("publications", format!("All publications ({publication_count})"), publications_detail)}
-            </section>
-            <section aria-labelledby="coverage-categories">
-                <h3 id="coverage-categories">"Entries by category"</h3>
-                <table class="data-table">
-                    <caption>"By category"</caption>
-                    <thead><tr><th scope="col">"Category"</th><th scope="col" class="num">"Entries"</th></tr></thead>
-                    <tbody>{labels}</tbody>
-                </table>
-            </section>
-            <section aria-labelledby="coverage-excluded">
-                <h3 id="coverage-excluded">"Excluded from this library"</h3>
-                <p>{format!(
-                    "{excluded_paths} upstream paths and {excluded_records} records are excluded, grouped by reason. The full path and reason for every row remains in the coverage report."
-                )}</p>
-                <table class="data-table">
-                    <caption>"Exclusions by reason"</caption>
-                    <thead>
-                        <tr><th scope="col">"Reason"</th><th scope="col" class="num">"Paths"</th><th scope="col" class="num">"Records"</th></tr>
-                    </thead>
-                    <tbody>{exclusion_rows}</tbody>
-                </table>
-                {lazy_details("excluded", format!("All excluded paths ({excluded_paths})"), excluded_detail)}
-            </section>
-            {rejection_section}
-            <section aria-labelledby="coverage-links">
-                <h3 id="coverage-links">"Links between entries"</h3>
-                <table class="data-table">
-                    <caption>"Link coverage"</caption>
-                    <tbody>
-                        <tr><th scope="row">"Resolved"</th><td class="num">{links.resolved}</td></tr>
-                        <tr><th scope="row">"Target outside this selection"</th><td class="num">{links.out_of_selection}</td></tr>
-                        <tr><th scope="row">"Broken upstream"</th><td class="num">{links.broken}</td></tr>
-                    </tbody>
-                </table>
-            </section>
-            {stripped}
-            {relationships}
-        </div>
+        <section aria-labelledby="coverage-excluded-paths">
+            <h3 id="coverage-excluded-paths">"Excluded upstream paths"</h3>
+            {lazy_details("excluded", format!("All excluded paths ({excluded_paths})"), excluded_detail)}
+        </section>
+        {rejection_section}
+        <section aria-labelledby="coverage-links">
+            <h3 id="coverage-links">"Links between entries"</h3>
+            <table class="data-table">
+                <caption>"Link coverage"</caption>
+                <tbody>
+                    <tr><th scope="row">"Resolved"</th><td class="num">{links.resolved}</td></tr>
+                    <tr><th scope="row">"Target outside this selection"</th><td class="num">{links.out_of_selection}</td></tr>
+                    <tr><th scope="row">"Broken upstream"</th><td class="num">{links.broken}</td></tr>
+                </tbody>
+            </table>
+        </section>
+        {stripped}
+        {relationships}
     }
+    .into_any()
 }
 
 fn publications_table(report: &CoverageReport) -> AnyView {
