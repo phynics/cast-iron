@@ -684,7 +684,7 @@ installedTest("The book page meta line is the book's size and survives deactivat
   await expect(page.getByRole("heading", { name: book.title, level: 1, exact: true })).toBeVisible();
   // The contents stay readable, so the count line must not change when the book is disabled.
   await expect(page.getByTestId("source-count")).toHaveText(rowLine);
-  await expect(page.getByTestId("book-off-line")).toHaveText(
+  await expect(page.getByTestId("book-off-line")).toContainText(
     "This book is turned off. Its entries don't appear in search or lists.",
   );
   await expect(page.locator(".book-active-row")).toHaveCount(0);

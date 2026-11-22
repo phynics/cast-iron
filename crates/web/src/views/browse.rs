@@ -922,8 +922,17 @@ pub fn Books(
     let rows = Shared::new(rows);
     let row_library = library.clone();
     let row: Box<RowFactory> = Box::new(move |row| book_row(row, row_library.clone()));
-    let count: Box<CountFactory> =
-        Box::new(|ids: &[String]| format!("({})", fmt::count(ids.len())));
+    // A series uses the tier's count form, and follows the selection as the tier's count does.
+    let series_library = library.clone();
+    let series_revision = library.selection_revision();
+    let count: Box<CountFactory> = Box::new(move |ids: &[String]| {
+        series_revision.get();
+        let active = ids
+            .iter()
+            .filter(|id| series_library.book_active(id))
+            .count();
+        group_count_text(active, ids.len())
+    });
     let render = SeriesRender::new(row, count, None);
     let groups = book_groups(&rows)
         .into_iter()

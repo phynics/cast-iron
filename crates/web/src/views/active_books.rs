@@ -435,11 +435,7 @@ pub fn ActiveBooks() -> impl IntoView {
             .iter()
             .filter(|id| count_library.book_active(id))
             .count();
-        format!(
-            "{} of {} active",
-            crate::fmt::count(active),
-            crate::fmt::count(ids.len())
-        )
+        crate::views::browse::group_count_text(active, ids.len())
     });
     let bulk_library = library.clone();
     let bulk_revision = library.selection_revision();

@@ -60,6 +60,10 @@ async function openManageAdventures(page: any) {
   return tier;
 }
 
+// A series count is the tier's form: `6 books` while every book of the group is active.
+const grouped = (n: number) => n.toLocaleString("en-US");
+const allActive = (n: number) => `${grouped(n)} ${n === 1 ? "book" : "books"}`;
+
 test.beforeEach(async ({ page }) => {
   await installLibrary(page);
   await waitHomeIdle(page);
@@ -73,7 +77,7 @@ test("Adventures shows Adventure Path groups, and Rise of the Runelords opens it
   await expect(group).toBeVisible();
   const volumes = apVolumes("Rise of the Runelords");
   expect(volumes.length).toBeGreaterThan(0);
-  await expect(group.locator(".series-count")).toHaveText("(" + volumes.length + ")");
+  await expect(group.locator(".series-count")).toHaveText(allActive(volumes.length));
 
   const toggle = group.locator(".series-toggle");
   await expect(toggle).toHaveAttribute("aria-expanded", "true");
@@ -100,7 +104,7 @@ test("Modules are one dated list without the printed prefix", async ({ page }) =
   await expect(group).toBeVisible();
   const modules = moduleBooks();
   expect(modules.length).toBeGreaterThan(0);
-  await expect(group.locator(".series-count")).toHaveText("(" + modules.length + ")");
+  await expect(group.locator(".series-count")).toHaveText(allActive(modules.length));
 
   const rows = group.locator(".book-directory-item");
   await expect(rows).toHaveCount(modules.length);
@@ -126,14 +130,14 @@ test("Pathfinder Society groups by season and lists its scenarios by number", as
   expect(seasons.length).toBeGreaterThan(0);
   await expect(society.locator(".adventure-season")).toHaveCount(seasons.length);
   await expect(society.locator(":scope > .series-head .series-count")).toHaveText(
-    "(" + societyBooks().length + ")",
+    allActive(societyBooks().length),
   );
 
   for (const season of seasons) {
     const group = society.locator(`.adventure-season[data-series="season-${season}"]`);
     await expect(group).toHaveCount(1);
     const books = societyBooks().filter((source) => source.season === season);
-    await expect(group.locator(".series-count")).toHaveText("(" + books.length + ")");
+    await expect(group.locator(".series-count")).toHaveText(allActive(books.length));
     const toggle = group.locator(".series-toggle");
     await expect(toggle).toHaveAttribute("aria-expanded", "true");
     const ids = await group
@@ -144,7 +148,7 @@ test("Pathfinder Society groups by season and lists its scenarios by number", as
   }
 });
 
-test("An Adventure Path's bulk toggle changes its N of M active tally", async ({ page }) => {
+test("An Adventure Path's bulk toggle changes its active tally", async ({ page }) => {
   const tier = await openManageAdventures(page);
   const group = tier.locator(
     '.adventure-group[data-series="adventure-paths"] .adventure-series[data-series="Rise of the Runelords"]',
@@ -152,12 +156,12 @@ test("An Adventure Path's bulk toggle changes its N of M active tally", async ({
   await expect(group).toBeVisible();
   const volumes = apVolumes("Rise of the Runelords");
   const count = group.locator(".series-count");
-  await expect(count).toHaveText(`${volumes.length} of ${volumes.length} active`);
+  await expect(count).toHaveText(allActive(volumes.length));
 
   // Every series group on Manage books carries the tally, not only a path.
   const modules = tier.locator('.adventure-group[data-series="modules"]');
   await expect(modules.locator(".series-count")).toHaveText(
-    `${moduleBooks().length} of ${moduleBooks().length} active`,
+    allActive(moduleBooks().length),
   );
 
   const off = group.getByRole("button", { name: `Turn off all Rise of the Runelords books`, exact: true });
@@ -168,6 +172,6 @@ test("An Adventure Path's bulk toggle changes its N of M active tally", async ({
 
   const on = group.getByRole("button", { name: `Turn on all Rise of the Runelords books`, exact: true });
   await on.click();
-  await expect(count).toHaveText(`${volumes.length} of ${volumes.length} active`);
+  await expect(count).toHaveText(allActive(volumes.length));
   await expect(group.getByRole("button", { name: `Turn off all Rise of the Runelords books`, exact: true })).toHaveCount(1);
 });

@@ -443,9 +443,9 @@ test("A chapter page opens an entry, and Next continues the book before Back ret
 });
 
 test("An entry opened from search outside the first active book shows no previous or next", async ({ page }) => {
-  // The default selection keeps every book active, so the first book in book order is the
-  // fallback context. An entry that only another book places has no reading footer. Stay in the
-  // Rulebooks tier, which search opens by default, so the hit is visible.
+  // The reading footer belongs to `?book=`: an entry opened from a search result carries none, so
+  // an entry that only another book places has no reading footer, whatever the first book in
+  // book order is. Stay in the Rulebooks tier, which search opens by default, so the hit is visible.
   const first = bookTrees()[0];
   const otherBook = sources.find(
     (source) => source.category === "RPG" && source.id !== first.source && !source.third_party,
@@ -461,6 +461,30 @@ test("An entry opened from search outside the first active book shows no previou
   await expect(page.getByRole("heading", { level: 1, name: other.title, exact: true })).toBeVisible();
   await expect(page.locator(".book-bar")).toHaveCount(0);
   await expect(page.locator(".book-steps a")).toHaveCount(0);
+});
+
+test("The reading footer needs ?book=, and its eyebrow says draft order for a book with open questions", async ({ page }) => {
+  // The first book in book order is the old fallback: its entry shows no footer without ?book=.
+  const first = bookTrees().find((book) => bookReadingOrder(book).length > 0)!;
+  const entryId = bookReadingOrder(first)[0];
+  const title = corpus.entries.get(entryId)!.title;
+  await page.goto(`#/entry/${entryId}`);
+  await expect(page.getByRole("heading", { level: 1, name: title, exact: true })).toBeVisible();
+  await expect(page.getByTestId("book-bar")).toHaveCount(0);
+  await page.goto(`#/entry/${entryId}?book=${first.source}`);
+  await expect(page.getByRole("heading", { level: 1, name: title, exact: true })).toBeVisible();
+  await expect(page.getByTestId("book-bar")).toBeVisible();
+
+  // Every book of the pinned corpus has open order questions, so the plain `In the book` form
+  // (no review items) is covered by the unit test of `where_line`.
+  const drafted = bookTrees().find((book) =>
+    book.review.length > 0
+    && !sources.find((row) => row.id === book.source)?.third_party
+    && bookReadingOrder(book).length > 1)!;
+  const id = bookReadingOrder(drafted)[0];
+  await page.goto(`#/entry/${id}?book=${drafted.source}`);
+  await expect(page.getByRole("heading", { level: 1, name: corpus.entries.get(id)!.title, exact: true })).toBeVisible();
+  await expect(page.locator(".book-where")).toHaveText("In the book · draft order");
 });
 
 function pathOfEntry(book: ReturnType<typeof bookTrees>[number], id: string): number[] | null {
@@ -479,6 +503,10 @@ function pathOfEntry(book: ReturnType<typeof bookTrees>[number], id: string): nu
 test("An inactive book shows one off line and no toggle; turning it on removes both", async ({ page }) => {
   const book = bookTrees().find((candidate) => candidate.chapters.length > 0)!;
   const source = sources.find((row) => row.id === book.source)!;
+  // Read one entry from the book first, so the book page has a saved place to continue from.
+  const read = bookReadingOrder(book)[0];
+  await page.goto(`#/entry/${read}?book=${book.source}`);
+  await expect(page.getByRole("heading", { level: 1, name: corpus.entries.get(read)!.title, exact: true })).toBeVisible();
   await page.goto("#/books/manage");
   await openBookGroups(page);
   const toggle = page.locator(`.book-directory-item[data-book-id="${book.source}"]`)
@@ -486,12 +514,36 @@ test("An inactive book shows one off line and no toggle; turning it on removes b
   await toggle.uncheck();
   await expect(toggle).not.toBeChecked();
 
-  // The book page shows the line and no way to change the choice.
+  // The book page shows the line and no way to change the choice, only a link to Manage books.
   await page.goto(`#/browse/book/${book.source}`);
   const off = page.getByTestId("book-off-line");
-  await expect(off).toHaveText("This book is turned off. Its entries don't appear in search or lists.");
+  await expect(off).toContainText("This book is turned off. Its entries don't appear in search or lists.");
   await expect(page.locator(".book-active-row")).toHaveCount(0);
   await expect(page.getByRole("checkbox", { name: "Active", exact: true })).toHaveCount(0);
+  const manage = off.getByRole("link", { name: "Manage books", exact: true });
+  await expect(manage).toHaveAttribute("href", "#/books/manage");
+  // Document order: the saved place first, then the off line, then In this book.
+  const order = await page.locator("main").evaluate((main) => {
+    const at = (selector: string) => {
+      const found = main.querySelector(selector);
+      return found ? Array.from(main.querySelectorAll("*")).indexOf(found) : -1;
+    };
+    return [at('[data-testid="continue-reading"]'), at('[data-testid="book-off-line"]'), at(".book-in-this-book")];
+  });
+  expect(order[0]).toBeGreaterThan(-1);
+  expect(order[0]).toBeLessThan(order[1]);
+  expect(order[1]).toBeLessThan(order[2]);
+  // A chapter page of the same book says the same, with the same link.
+  const chapter = chapterIds(book)[0];
+  await page.goto(`#/browse/book/${book.source}/${chapter.id}`);
+  await expect(page.getByTestId("book-off-line").getByRole("link", { name: "Manage books", exact: true }))
+    .toHaveAttribute("href", "#/books/manage");
+  // The link opens Manage books with focus on its heading, and no scroll to a row.
+  await page.goto(`#/browse/book/${book.source}`);
+  await page.getByTestId("book-off-line").getByRole("link", { name: "Manage books", exact: true }).click();
+  await expect(page).toHaveURL(/#\/books\/manage$/);
+  const manageHeading = page.getByRole("heading", { level: 1, name: "Manage books", exact: true });
+  await expect(manageHeading).toBeFocused();
 
   // Turning it on happens on Manage books; the line goes away on the book page.
   await page.goto("#/books/manage");
@@ -555,6 +607,55 @@ test("A book page links each kind it holds to the kind list filtered to the book
   await expect(page.getByRole("button", { name: `Remove filter: ${core.title}`, exact: true })).toBeVisible();
 });
 
+test("A chapter page links the list-page kinds it holds, counted from its own entries, in Home order", async ({ page }) => {
+  const core = sources.find((row) => row.id === "core-rulebook")!;
+  const book = bookTrees().find((row) => row.source === core.id)!;
+  const kindOf = new Map<string, string>(corpus.catalog.entries.map((stub: any) => [stub.id, stub.kind]));
+  const homeOrder = ["spell", "feat", "class", "prestige_class", "class_option", "race", "trait", "item",
+    "creature", "archetype", "racial_trait", "skill", "affliction", "trap"];
+  const labels: Record<string, string> = {
+    spell: "Spells", feat: "Feats", class: "Classes", prestige_class: "Prestige classes",
+    class_option: "Class options", race: "Races", trait: "Traits", item: "Items", creature: "Creatures",
+    archetype: "Archetypes", racial_trait: "Racial traits", skill: "Skills", affliction: "Afflictions", trap: "Traps",
+  };
+  const under = (node: any, found = new Set<string>()): Set<string> => {
+    if (node.entry) found.add(node.entry);
+    for (const child of node.children ?? []) under(child, found);
+    return found;
+  };
+  let withLinks = 0;
+  let withoutLinks = 0;
+  for (const { path, id } of chapterIds(book)) {
+    let node: any = { children: book.chapters };
+    for (const index of path) node = node.children[index];
+    const counts = new Map<string, number>();
+    for (const entry of under(node)) {
+      const kind = kindOf.get(entry);
+      if (kind && homeOrder.includes(kind)) counts.set(kind, (counts.get(kind) ?? 0) + 1);
+    }
+    await page.goto(`#/browse/book/${core.id}/${id}`);
+    await expect(page.getByTestId("chapter-title")).toBeVisible();
+    const heading = page.getByRole("heading", { level: 2, name: "In this chapter", exact: true });
+    if (counts.size === 0) {
+      withoutLinks += 1;
+      await expect(heading).toHaveCount(0);
+      continue;
+    }
+    withLinks += 1;
+    await expect(heading).toBeVisible();
+    const links = page.locator(".book-in-this-book .jump");
+    const expected = homeOrder.filter((kind) => counts.has(kind));
+    await expect(links).toHaveCount(expected.length);
+    for (const [index, kind] of expected.entries()) {
+      const link = links.nth(index);
+      await expect(link).toHaveText(`${labels[kind]} ${counts.get(kind)}`);
+      await expect(link).toHaveAttribute("href", `#/browse/kind/${kind}?source=${core.id}`);
+    }
+  }
+  expect(withLinks, "the Core Rulebook has chapters of list-page kinds").toBeGreaterThan(0);
+  expect(withoutLinks, "the Core Rulebook has a rules-only chapter").toBeGreaterThan(0);
+});
+
 test("The copyright is printed once, in the colophon at the bottom, each distinct notice once", async ({ page }) => {
   // The Council of Thieves Player's Guide carries the same notice twice, once as `© 2009` and
   // once as `Copyright 2009` with the title in front. The book set has no printed copy of it,
@@ -575,8 +676,16 @@ test("The copyright is printed once, in the colophon at the bottom, each distinc
   await expect(colophon.getByRole("link", { name: "Legal and attribution" })).toHaveAttribute("href", "#/legal");
   const colophonY = (await colophon.boundingBox())!.y;
   expect(colophonY).toBeGreaterThan((await page.locator(".book-in-this-book").boundingBox())!.y);
-  expect(colophonY).toBeGreaterThan((await page.locator("nav.toc, .review-line").first().boundingBox())!.y);
+  expect(colophonY).toBeGreaterThan((await page.locator(".book-contents").boundingBox())!.y);
   await expect(page.locator(".book > .copyright")).toHaveCount(0);
+  // The Archives of Nethys line, when the book has one, follows the notices and precedes Legal.
+  if (await colophon.locator(".aon-line").count()) {
+    const lastNotice = await colophon.locator(".copyright").last().boundingBox();
+    const aonLine = await colophon.locator(".aon-line").boundingBox();
+    const legal = await colophon.getByRole("link", { name: "Legal and attribution" }).boundingBox();
+    expect(aonLine!.y).toBeGreaterThan(lastNotice!.y);
+    expect(legal!.y).toBeGreaterThan(aonLine!.y);
+  }
 
   // A notice with another year is a different notice: both stay. (The Core Rulebook was the
   // example until the corpus replaced its notices with the single printed one.)
@@ -838,6 +947,9 @@ test("A book with no chapter left keeps In this book and says when it has nothin
   if (await page.locator(".book-in-this-book .jump").count()) {
     await expect(page.getByRole("heading", { name: "In this book" })).toBeVisible();
     await expect(note).toHaveCount(0);
+    // Contents says the links above hold everything, and carries no review line.
+    await expect(page.getByText("Everything in this book is listed above.")).toBeVisible();
+    await expect(page.locator(".review-line")).toHaveCount(0);
   } else {
     await expect(note).toBeVisible();
   }
