@@ -119,8 +119,10 @@ test("A race caps each long Racial traits group at 8 rows", async ({ page }) => 
   await expect(more.locator("li")).toHaveCount(0);
 });
 
-test("A mythic feat that prints its prerequisites under a heading does not repeat them", async ({ page }) => {
+test("A mythic feat that prints its prerequisites in the body does not repeat them", async ({ page }) => {
+  // Since corpus v0.1.39 no feat prints a `Prerequisites` heading, so this reads the bold line.
   await open(page, "#/entry/ref/carried/mythic-adventures/feats/arcane-blast/mythic", 1280, 900);
-  await expect(page.getByRole("heading", { level: 2, name: "Prerequisites" })).toBeVisible();
+  await expect(page.locator(".rich").getByText("Prerequisites:", { exact: false }).first()).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: "Prerequisites" })).toHaveCount(0);
   await expect(page.locator(".prereq-text")).toHaveCount(0);
 });
