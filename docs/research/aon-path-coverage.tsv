@@ -295,22 +295,9 @@ ref/carried/bestiary/monsters/violet-fungus/violet-venom/violet-venom	affliction
 ref/carried/bestiary/monsters/wasp/giant/special-abilities/poison/giant-wasp-venom	affliction	Giant Wasp Venom
 ref/carried/bestiary/monsters/wyvern/special-abilities/poison/wyvern-venom	affliction	Wyvern Venom
 ref/carried/core-rulebook/rules/glossary/special-abilities/curses/baleful-polymorph-spell	affliction	Baleful Polymorph Spell
-ref/carried/core-rulebook/rules/glossary/special-abilities/curses/bestow-curse-trap	affliction	Bestow Curse Trap
-ref/carried/core-rulebook/rules/glossary/special-abilities/curses/curse-of-the-ages	affliction	Curse of the Ages
 ref/carried/core-rulebook/rules/glossary/special-abilities/curses/mummy-rot	affliction	Mummy Rot
 ref/carried/core-rulebook/rules/glossary/special-abilities/curses/unluck	affliction	Unluck
 ref/carried/core-rulebook/rules/glossary/special-abilities/curses/werewolf-lycanthropy	affliction	Werewolf Lycanthropy
-ref/carried/core-rulebook/rules/glossary/special-abilities/diseases/blinding-sickness	affliction	Blinding Sickness
-ref/carried/core-rulebook/rules/glossary/special-abilities/diseases/bubonic-plague	affliction	Bubonic Plague
-ref/carried/core-rulebook/rules/glossary/special-abilities/diseases/cackle-fever	affliction	Cackle Fever
-ref/carried/core-rulebook/rules/glossary/special-abilities/diseases/demon-fever	affliction	Demon Fever
-ref/carried/core-rulebook/rules/glossary/special-abilities/diseases/devil-chills	affliction	Devil Chills
-ref/carried/core-rulebook/rules/glossary/special-abilities/diseases/filth-fever	affliction	Filth Fever
-ref/carried/core-rulebook/rules/glossary/special-abilities/diseases/leprosy	affliction	Leprosy
-ref/carried/core-rulebook/rules/glossary/special-abilities/diseases/mindfire	affliction	Mindfire
-ref/carried/core-rulebook/rules/glossary/special-abilities/diseases/red-ache	affliction	Red Ache
-ref/carried/core-rulebook/rules/glossary/special-abilities/diseases/shakes	affliction	Shakes
-ref/carried/core-rulebook/rules/glossary/special-abilities/diseases/slimy-doom	affliction	Slimy Doom
 ref/carried/core-rulebook/rules/glossary/special-abilities/poison/arsenic	affliction	Arsenic
 ref/carried/core-rulebook/rules/glossary/special-abilities/poison/belladonna	affliction	Belladonna
 ref/carried/core-rulebook/rules/glossary/special-abilities/poison/black-adder-venom	affliction	Black Adder Venom
@@ -349,25 +336,137 @@ ref/carried/core-rulebook/rules/glossary/special-abilities/poison/wyvern-poison	
 ref/carried/game-mastery-guide/rules/drugs-and-addiction/addiction/minor-addiction	affliction	Minor Addiction
 ref/carried/game-mastery-guide/rules/drugs-and-addiction/addiction/moderate-addiction	affliction	Moderate Addiction
 ref/carried/game-mastery-guide/rules/drugs-and-addiction/addiction/severe-addiction	affliction	Severe Addiction
-ref/carried/game-mastery-guide/rules/drugs-and-addiction/sample-drugs/aether	affliction	AEther
-ref/carried/game-mastery-guide/rules/drugs-and-addiction/sample-drugs/dwarven-fire-ale	affliction	Dwarven Fire Ale
-ref/carried/game-mastery-guide/rules/drugs-and-addiction/sample-drugs/elven-absinthe	affliction	Elven Absinthe
-ref/carried/game-mastery-guide/rules/drugs-and-addiction/sample-drugs/flayleaf	affliction	Flayleaf
-ref/carried/game-mastery-guide/rules/drugs-and-addiction/sample-drugs/opium	affliction	Opium
-ref/carried/game-mastery-guide/rules/drugs-and-addiction/sample-drugs/pesh	affliction	Pesh
-ref/carried/game-mastery-guide/rules/drugs-and-addiction/sample-drugs/scour	affliction	Scour
-ref/carried/game-mastery-guide/rules/drugs-and-addiction/sample-drugs/shiver	affliction	Shiver
-ref/carried/game-mastery-guide/rules/drugs-and-addiction/sample-drugs/zerk	affliction	Zerk
 ref/carried/game-mastery-guide/rules/hazards/sample-hazards/ear-seekers/ear-seekers	affliction	Ear Seekers
 ref/carried/game-mastery-guide/rules/hazards/sample-hazards/poison-oak/poison-oak	affliction	Poison Oak
 ref/carried/game-mastery-guide/rules/hazards/sample-hazards/poison-oak/poison-oak-severe-exposure	affliction	Poison Oak (Severe Exposure)
 ref/carried/game-mastery-guide/rules/hazards/sample-hazards/rot-grubs/rot-grubs	affliction	Rot Grubs
-ref/carried/game-mastery-guide/rules/sanity-and-madness/types-of-insanity/amnesia	affliction	Amnesia
 ref/carried/game-mastery-guide/rules/sanity-and-madness/types-of-insanity/mania-phobia	affliction	Mania/Phobia
 ref/carried/game-mastery-guide/rules/sanity-and-madness/types-of-insanity/multiple-personality-disorder	affliction	Multiple Personality Disorder
 ref/carried/game-mastery-guide/rules/sanity-and-madness/types-of-insanity/paranoia	affliction	Paranoia
 ref/carried/game-mastery-guide/rules/sanity-and-madness/types-of-insanity/psychosis	affliction	Psychosis
-ref/carried/game-mastery-guide/rules/sanity-and-madness/types-of-insanity/schizophrenia	affliction	Schizophrenia
+ref/curse/bestow-curse-trap	affliction	Bestow Curse Trap
+ref/curse/blasted-vitality	affliction	Blasted Vitality
+ref/curse/curse-of-bestial-dreams	affliction	Curse of Bestial Dreams
+ref/curse/curse-of-the-ages	affliction	Curse of the Ages
+ref/curse/cursed-earth	affliction	Cursed Earth
+ref/curse/endless-night	affliction	Endless Night
+ref/curse/haunting-major	affliction	Major Haunting
+ref/curse/haunting-minor	affliction	Minor Haunting
+ref/curse/hunt-of-the-ankou	affliction	Hunt of the Ankou
+ref/curse/hunt-of-the-bogeyman	affliction	Hunt of the Bogeyman
+ref/curse/jealous-structure	affliction	Jealous Structure
+ref/curse/perilous-demesne-grand	affliction	Grand Perilous Demesne
+ref/curse/perilous-demesne-greater	affliction	Greater Perilous Demesne
+ref/curse/perilous-demesne-major	affliction	Major Perilous Demesne
+ref/curse/perilous-demesne-minor	affliction	Minor Perilous Demesne
+ref/curse/sealed-fate	affliction	Sealed Fate
+ref/curse/shattered-self	affliction	Shattered Self
+ref/curse/tormenting-visions	affliction	Tormenting Visions
+ref/curse/unseasonable-weather	affliction	Unseasonable Weather
+ref/curse/weeping-wound	affliction	Weeping Wound
+ref/disease/blightburn-sickness	affliction	Blightburn Sickness
+ref/disease/blinding-sickness	affliction	Blinding Sickness
+ref/disease/blood-veil	affliction	Blood Veil
+ref/disease/bluespit	affliction	Bluespit
+ref/disease/bonechill	affliction	Bonechill
+ref/disease/bonecrusher-dengue	affliction	Bonecrusher (Dengue)
+ref/disease/boot-soup	affliction	Boot Soup
+ref/disease/brainworms	affliction	Brainworms
+ref/disease/bubonic-plague	affliction	Bubonic Plague
+ref/disease/cackle-fever	affliction	Cackle Fever
+ref/disease/chillbane-fever	affliction	Chillbane Fever
+ref/disease/cowards-mark	affliction	Coward's Mark
+ref/disease/crypt-fever	affliction	Crypt Fever
+ref/disease/daemonic-wasting	affliction	Daemonic Wasting
+ref/disease/demon-fever	affliction	Demon Fever
+ref/disease/demonplague	affliction	Demonplague
+ref/disease/devil-chills	affliction	Devil Chills
+ref/disease/dvezda-plague	affliction	Dvezda Plague
+ref/disease/dysentary	affliction	Dysentary
+ref/disease/eidite-sickness	affliction	Eidite sickness
+ref/disease/ergia	affliction	Ergia
+ref/disease/filth-fever	affliction	Filth Fever
+ref/disease/final-rest	affliction	Final Rest
+ref/disease/firegut	affliction	Firegut
+ref/disease/fungal-flu	affliction	Fungal Flu
+ref/disease/ghoul-fever	affliction	Ghoul Fever
+ref/disease/glacier-plague	affliction	Glacier Plague
+ref/disease/green-haze	affliction	Green Haze
+ref/disease/greenscale	affliction	Greenscale
+ref/disease/leprosy	affliction	Leprosy
+ref/disease/malaria-jungle-fever	affliction	Malaria (Jungle Fever)
+ref/disease/mindfire	affliction	Mindfire
+ref/disease/moxixs-delectation	affliction	Moxix's Delectation
+ref/disease/pallid-gift	affliction	Pallid Gift
+ref/disease/pulsing-puffs	affliction	Pulsing Puffs
+ref/disease/rabies	affliction	Rabies
+ref/disease/red-ache	affliction	Red Ache
+ref/disease/red-drip	affliction	Red Drip
+ref/disease/scarlet-leprosy	affliction	Scarlet Leprosy
+ref/disease/shakes	affliction	Shakes
+ref/disease/shattermind	affliction	Shattermind
+ref/disease/sleeping-sickness	affliction	Sleeping Sickness
+ref/disease/slimy-doom	affliction	Slimy Doom
+ref/disease/spellscar-fever	affliction	Spellscar Fever
+ref/disease/tetanus	affliction	Tetanus
+ref/disease/the-scales	affliction	The Scales
+ref/disease/the-tainted-plague	affliction	The Tainted Plague
+ref/disease/vorels-phage	affliction	Vorel's Phage
+ref/drug/adyton	affliction	Adyton
+ref/drug/aether	affliction	Aether
+ref/drug/blood-sap	affliction	Blood Sap
+ref/drug/bloodbrush-extract	affliction	Bloodbrush Extract
+ref/drug/dreamtime-tea	affliction	Dreamtime Tea
+ref/drug/dwarven-fire-ale	affliction	Dwarven Fire Ale
+ref/drug/elven-absinthe	affliction	Elven Absinthe
+ref/drug/esoterum	affliction	Esoterum
+ref/drug/felwil	affliction	Felwil
+ref/drug/fireskin-elixir	affliction	Fireskin elixir
+ref/drug/flayleaf	affliction	Flayleaf
+ref/drug/gossamer-veil	affliction	Gossamer Veil
+ref/drug/harlot-sweets	affliction	Harlot Sweets
+ref/drug/hush	affliction	Hush
+ref/drug/inspiration-dust	affliction	Inspiration Dust
+ref/drug/keleshite-coffee	affliction	Keleshite Coffee
+ref/drug/magesight	affliction	Magesight
+ref/drug/midnight-milk	affliction	Midnight Milk
+ref/drug/morgod-jelly	affliction	Morgod Jelly
+ref/drug/mumia	affliction	Mumia
+ref/drug/muscaria	affliction	Muscaria
+ref/drug/numerian-fluids	affliction	Numerian Fluids
+ref/drug/oblivion	affliction	Oblivion
+ref/drug/old-mage	affliction	Old-Mage
+ref/drug/opium	affliction	Opium
+ref/drug/pesh	affliction	Pesh
+ref/drug/ruk-tar	affliction	Ruk Tar
+ref/drug/scour	affliction	Scour
+ref/drug/serpents-kiss	affliction	Serpent's Kiss
+ref/drug/shiver	affliction	Shiver
+ref/drug/silvertongue	affliction	Silvertongue
+ref/drug/slavers-drops	affliction	Slaver's Drops
+ref/drug/starspore	affliction	Starspore
+ref/drug/stings-savor	affliction	Sting's Savor
+ref/drug/synthetic-mumia	affliction	Synthetic mumia
+ref/drug/tears-of-razmir	affliction	Tears of Razmir
+ref/drug/vigilance	affliction	Vigilance
+ref/drug/wyrm-pesh	affliction	Wyrm pesh
+ref/drug/zerk	affliction	Zerk
+ref/madness/amnesia	affliction	Amnesia
+ref/madness/catatonia	affliction	Catatonia
+ref/madness/cognitive-block	affliction	Cognitive Block
+ref/madness/delirium	affliction	Delirium
+ref/madness/delusion	affliction	Delusion
+ref/madness/dissociated-identity	affliction	Dissociated Identity
+ref/madness/fugue	affliction	Fugue
+ref/madness/hallucination	affliction	Hallucination
+ref/madness/mania	affliction	Mania
+ref/madness/melancholia	affliction	Melancholia
+ref/madness/moral-insanity	affliction	Moral Insanity
+ref/madness/night-terrors	affliction	Night Terrors
+ref/madness/paranoid	affliction	Paranoid
+ref/madness/phobia	affliction	Phobia
+ref/madness/psychosomatic-loss	affliction	Psychosomatic Loss
+ref/madness/schizophrenia	affliction	Schizophrenia
 ref/arc-alchemist/grenadier	archetype	Grenadier (PSFG)
 ref/arc-bard/pitax-academy-of-grand-arts	archetype	Pitax: Academy of Grand Arts
 ref/arc-bloodrager/bloodline-familiars	archetype	Bloodline Familiars
@@ -13484,117 +13583,6 @@ ref/carried/ultimate-magic/rules/words-of-power/words-of-power-in-the-world	rule
 ref/class/ranger/teitr	rule	Ranger (The Elephant in the Room)
 ref/class/unchained-monk/teitr	rule	Unchained Monk (The Elephant in the Room)
 ref/class/unchained-rogue/teitr	rule	Unchained Rogue (The Elephant in the Room)
-ref/curse/baleful-polymorph-spell	rule	Baleful Polymorph Spell
-ref/curse/bestow-curse-trap	rule	Bestow Curse Trap
-ref/curse/blasted-vitality	rule	Blasted Vitality
-ref/curse/curse-of-bestial-dreams	rule	Curse of Bestial Dreams
-ref/curse/curse-of-the-ages	rule	Curse of the Ages
-ref/curse/cursed-earth	rule	Cursed Earth
-ref/curse/endless-night	rule	Endless Night
-ref/curse/haunting-major	rule	Major Haunting
-ref/curse/haunting-minor	rule	Minor Haunting
-ref/curse/hunt-of-the-ankou	rule	Hunt of the Ankou
-ref/curse/hunt-of-the-bogeyman	rule	Hunt of the Bogeyman
-ref/curse/jealous-structure	rule	Jealous Structure
-ref/curse/mummy-rot	rule	Mummy Rot
-ref/curse/perilous-demesne-grand	rule	Grand Perilous Demesne
-ref/curse/perilous-demesne-greater	rule	Greater Perilous Demesne
-ref/curse/perilous-demesne-major	rule	Major Perilous Demesne
-ref/curse/perilous-demesne-minor	rule	Minor Perilous Demesne
-ref/curse/sealed-fate	rule	Sealed Fate
-ref/curse/shattered-self	rule	Shattered Self
-ref/curse/tormenting-visions	rule	Tormenting Visions
-ref/curse/unluck	rule	Unluck
-ref/curse/unseasonable-weather	rule	Unseasonable Weather
-ref/curse/weeping-wound	rule	Weeping Wound
-ref/curse/werewolf-lycanthropy	rule	Werewolf Lycanthropy
-ref/disease/blightburn-sickness	rule	Blightburn Sickness
-ref/disease/blinding-sickness	rule	Blinding Sickness
-ref/disease/blood-veil	rule	Blood Veil
-ref/disease/bluespit	rule	Bluespit
-ref/disease/bonechill	rule	Bonechill
-ref/disease/bonecrusher-dengue	rule	Bonecrusher (Dengue)
-ref/disease/boot-soup	rule	Boot Soup
-ref/disease/brainworms	rule	Brainworms
-ref/disease/bubonic-plague	rule	Bubonic Plague
-ref/disease/cackle-fever	rule	Cackle Fever
-ref/disease/chillbane-fever	rule	Chillbane Fever
-ref/disease/cowards-mark	rule	Coward's Mark
-ref/disease/crypt-fever	rule	Crypt Fever
-ref/disease/daemonic-wasting	rule	Daemonic Wasting
-ref/disease/demon-fever	rule	Demon Fever
-ref/disease/demonplague	rule	Demonplague
-ref/disease/devil-chills	rule	Devil Chills
-ref/disease/dvezda-plague	rule	Dvezda Plague
-ref/disease/dysentary	rule	Dysentary
-ref/disease/eidite-sickness	rule	Eidite sickness
-ref/disease/ergia	rule	Ergia
-ref/disease/filth-fever	rule	Filth Fever
-ref/disease/final-rest	rule	Final Rest
-ref/disease/firegut	rule	Firegut
-ref/disease/fungal-flu	rule	Fungal Flu
-ref/disease/ghoul-fever	rule	Ghoul Fever
-ref/disease/glacier-plague	rule	Glacier Plague
-ref/disease/green-haze	rule	Green Haze
-ref/disease/greenscale	rule	Greenscale
-ref/disease/leprosy	rule	Leprosy
-ref/disease/malaria-jungle-fever	rule	Malaria (Jungle Fever)
-ref/disease/mindfire	rule	Mindfire
-ref/disease/moxixs-delectation	rule	Moxix's Delectation
-ref/disease/pallid-gift	rule	Pallid Gift
-ref/disease/pulsing-puffs	rule	Pulsing Puffs
-ref/disease/rabies	rule	Rabies
-ref/disease/red-ache	rule	Red Ache
-ref/disease/red-drip	rule	Red Drip
-ref/disease/scarlet-leprosy	rule	Scarlet Leprosy
-ref/disease/shakes	rule	Shakes
-ref/disease/shattermind	rule	Shattermind
-ref/disease/sleeping-sickness	rule	Sleeping Sickness
-ref/disease/slimy-doom	rule	Slimy Doom
-ref/disease/spellscar-fever	rule	Spellscar Fever
-ref/disease/tetanus	rule	Tetanus
-ref/disease/the-scales	rule	The Scales
-ref/disease/the-tainted-plague	rule	The Tainted Plague
-ref/disease/vorels-phage	rule	Vorel's Phage
-ref/drug/adyton	rule	Adyton
-ref/drug/aether	rule	Aether
-ref/drug/blood-sap	rule	Blood Sap
-ref/drug/bloodbrush-extract	rule	Bloodbrush Extract
-ref/drug/dreamtime-tea	rule	Dreamtime Tea
-ref/drug/dwarven-fire-ale	rule	Dwarven Fire Ale
-ref/drug/elven-absinthe	rule	Elven Absinthe
-ref/drug/esoterum	rule	Esoterum
-ref/drug/felwil	rule	Felwil
-ref/drug/fireskin-elixir	rule	Fireskin elixir
-ref/drug/flayleaf	rule	Flayleaf
-ref/drug/gossamer-veil	rule	Gossamer Veil
-ref/drug/harlot-sweets	rule	Harlot Sweets
-ref/drug/hush	rule	Hush
-ref/drug/inspiration-dust	rule	Inspiration Dust
-ref/drug/keleshite-coffee	rule	Keleshite Coffee
-ref/drug/magesight	rule	Magesight
-ref/drug/midnight-milk	rule	Midnight Milk
-ref/drug/morgod-jelly	rule	Morgod Jelly
-ref/drug/mumia	rule	Mumia
-ref/drug/muscaria	rule	Muscaria
-ref/drug/numerian-fluids	rule	Numerian Fluids
-ref/drug/oblivion	rule	Oblivion
-ref/drug/old-mage	rule	Old-Mage
-ref/drug/opium	rule	Opium
-ref/drug/pesh	rule	Pesh
-ref/drug/ruk-tar	rule	Ruk Tar
-ref/drug/scour	rule	Scour
-ref/drug/serpents-kiss	rule	Serpent's Kiss
-ref/drug/shiver	rule	Shiver
-ref/drug/silvertongue	rule	Silvertongue
-ref/drug/slavers-drops	rule	Slaver's Drops
-ref/drug/starspore	rule	Starspore
-ref/drug/stings-savor	rule	Sting's Savor
-ref/drug/synthetic-mumia	rule	Synthetic mumia
-ref/drug/tears-of-razmir	rule	Tears of Razmir
-ref/drug/vigilance	rule	Vigilance
-ref/drug/wyrm-pesh	rule	Wyrm pesh
-ref/drug/zerk	rule	Zerk
 ref/eq-weapon/elven-curve-blade/teitr	rule	Elven curve blade (The Elephant in the Room)
 ref/eq-weapon/rapier/teitr	rule	Rapier (The Elephant in the Room)
 ref/eq-weapon/spiked-chain/teitr	rule	Spiked chain (The Elephant in the Room)
@@ -14773,22 +14761,6 @@ ref/infestation/fractal-etch	rule	Fractal Etch
 ref/infestation/rot-grubs	rule	Rot Grubs
 ref/infestation/soldiers-peace	rule	Soldier's Peace
 ref/infestation/thought-crawlers	rule	Thought Crawlers
-ref/madness/amnesia	rule	Amnesia
-ref/madness/catatonia	rule	Catatonia
-ref/madness/cognitive-block	rule	Cognitive Block
-ref/madness/delirium	rule	Delirium
-ref/madness/delusion	rule	Delusion
-ref/madness/dissociated-identity	rule	Dissociated Identity
-ref/madness/fugue	rule	Fugue
-ref/madness/hallucination	rule	Hallucination
-ref/madness/mania	rule	Mania
-ref/madness/melancholia	rule	Melancholia
-ref/madness/moral-insanity	rule	Moral Insanity
-ref/madness/night-terrors	rule	Night Terrors
-ref/madness/paranoid	rule	Paranoid
-ref/madness/phobia	rule	Phobia
-ref/madness/psychosomatic-loss	rule	Psychosomatic Loss
-ref/madness/schizophrenia	rule	Schizophrenia
 ref/magic-enh/agile/teitr	rule	Agile (The Elephant in the Room)
 ref/misc/ability-score	rule	Ability Score
 ref/misc/acolyte	rule	Acolyte
@@ -18206,44 +18178,6 @@ ref/sidekick/eidolon	rule	Eidolon
 ref/sidekick/familiar	rule	Familiar
 ref/sidekick/phantom	rule	Phantom
 ref/sidekick/unchained-eidolon	rule	Unchained Eidolon
-ref/skill/acrobatics	rule	Acrobatics
-ref/skill/appraise	rule	Appraise
-ref/skill/artistry-any	rule	Artistry (any)
-ref/skill/bluff	rule	Bluff
-ref/skill/climb	rule	Climb
-ref/skill/craft-any	rule	Craft (any)
-ref/skill/diplomacy	rule	Diplomacy
-ref/skill/disable-device	rule	Disable Device
-ref/skill/disguise	rule	Disguise
-ref/skill/escape-artist	rule	Escape Artist
-ref/skill/fly	rule	Fly
-ref/skill/handle-animal	rule	Handle Animal
-ref/skill/heal	rule	Heal
-ref/skill/intimidate	rule	Intimidate
-ref/skill/knowledge-all	rule	Knowledge
-ref/skill/knowledge-arcana	rule	Knowledge (arcana)
-ref/skill/knowledge-dungeoneering	rule	Knowledge (dungeoneering)
-ref/skill/knowledge-engineering	rule	Knowledge (engineering)
-ref/skill/knowledge-geography	rule	Knowledge (geography)
-ref/skill/knowledge-history	rule	Knowledge (history)
-ref/skill/knowledge-local	rule	Knowledge (local)
-ref/skill/knowledge-nature	rule	Knowledge (nature)
-ref/skill/knowledge-nobility	rule	Knowledge (nobility)
-ref/skill/knowledge-planes	rule	Knowledge (planes)
-ref/skill/knowledge-religion	rule	Knowledge (religion)
-ref/skill/linguistics	rule	Linguistics
-ref/skill/lore-any	rule	Lore (any)
-ref/skill/perception	rule	Perception
-ref/skill/perform-any	rule	Perform (any)
-ref/skill/profession-any	rule	Profession (any)
-ref/skill/ride	rule	Ride
-ref/skill/sense-motive	rule	Sense Motive
-ref/skill/sleight-of-hand	rule	Sleight of Hand
-ref/skill/spellcraft	rule	Spellcraft
-ref/skill/stealth	rule	Stealth
-ref/skill/survival	rule	Survival
-ref/skill/swim	rule	Swim
-ref/skill/use-magic-device	rule	Use Magic Device
 ref/sorcbloodline/aberrant/teitr	rule	Aberrant (The Elephant in the Room)
 ref/sorcbloodline/abyssal/teitr	rule	Abyssal (The Elephant in the Room)
 ref/sorcbloodline/aquatic/teitr	rule	Aquatic (The Elephant in the Room)
@@ -18943,53 +18877,6 @@ ref/template/worm-that-walks	rule	Worm that Walks
 ref/template/young	rule	Young
 ref/template/zombie	rule	Zombie
 ref/template/zombie-lord	rule	Zombie Lord
-ref/trap/acid-arrow-trap	rule	Acid Arrow Trap
-ref/trap/arrow-trap	rule	Arrow Trap
-ref/trap/bear-trap	rule	Bear Trap
-ref/trap/breakaway-log	rule	Breakaway Log
-ref/trap/breakaway-vine	rule	Breakaway Vine
-ref/trap/burning-hands-trap	rule	Burning Hands Trap
-ref/trap/camouflaged-pit-trap	rule	Camouflaged Pit Trap
-ref/trap/camouflaged-spiked-pit-trap	rule	Camouflaged Spiked Pit Trap
-ref/trap/chamber-of-blades-trap	rule	Chamber of Blades Trap
-ref/trap/clam-clamp	rule	Clam Clamp
-ref/trap/cone-of-cold-trap	rule	Cone of Cold Trap
-ref/trap/crushing-cage-tarp	rule	Crushing Cage Tarp
-ref/trap/crushing-stone-trap	rule	Crushing Stone Trap
-ref/trap/deadfall	rule	Deadfall
-ref/trap/deadly-spear-trap	rule	Deadly Spear Trap
-ref/trap/destruction-trap	rule	Destruction Trap
-ref/trap/electricity-arc-trap	rule	Electricity Arc Trap
-ref/trap/empowered-disintegrate-trap	rule	Empowered Disintegrate Trap
-ref/trap/energy-drain-trap	rule	Energy Drain Trap
-ref/trap/faceless-statue-trap	rule	Faceless Statue Trap
-ref/trap/falling-block-trap	rule	Falling Block Trap
-ref/trap/fireball-trap	rule	Fireball Trap
-ref/trap/flame-strike-trap	rule	Flame Strike Trap
-ref/trap/frost-fangs-trap	rule	Frost Fangs Trap
-ref/trap/hail-of-arrows-trap	rule	Hail of Arrows Trap
-ref/trap/harm-trap	rule	Harm Trap
-ref/trap/insanity-mist-trap	rule	Insanity Mist Trap
-ref/trap/javelin-trap	rule	Javelin Trap
-ref/trap/lightning-bolt-gallery-trap	rule	Lightning Bolt Gallery Trap
-ref/trap/maximized-fireball-trap	rule	Maximized Fireball Trap
-ref/trap/meteor-swarm-trap	rule	Meteor Swarm Trap
-ref/trap/musk-shower	rule	Musk Shower
-ref/trap/pit-trap	rule	Pit Trap
-ref/trap/poisoned-dart-trap	rule	Poisoned Dart Trap
-ref/trap/poisoned-pit-trap	rule	Poisoned Pit Trap
-ref/trap/razor-grass	rule	Razor Grass
-ref/trap/shocking-floor-trap	rule	Shocking Floor Trap
-ref/trap/sinking-coffin-trap	rule	Sinking Coffin Trap
-ref/trap/spiked-pit-trap	rule	Spiked Pit Trap
-ref/trap/spring-arm-spike	rule	Spring-arm Spike
-ref/trap/spring-snare	rule	Spring Snare
-ref/trap/summon-monster-vi-trap	rule	Summon Monster VI Trap
-ref/trap/swinging-axe-trap	rule	Swinging Axe Trap
-ref/trap/swinging-log	rule	Swinging Log
-ref/trap/tar-snare	rule	Tar Snare
-ref/trap/wall-scythe-trap	rule	Wall Scythe Trap
-ref/trap/wyvern-arrow-trap	rule	Wyvern Arrow Trap
 ref/type/aberration	rule	Aberration
 ref/type/animal	rule	Animal
 ref/type/construct	rule	Construct
@@ -19137,32 +19024,50 @@ ref/umr/water-dependency	rule	Water Dependency
 ref/umr/web	rule	Web
 ref/umr/whirlwind	rule	Whirlwind
 ref/umr/x-ray-vision	rule	X-Ray Vision
-ref/carried/core-rulebook/skills/acrobatics	skill	Acrobatics
-ref/carried/core-rulebook/skills/appraise	skill	Appraise
-ref/carried/core-rulebook/skills/bluff	skill	Bluff
-ref/carried/core-rulebook/skills/climb	skill	Climb
 ref/carried/core-rulebook/skills/craft	skill	Craft
-ref/carried/core-rulebook/skills/diplomacy	skill	Diplomacy
-ref/carried/core-rulebook/skills/disable-device	skill	Disable Device
-ref/carried/core-rulebook/skills/disguise	skill	Disguise
-ref/carried/core-rulebook/skills/escape-artist	skill	Escape Artist
-ref/carried/core-rulebook/skills/fly	skill	Fly
 ref/carried/core-rulebook/skills/handle-animal	skill	Handle Animal
-ref/carried/core-rulebook/skills/heal	skill	Heal
-ref/carried/core-rulebook/skills/intimidate	skill	Intimidate
 ref/carried/core-rulebook/skills/knowledge	skill	Knowledge
 ref/carried/core-rulebook/skills/linguistics	skill	Linguistics
-ref/carried/core-rulebook/skills/perception	skill	Perception
 ref/carried/core-rulebook/skills/perform	skill	Perform
 ref/carried/core-rulebook/skills/profession	skill	Profession
-ref/carried/core-rulebook/skills/ride	skill	Ride
-ref/carried/core-rulebook/skills/sense-motive	skill	Sense Motive
-ref/carried/core-rulebook/skills/sleight-of-hand	skill	Sleight of Hand
-ref/carried/core-rulebook/skills/spellcraft	skill	Spellcraft
-ref/carried/core-rulebook/skills/stealth	skill	Stealth
-ref/carried/core-rulebook/skills/survival	skill	Survival
-ref/carried/core-rulebook/skills/swim	skill	Swim
-ref/carried/core-rulebook/skills/use-magic-device	skill	Use Magic Device
+ref/skill/acrobatics	skill	Acrobatics
+ref/skill/appraise	skill	Appraise
+ref/skill/artistry-any	skill	Artistry (any)
+ref/skill/bluff	skill	Bluff
+ref/skill/climb	skill	Climb
+ref/skill/craft-any	skill	Craft (any)
+ref/skill/diplomacy	skill	Diplomacy
+ref/skill/disable-device	skill	Disable Device
+ref/skill/disguise	skill	Disguise
+ref/skill/escape-artist	skill	Escape Artist
+ref/skill/fly	skill	Fly
+ref/skill/handle-animal	skill	Handle Animal
+ref/skill/heal	skill	Heal
+ref/skill/intimidate	skill	Intimidate
+ref/skill/knowledge-all	skill	Knowledge
+ref/skill/knowledge-arcana	skill	Knowledge (arcana)
+ref/skill/knowledge-dungeoneering	skill	Knowledge (dungeoneering)
+ref/skill/knowledge-engineering	skill	Knowledge (engineering)
+ref/skill/knowledge-geography	skill	Knowledge (geography)
+ref/skill/knowledge-history	skill	Knowledge (history)
+ref/skill/knowledge-local	skill	Knowledge (local)
+ref/skill/knowledge-nature	skill	Knowledge (nature)
+ref/skill/knowledge-nobility	skill	Knowledge (nobility)
+ref/skill/knowledge-planes	skill	Knowledge (planes)
+ref/skill/knowledge-religion	skill	Knowledge (religion)
+ref/skill/linguistics	skill	Linguistics
+ref/skill/lore-any	skill	Lore (any)
+ref/skill/perception	skill	Perception
+ref/skill/perform-any	skill	Perform (any)
+ref/skill/profession-any	skill	Profession (any)
+ref/skill/ride	skill	Ride
+ref/skill/sense-motive	skill	Sense Motive
+ref/skill/sleight-of-hand	skill	Sleight of Hand
+ref/skill/spellcraft	skill	Spellcraft
+ref/skill/stealth	skill	Stealth
+ref/skill/survival	skill	Survival
+ref/skill/swim	skill	Swim
+ref/skill/use-magic-device	skill	Use Magic Device
 ref/carried/advanced-players-guide/rules/new-rules/hero-points/hero-point-spells/heroic-fortune/mass	spell	Heroic Fortune, Mass
 ref/carried/advanced-players-guide/rules/new-rules/hero-points/hero-point-spells/malediction	spell	Malediction
 ref/carried/advanced-players-guide/spells/brand/greater	spell	Brand, Greater
@@ -19292,43 +19197,9 @@ ref/trait/undead-slayer-bog	trait	Undead Slayer (BoG)
 ref/trait/wary-boa	trait	Wary (BoA)
 ref/trait/wary-potr	trait	Wary (PotR)
 ref/trait/zealous-drawback	trait	Zealous (Drawback)
-ref/carried/advanced-players-guide/rules/gear/goods-and-services/tools-and-skill-kits/bear-trap/bear-trap	trap	Bear Trap
 ref/carried/bestiary/monsters/ettercap/special-abilities/traps/ettercap-deadfall	trap	Ettercap Deadfall
 ref/carried/bestiary/monsters/ettercap/special-abilities/traps/ettercap-noose	trap	Ettercap Noose
 ref/carried/bestiary/monsters/ettercap/special-abilities/traps/ettercap-spear-trap	trap	Ettercap Spear Trap
-ref/carried/core-rulebook/rules/environment/sample-traps/acid-arrow-trap	trap	Acid Arrow Trap
-ref/carried/core-rulebook/rules/environment/sample-traps/arrow-trap	trap	Arrow Trap
-ref/carried/core-rulebook/rules/environment/sample-traps/burning-hands-trap	trap	Burning Hands Trap
-ref/carried/core-rulebook/rules/environment/sample-traps/camouflaged-pit-trap	trap	Camouflaged Pit Trap
-ref/carried/core-rulebook/rules/environment/sample-traps/camouflaged-spiked-pit-trap	trap	Camouflaged Spiked Pit Trap
-ref/carried/core-rulebook/rules/environment/sample-traps/chamber-of-blades-trap	trap	Chamber of Blades Trap
-ref/carried/core-rulebook/rules/environment/sample-traps/cone-of-cold-trap	trap	Cone of Cold Trap
-ref/carried/core-rulebook/rules/environment/sample-traps/crushing-stone-trap	trap	Crushing Stone Trap
-ref/carried/core-rulebook/rules/environment/sample-traps/deadly-spear-trap	trap	Deadly Spear Trap
-ref/carried/core-rulebook/rules/environment/sample-traps/destruction-trap	trap	Destruction Trap
-ref/carried/core-rulebook/rules/environment/sample-traps/electricity-arc-trap	trap	Electricity Arc Trap
-ref/carried/core-rulebook/rules/environment/sample-traps/empowered-disintegrate-trap	trap	Empowered Disintegrate Trap
-ref/carried/core-rulebook/rules/environment/sample-traps/energy-drain-trap	trap	Energy Drain Trap
-ref/carried/core-rulebook/rules/environment/sample-traps/falling-block-trap	trap	Falling Block Trap
-ref/carried/core-rulebook/rules/environment/sample-traps/fireball-trap	trap	Fireball Trap
-ref/carried/core-rulebook/rules/environment/sample-traps/flame-strike-trap	trap	Flame Strike Trap
-ref/carried/core-rulebook/rules/environment/sample-traps/frost-fangs-trap	trap	Frost Fangs Trap
-ref/carried/core-rulebook/rules/environment/sample-traps/hail-of-arrows-trap	trap	Hail of Arrows Trap
-ref/carried/core-rulebook/rules/environment/sample-traps/harm-trap	trap	Harm Trap
-ref/carried/core-rulebook/rules/environment/sample-traps/insanity-mist-trap	trap	Insanity Mist Trap
-ref/carried/core-rulebook/rules/environment/sample-traps/javelin-trap	trap	Javelin Trap
-ref/carried/core-rulebook/rules/environment/sample-traps/lightning-bolt-gallery-trap	trap	Lightning Bolt Gallery Trap
-ref/carried/core-rulebook/rules/environment/sample-traps/maximized-fireball-trap	trap	Maximized Fireball Trap
-ref/carried/core-rulebook/rules/environment/sample-traps/meteor-swarm-trap	trap	Meteor Swarm Trap
-ref/carried/core-rulebook/rules/environment/sample-traps/pit-trap	trap	Pit Trap
-ref/carried/core-rulebook/rules/environment/sample-traps/poisoned-dart-trap	trap	Poisoned Dart Trap
-ref/carried/core-rulebook/rules/environment/sample-traps/poisoned-pit-trap	trap	Poisoned Pit Trap
-ref/carried/core-rulebook/rules/environment/sample-traps/shocking-floor-trap	trap	Shocking Floor Trap
-ref/carried/core-rulebook/rules/environment/sample-traps/spiked-pit-trap	trap	Spiked Pit Trap
-ref/carried/core-rulebook/rules/environment/sample-traps/summon-monster-vi-trap	trap	Summon Monster VI Trap
-ref/carried/core-rulebook/rules/environment/sample-traps/swinging-axe-trap	trap	Swinging Axe Trap
-ref/carried/core-rulebook/rules/environment/sample-traps/wall-scythe-trap	trap	Wall Scythe Trap
-ref/carried/core-rulebook/rules/environment/sample-traps/wyvern-arrow-trap	trap	Wyvern Arrow Trap
 ref/carried/monster-codex/rules/kobolds/new-rules/kobold-traps/acid-drop-trap	trap	Acid drop Trap
 ref/carried/monster-codex/rules/kobolds/new-rules/kobold-traps/dragon-dung-pit-trap	trap	Dragon Dung Pit Trap
 ref/carried/monster-codex/rules/kobolds/new-rules/kobold-traps/dragonfire-trap	trap	Dragonfire Trap
@@ -19339,4 +19210,50 @@ ref/carried/monster-codex/rules/kobolds/new-rules/kobold-traps/snake-spear-trap	
 ref/carried/technology-guide/rules/hazards-and-artifacts/hazards/timeworn-technology-glitches/traps-and-technology/electrified-door	trap	Electrified Door
 ref/carried/technology-guide/rules/hazards-and-artifacts/hazards/timeworn-technology-glitches/traps-and-technology/proximity-mine	trap	Proximity Mine
 ref/carried/ultimate-equipment/rules/gear/adventuring-gear/tripwire-trap	trap	Tripwire Trap
-ref/carried/ultimate-equipment/rules/gear/tools-and-skill-kits/bear-trap/bear-trap	trap	Bear Trap
+ref/trap/acid-arrow-trap	trap	Acid Arrow Trap
+ref/trap/arrow-trap	trap	Arrow Trap
+ref/trap/bear-trap	trap	Bear Trap
+ref/trap/breakaway-log	trap	Breakaway Log
+ref/trap/breakaway-vine	trap	Breakaway Vine
+ref/trap/burning-hands-trap	trap	Burning Hands Trap
+ref/trap/camouflaged-pit-trap	trap	Camouflaged Pit Trap
+ref/trap/camouflaged-spiked-pit-trap	trap	Camouflaged Spiked Pit Trap
+ref/trap/chamber-of-blades-trap	trap	Chamber of Blades Trap
+ref/trap/clam-clamp	trap	Clam Clamp
+ref/trap/cone-of-cold-trap	trap	Cone of Cold Trap
+ref/trap/crushing-cage-tarp	trap	Crushing Cage Tarp
+ref/trap/crushing-stone-trap	trap	Crushing Stone Trap
+ref/trap/deadfall	trap	Deadfall
+ref/trap/deadly-spear-trap	trap	Deadly Spear Trap
+ref/trap/destruction-trap	trap	Destruction Trap
+ref/trap/electricity-arc-trap	trap	Electricity Arc Trap
+ref/trap/empowered-disintegrate-trap	trap	Empowered Disintegrate Trap
+ref/trap/energy-drain-trap	trap	Energy Drain Trap
+ref/trap/faceless-statue-trap	trap	Faceless Statue Trap
+ref/trap/falling-block-trap	trap	Falling Block Trap
+ref/trap/fireball-trap	trap	Fireball Trap
+ref/trap/flame-strike-trap	trap	Flame Strike Trap
+ref/trap/frost-fangs-trap	trap	Frost Fangs Trap
+ref/trap/hail-of-arrows-trap	trap	Hail of Arrows Trap
+ref/trap/harm-trap	trap	Harm Trap
+ref/trap/insanity-mist-trap	trap	Insanity Mist Trap
+ref/trap/javelin-trap	trap	Javelin Trap
+ref/trap/lightning-bolt-gallery-trap	trap	Lightning Bolt Gallery Trap
+ref/trap/maximized-fireball-trap	trap	Maximized Fireball Trap
+ref/trap/meteor-swarm-trap	trap	Meteor Swarm Trap
+ref/trap/musk-shower	trap	Musk Shower
+ref/trap/pit-trap	trap	Pit Trap
+ref/trap/poisoned-dart-trap	trap	Poisoned Dart Trap
+ref/trap/poisoned-pit-trap	trap	Poisoned Pit Trap
+ref/trap/razor-grass	trap	Razor Grass
+ref/trap/shocking-floor-trap	trap	Shocking Floor Trap
+ref/trap/sinking-coffin-trap	trap	Sinking Coffin Trap
+ref/trap/spiked-pit-trap	trap	Spiked Pit Trap
+ref/trap/spring-arm-spike	trap	Spring-arm Spike
+ref/trap/spring-snare	trap	Spring Snare
+ref/trap/summon-monster-vi-trap	trap	Summon Monster VI Trap
+ref/trap/swinging-axe-trap	trap	Swinging Axe Trap
+ref/trap/swinging-log	trap	Swinging Log
+ref/trap/tar-snare	trap	Tar Snare
+ref/trap/wall-scythe-trap	trap	Wall Scythe Trap
+ref/trap/wyvern-arrow-trap	trap	Wyvern Arrow Trap

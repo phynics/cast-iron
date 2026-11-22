@@ -88,7 +88,7 @@ The corpus was written once from two public datasets, recorded in its
   as that content. A kept paraphrase has no basis beyond that, so its exact
   wording falls under the unresolved question, like any original wording by the
   dataset's editor or by AoN. The footnote audit (merged in cast-iron #526)
-  found notes that only the editor added; the pinned corpus v0.1.38 removes
+  found notes that only the editor added; the pinned corpus v0.1.39 removes
   them (data issue #117, PR #123, in v0.1.31). Its `LICENSE.md` names the Pathfinder Data
   notes that stay and their basis (data PR #119) and no longer says that none of
   the dataset's application content was copied.
