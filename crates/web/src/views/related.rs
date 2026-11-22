@@ -100,6 +100,9 @@ pub struct Indexes {
     /// The printed names of the shared Alternate Capstones entry, loaded for a class page that
     /// has an `Also available:` line, so the names in that line can link to it.
     pub capstone_names: Vec<String>,
+    /// True when the class page lists its archetypes in its Archetypes section (#170, part D), so
+    /// the panel below the text does not list them again.
+    pub archetypes_in_page: bool,
 }
 
 /// Items grouped under a heading, headings in name order and items in name order. Used to group
@@ -149,7 +152,7 @@ fn title_of(library: &Library, id: &EntryId) -> String {
         .map_or_else(|| id.to_string(), |s| s.title.clone())
 }
 
-fn source_title(library: &Library, id: &EntryId) -> String {
+pub(crate) fn source_title(library: &Library, id: &EntryId) -> String {
     library
         .stub(id)
         .and_then(|s| library.source(&s.source))
@@ -318,6 +321,7 @@ fn class_panels(
     lists: Option<&SpellLists>,
     option_groups: Option<&OptionGroupIndex>,
     trades: Option<&TradeIndex>,
+    archetypes_listed: bool,
 ) -> Vec<AnyView> {
     let mut out = Vec::new();
     if let Some(list) = lists.and_then(|l| list_of_class_entry(l, id)) {
@@ -374,7 +378,7 @@ fn class_panels(
             );
         }
     }
-    if let Some(relations) = relations {
+    if let Some(relations) = relations.filter(|_| !archetypes_listed) {
         let archetypes = relations.sources_of(id, RelationKind::Archetype);
         if !archetypes.is_empty() {
             let total = archetypes.len();
@@ -1077,6 +1081,7 @@ pub fn Related(library: Library, entry: RuleEntry, indexes: Indexes) -> impl Int
                 lists,
                 indexes.option_groups.as_deref(),
                 indexes.trades.as_deref(),
+                indexes.archetypes_in_page,
             ));
         }
         EntryKind::Archetype => panels.extend(archetype_panel(&library, &entry)),

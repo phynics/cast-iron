@@ -55,5 +55,6 @@ test("Source variants retain distinct entries in browse and search after book fi
   await page.goto("#/");
   await page.locator(`.home-bookmarks a[href="#/entry/${variants[0].id}"]`).click();
   await expect(page.locator("h1")).toHaveText(title);
-  await expect(page.getByText(/This book is disabled/)).toBeVisible();
+  await expect(page.getByText(/This entry's book is turned off/)).toBeVisible();
+  await expect(page.getByText("It stays in your Starred list.")).toBeVisible();
 });

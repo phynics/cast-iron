@@ -7,7 +7,7 @@
 //! before. The current stop is the last one chosen, shown with `aria-current`.
 
 use crate::class_sections::Section;
-use crate::route::{self, Route, use_route};
+use crate::route::{self, ArchFilter, Route, use_route};
 use cast_iron_schema::EntryId;
 use leptos::prelude::*;
 
@@ -18,13 +18,22 @@ pub fn SectionSwitcher(id: EntryId, book: Option<String>, stops: Vec<Section>) -
     let items = std::iter::once(None).chain(stops.iter().copied().map(Some));
     let links = items
         .map(|section| {
-            let target = Route::Entry {
-                id: id.clone(),
-                anchor: None,
-                book: book.clone(),
-                section,
+            // A stop keeps the archetype choices of the address, so a jump to Features and back
+            // does not drop the filter.
+            let target = {
+                let (id, book) = (id.clone(), book.clone());
+                move |arch: ArchFilter| Route::Entry {
+                    id: id.clone(),
+                    anchor: None,
+                    book: book.clone(),
+                    section,
+                    arch,
+                }
             };
-            let href = target.href();
+            let href = {
+                let target = target.clone();
+                move || target(current.with(Route::arch)).href()
+            };
             let label = section.map_or("Overview", Section::label);
             // An address that names a stop this class lacks (`?s=spells` on a fighter) opens at
             // the top, so Overview is the current one.
@@ -46,7 +55,7 @@ pub fn SectionSwitcher(id: EntryId, book: Option<String>, stops: Vec<Section>) -
                                 && !event.meta_key()
                                 && !event.shift_key()
                                 && !event.alt_key();
-                            if plain && current.get_untracked() == target {
+                            if plain && current.get_untracked() == target(current.get_untracked().arch()) {
                                 event.prevent_default();
                                 match section {
                                     Some(section) => {

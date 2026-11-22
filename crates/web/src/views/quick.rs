@@ -159,6 +159,7 @@ fn chip_route(chip: &Chip) -> Option<Route> {
         anchor: chip.anchor.map(str::to_string),
         book: None,
         section: None,
+        arch: Default::default(),
     })
 }
 

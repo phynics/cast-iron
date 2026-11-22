@@ -5071,6 +5071,39 @@ label.choice-row {
   outline-offset: -2px;
 }
 
+/* The archetype list of a class page (#170, part D): rows of the browse list, with the muted
+   replaces line on a line of its own under the name and the book. */
+.arch-list {
+  margin: var(--space-3) 0 var(--space-4);
+}
+
+/* The two menus keep their whole text: each takes a row of its own at 390 px and they share a
+   row from about 30 rem. */
+.arch-list .filter-menu {
+  flex: 1 1 14rem;
+}
+
+/* One column at every width: a row has a replaces line, which the browse list's columns cramp. */
+.arch-list .arch-rows {
+  columns: auto;
+}
+
+.arch-list .list-count {
+  margin: var(--space-3) 0 var(--space-2);
+}
+
+.arch-row .arch-meta {
+  flex: 1 0 100%;
+  margin: 0 0 var(--space-2);
+  font-size: var(--step--1);
+  overflow-wrap: break-word;
+}
+
+.arch-unchecked {
+  margin: var(--space-4) 0 var(--space-1);
+  font-size: var(--step-0);
+}
+
 /* The counts of a current row sit before its check mark. */
 .choice-row[aria-current="true"] .choice-label + .choice-check {
   margin-left: auto;

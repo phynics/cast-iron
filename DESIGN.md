@@ -133,7 +133,7 @@ A group with more options than fit one row at 320 px is one filter menu (`views/
 - **Behaviour.** Opening focuses the find field (the current row when there is no field). Escape closes the panel and returns focus to the button. Choosing a type navigates (a history entry) to the same list with `?facet=field:value`, resets the letter, and focuses the button on the new page. Choosing the current type only closes the panel. Back and Forward walk the filter states.
 - **The list reacts in place.** The count line reads `1,324 of 3,583 feats · Show all`; the value is not repeated outside the button. A value absent from the active books keeps its URL, the button shows its default text, and the list says `No Combat feats in your active books.` with `Show all feats` and `Manage books` (a link to `#/books/manage`). Quick search takes the facet as its scope (`Search Combat feats`).
 
-**Multi-select.** A group whose values combine (the schools of a spell list) uses the same button and panel with checkbox rows. The button reads `School: All schools`, `School: Evocation` for one, `School: 2 chosen` for more, and is narrowed (an `--accent` border) from the first. A row is a `<label>` of 44 px with a native checkbox, the label and a tabular count; `All schools` stays first as a link with the same box drawn before it, ticked while nothing is chosen (the box is decoration; `aria-current` carries the state). Activating it while it is current only closes the panel, as the current row of a single-choice menu does; with schools chosen it clears them. A row's accessible name carries its noun (`Evocation, 22 spells`). The route is still the state: `#/spells/Wizard/3?school=evocation&school=conjuration`, the choices in the order made, a spell of any of them stays. A tick is one history entry, so Back and Forward walk the choices, and the page is not rebuilt for it: the panel stays open and the focus stays on the row. Opening focuses the first ticked row, or `All schools`. A level link keeps the chosen schools. The count line reads `45 of 199 spells · Show all`, and `Show all` clears the schools and the name filter. Use it only for a group where a spell can sensibly be in several values; a single-choice group stays a link list.
+**Multi-select.** A group whose values combine (the schools of a spell list) uses the same button and panel with checkbox rows. The button reads `School: All schools`, `School: Evocation` for one, `School: 2 chosen` for more, and is narrowed (an `--accent` border) from the first. A row is a `<label>` of 44 px with a native checkbox, the label and a tabular count; `All schools` stays first as a link with the same box drawn before it, ticked while nothing is chosen (the box is decoration; `aria-current` carries the state). Activating it while it is current only closes the panel, as the current row of a single-choice menu does; with schools chosen it clears them. A row's accessible name carries its noun (`Evocation, 22 spells`). The route is still the state: `#/spells/Wizard/3?school=evocation&school=conjuration`, the choices in the order made, a spell of any of them stays. A tick is one history entry, so Back and Forward walk the choices, and the page is not rebuilt for it: the panel stays open and the focus stays on the row. Above ten options a find field narrows the rows by label, as in a single-choice menu, and opening focuses it; with ten or fewer, opening focuses the first ticked row, or `All schools`. A level link keeps the chosen schools. The count line reads `45 of 199 spells · Show all`, and `Show all` clears the schools and the name filter. Use it only for a group where a spell can sensibly be in several values; a single-choice group stays a link list.
 
 `.page-link` is accent text with weight 600 and a chevron-right SVG, a 44 px hit area and no border. It sits at the right end of the filter row and leads to a related page (`Feat chains`). `.count-action` is the same accent text, underlined, for an action inside a count line or an empty state (`Show all`).
 
@@ -408,6 +408,42 @@ records the stop as `?s=requirements`, `?s=features`, `?s=archetypes` or `?s=spe
 makes the stop a history entry. A section starts below the masthead and the bar
 (`scroll-margin-top`). On a wide screen a class page that has the switcher is one block column in
 document order, because a sticky grid item cannot leave its grid row.
+
+#### Archetype list
+
+A class page lists its archetypes in the Archetypes section, right under the `Archetypes` heading and
+before the section's introduction, also on a class that has no section switcher (#170, part D; decision
+`docs/decisions/2026-11-22-archetype-list-and-compatibility.md`). It replaces the printed blurbs
+(name, `Class:`, `Modifies or Replaces:`, `Description:` for each archetype) and the `Archetypes by
+Feature` matrix, and the `Archetypes` panel that used to close the page. The introduction stays.
+
+- **Row.** `li.arch-row` of the browse list: the archetype's name as a link to its own page, the book
+  as a muted `.row-source` at the right, and under them one muted line, `Replaces Arcane bond,
+  Cantrips`, with `Alters …` after a `·` when the archetype alters features. The line carries the
+  printed names. A row opens the archetype and shows no text inline. The list is one column at every
+  width; the rows keep the browse list's target (44 px on a touch screen).
+- **Count line.** `31 archetypes`, or `12 of 31 archetypes · Show all` once a choice narrows it. The total
+  leaves the chosen archetype out. It is a live region, and `Show all` is a `.count-action` button that
+  clears both choices and moves focus to the first menu button, because the pressed button goes away
+  with the choice.
+- **Two filter menus**, the shared ones of "Filter menu" (`views/filter_menu.rs`), unchanged in form:
+  `Keep: Any feature` (the multi-select menu: checkbox rows, each with how many archetypes touch the
+  feature, a find field above ten rows; the list leaves the archetypes that change any chosen
+  feature) and `Combine with: Any archetype` (the single-choice menu: a link row per archetype with
+  how many others it fits, a find field above ten archetypes; the list leaves the archetypes that change nothing it
+  changes, and not the chosen one). Both together narrow further. Choosing an archetype closes its
+  panel and returns focus to the button.
+- **State is route state**, as on every list page: `?keep=<anchor>` (once per feature, in the order
+  chosen) and `?with=<archetype id>` beside `a`, `book` and `s`. A choice is a history entry, Back
+  undoes it, a shared link opens filtered, and the page is not rebuilt for it (the frame leaves scroll
+  and focus alone). A stop of the section switcher keeps the choices.
+- **Trades only.** Compatibility is worked out from the trades recorded for each archetype and from
+  nothing else, not from the printed matrix or the text; while a choice is active a hint under the
+  count line says so. The gaps in the data are tracked in phynics/cast-iron-data#173.
+- **Not checked.** A row whose trades the data cannot place (a trade that names no class feature, or
+  no trades row) is never counted as compatible. While a choice is active it is listed apart under a
+  `Not checked` heading with a hint that says what is missing, never among the compatible rows. When the
+  chosen archetype cannot be checked, nothing is compatible: every other row stands under `Not checked`.
 
 #### Class-option powers
 

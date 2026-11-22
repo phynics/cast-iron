@@ -827,7 +827,7 @@ test("A creature combination no active book holds shows the empty state and both
   await installLibrary(page);
   await page.goto("#/browse/kind/creature?facet=creature_type:dragon&facet=cr:1/8");
   const main = page.locator("main");
-  await expect(main.locator(".list-count")).toHaveText(`0 of ${count(creatureCount)} creatures · Show all`);
+  await expect(main.locator(".list-count")).toHaveText(`0 of ${count(creatureCount)} creatures`);
   await expect(creatureTypeButton(page)).toHaveText("Type: Dragon");
   await expect(creatureCrButton(page)).toHaveText("CR: 1/8");
   await expect(main.getByText("No CR 1/8 Dragon creatures in your active books.")).toBeVisible();

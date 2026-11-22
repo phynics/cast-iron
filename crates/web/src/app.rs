@@ -315,7 +315,9 @@ fn Reader(library: Library) -> impl IntoView {
             (Some(Route::Search { .. }), Route::Search { .. })
         ) || previous.as_ref().is_some_and(|p| same_book(p, &route))
             // Choosing a school edits the schools in the URL of the spell list that is on screen.
-            || previous.as_ref().is_some_and(|p| spells::same_spell_list(p, &route));
+            || previous.as_ref().is_some_and(|p| spells::same_spell_list(p, &route))
+            // So does choosing an archetype filter on the class page that is on screen.
+            || previous.as_ref().is_some_and(|p| p.only_arch_differs(&route));
         // A jump to another section of the entry page that is on screen, also from an `?a=`
         // address. The page scrolls, and focus stays on the switcher (or moves to the section's
         // heading), not on <main>.
@@ -558,6 +560,7 @@ fn RouteView() -> impl IntoView {
                     anchor: kept.unwrap_or(anchor),
                     book,
                     section: None,
+                    arch: Default::default(),
                 }
             }
             other => other,

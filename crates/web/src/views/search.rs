@@ -2259,6 +2259,7 @@ fn hit_view(
                 anchor: anchor.map(str::to_owned),
                 book: None,
                 section: None,
+                arch: Default::default(),
             }
             .href()
         })
