@@ -577,6 +577,16 @@ An entry opened from a book or a chapter carries `?book=<id>` and ends with the 
 
 `#/settings/diagnostics` belongs to Settings. It is an `h1` and two paragraphs that say what the page holds (counts, lengths and times, not what was searched for; nothing is sent anywhere), then one row of `.btn` buttons (`Copy results` as the `.btn-primary`, `Refresh`, `Clear diagnostics`), a live status line, one `section.settings-section` per report section with its text in a focusable `<pre>`, and a `Back to Settings` link. While the report is collected it reads `Collecting...`.
 
+### Legal
+
+`#/legal` belongs to Settings. It opens with the `h1` `Legal and attribution` and the contact sentence, then an `On this page` jump list: a `nav` named `On this page` with an `h2.sub-head` and a `.jump-list` of `.jump` links, one for each `h2` of the page in page order (`Community Use notice`, `Sources using the Community Use Policy` and `Section 15 notice pending` when they show, `Product Identity declaration`, `Open Game License`, `Section 15: copyright notices`, `Dataset`, `Coverage`). A link scrolls to its heading and moves focus to it (the headings take `tabindex="-1"`); headings keep their ids. The sections follow in that order, one `--measure` column. No notice is folded away: the Community Use notice and the Product Identity declaration are always open.
+
+Each licence text is a native `details.legal-license` that starts closed, with the shared chevron, a 44 px summary and the licence name as the label; the text stays in the page. The Section 15 lines and the dataset lines are open lists. A dataset line gives the dataset name and its repository; the commit hashes sit in the maintainer details.
+
+Coverage keeps its summary tables open: `Publications`, `Entries by category`, `Excluded from this library`. Everything made for the people who maintain the corpus sits in one closed `details.coverage-more` with the summary `Details for maintainers`, built when it first opens like the other coverage details: the dataset commits, every excluded upstream path, `Rejected records`, `Links between entries`, `Upstream content removed on purpose` and `Relationships, spell lists, and book order`. The excluded material stays listed in the summary tables (AGENTS.md rule 6).
+
+While `legal.json` or `coverage.json` loads, the place of its content shows `Loading…` (`role="status"`). A file that cannot be read shows the page's `.error` with `Open Settings` and the closed `Details for a bug report` disclosure (see Recovery and unavailable pages); the other file's content still shows.
+
 ### Installer screen
 
 The installer screen shows when no library is installed yet. It has the masthead (the brand only), then `main.install-main`: the `h1` `Install the rules library`, a lede that says the library downloads once and works offline afterwards, an optional `.notice`, and one `.install-panel`. The panel shows the download size and the entry count as `dl.facts`, a paragraph that starts `On iPhone?` and names the Home Screen install and its separate library, a `Download` `.btn-primary` (`Download update` when it updates a library), and then a progress bar named `Download progress` with a live `.status` line. A failure is an `.error` with `role="alert"` and a `.btn-primary` `Retry` (`Check again` when the manifest must be fetched again); after a failed integrity check the panel adds that verified files are kept, so a retry continues where it stopped. The footer carries the unofficial line without the legal link.
@@ -586,7 +596,6 @@ The installer screen shows when no library is installed yet. It has the masthead
 These views exist and have no design section yet. Each entry names the ticket that writes it.
 
 - Settings and the update flow: `#584`
-- Legal: `#588`
 - Not found and the other recovery states: `#582`
 - Storage failure screen: `#583`
 - Search filter panel contents: `#579`
