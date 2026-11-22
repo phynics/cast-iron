@@ -25,4 +25,4 @@ It used to accept a field that matched any statement of the same label.
   field is reported once per run, with a count and examples. It becomes an error when the corpus
   has none.
 
-On the pinned corpus the first-statement rule changes nothing: total drift stays 0.
+On corpus v0.1.39, which carries the Beast Speaker fix (data `be498d7`), the first-statement rule changes nothing: total drift stays 0. On v0.1.38 it reported the one known Beast Speaker drift, so this rule merged after the v0.1.39 pin.
