@@ -295,7 +295,7 @@ pub fn ArchetypeList(rows: Vec<Row>, features: Vec<FeatureOption>) -> impl IntoV
                         .map(|&index| row_view(&rows[index]))
                         .collect_view();
                     view! {
-                        <h3 class="arch-unchecked">"Not checked"</h3>
+                        <h4 class="arch-unchecked">"Not checked"</h4>
                         <p class="hint">
                             "Some trades of these are not matched to a class feature, so the filter cannot say whether they fit."
                         </p>
@@ -317,9 +317,7 @@ pub fn ArchetypeList(rows: Vec<Row>, features: Vec<FeatureOption>) -> impl IntoV
             )
         }
     };
-    let none_fit = move || {
-        !nothing_chosen() && shown.with(|s| s.compatible.is_empty() && s.unchecked.is_empty())
-    };
+    let none_fit = move || !nothing_chosen() && shown.with(|s| s.compatible.is_empty());
     let with_note = {
         let rows = rows.clone();
         move || {
@@ -420,7 +418,7 @@ pub fn ArchetypeList(rows: Vec<Row>, features: Vec<FeatureOption>) -> impl IntoV
             </p>
             {move || with_note().map(|note| view! { <p class="hint">{note}</p> })}
             {move || none_fit().then(|| view! {
-                <p class="hint">"No archetype fits that choice."</p>
+                <p class="hint">"No archetype is known to fit that choice."</p>
             })}
             <ul class="entry-list arch-rows">{list}</ul>
             {unchecked}

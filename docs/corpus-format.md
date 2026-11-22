@@ -218,7 +218,7 @@ trades = [
 
 The migration of the corpus repository (#452) normalized the step powers that `migrate-trades` wrote (`power = "2"`, `power = "+4"`) into levels, with documented exceptions in its adjustment log (Proselytizer keeps `power = "major"`, because `[10]` would duplicate its alteration of the whole feature). `migrate-trades` itself still writes a step as a `power` (the qualifier rule below) until a later change.
 
-**Two different comparisons.** The duplicate check below compares exactly: two trades of one key overlap only when they name the same anchor, share a level and have the same `power` (no `power` matches only no `power`). It stays exact. The compatibility filter of #170 part D needs a different matcher, for trades of the same base-class feature: keeping the whole feature matches a replacement of any of its levels or named components, and keeping a level or a component also matches a replacement of the whole feature. That matcher is not built yet; #170 part D tracks it.
+**Two different comparisons.** The duplicate check below compares exactly: two trades of one key overlap only when they name the same anchor, share a level and have the same `power` (no `power` matches only no `power`). It stays exact. The compatibility filter of #170 part D needs a different matcher, for trades of the same base-class feature: keeping the whole feature matches a replacement of any of its levels or named components, and keeping a level or a component also matches a replacement of the whole feature. The client builds that matcher for the class page's archetype list (`crates/web/src/archetypes.rs`; decision `2026-11-22-archetype-list-and-compatibility`).
 
 `corpus-check` holds these rules for the trades:
 

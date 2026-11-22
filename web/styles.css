@@ -5167,6 +5167,12 @@ button.choice-row:hover {
   margin: var(--space-3) 0 var(--space-4);
 }
 
+/* The two menus keep their whole text: each takes a row of its own at 390 px and they share a
+   row from about 30 rem. */
+.arch-list .filter-menu {
+  flex: 1 1 14rem;
+}
+
 /* One column at every width: a row has a replaces line, which the browse list's columns cramp. */
 .arch-list .arch-rows {
   columns: auto;

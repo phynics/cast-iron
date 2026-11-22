@@ -409,6 +409,34 @@ makes the stop a history entry. A section starts below the masthead and the bar
 (`scroll-margin-top`). On a wide screen a class page that has the switcher is one block column in
 document order, because a sticky grid item cannot leave its grid row.
 
+#### Archetype list
+
+A class page lists its archetypes in the Archetypes section, right under the `Archetypes` heading and
+before the section's introduction (#170, part D; decision
+`docs/decisions/2026-11-22-archetype-list-and-compatibility.md`). It replaces the printed blurbs
+(name, `Class:`, `Modifies or Replaces:`, `Description:` for each archetype) and the `Archetypes by
+Feature` matrix, and the `Archetypes` panel that used to close the page. The introduction stays.
+
+- **Row.** `li.arch-row` of the browse list: the archetype's name as a link to its own page, the book
+  as a muted `.row-source` at the right, and under them one muted line, `Replaces Arcane bond,
+  Cantrips`, with `Alters …` after a `·` when the archetype alters features. The line carries the
+  printed names. A row opens the archetype and shows no text inline. The list is one column at every
+  width; the rows keep the browse list's target (44 px on a touch screen).
+- **Count line.** `31 archetypes`, or `12 of 31 archetypes · Show all` once a choice narrows it; it is a
+  live region and `Show all` is a `.count-action` button that clears both choices.
+- **Two filter menus**, in the filter-menu form (button, in-flow panel, 44 px rows, find field above ten
+  options): `Keep: Any feature` (several features of the class, checkbox rows with how many
+  archetypes touch each; the list leaves the archetypes that change any chosen feature) and `Combine
+  with: Any archetype` (one archetype; the list leaves the ones that change nothing it changes, and
+  not the chosen one). Both together narrow further. A choice row of the second menu is a button with
+  `aria-pressed`, ticked by a check; `Any …` is the first row of each.
+- **State is the page's, not the route's.** Unlike the filter menus of the list pages, the choice
+  lives in the page (the entry route carries the entry, anchor, book and section, and Back does not
+  walk it). Reopening the page starts unfiltered.
+- **Not checked.** A row whose trades the data cannot place (a trade that names no class feature, or
+  no trades data) is never counted as compatible. While a choice is active it is listed apart under a
+  `Not checked` heading with a one-line hint, never among the compatible rows.
+
 #### Class-option powers
 
 Approved by the owner on 2026-11-20 (#537; decision
