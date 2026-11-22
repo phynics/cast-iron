@@ -114,9 +114,9 @@ pub fn group_sorted(
             None => groups.push((group, vec![(id, title)])),
         }
     }
-    groups.sort_by_key(|(g, _)| sort_key(g));
+    cast_iron_sort::sort_by_key(&mut groups, |(g, _)| sort_key(g));
     for (_, list) in &mut groups {
-        list.sort_by_key(|(id, title)| (sort_key(title), id.clone()));
+        cast_iron_sort::sort_by_key(list, |(id, title)| (sort_key(title), id.clone()));
     }
     groups
 }
@@ -494,7 +494,7 @@ fn spell_level_rows(lists: &SpellLists, id: &EntryId) -> Vec<(String, u8)> {
             }
         }
     }
-    rows.sort_by(|a, b| {
+    cast_iron_sort::sort_by(&mut rows, |a, b| {
         a.0.to_lowercase()
             .cmp(&b.0.to_lowercase())
             .then(a.1.cmp(&b.1))
@@ -762,7 +762,7 @@ fn feat_panels(
             .into_iter()
             .map(|id| (id.clone(), title_of(library, id)))
             .collect();
-        leads.sort_by_key(|(id, title)| (sort_key(title), id.clone()));
+        cast_iron_sort::sort_by_key(&mut leads, |(id, title)| (sort_key(title), id.clone()));
         if !leads.is_empty() {
             let n = leads.len();
             let rows = leads
@@ -871,7 +871,7 @@ fn requirement_links(
             }
         }
     }
-    found.sort_by(|a, b| a.0.cmp(&b.0).then(a.1.cmp(&b.1)));
+    cast_iron_sort::sort_by(&mut found, |a, b| a.0.cmp(&b.0).then(a.1.cmp(&b.1)));
     found
         .into_iter()
         .map(|(_, id, title)| (id, title))
@@ -972,7 +972,7 @@ fn variants_panel(
     if variants.is_empty() {
         return None;
     }
-    variants.sort_by(|(a_id, a_title), (b_id, b_title)| {
+    cast_iron_sort::sort_by(&mut variants, |(a_id, a_title), (b_id, b_title)| {
         (sort_key(a_title), a_id.clone()).cmp(&(sort_key(b_title), b_id.clone()))
     });
     let rows = variants
@@ -1023,7 +1023,7 @@ fn spell_panel(entry: &RuleEntry, lists: Option<&SpellLists>) -> Option<AnyView>
     if levels.is_empty() {
         return None;
     }
-    levels.sort_by(|a, b| {
+    cast_iron_sort::sort_by(&mut levels, |a, b| {
         a.class
             .to_lowercase()
             .cmp(&b.class.to_lowercase())

@@ -228,7 +228,7 @@ fn summarize<'a>(rows: impl Iterator<Item = (&'a str, u32)>) -> Vec<ReasonSummar
             records,
         })
         .collect();
-    summary.sort_by(|a, b| {
+    cast_iron_sort::sort_by(&mut summary, |a, b| {
         b.records
             .cmp(&a.records)
             .then_with(|| b.paths.cmp(&a.paths))

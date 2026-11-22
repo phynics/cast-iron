@@ -110,7 +110,7 @@ fn HeadList(library: Library, relations: Shared<Relations>) -> impl IntoView {
         .map(|h| (title_of(&library, &h.id), h))
         .collect();
     // Most built-upon first; equal counts in name order.
-    heads.sort_by(|a, b| {
+    cast_iron_sort::sort_by(&mut heads, |a, b| {
         b.1.total
             .cmp(&a.1.total)
             .then_with(|| sort_key(&a.0).cmp(&sort_key(&b.0)))

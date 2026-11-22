@@ -168,7 +168,7 @@ pub fn adventure_sections<T: SeriesFields>(books: &[T]) -> AdventureSections {
         .into_iter()
         .map(|(name, books)| NamedGroup { name, books })
         .collect();
-    paths.sort_by(|a, b| {
+    cast_iron_sort::sort_by(&mut paths, |a, b| {
         a.name
             .to_lowercase()
             .cmp(&b.name.to_lowercase())
@@ -184,7 +184,7 @@ pub fn adventure_sections<T: SeriesFields>(books: &[T]) -> AdventureSections {
         .into_iter()
         .map(|(season, books)| SeasonGroup { season, books })
         .collect();
-    seasons.sort_by_key(|group| group.season);
+    cast_iron_sort::sort_by_key(&mut seasons, |group| group.season);
     for group in &mut seasons {
         sort_by_number(books, &mut group.books, |book| book.series_number());
     }
@@ -267,7 +267,7 @@ fn sort_by_number<T: SeriesFields>(
     indices: &mut [usize],
     number: impl Fn(&T) -> Option<&str>,
 ) {
-    indices.sort_by(|&a, &b| {
+    cast_iron_sort::sort_by(indices, |&a, &b| {
         number_key(number(&books[a]))
             .cmp(&number_key(number(&books[b])))
             .then_with(|| title_order(&books[a], &books[b]))
@@ -275,7 +275,7 @@ fn sort_by_number<T: SeriesFields>(
 }
 
 fn sort_by_date<T: SeriesFields>(books: &[T], indices: &mut [usize]) {
-    indices.sort_by(|&a, &b| {
+    cast_iron_sort::sort_by(indices, |&a, &b| {
         let left = dated(books[a].publication_date());
         let right = dated(books[b].publication_date());
         // ISO dates compare as text. A missing or malformed date sorts after all others.

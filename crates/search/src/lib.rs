@@ -279,7 +279,7 @@ impl SearchIndex {
                     .map(|(ord, doc)| (doc.id.as_str(), ord as u32)),
             );
         }
-        wanted.sort_unstable();
+        cast_iron_sort::sort(&mut wanted);
         wanted.dedup();
         for (id, book) in wanted {
             let Some(&ord) = ords.get(id) else { continue };
@@ -390,7 +390,7 @@ impl SearchIndex {
             .filter(|(indexed, _)| indexed.eq_ignore_ascii_case(value))
             .flat_map(|(_, ords)| ords.iter().copied())
             .collect();
-        ords.sort_unstable();
+        cast_iron_sort::sort(&mut ords);
         ords.dedup();
         ords.into_iter()
             .filter_map(|ord| self.meta.docs.get(ord as usize))

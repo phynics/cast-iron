@@ -4,10 +4,14 @@
 # Each value is the size measured on 2026-11-17 (corpus v0.1.23) plus about 5%, rounded up:
 #   library_bytes       223,140,755  every file under generated/content, manifest.json included
 #   largest_file_bytes   68,762,988  search.bin
-#   wasm_bytes            3,123,287  the *_bg.wasm that trunk builds
+#
+# wasm_bytes was reset on 2026-11-22: the build at opt-level "z" with the one non-generic sort
+# helper (docs/decisions/2026-11-21-wasm-built-for-size.md) measured 2,583,053 bytes; plus 5%
+# (2,712,206) rounded up to the next 10,000 is the line below. The WASM is the `*_bg.wasm` that
+# trunk builds. The decision is to shrink this budget to the measurement, not to keep headroom.
 #
 # To raise a value, change one line in a pull request and say why the build grew. A reviewer
 # approves that line. Never raise it to make a build pass without a reason.
 library_bytes = 234300000
 largest_file_bytes = 72300000
-wasm_bytes = 3460000
+wasm_bytes = 2720000

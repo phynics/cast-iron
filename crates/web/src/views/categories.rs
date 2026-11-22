@@ -224,7 +224,7 @@ pub fn order_class_groups(values: &[String]) -> Vec<String> {
         .filter(|value| !lens_skips(EntryKind::Class, CLASS_GROUP_FIELD, value))
         .cloned()
         .collect();
-    ordered.sort_by_key(|value| (rank(value), value.to_lowercase()));
+    cast_iron_sort::sort_by_key(&mut ordered, |value| (rank(value), value.to_lowercase()));
     ordered
 }
 

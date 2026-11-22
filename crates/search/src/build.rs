@@ -21,7 +21,7 @@ impl IndexBuilder {
     }
 
     pub fn build(mut self) -> SearchIndex {
-        self.docs.sort_by(|a, b| {
+        cast_iron_sort::sort_by(&mut self.docs, |a, b| {
             (
                 &a.id, &a.title, &a.kind, &a.source, &a.section, &a.text, &a.aliases, &a.facets,
             )

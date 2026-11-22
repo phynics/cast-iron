@@ -94,7 +94,7 @@ fn typed_level_values(levels: &[SpellLevel], printed: &[(String, u8)]) -> Vec<In
     for (at, (level, classes)) in by_level.iter_mut().enumerate() {
         // The typed list is the source; the printed row only supplies the order. A class the
         // printed row did not name (impossible when the sets agree) sorts last.
-        classes.sort_by_key(|class| {
+        cast_iron_sort::sort_by_key(classes, |class| {
             printed_rank
                 .get(&(normalized_class(class), *level))
                 .copied()
@@ -546,7 +546,7 @@ fn EntryView(
     });
     let mut ordered_ids: Vec<&String> = meta_source_ids.iter().collect();
     if let Some(preferred) = preferred {
-        ordered_ids.sort_by_key(|id| id.as_str() != preferred);
+        cast_iron_sort::sort_by_key(&mut ordered_ids, |id| id.as_str() != preferred);
     }
     let mut source_links = ordered_ids
         .into_iter()
