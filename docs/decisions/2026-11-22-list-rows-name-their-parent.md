@@ -28,9 +28,11 @@ titles. These are the choices that the code does not show.
   Race Guide`), as `2026-11-22-racial-trait-race-facet` deferred to this change. It is read from the id
   (the `alternate-racial-traits` segment, the rule the race page uses), so it shows in a list that the
   Race menu narrows too (`Alternate · Advanced Race Guide`), where the race is left out.
-- **A page in a variant link is read on the first open.** The catalog stub has no citation page, so a
-  fold with two printings in one book reads their shards when it first opens, and only then. In the
-  pinned corpus no fold has two printings with one primary book, so the path is covered by native tests of the
-  label rules, not by a browser test.
+- **Variant links name the book, then the parent, then a number; no page.** The issue asks for
+  `p. {page}` when two printings share a book. The catalog stub has no citation page, so it would
+  need a shard read when a fold opens, and no fold of the pinned corpus has two printings with one
+  primary book. Page labels are left out because no fold in the corpus needs them, and their code
+  cost wasm size. When two links would read the same they add the parent's title, and a last `(n)`
+  keeps any two apart, so two links in one fold never read the same.
 - **The prestige-class requirements panel keeps `{Book}, {Kind}`.** It lists feats and skills, so the
   page does not name the kind.

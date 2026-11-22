@@ -104,16 +104,10 @@ pub fn variants_for_stubs(
     )
 }
 
-/// The text of each link in a fold, in order. A link names its book: the page and the list
-/// already name the kind. Two printings in one book add `p. {page}` (the first citation row of
-/// the entry, once `pages` has it); if two links would still read the same they add the parent
-/// title; once the pages are read (`Some`), a last `(n)` keeps any two links apart. `with_kind`
-/// keeps `, {Kind}` for a panel that is not a list of one kind.
-pub fn variant_labels(
-    variants: &[SourceVariant],
-    pages: Option<&std::collections::HashMap<EntryId, String>>,
-    with_kind: bool,
-) -> Vec<String> {
+/// The text of each link in a fold, in order. A link names its book: the list already names
+/// the kind. If two links would still read the same they add the parent title, and a last `(n)`
+/// keeps any two apart. `with_kind` keeps `, {Kind}` for a panel that is not a list of one kind.
+pub fn variant_labels(variants: &[SourceVariant], with_kind: bool) -> Vec<String> {
     let mut labels: Vec<String> = variants
         .iter()
         .map(|v| {
@@ -124,28 +118,22 @@ pub fn variant_labels(
             }
         })
         .collect();
-    let repeated =
-        |labels: &[String], i: usize| labels.iter().filter(|l| **l == labels[i]).count() > 1;
-    let clashing: Vec<bool> = (0..labels.len()).map(|i| repeated(&labels, i)).collect();
-    for (i, variant) in variants.iter().enumerate() {
-        if clashing[i]
-            && let Some(page) = pages.and_then(|pages| pages.get(&variant.id))
-        {
-            labels[i] = format!("{}, p. {page}", labels[i]);
+    let clashes = |labels: &[String]| -> Vec<bool> {
+        labels
+            .iter()
+            .map(|label| labels.iter().filter(|other| *other == label).count() > 1)
+            .collect()
+    };
+    let clashing = clashes(&labels);
+    for (label, (variant, clash)) in labels.iter_mut().zip(variants.iter().zip(clashing)) {
+        if clash && let Some(parent) = &variant.parent {
+            *label = format!("{label}, {}", parent.title);
         }
     }
-    let clashing: Vec<bool> = (0..labels.len()).map(|i| repeated(&labels, i)).collect();
-    for (i, variant) in variants.iter().enumerate() {
-        if clashing[i]
-            && let Some(parent) = &variant.parent
-        {
-            labels[i] = format!("{}, {}", labels[i], parent.title);
-        }
-    }
+    let clashing = clashes(&labels);
     let mut seen = std::collections::HashMap::<String, usize>::new();
-    let clashing: Vec<bool> = (0..labels.len()).map(|i| repeated(&labels, i)).collect();
-    for (i, label) in labels.iter_mut().enumerate() {
-        if pages.is_some() && clashing[i] {
+    for (label, clash) in labels.iter_mut().zip(clashing) {
+        if clash {
             let n = seen.entry(label.clone()).or_default();
             *n += 1;
             *label = format!("{label} ({n})");
@@ -155,8 +143,7 @@ pub fn variant_labels(
 }
 
 /// A fold of printings of one rule. `with_kind` keeps the kind in each link, for a panel that
-/// is not a list of one kind. When two printings share a book, the first open reads their
-/// citation rows so each link can say its page.
+/// is not a list of one kind.
 #[component]
 pub fn SourceVariants(
     group: SourceGroup,
@@ -167,59 +154,16 @@ pub fn SourceVariants(
     line: String,
 ) -> impl IntoView {
     let count = group.variants.len();
-    let shared_book = group.variants.iter().any(|a| {
-        group
-            .variants
-            .iter()
-            .filter(|b| b.source == a.source)
-            .count()
-            > 1
-    });
-    let pages = RwSignal::new(None::<std::collections::HashMap<EntryId, String>>);
-    let opened = RwSignal::new(false);
-    if shared_book {
-        let library = crate::library::use_library();
-        let ids: Vec<EntryId> = group.variants.iter().map(|v| v.id.clone()).collect();
-        Effect::new(move |_| {
-            if !opened.get() {
-                return;
-            }
-            let (library, ids) = (library.clone(), ids.clone());
-            leptos::task::spawn_local(async move {
-                let mut found = std::collections::HashMap::new();
-                for id in ids {
-                    if let Ok(entry) = library.entry(&id).await
-                        && let Some(page) = entry.sources.first().and_then(|c| c.page.clone())
-                    {
-                        found.insert(id, page);
-                    }
-                }
-                pages.set(Some(found));
-            });
-        });
-    }
-    let on_toggle = move |event: leptos::ev::Event| {
-        if !opened.get_untracked() && event_target::<web_sys::HtmlDetailsElement>(&event).open() {
-            opened.set(true);
-        }
-    };
-    let variants = group.variants;
-    let items = {
-        let variants = variants.clone();
-        move || {
-            let labels = pages.with(|pages| variant_labels(&variants, pages.as_ref(), with_kind));
-            variants
-                .iter()
-                .zip(labels)
-                .map(|(variant, label)| {
-                    let href = Route::entry(variant.id.clone()).href();
-                    view! { <li><a href=href>{label}</a></li> }
-                })
-                .collect_view()
-        }
-    };
+    let items = variant_labels(&group.variants, with_kind)
+        .into_iter()
+        .zip(&group.variants)
+        .map(|(label, variant)| {
+            let href = Route::entry(variant.id.clone()).href();
+            view! { <li><a href=href>{label}</a></li> }
+        })
+        .collect_view();
     view! {
-        <details class="source-variants" on:toggle=on_toggle>
+        <details class="source-variants">
             <summary>
                 {icons::chevron_right("disclosure-chevron")}{group.title}
                 <span class="source-variant-count">{format!(" {}", crate::fmt::pluralize(count, "publication entry", "publication entries"))}</span>
@@ -233,8 +177,6 @@ pub fn SourceVariants(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::collections::HashMap;
-
     fn id(s: &str) -> EntryId {
         EntryId::parse(s.to_string()).unwrap()
     }
@@ -338,15 +280,6 @@ mod tests {
         assert_eq!(groups[0].variants.len(), 2);
     }
 
-    fn labels(variants: &[SourceVariant], pages: Option<&[(&str, &str)]>) -> Vec<String> {
-        let pages: Option<HashMap<EntryId, String>> = pages.map(|rows| {
-            rows.iter()
-                .map(|(entry, page)| (id(entry), page.to_string()))
-                .collect()
-        });
-        variant_labels(variants, pages.as_ref(), false)
-    }
-
     #[test]
     fn a_link_names_its_book_alone_and_the_kind_only_when_asked() {
         let kind = EntryKind::RacialTrait;
@@ -355,32 +288,14 @@ mod tests {
             variant("a/y", "Hardy", "Core Rulebook", kind),
         ];
         assert_eq!(
-            labels(&both, None),
+            variant_labels(&both, false),
             ["Advanced Race Guide", "Core Rulebook"]
         );
         assert_eq!(
-            variant_labels(&both, None, true),
+            variant_labels(&both, true),
             [
                 "Advanced Race Guide, Racial traits",
                 "Core Rulebook, Racial traits"
-            ]
-        );
-    }
-
-    #[test]
-    fn two_printings_in_one_book_add_their_page_and_only_those() {
-        let kind = EntryKind::ClassOption;
-        let fold = [
-            variant("a/x", "Quick Study", "Advanced Class Guide", kind),
-            variant("a/y", "Quick Study", "Advanced Class Guide", kind),
-            variant("a/z", "Quick Study", "Core Rulebook", kind),
-        ];
-        assert_eq!(
-            labels(&fold, Some(&[("a/x", "12"), ("a/y", "40"), ("a/z", "9")])),
-            [
-                "Advanced Class Guide, p. 12",
-                "Advanced Class Guide, p. 40",
-                "Core Rulebook"
             ]
         );
     }
@@ -391,24 +306,31 @@ mod tests {
         let fold = [
             of("Dwarf", variant("a/x", "Hardy", "Core Rulebook", kind)),
             of("Elf", variant("a/y", "Hardy", "Core Rulebook", kind)),
+            of("Elf", variant("a/z", "Hardy", "Advanced Race Guide", kind)),
         ];
         assert_eq!(
-            labels(&fold, Some(&[])),
-            ["Core Rulebook, Dwarf", "Core Rulebook, Elf"]
+            variant_labels(&fold, false),
+            [
+                "Core Rulebook, Dwarf",
+                "Core Rulebook, Elf",
+                "Advanced Race Guide"
+            ]
         );
         let same = [
             of("Dwarf", variant("a/x", "Hardy", "Core Rulebook", kind)),
             of("Dwarf", variant("a/y", "Hardy", "Core Rulebook", kind)),
         ];
-        // The page is read but neither entry has one: the number keeps the links apart.
         assert_eq!(
-            labels(&same, Some(&[])),
+            variant_labels(&same, false),
             ["Core Rulebook, Dwarf (1)", "Core Rulebook, Dwarf (2)"]
         );
-        // Until the pages are read the clash stays unnumbered, so the label does not flicker.
+        let bare = [
+            variant("a/x", "Hardy", "Core Rulebook", EntryKind::Creature),
+            variant("a/y", "Hardy", "Core Rulebook", EntryKind::Creature),
+        ];
         assert_eq!(
-            labels(&same, None),
-            ["Core Rulebook, Dwarf", "Core Rulebook, Dwarf"]
+            variant_labels(&bare, false),
+            ["Core Rulebook (1)", "Core Rulebook (2)"]
         );
     }
 }
