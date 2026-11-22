@@ -52,52 +52,6 @@ pub fn group_by_letter(titles: &[&str]) -> Vec<(char, Vec<usize>)> {
     groups
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct TreeNode {
-    pub index: usize,
-    pub children: Vec<TreeNode>,
-}
-
-/// Nests entries under their `parent`. Entries whose parent is not in the list become roots.
-/// Roots and siblings are ordered by title. `items` is `(id, parent, title)`.
-pub fn build_tree(items: &[(EntryId, Option<EntryId>, String)]) -> Vec<TreeNode> {
-    fn grow(
-        items: &[(EntryId, Option<EntryId>, String)],
-        order: &[usize],
-        parent: usize,
-        depth: usize,
-    ) -> Vec<TreeNode> {
-        if depth > 6 {
-            return Vec::new();
-        }
-        order
-            .iter()
-            .copied()
-            .filter(|&i| i != parent && items[i].1.as_ref() == Some(&items[parent].0))
-            .map(|index| TreeNode {
-                index,
-                children: grow(items, order, index, depth + 1),
-            })
-            .collect()
-    }
-    let mut order: Vec<usize> = (0..items.len()).collect();
-    cast_iron_sort::sort_by_key(&mut order, |&i| (sort_key(&items[i].2), items[i].0.clone()));
-    order
-        .iter()
-        .copied()
-        .filter(|&i| {
-            items[i]
-                .1
-                .as_ref()
-                .is_none_or(|p| !items.iter().any(|(id, _, _)| id == p))
-        })
-        .map(|index| TreeNode {
-            index,
-            children: grow(items, &order, index, 0),
-        })
-        .collect()
-}
-
 /// Entries of a kind as `(stub)` sorted by title.
 fn sorted_of_kind(library: &Library, kind: EntryKind) -> Vec<EntryStub> {
     let mut list: Vec<EntryStub> = library.discovery().entries_of_kind(kind).cloned().collect();
@@ -2313,13 +2267,6 @@ fn BrowseList(
             })
             .collect_view();
         view! { {sections} }.into_any()
-    } else if kind == EntryKind::Rule {
-        let items: Vec<(EntryId, Option<EntryId>, String)> = stubs
-            .iter()
-            .map(|s| (s.id.clone(), s.parent.clone(), s.title.clone()))
-            .collect();
-        let tree = build_tree(&items);
-        view! { <ul class="tree">{tree_view(&tree, &stubs)}</ul> }.into_any()
     } else {
         let source_titles: Vec<Option<String>> = stubs
             .iter()
@@ -2432,29 +2379,6 @@ fn letter_id(letter: char) -> String {
     } else {
         format!("letter-{letter}")
     }
-}
-
-fn tree_view(nodes: &[TreeNode], stubs: &[EntryStub]) -> Vec<AnyView> {
-    nodes
-        .iter()
-        .map(|node| {
-            let stub = &stubs[node.index];
-            let children = (!node.children.is_empty())
-                .then(|| view! { <ul>{tree_view(&node.children, stubs)}</ul> });
-            let class = if node.children.is_empty() {
-                "leaf"
-            } else {
-                "branch"
-            };
-            view! {
-                <li class=class>
-                    <a href=Route::entry(stub.id.clone()).href()>{stub.title.clone()}</a>
-                    {children}
-                </li>
-            }
-            .into_any()
-        })
-        .collect()
 }
 
 #[component]
@@ -2911,32 +2835,5 @@ mod tests {
         assert_eq!(group_count_text(0, 151), "0 of 151 active");
         assert_eq!(group_count_text(1_000, 1_200), "1,000 of 1,200 active");
         assert_eq!(group_count_text(0, 0), "0 books");
-    }
-
-    #[test]
-    fn tree_nests_children_and_orders_by_title() {
-        let items = vec![
-            (id("a/combat"), None, "Combat".to_string()),
-            (
-                id("a/combat/zeta"),
-                Some(id("a/combat")),
-                "Zeta".to_string(),
-            ),
-            (
-                id("a/combat/alpha"),
-                Some(id("a/combat")),
-                "Alpha".to_string(),
-            ),
-            (id("a/alpha-root"), None, "Alpha Root".to_string()),
-            (id("a/orphan"), Some(id("a/gone")), "Orphan".to_string()),
-        ];
-        let tree = build_tree(&items);
-        let roots: Vec<usize> = tree.iter().map(|n| n.index).collect();
-        assert_eq!(roots, vec![3, 0, 4]);
-        let combat = &tree[1];
-        assert_eq!(
-            combat.children.iter().map(|n| n.index).collect::<Vec<_>>(),
-            vec![2, 1]
-        );
     }
 }

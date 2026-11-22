@@ -239,7 +239,7 @@ test("category hub exposes requested reference areas and dedicated lenses", asyn
   for (const [slug, title] of [["item", "Items"], ["prestige_class", "Prestige classes"]]) {
     await page.goto(`#/browse/kind/${slug}`);
     await expect(page.getByRole("heading", { name: title, level: 1 })).toBeVisible();
-    await expect(page.locator(slug === "rule" ? ".tree" : ".entry-list li").first()).toBeVisible();
+    await expect(page.locator(".entry-list li").first()).toBeVisible();
   }
   await page.goto("#/feats/chains");
   await expect(page.getByRole("heading", { name: "Feat chains", level: 1 })).toBeVisible();
