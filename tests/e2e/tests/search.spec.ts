@@ -75,6 +75,33 @@ installedTest("Filter chips count the entries that choosing them shows", async (
   }
 });
 
+installedTest("Filter chips list each creature size once, from Fine to Colossal, and an old capitalised link still narrows (#593)", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/search?q=dragon&kind=creature");
+  const group = page.locator(".filters .filter-group", { has: page.locator("legend", { hasText: /^Size$/ }) });
+  await expect(group.locator(".chip").first()).toBeVisible();
+  const labels = (await group.locator(".chip").locator("input").evaluateAll((inputs) =>
+    inputs.map((input) => (input.getAttribute("aria-label") ?? "").replace(/, [\d,]+ entr(y|ies)$/, "")),
+  ));
+  // No two values are equal ignoring case, and they follow the size order.
+  const lower = labels.map((label) => label.toLowerCase());
+  expect(new Set(lower).size).toBe(lower.length);
+  const order = ["fine", "diminutive", "tiny", "small", "medium", "large", "huge", "gargantuan", "colossal"];
+  // A value that is not a size (a corpus oddity) follows the nine sizes.
+  const ranks = lower.map((label) => (order.includes(label) ? order.indexOf(label) : order.length));
+  expect(ranks.filter((rank) => rank < order.length).length, `the nine sizes: ${labels}`).toBe(order.length);
+  expect(ranks).toEqual([...ranks].sort((a, b) => a - b));
+  expect(labels).toContain("Huge");
+
+  // A link that says `Huge` narrows the same way as `huge`, and the chip is selected.
+  await page.goto("#/search?q=dragon&kind=creature&facet=size:huge");
+  const lowerCount = await group.locator(".chip", { hasText: /^Huge/ }).locator(".chip-count").innerText();
+  await page.goto("#/search?q=dragon&kind=creature&facet=size:Huge");
+  await expect(group.getByRole("checkbox", { name: /^Huge/ })).toBeChecked();
+  await expect(group.locator(".chip", { hasText: /^Huge/ }).locator(".chip-count")).toHaveText(lowerCount);
+  await expect.poll(() => new URL(page.url()).hash).toContain("size:");
+});
+
 installedTest("Publication filter hides empty books, pages the rest, and keeps selections in the URL", async ({ page }) => {
   await installLibrary(page);
   await page.goto("#/search");

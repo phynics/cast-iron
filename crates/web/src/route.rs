@@ -699,10 +699,11 @@ fn parse_facets(query: Option<&str>) -> Vec<(String, String)> {
             && let (Some(field), Some(value)) = (percent_decode(field), percent_decode(value))
             && !value.trim().is_empty()
         {
-            let value = if field == "school" {
-                legacy_school(&value)
-            } else {
-                value
+            let value = match field.as_str() {
+                "school" => legacy_school(&value),
+                // The index holds sizes in lower case; an older link may say `Huge`.
+                "size" => value.to_lowercase(),
+                _ => value,
             };
             facets.push((field, value));
         }
@@ -2087,6 +2088,19 @@ mod tests {
             facets: Vec::new(),
             sections: true,
         });
+    }
+
+    #[test]
+    fn a_size_facet_link_reads_in_lower_case() {
+        for hash in [
+            "#/search?q=dragon&kind=creature&facet=size:Huge",
+            "#/search?q=dragon&kind=creature&facet=size:huge",
+        ] {
+            let Route::Search { facets, .. } = Route::parse(hash) else {
+                panic!("{hash} is not a search route");
+            };
+            assert_eq!(facets, [("size".to_string(), "huge".to_string())], "{hash}");
+        }
     }
 
     #[test]
