@@ -13,7 +13,7 @@ All tokens are custom properties in `web/styles.css`. The color tokens have a li
 - **Colors:** `--bg`, `--surface`, `--surface-2`, `--ink`, `--ink-muted`, `--ink-dim`, `--line`, `--border` (the shorthand `1px solid var(--line)`), `--accent`, `--accent-ink`, `--focus`, `--error`, `--error-bg`, `--on-error`, `--ok`, `--mark-bg`, `--mark-ink`, `--stat-bg`, `--shadow-edge`.
 - **Type:** `--font-text`, `--font-display`, `--font-mono`, `--leading` (1.55), `--leading-tight` (1.2), `--step--1` to `--step-3` (see Type scale).
 - **Space:** `--space-1` to `--space-6` (0.25, 0.5, 0.75, 1, 1.5 and 2.5 rem).
-- **Shape:** `--radius` (6 px) for rectangles; 999 px only for filters. `--touch` (2.75rem, the 44 px target).
+- **Shape:** `--radius` (6 px) for rectangles; 999 px only for filters (today also the `Offline` badge; #589 changes it). `--touch` (2.75rem, the 44 px target).
 - **Layout:** `--measure` (44rem), `--wide` (66rem), `--header-h` (3.75rem), `--nav-h` (3.5rem), `--letter-h` (3rem), and `--switcher-h` (`calc(var(--touch) + 2 * var(--space-2))`), which `web/styles.css` declares in a second `:root` rule beside the section switcher, not in the first block.
 
 The stat block keeps its left accent rule; it is part of the identity.
@@ -348,7 +348,7 @@ No box, no tint, and no left rule; the stat block keeps the only one.
 
 **Never:** pills (the `.scope-pill` stays the only one here), cards, coloured borders, row tags, inline diff colours, or an activation control on an entry.
 
-**Owner decisions.** A collapsed Stamina row is enough, with no switch. Druid animal companions are class options. Mythic spells become add-on entries in slice 3.
+**Owner decisions.** A collapsed Stamina row is enough, with no switch. Druid animal companions are class options. Mythic spells become add-on entries in slice 3 of #250.
 
 #### Footnotes
 
