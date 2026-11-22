@@ -547,9 +547,10 @@ test("Classes are listed under their data group headings, without pills or a men
   await expect.poll(() => new URL(page.url()).hash).toBe("#/browse/kind/class");
   await expect(main.locator("section.letter-group")).toHaveCount(groupCount);
 
-  // An old link with a group in it shows the same grouped list instead of a broken page.
+  // An old link with a group in it shows the same grouped list, and the address drops the group.
   await page.goto("#/browse/kind/class?facet=class_type:core");
   await expect(main.locator("section.letter-group")).toHaveCount(groupCount);
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/browse/kind/class");
   await expect(main.locator(".list-count")).toHaveText(`${count(classes.length)} classes`);
 });
 
