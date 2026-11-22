@@ -83,6 +83,7 @@ pub fn facet_fields_of(kind: EntryKind) -> &'static [(&'static str, &'static str
         EntryKind::Race => &[("race_group", "Race group")],
         EntryKind::Trait => &[("trait_category", "Trait category")],
         EntryKind::Archetype => &[("archetype_class", "Class")],
+        EntryKind::ClassOption => &[("group", "Group")],
         _ => &[],
     }
 }
@@ -119,14 +120,6 @@ pub fn list_facets(facets: &[(String, String)], kind: EntryKind) -> Vec<(String,
         if !out.iter().any(|(earlier, _)| *earlier == field) {
             out.push((field, value));
         }
-    }
-    // A class option's group is a list filter, not a search facet: `option-groups.json` holds
-    // the groups, and the search index has no `group` field to scope a query with.
-    if kind == EntryKind::ClassOption
-        && !out.iter().any(|(field, _)| field == "group")
-        && let Some((_, value)) = facets.iter().find(|(field, _)| field == "group")
-    {
-        out.push(("group".to_string(), value.clone()));
     }
     out
 }
@@ -202,11 +195,42 @@ pub fn facet_label(field: &str, value: &str) -> String {
         | ("class_type" | "trait_category" | "archetype_class" | "school" | "size", _) => {
             capitalize_words(value)
         }
-        // The class-option list prints the group's own label; this is only the fallback for a
-        // screen that has the slug without the index (an old shared link, for example).
-        ("group", _) => capitalize_words(&value.replace('-', " ")),
+        // A group's label comes from the library (see `register_facet_titles`). The fallback is
+        // for a screen that has the slug and no library data yet.
+        ("group", _) => {
+            facet_title(field, value).unwrap_or_else(|| capitalize_words(&value.replace('-', " ")))
+        }
         _ => value.to_string(),
     }
+}
+
+thread_local! {
+    /// Display titles of facet values that the index holds as slugs: the class-option groups'
+    /// plural labels (`rage-power` is `Rage powers`). The library fills it when it reads the
+    /// data, so a pill built from a route names the value the way the menu does.
+    static FACET_TITLES: std::cell::RefCell<BTreeMap<(String, String), String>> =
+        const { std::cell::RefCell::new(BTreeMap::new()) };
+}
+
+/// Remembers the titles of `field`'s values.
+pub fn register_facet_titles(
+    field: &'static str,
+    titles: impl IntoIterator<Item = (String, String)>,
+) {
+    FACET_TITLES.with(|all| {
+        let mut all = all.borrow_mut();
+        for (value, title) in titles {
+            all.insert((field.to_string(), value), title);
+        }
+    });
+}
+
+fn facet_title(field: &str, value: &str) -> Option<String> {
+    FACET_TITLES.with(|all| {
+        all.borrow()
+            .get(&(field.to_string(), value.to_string()))
+            .cloned()
+    })
 }
 
 /// Connective words that stay lowercase inside a facet label, except as the first word.
@@ -1553,6 +1577,7 @@ pub fn Search() -> impl IntoView {
     };
 
     let facet_view = move || {
+        option_groups.track();
         let groups = facet_groups.get();
         let kinds_empty = state.with(|s| s.kinds.is_empty());
         if groups.is_empty() {
@@ -1794,8 +1819,11 @@ pub fn Search() -> impl IntoView {
     };
 
     // The scope the results are limited to, if exactly one kind is: the count line names it.
-    let page_scope =
-        Memo::new(move |_| state.with(|s| Scope::of_search(&s.kinds, &s.facets, &s.sources)));
+    let page_scope = Memo::new(move |_| {
+        // A group's label comes from `option-groups.json`; the scope names it once it has loaded.
+        option_groups.track();
+        state.with(|s| Scope::of_search(&s.kinds, &s.facets, &s.sources))
+    });
     let count_text = move || match phase.get() {
         Phase::LoadingIndex => "Loading search index…".to_string(),
         Phase::Done {
@@ -2036,7 +2064,10 @@ pub fn Search() -> impl IntoView {
                 </div>
             </form>
             // The scope that Quick search applied, or that a kind choice made: one tap removes it.
-            {move || state.with(|s| Scope::of_search(&s.kinds, &s.facets, &s.sources)).map(|scope| view! {
+            {move || {
+                option_groups.track();
+                state.with(|s| Scope::of_search(&s.kinds, &s.facets, &s.sources))
+            }.map(|scope| view! {
                 <div class="search-scope" role="group" aria-label="Search scope">
                     <span class="quick-search-scope-label">"Searching in"</span>
                     <ScopePill scope on_remove=Callback::new(remove_scope) />
@@ -2323,6 +2354,7 @@ mod tests {
             (EntryKind::Race, "race_group"),
             (EntryKind::Trait, "trait_category"),
             (EntryKind::Archetype, "archetype_class"),
+            (EntryKind::ClassOption, "group"),
         ] {
             assert_eq!(facet_fields_for(&[kind])[0].0, field);
         }
@@ -2345,6 +2377,29 @@ mod tests {
             [facet("school", "evocation")]
         );
         assert!(list_facets(&url, EntryKind::Trap).is_empty());
+        // A class option's group and a racial trait's race are index facets like the others.
+        let group = [facet("group", "rage-power")];
+        assert_eq!(list_facets(&group, EntryKind::ClassOption), group);
+        assert!(list_facets(&group, EntryKind::Feat).is_empty());
+    }
+
+    #[test]
+    fn a_group_reads_by_the_label_the_library_registered() {
+        // Before the library has read its data the slug reads as words.
+        assert_eq!(facet_label("group", "arcane-discovery"), "Arcane Discovery");
+        register_facet_titles(
+            "group",
+            [(
+                "arcane-discovery".to_string(),
+                "Arcane discoveries".to_string(),
+            )],
+        );
+        assert_eq!(
+            facet_label("group", "arcane-discovery"),
+            "Arcane discoveries"
+        );
+        // A label belongs to its field.
+        assert_eq!(facet_label("cr", "arcane-discovery"), "arcane-discovery");
     }
 
     #[test]

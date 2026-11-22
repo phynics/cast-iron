@@ -840,7 +840,16 @@ impl Library {
         self.lazy(
             &self.0.option_groups,
             OPTION_GROUPS_FILE,
-            |index: OptionGroupIndex| index,
+            |index: OptionGroupIndex| {
+                crate::views::search::register_facet_titles(
+                    "group",
+                    index
+                        .groups
+                        .iter()
+                        .map(|group| (group.slug.clone(), group.label.clone())),
+                );
+                index
+            },
         )
         .await
     }

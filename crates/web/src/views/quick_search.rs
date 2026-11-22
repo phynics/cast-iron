@@ -263,7 +263,30 @@ impl QuickSearch {
             });
             scope.with_source_title(title)
         });
+        let by_group = scope
+            .as_ref()
+            .is_some_and(|scope| scope.facets.iter().any(|(field, _)| field == "group"));
         self.scope.set(scope);
+        if by_group {
+            // The pill names the group by its label, which comes from `option-groups.json`; and a
+            // library compiled before the index held the group cannot search by it, so the
+            // scope falls back to the kind.
+            let library = self.library.get_value();
+            spawn_local(async move {
+                let _ = library.option_groups().await;
+                let indexed = library
+                    .search_index()
+                    .await
+                    .is_ok_and(|index| index.facet_fields().iter().any(|field| field == "group"));
+                self.scope.try_update(|scope| {
+                    if let Some(scope) = scope.as_mut()
+                        && !indexed
+                    {
+                        scope.facets.retain(|(field, _)| field != "group");
+                    }
+                });
+            });
+        }
         self.continue_row.set(None);
         self.viewed_expanded.set(false);
         self.open.set(true);

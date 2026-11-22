@@ -409,10 +409,9 @@ pub(crate) fn canonical_facets(entries: &[RuleEntry]) -> BTreeMap<EntryId, Vec<(
                 }
             }
             TypedFields::Trait(fields) => push(&mut facets, "trait_category", &fields.category),
-            TypedFields::RacialTrait(_)
-            | TypedFields::Archetype(_)
-            | TypedFields::ClassOption(_)
-            | TypedFields::None => {}
+            // A class option's group is the slug of `option-groups.toml`.
+            TypedFields::ClassOption(fields) => push(&mut facets, "group", &fields.group),
+            TypedFields::RacialTrait(_) | TypedFields::Archetype(_) | TypedFields::None => {}
         }
         // A race's group is an optional entry field, not part of `TypedFields`.
         if let Some(group) = entry.race_group {
@@ -851,6 +850,24 @@ mod tests {
         assert_eq!(
             facets[&EntryId::parse("ref/arc-bard/buccaneer").unwrap()],
             vec![("archetype_class".into(), "bard".into())]
+        );
+    }
+
+    #[test]
+    fn a_class_option_has_its_group() {
+        let mut option = entry(
+            "ref/rage-power/lesser-celestial-totem",
+            EntryKind::ClassOption,
+            0,
+        );
+        option.fields = TypedFields::ClassOption(cast_iron_schema::ClassOptionFields {
+            group: "rage-power".into(),
+            ..Default::default()
+        });
+        let facets = canonical_facets(&[option]);
+        assert_eq!(
+            facets[&EntryId::parse("ref/rage-power/lesser-celestial-totem").unwrap()],
+            vec![("group".into(), "rage-power".into())]
         );
     }
 

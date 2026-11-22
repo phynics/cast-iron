@@ -1,8 +1,8 @@
 ---
 title: "Class options in the app"
 date: 2026-11-08
-status: current
-superseded_by: []
+status: partly-superseded
+superseded_by: ["2026-11-22-class-option-group-in-the-search-index"]
 issues: [146, 246]
 prs: []
 area: ui
