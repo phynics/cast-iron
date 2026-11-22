@@ -4,7 +4,7 @@ date: 2026-11-23
 status: current
 superseded_by: []
 issues: [426, 579, 584, 587, 592]
-prs: []
+prs: [624]
 area: ui
 ---
 
