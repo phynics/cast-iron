@@ -47,6 +47,8 @@ installedTest("Filter chips count the entries that choosing them shows", async (
   expect(spells).toBeLessThan(kindTotals.get("spell")!);
   await chipOf(page, /^Spells/).click();
   await expect(page.locator(".results-region")).toHaveAttribute("data-search-ms", /.+/);
+  // The timing belongs to Diagnostics; the count line carries none (#591).
+  await expect(page.locator(".result-count")).not.toContainText(/\d ms/);
   await expect.poll(() => renderedEntries(page)).toBe(spells);
   // The kind chips ignore their own selection, so an alternative keeps its count.
   expect(await chipCount(page, /^Spells/)).toBe(spells);

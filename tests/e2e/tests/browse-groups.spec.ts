@@ -13,6 +13,13 @@ const activeStubs = corpus.catalog.entries.filter(
 );
 const activeIds = new Set(activeStubs.map((stub: any) => stub.id as string));
 
+test("Home blurbs describe the lists as they are", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/");
+  await expect(page.getByText("Class variants, with a filter by class", { exact: true })).toBeVisible();
+  await expect(page.getByText("Standard and alternate traits of every race", { exact: true })).toBeVisible();
+});
+
 test("A long kind opens one letter group, focuses it, and Back returns to it", async ({ page }) => {
   await installLibrary(page);
   await waitControlled(page);
@@ -318,9 +325,11 @@ test("A shared feat type link with another case still reads as that type, and an
   await expect(typeButton(page)).toHaveText("Type: Combat");
   await expect(main.locator(".list-count")).toHaveText(new RegExp(`^${count(featsInCombat)} of ${count(featCount)} feats`));
   await page.goto("#/browse/kind/feat?facet=feat_type:Nonesuch");
-  await expect(main.locator(".list-count")).toHaveText(`0 of ${count(featCount)} feats · Show all`);
+  await expect(main.locator(".list-count")).toHaveText(`0 of ${count(featCount)} feats`);
   await expect(typeButton(page)).toHaveText("Type: All types");
   await expect(main.getByText("No Nonesuch feats in your active books.")).toBeVisible();
+  // The way out is offered once: the count line has no `Show all` of its own.
+  await expect(main.getByRole("link", { name: /^Show all/ })).toHaveCount(1);
   // The way out is the page where the active set changes, not the read-only Books list.
   await expect(main.getByRole("link", { name: "Manage books", exact: true })).toHaveAttribute("href", "#/books/manage");
   await expect(main.getByRole("link", { name: "Choose books" })).toHaveCount(0);
@@ -461,7 +470,7 @@ test("An item category that no active book holds shows the empty state with the 
   await installLibrary(page);
   await page.goto("#/browse/kind/item?facet=item_category:Nonesuch");
   const main = page.locator("main");
-  await expect(main.locator(".list-count")).toHaveText(`0 of ${count(itemCount)} items · Show all`);
+  await expect(main.locator(".list-count")).toHaveText(`0 of ${count(itemCount)} items`);
   await expect(categoryButton(page)).toHaveText("Category: All categories");
   await expect(main.getByText("No Nonesuch in your active books.")).toBeVisible();
   // The way out is the page where the active set changes, not the read-only Books list.

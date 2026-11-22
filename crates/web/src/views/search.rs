@@ -2072,9 +2072,6 @@ pub fn Search() -> impl IntoView {
                         <p class="result-count" role="status" aria-live="polite" tabindex="-1">
                             <span>{count_text}</span>
                             {show_all}
-                            {move || search_ms.get().filter(|_| matches!(phase.get(), Phase::Done { .. })).map(|ms| view! {
-                                <span class="ms" aria-hidden="true">{format!(" · {ms:.1} ms")}</span>
-                            })}
                         </p>
                         {missing_book_hint}
                         {inactive_hint}
