@@ -421,6 +421,9 @@ test("Rule entries preserve complex formatting: creature spell lists use readabl
 test("Rule entries preserve complex formatting: the largest table keeps its cells and spans", async ({ page }) => {
   let best: { id: string; index: number; table: any; cells: number } | null = null;
   for (const entry of corpus.entries.values()) {
+    // A class page folds its Archetypes section, matrix included, into the archetype list (#599),
+    // so its tables are not all rendered in body order. The progression table has its own tests.
+    if (entry.kind === "class") continue;
     tablesOf(entry.body).forEach((table, index) => {
       const cells = tableRows(table).reduce((n, r) => n + r.cells.length, 0);
       if (!best || cells > best.cells) best = { id: entry.id, index, table, cells };

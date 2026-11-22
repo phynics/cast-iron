@@ -11,6 +11,7 @@ import {
   listedChapters,
   openBookGroups,
   searchFor,
+  storedMeta,
 } from "./helpers";
 
 const corpus = loadCorpus();
@@ -507,6 +508,11 @@ test("An inactive book shows one off line and no toggle; turning it on removes b
   const read = bookReadingOrder(book)[0];
   await page.goto(`#/entry/${read}?book=${book.source}`);
   await expect(page.getByRole("heading", { level: 1, name: corpus.entries.get(read)!.title, exact: true })).toBeVisible();
+  // The place is saved after the entry renders; leave only once it is stored.
+  await expect
+    .poll(async () => (((await storedMeta(page, "continue_points")) ?? []) as { source: string; entry_id: string }[])
+      .find((point) => point.source === book.source)?.entry_id)
+    .toBe(read);
   await page.goto("#/books/manage");
   await openBookGroups(page);
   const toggle = page.locator(`.book-directory-item[data-book-id="${book.source}"]`)
@@ -522,7 +528,9 @@ test("An inactive book shows one off line and no toggle; turning it on removes b
   await expect(page.getByRole("checkbox", { name: "Active", exact: true })).toHaveCount(0);
   const manage = off.getByRole("link", { name: "Manage books", exact: true });
   await expect(manage).toHaveAttribute("href", "#/books/manage");
-  // Document order: the saved place first, then the off line, then In this book.
+  // Document order: the saved place first, then the off line, then In this book. The saved place
+  // loads after the page, so wait for it before reading the order.
+  await expect(page.getByTestId("continue-reading")).toBeVisible();
   const order = await page.locator("main").evaluate((main) => {
     const at = (selector: string) => {
       const found = main.querySelector(selector);
