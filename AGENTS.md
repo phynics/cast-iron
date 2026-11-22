@@ -45,6 +45,7 @@ The retired upstream import and the PSRD library build are preserved at the git 
 | `crates/content-compiler` | Native CLI: compiles the corpus into the content library, writes reports |
 | `crates/corpus` | The plain-text corpus format: reader, writer, check, formatter (`docs/corpus-format.md`) |
 | `crates/search` | Index generation and query engine, for native and WASM. No dependency on `schema` |
+| `crates/sort` | One non-generic stable sort. Non-test code in `web`, `schema` and `search` uses it instead of `slice::sort*`, so the WASM holds one copy (`docs/decisions/2026-11-22-one-stable-sort-helper.md`) |
 | `crates/web` | Leptos client |
 | `crates/xtask` | Build automation |
 | `web/` | `index.html`, `sw.js`, manifest, CSS, icons |
