@@ -1448,7 +1448,9 @@ installedTest("An inactive first source is replaced by the active book that stil
   const updated = page.locator(`.results a.hit-link[href^="#/entry/${entry.id}"]`).first();
   await expect(updated.locator(".hit-meta")).toHaveText(new RegExp(`· ${escape(ownerTitle)}$`));
   await updated.click();
-  await expect(page.locator(".entry-meta .meta-link").nth(1)).toHaveText(ownerTitle);
+  // Name the book link instead of counting links: racial traits and archetypes put their parent
+  // before the book in the metadata line (#574).
+  await expect(page.locator(".entry-meta").getByRole("link", { name: ownerTitle, exact: true })).toBeVisible();
 
   // Quick search suggestions use the same rule as the result rows.
   await page.goto("#/");
