@@ -78,7 +78,8 @@ test("Book routes, legacy routes, and separate class categories work offline", a
 
   // The Prestige classes filter returns only that kind, grouped by title.
   await page.goto("#/search");
-  await page.locator(".filters .chip", { hasText: /^Prestige classes/ }).click();
+  await page.locator(".filters #filter-btn-kind").click();
+  await page.locator(".filters").getByRole("checkbox", { name: /^Kind Prestige classes, / }).check();
   await showAllResults(page);
   const grouped = uniqueTitles(prestige).length;
   await expect(page.locator(".results .hit")).toHaveCount(grouped);
@@ -604,7 +605,8 @@ test("Back/forward navigation works", async ({ page }) => {
   await expect(page.locator(".search-page")).toBeVisible();
   await page.locator("#search-input").fill(spell.title);
   await expect(page.locator(".results-region")).toHaveAttribute("data-query", spell.title);
-  await page.locator(".filters .chip", { hasText: /^Spells/ }).click();
+  await page.locator(".filters #filter-btn-kind").click();
+  await page.locator(".filters").getByRole("checkbox", { name: /^Kind Spells, / }).check();
   await expect.poll(() => page.url()).toContain("kind=spell");
   await page.goBack();
   await expect.poll(() => page.url()).not.toContain("kind=spell");

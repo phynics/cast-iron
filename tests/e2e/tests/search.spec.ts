@@ -15,10 +15,23 @@ const activeStubs = corpus.catalog.entries.filter(
 );
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-/** The chip whose label starts with `label`, and the count it shows. */
-const chipOf = (page: Page, label: RegExp) => page.locator(".filters .chip", { hasText: label });
-const chipCount = async (page: Page, label: RegExp) =>
-  num(await chipOf(page, label).locator(".chip-count").innerText());
+/**
+ * The Kind group is a filter menu (#579), `Kind: All kinds` with one checkbox row per kind. Opens
+ * it (by id: the button's name follows the choice) and returns the panel.
+ */
+async function openKindMenu(page: Page) {
+  const trigger = page.locator(".filters #filter-btn-kind");
+  if ((await trigger.getAttribute("aria-expanded")) !== "true") await trigger.click();
+  return page.locator(`#${await trigger.getAttribute("aria-controls")}`);
+}
+
+/** The row of a kind, named `Kind Spells, 12 entries`. */
+const kindRow = async (page: Page, label: string) =>
+  (await openKindMenu(page)).getByRole("checkbox", { name: new RegExp(`^Kind ${escape(label)}, `) });
+
+/** The count a kind's row shows. */
+const kindCount = async (page: Page, label: string) =>
+  num(await (await kindRow(page, label)).locator("xpath=..").locator(".choice-count").innerText());
 
 /**
  * A facet group with more than four values is a filter menu (#579): a button that names the
@@ -49,26 +62,26 @@ installedTest("Filter chips count the entries that choosing them shows", async (
   const kindTotals = new Map<string, number>();
   for (const stub of activeStubs) kindTotals.set(stub.kind, (kindTotals.get(stub.kind) ?? 0) + 1);
 
-  // Without a query the chips are the totals for the active books.
+  // Without a query the counts are the totals for the active books.
   await expect(page.locator(".search-page")).toBeVisible();
-  await expect.poll(() => chipCount(page, /^Spells/)).toBe(kindTotals.get("spell"));
-  await expect.poll(() => chipCount(page, /^Feats/)).toBe(kindTotals.get("feat"));
+  await expect.poll(() => kindCount(page, "Spells")).toBe(kindTotals.get("spell"));
+  await expect.poll(() => kindCount(page, "Feats")).toBe(kindTotals.get("feat"));
 
-  // A query narrows every chip. The chip for a kind equals the results of choosing that kind.
+  // A query narrows every count. The count of a kind equals the results of choosing that kind.
   await page.locator("#search-input").fill("fire");
   await waitResults(page, "fire");
-  const spells = await chipCount(page, /^Spells/);
-  const feats = await chipCount(page, /^Feats/);
+  const spells = await kindCount(page, "Spells");
+  const feats = await kindCount(page, "Feats");
   expect(spells).toBeGreaterThan(0);
   expect(spells).toBeLessThan(kindTotals.get("spell")!);
-  await chipOf(page, /^Spells/).click();
+  await (await kindRow(page, "Spells")).check();
   await expect(page.locator(".results-region")).toHaveAttribute("data-search-ms", /.+/);
   // The timing belongs to Diagnostics; the count line carries none (#591).
   await expect(page.locator(".result-count")).not.toContainText(/\d ms/);
   await expect.poll(() => renderedEntries(page)).toBe(spells);
-  // The kind chips ignore their own selection, so an alternative keeps its count.
-  expect(await chipCount(page, /^Spells/)).toBe(spells);
-  expect(await chipCount(page, /^Feats/)).toBe(feats);
+  // The kind rows ignore their own selection, so an alternative keeps its count.
+  expect(await kindCount(page, "Spells")).toBe(spells);
+  expect(await kindCount(page, "Feats")).toBe(feats);
 
   // A facet value equals the results of choosing it, on top of the query and the kind.
   const schools = await openFacetMenu(page, "School: All schools");
@@ -228,6 +241,74 @@ installedTest("Filter menus: the first Escape closes the menu and the second clo
   await page.keyboard.press("Escape");
   await expect(panel).not.toHaveClass(/open/);
   await expect(toggle).toBeFocused();
+});
+
+installedTest("Filter menus: Kind is one menu, ticking kinds keeps focus, and All kinds drops the kind facets and keeps the query (#579)", async ({ page }) => {
+  await installLibrary(page);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("#/search?q=fire");
+  await waitResults(page, "fire");
+  const filters = page.locator(".filters");
+  const button = filters.locator("#filter-btn-kind");
+  await expect(button).toHaveText("Kind: All kinds");
+  await expect(button).toHaveRole("button");
+  // The group is the button and its panel: no pill, no legend above it. The quick kinds row
+  // keeps its pills.
+  await expect(filters.locator(".filter-group", { has: button }).locator(".chip")).toHaveCount(0);
+  await expect(filters.locator(".filter-group legend", { hasText: /^Kind$/ })).toHaveCount(0);
+  await expect(page.locator(".search-scopes .scope-choice")).toHaveCount(4);
+  // The group comes first, then Publication.
+  const groupNames = await filters.locator("#filters-panel > .filter-group").evaluateAll((groups) =>
+    groups.slice(0, 2).map((group) => group.querySelector("legend, .filter-btn")?.textContent?.trim() ?? ""));
+  expect(groupNames[0]).toBe("Kind: All kinds");
+  expect(groupNames[1]).toBe("Publication");
+
+  const panel = await openKindMenu(page);
+  // Fifteen kinds: opening focuses the find field, and the rows keep the order of the kinds.
+  await expect(panel.getByRole("searchbox", { name: "Find a kind" })).toBeFocused();
+  const names = await panel.getByRole("checkbox").evaluateAll((inputs) => inputs.map((input) => input.getAttribute("aria-label") ?? ""));
+  expect(names.map((name) => name.replace(/^Kind /, "").replace(/, [\d,]+ entr(?:y|ies)$/, ""))).toEqual([
+    "Rules", "Spells", "Feats", "Creatures", "Items", "Classes", "Prestige classes", "Races", "Skills",
+    "Afflictions", "Traps", "Traits", "Racial traits", "Archetypes", "Class options",
+  ]);
+  // The menu has no scroll of its own: the sidebar is the scroll area.
+  expect(await panel.evaluate((el) => getComputedStyle(el).maxHeight)).toBe("none");
+
+  const spells = panel.getByRole("checkbox", { name: /^Kind Spells, / });
+  await expect(spells).toHaveAccessibleName(/^Kind Spells, [\d,]+ entr(?:y|ies)$/);
+  await spells.check();
+  await expect(button).toHaveText("Kind: Spells");
+  const feats = panel.getByRole("checkbox", { name: /^Kind Feats, / });
+  await feats.check();
+  await expect(button).toHaveText("Kind: 2 chosen");
+  const hash = new URL(page.url()).hash;
+  expect(hash).toContain("kind=spell");
+  expect(hash).toContain("kind=feat");
+  expect(hash).toContain("q=fire");
+  // The panel stays open and the tick stays under the reader's finger.
+  await expect(panel).toBeVisible();
+  await expect(feats).toBeChecked();
+  await expect(feats).toBeFocused();
+  await expect(spells).toBeChecked();
+  // The quick kinds row follows: two kinds are no single quick scope.
+  await expect(page.getByRole("button", { name: "Spells", exact: true })).toHaveAttribute("aria-pressed", "false");
+
+  // A kind's facet is tied to the kind: ticking a school, then unticking Spells drops it.
+  await spells.uncheck();
+  await expect(button).toHaveText("Kind: Feats");
+  await spells.check();
+  const school = (await openFacetMenu(page, "School: All schools")).getByRole("checkbox", { name: /^School Evocation, / });
+  await school.check();
+  await expect.poll(() => page.url()).toContain("school:evocation");
+
+  // All kinds clears the kinds and the facets tied to them, and keeps the typed text.
+  await (await openKindMenu(page)).getByRole("link", { name: "All kinds" }).click();
+  await expect(button).toHaveText("Kind: All kinds");
+  await expect.poll(() => new URL(page.url()).hash).not.toContain("kind=");
+  const cleared = new URL(page.url()).hash;
+  expect(cleared).not.toContain("school");
+  expect(cleared).toContain("q=fire");
+  await expect(page.locator("#search-input")).toHaveValue("fire");
 });
 
 installedTest("Filter menus: a group of four values or fewer stays pills, and the page does not scroll sideways (#579)", async ({ page }) => {
@@ -626,7 +707,7 @@ installedTest("Chip counts keep their last value while a query is pending", asyn
   await page.locator("#search-input").fill("fire");
   await waitResults(page, "fire");
   const countsOf = () =>
-    page.evaluate(() => [...document.querySelectorAll(".filters .chip-count")].map((el) => el.textContent));
+    page.evaluate(() => [...document.querySelectorAll(".filters .chip-count, .filters .choice-count")].map((el) => el.textContent));
   const widths = () =>
     page.evaluate(() => [...document.querySelectorAll(".filters .chip")].map((el) => el.getBoundingClientRect().width));
   const before = await countsOf();
@@ -638,7 +719,7 @@ installedTest("Chip counts keep their last value while a query is pending", asyn
     const input = document.getElementById("search-input") as HTMLInputElement;
     input.value = "fireb";
     input.dispatchEvent(new Event("input", { bubbles: true }));
-    return [...document.querySelectorAll(".filters .chip-count")].map((el) => el.textContent);
+    return [...document.querySelectorAll(".filters .chip-count, .filters .choice-count")].map((el) => el.textContent);
   });
   expect(during).toEqual(before);
   await waitResults(page, "fireb");
@@ -703,7 +784,7 @@ test("Search operates entirely offline", async ({ page, context, server }) => {
   expect(expectedGroups.length).toBeGreaterThan(1);
   await page.goto("#/search");
   await page.locator("#search-input").fill("");
-  await page.locator(".filters .chip", { hasText: /^Spells/ }).click();
+  await (await kindRow(page, "Spells")).check();
   const schoolRow = (await openFacetMenu(page, "School: All schools")).getByRole("checkbox", { name: new RegExp(`^School ${escape(chosen.school)}, `, "i") });
   await expect(schoolRow).toBeVisible();
   await schoolRow.check();
@@ -1853,7 +1934,7 @@ installedTest("Desktop results page: the sidebar stays open, there is no Filters
   // Choosing a kind from the row filters the results and the sidebar shows the same choice.
   await page.getByRole("button", { name: "Spells", exact: true }).click();
   await expect(page.getByRole("button", { name: "Spells", exact: true })).toHaveAttribute("aria-pressed", "true");
-  await expect(page.locator(".filters .chip", { hasText: /^Spells/ }).locator("input")).toBeChecked();
+  await expect(await kindRow(page, "Spells")).toBeChecked();
   await expect(page.locator("#filters-panel")).toBeVisible();
 });
 
