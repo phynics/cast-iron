@@ -9,6 +9,7 @@ use crate::views::icons;
 use crate::views::util::{Shared, local_resource, set_title, sort_key};
 use cast_iron_schema::{EntryId, EntryKind};
 use leptos::prelude::*;
+use std::collections::HashMap;
 
 /// The title of a feat for display, from the catalog; the id when the catalog lacks it.
 fn title_of(library: &Library, id: &EntryId) -> String {
@@ -126,7 +127,18 @@ fn HeadList(library: Library, relations: Shared<Relations>) -> impl IntoView {
                     (library.clone(), relations.clone(), head.id.clone());
                 move || {
                     opened.get().then(|| {
-                        let tree = relations.dependents_tree(&id);
+                        // Every feat below the head, children by title as `Leads to` lists them.
+                        let keys: HashMap<EntryId, String> = relations
+                            .descendants(&id)
+                            .into_iter()
+                            .map(|d| {
+                                let key = sort_key(&title_of(&library, &d));
+                                (d, key)
+                            })
+                            .collect();
+                        let tree = relations.dependents_tree(&id, &|a, b| {
+                            keys.get(a).cmp(&keys.get(b)).then_with(|| a.cmp(b))
+                        });
                         view! { <ul class="chain">{chain_tree(&library, &tree, false)}</ul> }
                     })
                 }
