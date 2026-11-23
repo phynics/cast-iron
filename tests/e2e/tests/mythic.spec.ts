@@ -85,7 +85,8 @@ test("Mythic Adventures active: the base stacks one expanded version", async ({ 
   const section = page.locator(".rel-addon");
   await expect(section.getByRole("heading", { name: "Mythic", level: 2 })).toBeVisible();
   await expect(section.getByRole("heading", { name: "Power Attack, Mythic", level: 3 })).toBeVisible();
-  await expect(section.locator(".sources-line")).toHaveText("Sources: Mythic Adventures");
+  // The add-on cites its page since corpus v0.1.40 (phynics/cast-iron-data#170).
+  await expect(section.locator(".sources-line")).toHaveText("Sources: Mythic Adventures p. 71");
   await expect(section.locator(".rich")).toContainText("mythic power");
   // The stacked body carries no second stat block or left rule.
   await expect(section.locator(".stat-block")).toHaveCount(0);
