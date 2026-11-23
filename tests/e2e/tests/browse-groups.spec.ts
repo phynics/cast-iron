@@ -1104,7 +1104,7 @@ test("The school menu on a list is a multi-select: the route holds the schools, 
   // A marker that a rebuild would clear proves a choice does not rebuild the page.
   await page.evaluate(() => ((window as any).__kept = "yes"));
 
-  const evocation = panel.getByRole("checkbox", { name: /^Evocation, / });
+  const evocation = panel.getByRole("checkbox", { name: /^School Evocation, / });
   await evocation.check();
   await expect.poll(() => new URL(page.url()).hash).toBe("#/spells/Wizard/3?school=evocation");
   await expect(button("School: Evocation")).toHaveClass(/filter-btn-on/);
@@ -1117,7 +1117,7 @@ test("The school menu on a list is a multi-select: the route holds the schools, 
   expect(shown).toHaveLength(of("evocation"));
   expect(new Set(shown)).toEqual(new Set(["Evocation"]));
 
-  const conjuration = panel.getByRole("checkbox", { name: /^Conjuration, / });
+  const conjuration = panel.getByRole("checkbox", { name: /^School Conjuration, / });
   await conjuration.check();
   await expect.poll(() => new URL(page.url()).hash).toBe("#/spells/Wizard/3?school=evocation&school=conjuration");
   await expect(button("School: 2 chosen")).toBeVisible();
@@ -1207,13 +1207,13 @@ test("In the school menu All schools only closes the panel while nothing is chos
 
   // With a school chosen the row is not current, its box is empty, and it clears the choices.
   await button.click();
-  await panel.getByRole("checkbox", { name: /^Evocation, / }).check();
+  await panel.getByRole("checkbox", { name: /^School Evocation, / }).check();
   await expect(all).not.toHaveAttribute("aria-current", "true");
   await expect(all.locator(".choice-check")).toHaveCount(0);
   await all.click();
   await expect.poll(() => new URL(page.url()).hash).toBe("#/spells/Wizard/3");
   await expect(main.getByRole("button", { name: "School: All schools", exact: true })).toBeVisible();
-  await expect(panel.getByRole("checkbox", { name: /^Evocation, / })).not.toBeChecked();
+  await expect(panel.getByRole("checkbox", { name: /^School Evocation, / })).not.toBeChecked();
   await expect(all).toHaveAttribute("aria-current", "true");
 });
 
@@ -1222,9 +1222,9 @@ test("A school checkbox is named with its label and its spell count", async ({ p
   const main = page.locator("main");
   await page.goto("#/spells/Wizard/3");
   await main.getByRole("button", { name: "School: All schools", exact: true }).click();
-  const evocation = main.getByRole("checkbox", { name: /^Evocation, / });
+  const evocation = main.getByRole("checkbox", { name: /^School Evocation, / });
   const n = wizardSpells(3).filter((spell) => spell.school === "evocation").length;
-  await expect(evocation).toHaveAccessibleName(`Evocation, ${count(n)} ${n === 1 ? "spell" : "spells"}`);
+  await expect(evocation).toHaveAccessibleName(`School Evocation, ${count(n)} ${n === 1 ? "spell" : "spells"}`);
 });
 
 test("A level heading in the whole-list view keeps the chosen schools", async ({ page }) => {

@@ -115,8 +115,23 @@ pub fn multi_trigger_text(spec: &MenuSpec, labels: &[String]) -> String {
     }
 }
 
+/// A row's accessible name: the group, the label, and the count when there is one: `CR 10, 4
+/// creatures`, `School Evocation, 12 spells`. The group comes first so a reader of a screen reader
+/// hears which menu a bare value such as `10` belongs to. `count` is `None` while counts load.
+pub fn row_name(spec: &MenuSpec, label: &str, count: Option<usize>, noun: (&str, &str)) -> String {
+    match count {
+        Some(n) => format!(
+            "{} {label}, {}",
+            spec.group,
+            fmt::pluralize(n, noun.0, noun.1)
+        ),
+        None => format!("{} {label}", spec.group),
+    }
+}
+
 /// The chosen values with `value` ticked or unticked. A new choice goes last, so the route lists
-/// the choices in the order they were made; values compare without regard to case.
+/// the choices in the order they were made; values compare without regard to case, and a new
+/// choice keeps the case it was given (a facet value such as `CR 1/2` is not a slug).
 pub fn toggled_choice(chosen: &[String], value: &str) -> Vec<String> {
     if chosen.iter().any(|c| c.eq_ignore_ascii_case(value)) {
         chosen
@@ -126,7 +141,7 @@ pub fn toggled_choice(chosen: &[String], value: &str) -> Vec<String> {
             .collect()
     } else {
         let mut next = chosen.to_vec();
-        next.push(value.to_lowercase());
+        next.push(value.to_string());
         next
     }
 }
@@ -426,6 +441,11 @@ pub fn MultiFilterMenuPanel(
     /// What a row's count counts, for its accessible name: `spell`, `spells`.
     count_noun: (&'static str, &'static str),
     on_change: Callback<Vec<String>>,
+    /// Live counts by value, for a page whose counts follow its results. The rows are not
+    /// rebuilt when a count changes, so a ticked row keeps focus. `None` for a value says the
+    /// count is not known yet: the row shows no count. Without it the rows use `options`.
+    #[prop(optional)]
+    count_of: Option<Callback<String, Option<usize>>>,
 ) -> impl IntoView {
     let all_id = format!("{}-all", panel_id(&spec));
     // Above ten options the panel has a find field, as a single-choice menu does.
@@ -464,14 +484,20 @@ pub fn MultiFilterMenuPanel(
                 .map(|option| {
                     let value = option.value.clone();
                     let for_checked = option.value.clone();
-                    let name = format!(
-                        "{}, {}",
-                        option.label,
-                        fmt::pluralize(option.count, count_noun.0, count_noun.1)
-                    );
+                    let for_count = option.value.clone();
+                    let (label, fallback) = (option.label.clone(), option.count);
+                    // The count the row shows: the live one, or the one it was built with.
+                    let count = Signal::derive(move || match count_of {
+                        Some(live) => live.run(for_count.clone()),
+                        None => Some(fallback),
+                    });
+                    let name = {
+                        let label = label.clone();
+                        move || row_name(&spec, &label, count.get(), count_noun)
+                    };
                     view! {
                         <li>
-                            <label class="choice-row">
+                            <label class="choice-row" class:choice-empty=move || count.get() == Some(0)>
                                 <input
                                     type="checkbox"
                                     aria-label=name
@@ -480,8 +506,8 @@ pub fn MultiFilterMenuPanel(
                                     }
                                     on:change=move |_| on_change.run(toggled_choice(&chosen.get_untracked(), &value))
                                 />
-                                <span class="choice-label">{option.label.clone()}</span>
-                                <span class="choice-count">{fmt::count(option.count as u32)}</span>
+                                <span class="choice-label">{label}</span>
+                                <span class="choice-count">{move || count.get().map(fmt::count)}</span>
                             </label>
                         </li>
                     }
@@ -696,7 +722,35 @@ mod tests {
             ["evocation", "illusion"]
         );
         assert_eq!(toggled_choice(&chosen, "Evocation"), Vec::<String>::new());
-        assert_eq!(toggled_choice(&[], "Illusion"), ["illusion"]);
+        // A new choice keeps its case: a value such as `CR 1/2` is not a slug.
+        assert_eq!(toggled_choice(&[], "Illusion"), ["Illusion"]);
+        assert_eq!(
+            toggled_choice(&["Combat".to_string()], "combat"),
+            Vec::<String>::new()
+        );
+    }
+
+    #[test]
+    fn a_row_is_named_with_its_group_label_and_count() {
+        let cr = MenuSpec {
+            field: "cr",
+            group: "CR",
+            all_label: "All CRs",
+            find_label: "Find a CR",
+            list_label: "Challenge rating",
+            singular: "rating",
+            plural: "ratings",
+        };
+        let noun = ("creature", "creatures");
+        assert_eq!(row_name(&cr, "10", Some(4), noun), "CR 10, 4 creatures");
+        assert_eq!(row_name(&cr, "1/2", Some(1), noun), "CR 1/2, 1 creature");
+        assert_eq!(
+            row_name(&cr, "10", Some(1234), noun),
+            "CR 10, 1,234 creatures"
+        );
+        assert_eq!(row_name(&cr, "10", Some(0), noun), "CR 10, 0 creatures");
+        // While counts load the row has a name and no count.
+        assert_eq!(row_name(&cr, "10", None, noun), "CR 10");
     }
 
     #[test]

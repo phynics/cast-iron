@@ -5415,6 +5415,11 @@ label.choice-row {
   font-weight: 600;
 }
 
+/* A chosen value that no result has stays listed, dimmed, so it can be cleared. */
+.choice-row.choice-empty:not(:has(input:checked)) {
+  color: var(--ink-muted);
+}
+
 .choice-row:has(input:focus-visible) {
   outline: 2px solid var(--accent);
   outline-offset: -2px;

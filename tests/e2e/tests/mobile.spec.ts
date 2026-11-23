@@ -627,7 +627,7 @@ installedTest("Spell lists at 390 px: Wizard is one tap from the hub, and rows s
   const box390 = (await panel.boundingBox())!;
   expect(box390.x).toBeGreaterThanOrEqual(0);
   expect(box390.x + box390.width).toBeLessThanOrEqual(390);
-  const evocation = panel.getByRole("checkbox", { name: /^Evocation, / });
+  const evocation = panel.getByRole("checkbox", { name: /^School Evocation, / });
   const evocationCount = Number((await evocation.getAttribute("aria-label"))!.match(/(\d+) spells?$/)![1]);
   await evocation.check();
   await expect(page.getByRole("button", { name: "School: Evocation", exact: true })).toBeVisible();
