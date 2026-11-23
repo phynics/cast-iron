@@ -3,7 +3,7 @@ title: "v1 scope: owner decisions of 2026-11-23"
 date: 2026-11-23
 status: current
 superseded_by: []
-issues: [12, 134, 183, 254, 264, 423, 447, 461, 514, 540, 618, 637, 646, 647, 648]
+issues: [12, 134, 183, 254, 264, 423, 447, 461, 514, 540, 618, 637, 646, 647, 648, 650, 651]
 prs: []
 area: process
 ---
@@ -24,10 +24,16 @@ the owner decided the open questions that stood in the way.
   show in the Traps list and every list, count and search scope would then need a special case.
 - **Browse lists order same-name entries as search does**
   ([#637](https://github.com/phynics/cast-iron/issues/637)): product-line rank, newest printing, title, id
-  ([search prefers the latest printing](2026-11-23-search-prefers-the-latest-printing.md)).
-- **Archetype pages get the class-option power layout**
-  ([#540](https://github.com/phynics/cast-iron/issues/540)). It is the last large corpus rewrite, and the
-  UI/UX work after v1 then runs on final data.
+  ([search prefers the latest printing](2026-11-23-search-prefers-the-latest-printing.md)). Books
+  sometimes disagree on a rule that they print under one name: every entry stays, and the latest one is
+  elevated. Linking the printings to each other is post-v1 (below).
+- **Archetype features follow the printed prose**
+  ([#540](https://github.com/phynics/cast-iron/issues/540)). The owner dislikes the partitioning of class
+  features into rows: the row layout of the class options is not extended to archetype pages as the
+  rendered form. Structure stays at the data level, if it is kept at all, and corpus-format extensions help
+  the app on printed prose. The survey of #540 proposes the extension, and the owner approves it before a
+  rewrite. Whether the class-option layout changes the same way is not decided. This is the last large
+  corpus rewrite, and the UI/UX work after v1 then runs on final data.
 - **The print queues finish, with no cut line:** wrong book memberships
   ([#461](https://github.com/phynics/cast-iron/issues/461)), missing citation pages
   ([cast-iron-data#215](https://github.com/phynics/cast-iron-data/issues/215)) and the 9 leftover creature
@@ -55,3 +61,7 @@ the owner decided the open questions that stood in the way.
   is closed: spell-list controls on phones ([#646](https://github.com/phynics/cast-iron/issues/646)), large
   feat chains ([#647](https://github.com/phynics/cast-iron/issues/647)) and effective-source clarity
   ([#648](https://github.com/phynics/cast-iron/issues/648)).
+- **Entry pages link the other printings of a rule**
+  ([#650](https://github.com/phynics/cast-iron/issues/650)), the linking part of the #637 intention.
+- **The `Wide` spell row density is renamed `Expanded`**
+  ([#651](https://github.com/phynics/cast-iron/issues/651)).
