@@ -117,7 +117,7 @@ fn off_line() -> impl IntoView {
     view! {
         <p class="muted book-off-line" data-testid="book-off-line">
             {BOOK_OFF_LINE}" "
-            <a class="count-action" href=Route::BooksManage.href()>"Manage books"</a>
+            <a class="count-action" href=Route::books_manage().href()>"Manage books"</a>
         </p>
     }
 }
@@ -203,7 +203,7 @@ pub fn BookUnavailable() -> impl IntoView {
             <div class="error" role="alert" data-testid="book-unavailable">
                 <p>{BOOK_UNAVAILABLE_LINE}</p>
                 <p>
-                    <a href=Route::Books.href()>"Browse all books"</a>" or "
+                    <a href=Route::books().href()>"Browse all books"</a>" or "
                     <a href=Route::Home.href()>"go to Home"</a>"."
                 </p>
             </div>
@@ -486,7 +486,7 @@ pub fn ChapterView(
                                     <p>"This chapter isn't in this book. The link may be old or mistyped."</p>
                                     <p>
                                         <a href=Route::Book { source: source.clone(), chapter: None }.href()>"Open the book"</a>" or "
-                                        <a href=Route::Books.href()>"Browse all books"</a>"."
+                                        <a href=Route::books().href()>"Browse all books"</a>"."
                                     </p>
                                 </div>
                             }.into_any();
@@ -528,7 +528,7 @@ pub fn ChapterView(
                         view! {
                             <nav class="crumbs" aria-label="Breadcrumb">
                                 <ol>
-                                    <li><a href=Route::Books.href()>"Books"</a></li>
+                                    <li><a href=Route::books().href()>"Books"</a></li>
                                     <li><a href=book_href>{tree.title.clone()}</a></li>
                                     <li><span aria-current="page">{row.title.clone()}</span></li>
                                 </ol>
