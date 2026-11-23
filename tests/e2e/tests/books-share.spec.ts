@@ -459,6 +459,38 @@ installedTest("A link asks first, applies on confirmation, and Undo restores the
   await expect(countText(page)).toHaveText(activeLine(rulebooks.length));
 });
 
+installedTest("A link's question sits above the Find a book field and keeps its focus, and typing in the field keeps the question", async ({ page }) => {
+  await installLibrary(page);
+  await applyPreset(page, "Paizo Rulebooks");
+  await page.goto(`#/books/manage?set=${codeFor(paizoBooks)}`);
+  await waitReady(page);
+  const heading = page.getByRole("heading", { name: "Use this set of books?", exact: true });
+  await expect(heading).toBeVisible();
+  await expect(heading).toBeFocused();
+  const field = page.getByRole("searchbox", { name: "Find a book", exact: true });
+  await expect(field).toBeVisible();
+  // The question is first on the page: above the field, which is above the presets.
+  const headingY = (await heading.boundingBox())!.y;
+  const fieldY = (await field.boundingBox())!.y;
+  const presetsY = (await page.getByRole("heading", { name: "Presets", exact: true }).boundingBox())!.y;
+  expect(headingY).toBeLessThan(fieldY);
+  expect(fieldY).toBeLessThan(presetsY);
+  // The field did not take the focus from the question.
+  await expect(heading).toBeFocused();
+
+  // Typing in the field leaves the question open, takes the code out of the address, and
+  // narrows the rows; the books are as they were.
+  await field.fill("core rulebook");
+  await expect(page).toHaveURL(/#\/books\/manage\?q=core%20rulebook$/);
+  await expect(heading).toBeVisible();
+  await expect(countText(page)).toHaveText(activeLine(rulebooks.length));
+  await page.getByRole("button", { name: "Use this set", exact: true }).click();
+  await expect(countText(page)).toHaveText(activeLine(paizoBooks.length));
+  await expect(heading).toHaveCount(0);
+  await expect(page).toHaveURL(/#\/books\/manage\?q=core%20rulebook$/);
+  await expect(field).toHaveValue("core rulebook");
+});
+
 installedTest("A link made when the section sat on Books still opens the question on Manage books", async ({ page }) => {
   await installLibrary(page);
   await applyPreset(page, "Paizo Rulebooks");

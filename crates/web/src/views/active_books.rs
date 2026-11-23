@@ -5,22 +5,26 @@
 //! `Library::update_active_books`, so nothing can be left half edited, a reload stays on the
 //! page, and Settings can link to it. Books is the place to read; this is the place to change.
 //! The presets are page-wide bulk actions, and Undo reverses the last one until the next change.
-//! The share section (#408, moved here from Books in #504) sits between the presets and the book
-//! groups: a code or a link changes the active set, as a preset does, so it is a change made
-//! here. Each side keeps its own Undo line. An Undo belongs to the selection revision that its
-//! change produced (see [`Recent`]), so any later change that succeeds ends every Undo on the
-//! page, and an Undo that was clicked while another change was saving does nothing.
+//! The `Find a book` field (#587) sits under the count line, above the presets, and narrows the
+//! groups; a series bulk button still acts on its whole series. The share section (#408, moved
+//! here from Books in #504) is split in two: its error and question sit above the field, and its
+//! disclosure sits between the presets and the book groups. A code or a link changes the active
+//! set, as a preset does, so it is a change made here. Each side keeps its own Undo line. An Undo
+//! belongs to the selection revision that its change produced (see [`Recent`]), so any later
+//! change that succeeds ends every Undo on the page, and an Undo that was clicked while another
+//! change was saving does nothing.
 //! An Adventures series group also carries its own on/off bulk button (#159); a tier itself
 //! still has no control.
 
 use crate::book_presets::{self, Change, Preset};
 use crate::library::{Library, Planned, use_library};
 use crate::route::{self, Route, replace, use_route};
+use crate::views::book_find::{self, Find, Page as FindPage};
 use crate::views::browse::{
     BookListEntry, BulkFactory, CountFactory, RowFactory, SeriesRender, book_rows, groups_view,
 };
 use crate::views::icons;
-use crate::views::share_set::ShareSet;
+use crate::views::share_set::share_parts;
 use crate::views::util::{Shared, set_title};
 use leptos::prelude::*;
 use leptos::task::spawn_local;
@@ -455,7 +459,14 @@ pub fn ActiveBooks() -> impl IntoView {
         .into_any()
     });
     let render = SeriesRender::new(row, count, Some(bulk));
-    let groups = groups_view(&rows, &render, &library);
+    let find = Find::new(FindPage::Manage);
+    let matched = book_find::matched(rows.clone(), find.needle);
+    let groups = {
+        let (rows, library, matched) = (rows.clone(), library.clone(), matched.clone());
+        move || groups_view(&rows, &render.found(matched()), &library)
+    };
+    let found = move || matched().map_or(0, |ids| ids.len());
+    let share = share_parts();
     let undo_panel = panel.clone();
     let live = live_recent(&library, panel.recent);
     let live_text = live.clone();
@@ -471,6 +482,11 @@ pub fn ActiveBooks() -> impl IntoView {
             {move || (empty() == 0).then(|| view! {
                 <p class="muted">"No books are active. Turn some on below."</p>
             })}
+            {share.question}
+            <div class="book-find-block">
+                {find.field()}
+                {find.status(found)}
+            </div>
             <section aria-labelledby="presets-heading">
                 <h2 id="presets-heading" class="sub-head">"Presets"</h2>
                 {presets}
@@ -483,7 +499,7 @@ pub fn ActiveBooks() -> impl IntoView {
                 </p>
             </section>
             {move || error.get().map(|message| view! { <p class="error" role="alert">{message}</p> })}
-            <ShareSet />
+            {share.disclosure}
             {groups}
         </div>
     }
