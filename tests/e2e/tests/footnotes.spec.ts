@@ -62,6 +62,36 @@ const style = (locator: ReturnType<import("@playwright/test").Page["locator"]>) 
     return { size: parseFloat(css.fontSize), color: css.color };
   });
 
+/**
+ * The place that states a labelled value of a creature: a bold-label paragraph (`**Label:** text`)
+ * or a row of a stat block (`dt` label, `dd` text). The corpus keeps statistics in either form
+ * (phynics/cast-iron-data#166 moves them from paragraphs to stat blocks), so a test that needs
+ * one must accept both. The locator is the element that holds the text: the paragraph or the `dd`.
+ */
+function statement(page: import("@playwright/test").Page, label: string) {
+  const paragraph = page.locator(".rich > p", { hasText: `${label}:` });
+  const row = page
+    .locator(".rich .stat-row")
+    .filter({ has: page.locator("dt", { hasText: new RegExp(`^\\s*${label}\\s*:?\\s*$`) }) })
+    .locator("dd");
+  return paragraph.or(row);
+}
+
+/** Whether the compiled body states `label` outside a note, as a paragraph or as a stat block row. */
+function statesLabel(id: string, label: string): boolean {
+  const body: any[] = corpus.entries.get(id)!.body;
+  for (let i = 0; i < body.length; i++) {
+    const block = body[i];
+    if (isNote(block)) {
+      i += 1;
+      continue;
+    }
+    if (block.t === "paragraph" && inlineText(block.content).includes(`${label}:`)) return true;
+    if (block.t === "stat_block" && (block.rows ?? []).some((row: any) => String(row.label).trim() === label)) return true;
+  }
+  return false;
+}
+
 for (const scheme of ["light", "dark"] as const) {
   test(`Expanded Summon Monster notes read as notes, not rules (${scheme})`, async ({ page }) => {
     await page.emulateMedia({ colorScheme: scheme });
@@ -129,9 +159,8 @@ test("A printed stat-block note moves to Notes, and its markers link to it and b
   await expect(notes.locator("li.note .note-label")).toHaveText("Note B");
 
   // Only the note's paragraph moved: the stat block text after it is still in the body.
-  const rules = rulesParagraphs(MONSTER);
-  expect(rules.some((paragraph) => paragraph.includes("Environment:"))).toBe(true);
-  await expect(page.locator(".rich > p", { hasText: "Environment:" })).toHaveCount(1);
+  expect(statesLabel(MONSTER, "Environment")).toBe(true);
+  await expect(statement(page, "Environment")).toHaveCount(1);
   await expect(notes).not.toContainText("Environment:");
   await expect(page.locator(".rich h6")).toHaveCount(0);
 
@@ -142,10 +171,17 @@ test("A printed stat-block note moves to Notes, and its markers link to it and b
   const backs = notes.locator(".note-back");
   await expect(backs).toHaveCount(2);
 
-  // Quiet: smaller type than the paragraph that cites it, in a different colour.
-  const rule = await style(page.locator(".rich > p", { hasText: "Environment:" }));
+  // Quiet: smaller type than the paragraph that cites it, in a different colour. A stat block row
+  // is already set small (the size of a note), so for a row the note may not be larger.
+  const cited = statement(page, "Environment");
+  const inRow = (await cited.evaluate((el) => el.tagName)) === "DD";
+  const rule = await style(cited);
   const note = await style(notes.locator("li.note p"));
-  expect(note.size).toBeLessThan(rule.size);
+  if (inRow) expect(note.size).toBeLessThanOrEqual(rule.size);
+  else expect(note.size).toBeLessThan(rule.size);
+  // Against prose, the note is strictly smaller in either form.
+  const prose = page.locator(".rich > p").first();
+  if ((await prose.count()) > 0) expect(note.size).toBeLessThan((await style(prose)).size);
   expect(note.color).not.toBe(rule.color);
 
   await markers.first().getByRole("link").click();
@@ -202,7 +238,7 @@ for (const scheme of ["light", "dark"] as const) {
       await page.emulateMedia({ colorScheme: scheme });
       await page.goto(`#/entry/${id}`);
       await expect(page.getByTestId("entry-title")).toBeVisible();
-      const markers = page.locator(".rich p sup.fn-ref");
+      const markers = page.locator(".rich :is(p, dd) sup.fn-ref");
       expect(await markers.count()).toBeGreaterThan(0);
 
       // The colour the notes use, resolved for this theme.
@@ -233,8 +269,8 @@ for (const scheme of ["light", "dark"] as const) {
         // A monster with several stat blocks has one note per block (`footnote-b`, `footnote-b-2`).
         await expect(link).toHaveAttribute("href", /[?&]a=footnote-b(-\d+)?$/);
 
-        // Against the feat text: the paragraph that holds the marker.
-        const line = await style(marker.locator("xpath=ancestor::p[1]"));
+        // Against the feat text: the paragraph, or the stat block row, that holds the marker.
+        const line = await style(marker.locator("xpath=ancestor::*[self::p or self::dd][1]"));
         const mark = await style(link);
         expect(mark.size).toBeLessThan(line.size);
         expect(mark.color).toBe(muted);
