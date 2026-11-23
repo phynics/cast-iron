@@ -17,7 +17,7 @@ Edit this page only where a change makes a line untrue, and add a log file for t
 ## Main and release
 
 - **`release` is at `2b56cc1`**, published 2026-11-23: corpus `v0.1.40`, schema 6, index format 2 ([release entry](status/2026-11-23-release-2b56cc1-corpus-v0-1-40-schema-6.md)). That is what Pages serves. The previous release was `9a6fb06` ([entry](status/2026-11-21-release-9a6fb06-corpus-v0-1-37-schema-6.md)).
-- **`main`** is ahead of `release`: the merges after `2b56cc1` (#638 and the record of this release) are not published. Promotion follows [releasing.md](releasing.md); `main` never publishes by itself.
+- **`main`** is ahead of `release`: the merges after `2b56cc1` (#638, #639 and the record of this release) are not published. Promotion follows [releasing.md](releasing.md); `main` never publishes by itself.
 - **No open gate** beyond [releasing.md](releasing.md): [#543](https://github.com/phynics/cast-iron/issues/543) (a saved Continue Reading point can name a book that no longer holds the entry) and [#546](https://github.com/phynics/cast-iron/issues/546) (book section anchors followed tree positions) are fixed and released by [#547](https://github.com/phynics/cast-iron/pull/547) and [#549](https://github.com/phynics/cast-iron/pull/549). The class-option power check is an error from the v0.1.35 pin: 0 power errors, 19 powers excepted in `power-exceptions.toml` ([#557](https://github.com/phynics/cast-iron/issues/557)).
 
 ## Latest runs
