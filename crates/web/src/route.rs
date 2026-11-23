@@ -77,10 +77,16 @@ pub enum Route {
     /// Kept for old links. A library that has `books.json` shows the book view here.
     BrowseSource(String),
     /// The publication directory, each a doorway into its contents, in priority tiers.
-    Books,
+    Books {
+        /// The text of the `Find a book` field, as typed (`?q=`). Empty is no search.
+        find: String,
+    },
     /// Manage books: the presets and one checkbox per book. It is a route, so a reload and
     /// Back stay in it and Settings can link to it. The Books tab stays highlighted.
-    BooksManage,
+    BooksManage {
+        /// The text of the `Find a book` field, as typed (`?q=`). Empty is no search.
+        find: String,
+    },
     /// A shared book set (#408): `#/books/manage?set=<code>`. The page is Manage books, which
     /// asks before it changes anything; the route only carries the code. The text is the code as
     /// written, so a typo is the page's to report, not the router's. Links made while the section
@@ -153,6 +159,20 @@ impl Route {
             sources: Vec::new(),
             facets: Vec::new(),
             sections: false,
+        }
+    }
+
+    /// Books with no search.
+    pub fn books() -> Self {
+        Route::Books {
+            find: String::new(),
+        }
+    }
+
+    /// Manage books with no search.
+    pub fn books_manage() -> Self {
+        Route::BooksManage {
+            find: String::new(),
         }
     }
 
@@ -278,7 +298,7 @@ impl Route {
                 .and_then(|slug| EntryKind::from_slug(&slug))
                 .map_or_else(not_found, |kind| {
                     if kind == EntryKind::Rule {
-                        Route::Books
+                        Route::books()
                     } else {
                         Route::BrowseKind {
                             kind,
@@ -302,12 +322,16 @@ impl Route {
             // `#/books?set=` (where the link pointed first) means the same.
             ["books", "manage"] | ["books", "active"] => match shared_set(query) {
                 Some(code) if segments == ["books", "manage"] => Route::BooksSet(code),
-                _ => Route::BooksManage,
+                _ => Route::BooksManage {
+                    find: parse_text(query, "q"),
+                },
             },
             // There is one order. A link from when Books had sort options opens the list.
             ["books"] | ["browse", "books"] => match shared_set(query) {
                 Some(code) if segments == ["books"] => Route::BooksSet(code),
-                _ => Route::Books,
+                _ => Route::Books {
+                    find: parse_text(query, "q"),
+                },
             },
             ["browse", "book", id] => match percent_decode(id) {
                 Some(source) if retirement(&source).is_some() => retired_book_route(&source),
@@ -343,7 +367,7 @@ impl Route {
                     class,
                     level: None,
                     schools: parse_schools(query),
-                    name: parse_name(query),
+                    name: parse_text(query, "name"),
                 },
                 _ => not_found(),
             },
@@ -356,7 +380,7 @@ impl Route {
                         class,
                         level: Some(level),
                         schools: parse_schools(query),
-                        name: parse_name(query),
+                        name: parse_text(query, "name"),
                     },
                     _ => not_found(),
                 }
@@ -461,8 +485,8 @@ impl Route {
                 }
             }
             Route::BrowseSource(id) => format!("#/browse/source/{}", percent_encode(id)),
-            Route::Books => "#/books".into(),
-            Route::BooksManage => "#/books/manage".into(),
+            Route::Books { find } => with_text("#/books", "q", find),
+            Route::BooksManage { find } => with_text("#/books/manage", "q", find),
             Route::BooksSet(code) => format!("#/books/manage?set={}", percent_encode(code)),
             Route::BookRemoved(source) => format!("#/browse/book/{}", percent_encode(source)),
             Route::Book { source, chapter } => {
@@ -742,16 +766,25 @@ fn parse_schools(query: Option<&str>) -> Vec<String> {
     schools
 }
 
-/// The `name=<text>` of a spell list's query: the first one, empty when it has none or holds
-/// only blanks.
-fn parse_name(query: Option<&str>) -> String {
+/// The `<key>=<text>` of a query: the first one, empty when it has none or holds only blanks.
+/// Spell lists keep their name filter in `name`, and Books and Manage books their find in `q`.
+fn parse_text(query: Option<&str>, key: &str) -> String {
     query
         .into_iter()
         .flat_map(query_pairs)
-        .find(|(key, _)| key == "name")
+        .find(|(found, _)| found == key)
         .map(|(_, value)| value)
         .filter(|value| !value.trim().is_empty())
         .unwrap_or_default()
+}
+
+/// `base` with `?<key>=<text>` after it, or `base` alone when the text is blank.
+fn with_text(base: &str, key: &str, text: &str) -> String {
+    if text.trim().is_empty() {
+        base.to_string()
+    } else {
+        format!("{base}?{key}={}", percent_encode(text))
+    }
 }
 
 /// The `source=<id>` of a list page's query, when it has one.
@@ -907,7 +940,10 @@ fn read_location_route() -> Route {
         // Books had sort links; the one order is the list, and the address says so. A share link
         // from when the section sat on Books opens Manage books, and the address says so.
         || hash.starts_with("#/books?");
-    if legacy && let Some(history) = web_sys::window().and_then(|window| window.history().ok()) {
+    if legacy
+        && hash != route.href()
+        && let Some(history) = web_sys::window().and_then(|window| window.history().ok())
+    {
         replace_url_keeping_state(&history, &route.href());
     }
     route
@@ -1296,8 +1332,8 @@ mod tests {
             Route::Legal,
             Route::browse_kind(EntryKind::Spell),
             Route::BrowseSource("core-rulebook".into()),
-            Route::Books,
-            Route::BooksManage,
+            Route::books(),
+            Route::books_manage(),
             Route::BooksSet("1ABC-DEF2".into()),
             Route::Spells,
             Route::FeatChains,
@@ -1455,8 +1491,8 @@ mod tests {
 
     #[test]
     fn books_has_one_order_and_old_sort_links_open_it() {
-        assert_eq!(Route::Books.href(), "#/books");
-        assert_eq!(Route::parse("#/books"), Route::Books);
+        assert_eq!(Route::books().href(), "#/books");
+        assert_eq!(Route::parse("#/books"), Route::books());
         // `?sort=` belonged to sort links that no longer exist. A bookmark must not break, and
         // it must not become a second route or a second history entry.
         for hash in [
@@ -1469,23 +1505,61 @@ mod tests {
             "#/browse/books",
             "#/browse/books?sort=date",
         ] {
-            assert_eq!(Route::parse(hash), Route::Books, "{hash}");
+            assert_eq!(Route::parse(hash), Route::books(), "{hash}");
         }
         assert_eq!(Route::parse("#/books?sort=date").href(), "#/books");
     }
 
     #[test]
+    fn books_and_manage_books_keep_the_find_text_in_q() {
+        let books = |find: &str| Route::Books { find: find.into() };
+        let manage = |find: &str| Route::BooksManage { find: find.into() };
+        assert_eq!(books("bestiary").href(), "#/books?q=bestiary");
+        assert_eq!(manage("bestiary").href(), "#/books/manage?q=bestiary");
+        assert_eq!(Route::parse("#/books?q=bestiary"), books("bestiary"));
+        assert_eq!(
+            Route::parse("#/books/manage?q=bestiary"),
+            manage("bestiary")
+        );
+        // The old address of Manage books takes the text too, and the old sort is ignored beside it.
+        assert_eq!(Route::parse("#/books/active?q=a"), manage("a"));
+        assert_eq!(Route::parse("#/books?sort=date&q=a"), books("a"));
+        // Characters that mean something in an address survive the round trip.
+        for text in ["a&b#c+d é", "x=y", "100%", "  spaced  ", "Pathfinder #1"] {
+            round_trip(books(text));
+            round_trip(manage(text));
+            assert!(!books(text).href()[1..].contains(['#', ' ', 'é']), "{text}");
+        }
+        // A blank or empty text is no search, and the address drops it.
+        for hash in ["#/books?q=", "#/books?q=%20%20"] {
+            assert_eq!(Route::parse(hash), Route::books(), "{hash}");
+        }
+        assert_eq!(books("  ").href(), "#/books");
+        assert_eq!(Route::parse("#/books/manage?q="), Route::books_manage());
+        // Only the first text counts.
+        assert_eq!(Route::parse("#/books?q=a&q=b"), books("a"));
+        // A share link is Manage books with a question and keeps its code, not a search.
+        assert_eq!(
+            Route::parse("#/books/manage?set=1ABC&q=a"),
+            Route::BooksSet("1ABC".into())
+        );
+    }
+
+    #[test]
     fn manage_books_has_its_own_route_and_keeps_the_old_address() {
-        assert_eq!(Route::BooksManage.href(), "#/books/manage");
-        round_trip(Route::BooksManage);
-        assert_eq!(Route::parse("#/books/manage"), Route::BooksManage);
-        assert_eq!(Route::parse("#/books/manage/"), Route::BooksManage);
+        assert_eq!(Route::books_manage().href(), "#/books/manage");
+        round_trip(Route::books_manage());
+        assert_eq!(Route::parse("#/books/manage"), Route::books_manage());
+        assert_eq!(Route::parse("#/books/manage/"), Route::books_manage());
         // The old address still opens the same page.
-        assert_eq!(Route::parse("#/books/active"), Route::BooksManage);
-        assert_eq!(Route::parse("#/books/active/"), Route::BooksManage);
+        assert_eq!(Route::parse("#/books/active"), Route::books_manage());
+        assert_eq!(Route::parse("#/books/active/"), Route::books_manage());
         assert_eq!(Route::parse("#/books/active").href(), "#/books/manage");
         // The page takes no sort; a stray query does not change the route.
-        assert_eq!(Route::parse("#/books/manage?sort=date"), Route::BooksManage);
+        assert_eq!(
+            Route::parse("#/books/manage?sort=date"),
+            Route::books_manage()
+        );
         // A share link opens Manage books with the code (#408); a sort link or an empty code is
         // Books or Manage books. A link made while the section sat on Books means the same.
         assert_eq!(
@@ -1500,14 +1574,17 @@ mod tests {
             Route::parse("#/books?set=1ABC-DEF2"),
             Route::BooksSet("1ABC-DEF2".into())
         );
-        assert_eq!(Route::parse("#/books?set="), Route::Books);
-        assert_eq!(Route::parse("#/books/manage?set="), Route::BooksManage);
-        assert_eq!(Route::parse("#/books?sort=date"), Route::Books);
+        assert_eq!(Route::parse("#/books?set="), Route::books());
+        assert_eq!(Route::parse("#/books/manage?set="), Route::books_manage());
+        assert_eq!(Route::parse("#/books?sort=date"), Route::books());
         assert_eq!(
             Route::parse("#/books?sort=date&set=1ABC"),
             Route::BooksSet("1ABC".into())
         );
-        assert_eq!(Route::parse("#/books/active?sort=date"), Route::BooksManage);
+        assert_eq!(
+            Route::parse("#/books/active?sort=date"),
+            Route::books_manage()
+        );
         // Other paths under /books are not this page.
         assert!(matches!(Route::parse("#/books/other"), Route::NotFound(_)));
     }
@@ -1561,9 +1638,9 @@ mod tests {
                 "{bad}"
             );
         }
-        assert_eq!(Route::Books.href(), "#/books");
-        assert_eq!(Route::parse("#/browse/books"), Route::Books);
-        assert_eq!(Route::parse("#/browse/kind/rule"), Route::Books);
+        assert_eq!(Route::books().href(), "#/books");
+        assert_eq!(Route::parse("#/browse/books"), Route::books());
+        assert_eq!(Route::parse("#/browse/kind/rule"), Route::books());
         assert_eq!(
             Route::parse("#/browse/book"),
             Route::NotFound("#/browse/book".into())

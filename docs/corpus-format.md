@@ -1077,8 +1077,8 @@ error: the pinned corpus `v0.1.2` has 0 disagreements, and `corpus-check` and
 | Kind | Typed field | Body |
 |---|---|---|
 | spell | `school`, `subschools`, `descriptors`, `levels`, `casting_time`, `components`, `range`, `effects`, `duration`, `saving_throw`, `spell_resistance` | the matching rows of the stat block (`School`, `Level`, `Range`, `Target`/`Effect`/`Area`, ...) |
-| creature | `cr`, `creature_type`, `size`, `alignment`, `ac`, `hp`, `fortitude`, `reflex`, `will`, `melee`, `ranged`, `special_attacks`, `special_qualities`, `abilities` | the `CR`, `Type`, `Size`, `AC`, `hp`, `Fort`, ... rows |
-| item | `price`, `weight`, `slot`, `aura`, `caster_level` | the `Price`, `Weight`, `Slot`, `Aura`, `CL` rows |
+| creature | `cr`, `creature_type`, `subtypes`, `size`, `alignment`, `ac`, `hp`, `fortitude`, `reflex`, `will`, `melee`, `ranged`, `special_attacks`, `special_qualities`, `abilities` | the `CR` or `Challenge rating`, `Type`, `Subtype`, `Size`, `AC` or `Armor class`, `Touch` and `Flat-footed`, `hp` or `Hit points`, `Fort`, ... rows |
+| item | `price`, `weight`, `slot`, `aura`, `caster_level` | the `Price`, `Weight`, `Slot` (through the closed vocabulary), `Aura`, `CL` rows |
 | feat | `prerequisites`, `benefit`, `normal`, `special` | the bold `**Prerequisites:**`, `**Benefit:**`, `**Normal:**`, `**Special:**` lines |
 | archetype | the `replaces` and `alters` trades | every bold `**Replaces:**` and `**Alters:**` line, in body order |
 | class_option | the `replaces` and `alters` trades | every bold `**Replaces:**` and `**Alters:**` line, in body order |
@@ -1095,7 +1095,7 @@ when any `**Label:**` line in the body says the same, because a feat with a
 mythic variant states the label twice. For the `replaces` and `alters` trades, an entry may
 print several lines, one per traded power; the printed names of the trades with that key are the concatenation
 of every line in body order, and a comma-separated line contributes one item per
-part. A value stated in only one place is not drift. The two copies are not
+part. A value stated in only one place is not drift. See [the drift check reads creature and item statistics from stat-block rows](decisions/2026-11-23-drift-reads-creature-stats-from-stat-block-rows.md) for the stat-block rules: `cr` by value, `Type` beside a `Subtype` set, `ac` from three rows, `hp` with `~` read as `( )`, and `slot` through the closed vocabulary. The two copies are not
 unified: the typed fields feed search and facets, and the body is what a reader
 sees.
 

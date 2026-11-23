@@ -175,3 +175,33 @@ test("An Adventure Path's bulk toggle changes its active tally", async ({ page }
   await expect(count).toHaveText(allActive(volumes.length));
   await expect(group.getByRole("button", { name: `Turn off all Rise of the Runelords books`, exact: true })).toHaveCount(1);
 });
+
+// ---- Find a book (#587) ---------------------------------------------------------------------
+
+test("A series bulk button acts on the whole series while a search shows only some of its books", async ({ page }) => {
+  const volumes = apVolumes("Rise of the Runelords");
+  const burnt = volumes[0];
+  await page.goto("#/books/manage?q=burnt%20offerings");
+  const tier = page.locator('.book-tier[data-tier="Adventures"]');
+  const group = tier.locator('.adventure-series[data-series="Rise of the Runelords"]');
+  await expect(group).toBeVisible();
+  // The search keeps the series that holds the match, with only the match, counted as a match.
+  await expect(group.locator(".book-directory-item")).toHaveCount(1);
+  await expect(group.locator(".book-directory-item").first()).toHaveAttribute("data-book-id", burnt.id);
+  await expect(group.locator(".series-count")).toHaveText("1 match");
+  // The bulk button still names the series, and turns every one of its volumes off.
+  const off = group.getByRole("button", { name: "Turn off all Rise of the Runelords books", exact: true });
+  await off.click();
+  await expect(group.getByRole("button", { name: "Turn on all Rise of the Runelords books", exact: true })).toHaveCount(1);
+  await page.getByRole("button", { name: "Clear", exact: true }).click();
+  await expect(page.locator(".book-tier").first()).toBeVisible();
+  const full = page.locator('.book-tier[data-tier="Adventures"]');
+  await full.locator(".tier-toggle").click();
+  const path = full.locator('.adventure-series[data-series="Rise of the Runelords"]');
+  await expect(path.locator(".series-count")).toHaveText(`0 of ${volumes.length} active`);
+  // A volume the search never showed is off too.
+  const last = volumes[volumes.length - 1];
+  await expect(
+    path.locator(`.book-directory-item[data-book-id="${last.id}"]`).getByRole("checkbox"),
+  ).not.toBeChecked();
+});

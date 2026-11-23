@@ -215,7 +215,7 @@ pub fn Settings() -> impl IntoView {
                 <div><dt>"Active"</dt><dd data-testid="books-active">{books_line}</dd></div>
             </dl>
             <p>
-                <a class="page-link" href=Route::BooksManage.href()>
+                <a class="page-link" href=Route::books_manage().href()>
                     <span>"Manage books"</span>
                     {icons::chevron_right_large()}
                 </a>

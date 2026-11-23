@@ -459,6 +459,44 @@ installedTest("A link asks first, applies on confirmation, and Undo restores the
   await expect(countText(page)).toHaveText(activeLine(rulebooks.length));
 });
 
+installedTest("A link's question sits above the Find a book field and keeps its focus, and typing in the field keeps the question", async ({ page }) => {
+  await installLibrary(page);
+  await applyPreset(page, "Paizo Rulebooks");
+  await page.goto(`#/books/manage?set=${codeFor(paizoBooks)}`);
+  await waitReady(page);
+  const heading = page.getByRole("heading", { name: "Use this set of books?", exact: true });
+  await expect(heading).toBeVisible();
+  await expect(heading).toBeFocused();
+  const field = page.getByRole("searchbox", { name: "Find a book", exact: true });
+  await expect(field).toBeVisible();
+  // The question is first on the page: above the field, which is above the presets.
+  const headingY = (await heading.boundingBox())!.y;
+  const fieldY = (await field.boundingBox())!.y;
+  const presetsY = (await page.getByRole("heading", { name: "Presets", exact: true }).boundingBox())!.y;
+  expect(headingY).toBeLessThan(fieldY);
+  expect(fieldY).toBeLessThan(presetsY);
+  // The field did not take the focus from the question.
+  await expect(heading).toBeFocused();
+
+  // A space as the first key is no text: the address keeps its code and the question its page.
+  await field.fill(" ");
+  await expect(page).toHaveURL(/#\/books\/manage\?set=/);
+  await expect(heading).toBeVisible();
+  await expect(field).toBeFocused();
+
+  // Typing in the field leaves the question open, takes the code out of the address, and
+  // narrows the rows; the books are as they were.
+  await field.fill("core rulebook");
+  await expect(page).toHaveURL(/#\/books\/manage\?q=core%20rulebook$/);
+  await expect(heading).toBeVisible();
+  await expect(countText(page)).toHaveText(activeLine(rulebooks.length));
+  await page.getByRole("button", { name: "Use this set", exact: true }).click();
+  await expect(countText(page)).toHaveText(activeLine(paizoBooks.length));
+  await expect(heading).toHaveCount(0);
+  await expect(page).toHaveURL(/#\/books\/manage\?q=core%20rulebook$/);
+  await expect(field).toHaveValue("core rulebook");
+});
+
 installedTest("A link made when the section sat on Books still opens the question on Manage books", async ({ page }) => {
   await installLibrary(page);
   await applyPreset(page, "Paizo Rulebooks");
@@ -488,15 +526,22 @@ installedTest("Books has no share section, and its first group starts under the 
   await expect(disclosure(page)).toHaveCount(0);
   await expect(page.getByText("Share these books or enter a code")).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Manage books", exact: true })).toBeVisible();
-  // The count line, the link, then the first group: nothing between them.
+  // The count line, the filter row (the Find a book field and the link), the field's empty status
+  // line, then the first group: nothing else between them.
   const order = await page.locator(".wide").evaluate((wide: Element) => {
     const children = [...wide.children];
     const index = (selector: string) => children.findIndex((child) => child.matches(selector));
-    return { count: index(".books-count"), link: index(".filter-row"), group: index("section, .tier-group, h2") };
+    return {
+      count: index(".books-count"),
+      link: index(".filter-row"),
+      status: index(".book-find-status"),
+      group: index("section, .tier-group, h2"),
+    };
   });
   expect(order.count).toBeGreaterThan(0);
   expect(order.link).toBe(order.count + 1);
-  expect(order.group).toBe(order.link + 1);
+  expect(order.status).toBe(order.link + 1);
+  expect(order.group).toBe(order.status + 1);
 });
 
 installedTest("Another change on Manage books ends the share Undo, and a share ends the preset Undo", async ({ page }) => {

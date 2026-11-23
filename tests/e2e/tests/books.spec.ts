@@ -63,8 +63,10 @@ test("Books opens with a title, one count line and a link to Manage books, with 
   await expect(count).toHaveAttribute("aria-live", "polite");
   await expect(page.getByRole("link", { name: "Manage books", exact: true })).toHaveAttribute("href", "#/books/manage");
 
-  // Nothing between the count line and the groups explains itself.
-  await expect(page.locator(".wide > p")).toHaveCount(1);
+  // Nothing between the count line and the groups explains itself. The find field's status line
+  // (#587) is a live region that stays empty until a search is on.
+  await expect(page.locator(".wide > p:not(.book-find-status)")).toHaveCount(1);
+  await expect(page.locator(".book-find-status")).toHaveText("");
   await expect(page.locator(".hint, .count-scope, .measure")).toHaveCount(0);
   await expect(page.getByText(/Open a book to read|Manage books appear in search|Disabling a book/)).toHaveCount(0);
   await expect(page.getByRole("navigation", { name: "Sort books" })).toHaveCount(0);
@@ -1113,4 +1115,199 @@ test("A book page shows a nested contents list with every branch expanded", asyn
   const firstRow = page.locator(`#toc-${first.path[0] + 1}`);
   await expect(firstRow).toHaveAttribute("aria-current", "location");
   await expect(firstRow).toContainText(firstListed.title);
+});
+
+// ---- Find a book (#587) ---------------------------------------------------------------------
+
+/** What the page promises, restated: case, accents and punctuation do not matter. */
+const fold = (text: string) =>
+  text
+    .normalize("NFKD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+const bestiaries = sources.filter((source) => fold(source.title).includes("bestiary"));
+const findField = (page: any) => page.getByRole("searchbox", { name: "Find a book", exact: true });
+const findStatus = (page: any) => page.locator(".book-find-status");
+const rowIds = (scope: any) =>
+  scope.locator(".book-directory-item").evaluateAll((items: Element[]) => items.map((item) => item.getAttribute("data-book-id")));
+
+test("Books has a labelled Find a book field beside the Manage books link", async ({ page }) => {
+  await page.goto("#/books");
+  const field = findField(page);
+  await expect(field).toBeVisible();
+  // The label is on screen, the placeholder says it again, and the field is a 44 px target.
+  await expect(page.locator("label[for='book-find']")).toHaveText("Find a book");
+  await expect(field).toHaveAttribute("placeholder", "Find a book");
+  await expect(field).toHaveAttribute("autocomplete", "off");
+  expect((await field.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  // It sits under the count line, left of the link, in the filter row.
+  const countBox = (await page.locator(".books-count").boundingBox())!;
+  const fieldBox = (await field.boundingBox())!;
+  const linkBox = (await page.getByRole("link", { name: "Manage books", exact: true }).boundingBox())!;
+  expect(fieldBox.y).toBeGreaterThan(countBox.y);
+  expect(fieldBox.x + fieldBox.width).toBeLessThanOrEqual(linkBox.x);
+  // At most 22rem wide from 48rem; full width on a phone.
+  await page.setViewportSize({ width: 1280, height: 900 });
+  expect((await field.boundingBox())!.width).toBeLessThanOrEqual(22 * 16 + 1);
+  await page.setViewportSize({ width: 390, height: 800 });
+  const phone = (await field.boundingBox())!;
+  const column = (await page.locator("main .wide").boundingBox())!;
+  expect(phone.width).toBeGreaterThan(column.width - 4);
+  // No search yet: today's page.
+  await expect(findStatus(page)).toHaveText("");
+  await expect(page.getByRole("button", { name: "Clear", exact: true })).toHaveCount(0);
+});
+
+test("Typing bestiary leaves the books that hold it, opens their groups, and writes q into the address", async ({ page }) => {
+  await page.goto("#/books");
+  await findField(page).fill("bestiary");
+  await expect(page).toHaveURL(/#\/books\?q=bestiary$/);
+  expect(bestiaries.length).toBeGreaterThan(1);
+  await expect(findStatus(page)).toContainText(`${grouped(bestiaries.length)} books match "bestiary"`);
+  // Only the groups that hold a match are in the page, each open, each counting its matches.
+  const wanted = tiers.filter((tier) => bestiaries.some((source) => tierOf(source) === tier.label));
+  const groups = page.locator(".book-tier");
+  await expect(groups).toHaveCount(wanted.length);
+  expect(wanted.map((tier) => tier.label)).toContain("Rulebooks");
+  for (const [index, tier] of wanted.entries()) {
+    const group = groups.nth(index);
+    const members = bestiaries.filter((source) => tierOf(source) === tier.label);
+    await expect(group.locator(".tier-toggle")).toHaveAttribute("aria-expanded", "true");
+    await expect(group.locator(".tier-active")).toHaveText(`${grouped(members.length)} ${members.length === 1 ? "match" : "matches"}`);
+    // Adventures nests its rows in series, with their own count of matches.
+    if (tier.label === "Adventures") {
+      await expect(group.locator(".series-count").first()).toContainText(/match/);
+    }
+  }
+  const shown = (await rowIds(page.locator("main"))) as string[];
+  expect([...shown].sort()).toEqual(bestiaries.map((source) => source.id).sort());
+  // The status is a live region, and the count line still counts every book.
+  await expect(findStatus(page)).toHaveAttribute("role", "status");
+  await expect(page.locator(".books-count")).toContainText(`of ${grouped(sources.length)} books active`);
+  // Case and accents do not matter; the address follows the text as typed.
+  await findField(page).fill("BÉSTIARY");
+  await expect(findStatus(page)).toContainText(`${grouped(bestiaries.length)} books match "BÉSTIARY"`);
+  await expect(page).toHaveURL(/#\/books\?q=B%C3%89STIARY$/);
+  // The field keeps the focus and what was typed.
+  await expect(findField(page)).toHaveValue("BÉSTIARY");
+});
+
+test("A search keeps book order inside a group and never sorts alphabetically", async ({ page }) => {
+  await page.goto("#/books");
+  const before = (await rowIds(page.locator('.book-tier[data-tier="Rulebooks"]'))) as string[];
+  const rulebookMatches = bestiaries.filter((source) => tierOf(source) === "Rulebooks").map((source) => source.id);
+  expect(rulebookMatches.length).toBeGreaterThan(1);
+  await findField(page).fill("bestiary");
+  await expect(findStatus(page)).toContainText("match");
+  const during = (await rowIds(page.locator('.book-tier[data-tier="Rulebooks"]'))) as string[];
+  expect(during).toEqual(before.filter((id) => rulebookMatches.includes(id)));
+});
+
+test("Clear empties the field and brings back the groups the reader had open", async ({ page }) => {
+  await page.goto("#/books");
+  // The reader opens Campaign Setting before searching; Rulebooks is open by default.
+  const campaign = page.locator('.book-tier[data-tier="Campaign Setting"] .tier-toggle');
+  await campaign.click();
+  await expect(campaign).toHaveAttribute("aria-expanded", "true");
+  await findField(page).fill("bestiary");
+  await expect(findStatus(page)).toContainText("books match");
+  // What the reader folds during a search is not remembered.
+  await page.locator('.book-tier[data-tier="Rulebooks"] .tier-toggle').click();
+  await expect(page.locator('.book-tier[data-tier="Rulebooks"] .tier-toggle')).toHaveAttribute("aria-expanded", "false");
+
+  await findStatus(page).getByRole("button", { name: "Clear", exact: true }).click();
+  await expect(findField(page)).toHaveValue("");
+  await expect(findField(page)).toBeFocused();
+  await expect(page).toHaveURL(/#\/books$/);
+  await expect(findStatus(page)).toHaveText("");
+  const present = tiers.filter((tier) => inTier(tier.label).length > 0);
+  await expect(page.locator(".book-tier")).toHaveCount(present.length);
+  for (const tier of present) {
+    const open = tier.label === "Rulebooks" || tier.label === "Campaign Setting";
+    await expect(page.locator(`.book-tier[data-tier="${tier.label}"] .tier-toggle`)).toHaveAttribute("aria-expanded", open ? "true" : "false");
+  }
+  // The groups count active books again.
+  await expect(page.locator('.book-tier[data-tier="Rulebooks"] .tier-active')).toContainText("books");
+});
+
+test("Escape clears the field, and Enter does nothing", async ({ page }) => {
+  await page.goto("#/books");
+  const field = findField(page);
+  await field.fill("bestiary");
+  await expect(page).toHaveURL(/q=bestiary/);
+  await field.press("Enter");
+  await expect(page).toHaveURL(/#\/books\?q=bestiary$/);
+  await expect(field).toHaveValue("bestiary");
+  await field.press("Escape");
+  await expect(field).toHaveValue("");
+  await expect(page).toHaveURL(/#\/books$/);
+  await expect(field).toBeFocused();
+  await expect(page.locator('.book-tier[data-tier="Adventures"] .tier-toggle')).toHaveAttribute("aria-expanded", "false");
+});
+
+test("Escape pressed before the frame writes the address still empties the field", async ({ page }) => {
+  await page.goto("#/books");
+  const field = findField(page);
+  // Type and press Escape in one task: the key has not reached the address yet.
+  await field.evaluate((input: HTMLInputElement) => {
+    input.value = "bestiary";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+  });
+  await expect(field).toHaveValue("");
+  await expect(page).toHaveURL(/#\/books$/);
+  await expect(findStatus(page)).toHaveText("");
+  // Only spaces: the address holds no text, and Escape still empties the field.
+  await field.fill("   ");
+  await expect(page).toHaveURL(/#\/books$/);
+  await field.press("Escape");
+  await expect(field).toHaveValue("");
+});
+
+test("A search with no match says so, shows no group, and offers Clear", async ({ page }) => {
+  await page.goto("#/books");
+  await findField(page).fill("xyz123");
+  await expect(findStatus(page)).toContainText('No books match "xyz123".');
+  await expect(page.locator(".book-tier")).toHaveCount(0);
+  await expect(page.locator(".book-directory-item")).toHaveCount(0);
+  await expect(page.getByRole("heading", { level: 2 })).toHaveCount(0);
+  await findStatus(page).getByRole("button", { name: "Clear", exact: true }).click();
+  await expect(page.locator(".book-tier").first()).toBeVisible();
+  await expect(findStatus(page)).toHaveText("");
+});
+
+test("An address with q opens the filtered list, and Back from a book restores the text and the rows", async ({ page }) => {
+  await page.goto("#/books?q=bestiary");
+  await expect(findField(page)).toHaveValue("bestiary");
+  await expect(findStatus(page)).toContainText(`${grouped(bestiaries.length)} books match "bestiary"`);
+  const before = (await rowIds(page.locator("main"))) as string[];
+  const first = page.locator(".book-directory-item").first();
+  const id = (await first.getAttribute("data-book-id"))!;
+  await first.locator("a.book-directory-row").click();
+  await expect(page).toHaveURL(new RegExp(`#/browse/book/${escape(id)}`));
+  await page.goBack();
+  await expect(page).toHaveURL(/#\/books\?q=bestiary$/);
+  await expect(findField(page)).toHaveValue("bestiary");
+  await expect(findStatus(page)).toContainText(`${grouped(bestiaries.length)} books match "bestiary"`);
+  expect(await rowIds(page.locator("main"))).toEqual(before);
+  // Typing replaced the entry: one Back from the filtered list leaves Books.
+  await page.goto("#/settings");
+  await page.goto("#/books");
+  await findField(page).fill("bes");
+  await expect(page).toHaveURL(/q=bes$/);
+  await findField(page).fill("bestiary");
+  await expect(page).toHaveURL(/q=bestiary$/);
+  await page.goBack();
+  await expect(page).toHaveURL(/#\/settings$/);
+});
+
+test("A book is found by its short title, and a title with punctuation by plain words", async ({ page }) => {
+  const burnt = sources.find((source) => source.series_kind === "adventure-path" && /Burnt Offerings/.test(source.title))!;
+  await page.goto("#/books");
+  await findField(page).fill("#1 burnt");
+  await expect(page.locator(`.book-directory-item[data-book-id="${burnt.id}"]`)).toBeVisible();
+  await expect(page.locator(`.book-directory-item[data-book-id="${burnt.id}"] .cat-name`)).toHaveText("#1 Burnt Offerings");
+  await expect(page.locator('.book-tier[data-tier="Adventures"] .tier-toggle')).toHaveAttribute("aria-expanded", "true");
 });

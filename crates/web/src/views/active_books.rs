@@ -5,24 +5,26 @@
 //! `Library::update_active_books`, so nothing can be left half edited, a reload stays on the
 //! page, and Settings can link to it. Books is the place to read; this is the place to change.
 //! The presets are page-wide bulk actions, and Undo reverses the last one until the next change.
-//! The share section (#408, moved here from Books in #504) sits between the presets and the book
-//! groups: a code or a link changes the active set, as a preset does, so it is a change made
-//! here. Each side keeps its own Undo line. An Undo belongs to the selection revision that its
-//! change produced (see [`Recent`]), so any later change that succeeds ends every Undo on the
-//! page, and an Undo that was clicked while another change was saving does nothing.
+//! The `Find a book` field (#587) sits under the count line, above the presets, and narrows the
+//! groups; a series bulk button still acts on its whole series. The share section (#408, moved
+//! here from Books in #504) is split in two: its error and question sit above the field, and its
+//! disclosure sits between the presets and the book groups. A code or a link changes the active
+//! set, as a preset does, so it is a change made here. Each side keeps its own Undo line. An Undo
+//! belongs to the selection revision that its change produced (see [`Recent`]), so any later
+//! change that succeeds ends every Undo on the page, and an Undo that was clicked while another
+//! change was saving does nothing.
 //! An Adventures series group also carries its own on/off bulk button (#159); a tier itself
 //! still has no control.
 
 use crate::book_presets::{self, Change, Preset};
 use crate::library::{Library, Planned, use_library};
 use crate::route::{self, Route, replace, use_route};
-use crate::views::book_tier::Tier;
+use crate::views::book_find::{self, Find, Page as FindPage};
 use crate::views::browse::{
-    BookListEntry, BulkFactory, CountFactory, RowFactory, SeriesRender, adventure_tier_section,
-    book_groups, tier_section,
+    BookListEntry, BulkFactory, CountFactory, RowFactory, SeriesRender, book_rows, groups_view,
 };
 use crate::views::icons;
-use crate::views::share_set::ShareSet;
+use crate::views::share_set::share_parts;
 use crate::views::util::{Shared, set_title};
 use leptos::prelude::*;
 use leptos::task::spawn_local;
@@ -62,7 +64,7 @@ pub fn open_from_books(event: web_sys::MouseEvent) {
         return;
     }
     event.prevent_default();
-    route::push_flagged(&Route::BooksManage, OPENED_FROM_BOOKS);
+    route::push_flagged(&Route::books_manage(), OPENED_FROM_BOOKS);
 }
 
 /// Reads and clears the request that Done left. Books calls it once, when it is built.
@@ -112,7 +114,7 @@ fn done() {
         Some(history) if route::current_entry_has_flag(OPENED_FROM_BOOKS) => {
             let _ = history.back();
         }
-        _ => replace(&Route::Books),
+        _ => replace(&Route::books()),
     }
 }
 
@@ -391,23 +393,7 @@ pub fn ActiveBooks() -> impl IntoView {
         focus_after_frame("manage-books-heading");
     }
 
-    let counts = library.source_entry_counts();
-    let rows: Vec<BookListEntry> = library
-        .sources()
-        .iter()
-        .map(|source| BookListEntry {
-            id: source.id.clone(),
-            title: source.title.clone(),
-            category: source.category.clone(),
-            publication_date: source.publication_date.clone(),
-            count: counts.get(&source.id).copied().unwrap_or(0),
-            third_party: source.third_party,
-            series_kind: source.series_kind,
-            series: source.series.clone(),
-            series_number: source.series_number.clone(),
-            season: source.season,
-        })
-        .collect();
+    let rows = book_rows(&library);
     let total = rows.len();
     let rows = Shared::new(rows);
     let revision = library.selection_revision();
@@ -473,30 +459,14 @@ pub fn ActiveBooks() -> impl IntoView {
         .into_any()
     });
     let render = SeriesRender::new(row, count, Some(bulk));
-    let groups = book_groups(&rows)
-        .into_iter()
-        .map(|group| {
-            let tier = group.tier;
-            let ids: Vec<String> = group.books.iter().map(|&i| rows[i].id.clone()).collect();
-            if tier == Tier::Adventures {
-                let books = group.books.iter().map(|&i| rows[i].clone()).collect();
-                return adventure_tier_section(books, ids, render.clone(), library.clone());
-            }
-            // Rows are built when the group opens; see `tier_section`.
-            let lazy_rows = rows.clone();
-            let lazy_panel = panel.clone();
-            let books = group.books;
-            let items = move || {
-                let rows = &*lazy_rows;
-                books
-                    .iter()
-                    .map(|&i| toggle_row(rows[i].clone(), lazy_panel.clone()))
-                    .collect_view()
-                    .into_any()
-            };
-            tier_section(tier, ids, items, library.clone())
-        })
-        .collect_view();
+    let find = Find::new(FindPage::Manage);
+    let matched = book_find::matched(rows.clone(), find.needle);
+    let groups = {
+        let (rows, library) = (rows.clone(), library.clone());
+        move || groups_view(&rows, &render.found(matched.get()), &library)
+    };
+    let found = move || matched.get().map_or(0, |ids| ids.len());
+    let share = share_parts();
     let undo_panel = panel.clone();
     let live = live_recent(&library, panel.recent);
     let live_text = live.clone();
@@ -512,6 +482,11 @@ pub fn ActiveBooks() -> impl IntoView {
             {move || (empty() == 0).then(|| view! {
                 <p class="muted">"No books are active. Turn some on below."</p>
             })}
+            {share.question}
+            <div class="book-find-block">
+                {find.field()}
+                {find.status(found)}
+            </div>
             <section aria-labelledby="presets-heading">
                 <h2 id="presets-heading" class="sub-head">"Presets"</h2>
                 {presets}
@@ -524,7 +499,7 @@ pub fn ActiveBooks() -> impl IntoView {
                 </p>
             </section>
             {move || error.get().map(|message| view! { <p class="error" role="alert">{message}</p> })}
-            <ShareSet />
+            {share.disclosure}
             {groups}
         </div>
     }

@@ -1,8 +1,8 @@
 ---
 title: "Affliction types and item slots are closed vocabularies"
 date: 2026-11-22
-status: current
-superseded_by: []
+status: partly-superseded
+superseded_by: ["2026-11-23-drift-reads-creature-stats-from-stat-block-rows"]
 issues: [592, 594]
 prs: [608, 610]
 area: corpus
