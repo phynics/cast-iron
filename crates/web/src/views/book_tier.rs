@@ -15,41 +15,111 @@ pub fn source_ranks(sources: &[SourceInfo]) -> Vec<(&str, u8)> {
         .collect()
 }
 
-/// The printing recency of every entry, from the catalog `publication_date` of its books. Hand
-/// the result to `SearchIndex::set_printing_recency`.
+/// Where a printing sits among the printings of one rule: the product line of its primary book,
+/// then how new its books are. Search tie-breaks and list folds both sort by this one value, so
+/// the two cannot drift. `Ord` puts the printing to read first lowest: a lower rank first, then
+/// a newer printing, so an undated entry (`newest` 0) sorts after every dated one of its rank.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct PrintingOrder {
+    /// [`Tier::search_rank`] of the entry's primary book, as search ranks the document.
+    pub rank: u8,
+    /// The dense rank of the newest-dated member book. A larger value is a newer printing; 0
+    /// means that no member book has a date.
+    pub newest: u32,
+}
+
+impl PrintingOrder {
+    /// The order of an entry that no book of the catalog describes: neutral rank, undated.
+    pub const UNKNOWN: PrintingOrder = PrintingOrder {
+        rank: NEUTRAL_SOURCE_RANK,
+        newest: 0,
+    };
+}
+
+impl PartialOrd for PrintingOrder {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for PrintingOrder {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.rank
+            .cmp(&other.rank)
+            .then_with(|| other.newest.cmp(&self.newest))
+    }
+}
+
+/// The per-book facts behind [`PrintingOrder`]: each book's search rank and the dense rank of
+/// its publication date. Build it once per catalog; asking for an entry's order then reads two
+/// small maps.
 ///
-/// An entry's recency is that of the newest-dated book among its member books, so a rule kept in
-/// several books ranks by its latest printing. A book that revises the rule is a different entry
-/// and its date does not count here. The values are dense ranks of the distinct dates (the date
-/// strings are ISO 8601, which sort as text): a larger value is a newer printing, and 0 means
-/// that no member book has a date. An undated entry is left out of the result.
+/// The values are dense ranks of the distinct dates (the date strings are ISO 8601, which sort
+/// as text). A book with no date, or an empty one, has no date rank.
+#[derive(Debug, Clone, Default)]
+pub struct PrintingOrders {
+    book_rank: std::collections::HashMap<String, u8>,
+    book_date: std::collections::HashMap<String, u32>,
+}
+
+impl PrintingOrders {
+    pub fn new(sources: &[SourceInfo]) -> Self {
+        let dates: std::collections::BTreeSet<&str> = sources
+            .iter()
+            .filter_map(|source| source.publication_date.as_deref())
+            .filter(|date| !date.is_empty())
+            .collect();
+        let rank_of_date: std::collections::BTreeMap<&str, u32> =
+            dates.into_iter().zip(1u32..).collect();
+        Self {
+            book_rank: source_ranks(sources)
+                .into_iter()
+                .map(|(id, rank)| (id.to_owned(), rank))
+                .collect(),
+            book_date: sources
+                .iter()
+                .filter_map(|source| {
+                    let date = source.publication_date.as_deref()?;
+                    Some((source.id.clone(), *rank_of_date.get(date)?))
+                })
+                .collect(),
+        }
+    }
+
+    /// The order of an entry. Its rank is that of its primary book (`stub.source`), as search
+    /// ranks the document. Its recency is that of the newest-dated book among its member books,
+    /// so a rule kept in several books ranks by its latest printing. A book that revises the
+    /// rule is a different entry and its date does not count here.
+    pub fn of(&self, stub: &EntryStub) -> PrintingOrder {
+        let rank = self
+            .book_rank
+            .get(stub.source.as_str())
+            .copied()
+            .unwrap_or(NEUTRAL_SOURCE_RANK);
+        let newest = stub
+            .member_books()
+            .iter()
+            .filter_map(|book| self.book_date.get(book.as_str()))
+            .copied()
+            .max()
+            .unwrap_or(0);
+        PrintingOrder { rank, newest }
+    }
+}
+
+/// The printing recency of every entry, from the catalog `publication_date` of its books. Hand
+/// the result to `SearchIndex::set_printing_recency`. It is [`PrintingOrders::of`] read for its
+/// `newest` field, so search and list folds share one definition. An undated entry is left out
+/// of the result.
 pub fn printing_recency<'a>(
-    sources: &[SourceInfo],
+    orders: &PrintingOrders,
     entries: &'a [EntryStub],
 ) -> Vec<(&'a str, u32)> {
-    let dates: std::collections::BTreeSet<&str> = sources
-        .iter()
-        .filter_map(|source| source.publication_date.as_deref())
-        .filter(|date| !date.is_empty())
-        .collect();
-    let rank_of_date: std::collections::BTreeMap<&str, u32> =
-        dates.into_iter().zip(1u32..).collect();
-    let rank_of_book: std::collections::HashMap<&str, u32> = sources
-        .iter()
-        .filter_map(|source| {
-            let date = source.publication_date.as_deref()?;
-            Some((source.id.as_str(), *rank_of_date.get(date)?))
-        })
-        .collect();
     entries
         .iter()
         .filter_map(|stub| {
-            let newest = stub
-                .member_books()
-                .iter()
-                .filter_map(|book| rank_of_book.get(book.as_str()))
-                .max()?;
-            Some((stub.id.as_str(), *newest))
+            let newest = orders.of(stub).newest;
+            (newest > 0).then_some((stub.id.as_str(), newest))
         })
         .collect()
 }
@@ -400,7 +470,7 @@ mod tests {
             stub("ref/feat/unknown-book", &["not-in-catalog"]),
         ];
         assert_eq!(
-            printing_recency(&sources, &entries),
+            printing_recency(&PrintingOrders::new(&sources), &entries),
             [
                 ("ref/feat/lone-old", 1),
                 ("ref/feat/lone-new", 3),
@@ -425,10 +495,149 @@ mod tests {
             stub("ref/feat/d", &["d"]),
         ];
         assert_eq!(
-            printing_recency(&sources, &entries),
+            printing_recency(&PrintingOrders::new(&sources), &entries),
             [("ref/feat/a", 1), ("ref/feat/b", 1), ("ref/feat/d", 2)]
         );
-        assert!(printing_recency(&[], &[]).is_empty());
+        assert!(printing_recency(&PrintingOrders::new(&[]), &[]).is_empty());
+    }
+
+    fn book(id: &str, category: &str, date: Option<&str>) -> SourceInfo {
+        let mut info = source(id, Some(category));
+        info.publication_date = date.map(String::from);
+        info
+    }
+
+    /// The Tent case of #637: one item in a rulebook, a companion-line reprint and a later
+    /// equipment book. The newest printing leads within one product line.
+    #[test]
+    fn the_newest_printing_of_one_product_line_comes_first() {
+        let sources = [
+            book("core", "RPG", Some("2009-08-01")),
+            book("apg", "RPG", Some("2010-08-01")),
+            book("ue", "RPG", Some("2012-08-01")),
+        ];
+        let orders = PrintingOrders::new(&sources);
+        let mut stubs = [
+            stub("ref/item/tent-apg", &["apg"]),
+            stub("ref/item/tent-core", &["core"]),
+            stub("ref/item/tent-ue", &["ue"]),
+        ];
+        stubs.sort_by_key(|s| orders.of(s));
+        let ids: Vec<&str> = stubs.iter().map(|s| s.id.as_str()).collect();
+        assert_eq!(
+            ids,
+            [
+                "ref/item/tent-ue",
+                "ref/item/tent-apg",
+                "ref/item/tent-core"
+            ]
+        );
+    }
+
+    #[test]
+    fn an_undated_printing_sorts_after_every_dated_one_of_its_rank() {
+        let sources = [
+            book("old", "RPG", Some("2009-08-01")),
+            book("none", "RPG", None),
+        ];
+        let orders = PrintingOrders::new(&sources);
+        let dated = orders.of(&stub("ref/feat/a", &["old"]));
+        let undated = orders.of(&stub("ref/feat/b", &["none"]));
+        assert_eq!(undated.newest, 0);
+        assert!(dated < undated);
+        assert_eq!(
+            orders.of(&stub("ref/feat/c", &["missing"])),
+            PrintingOrder::UNKNOWN
+        );
+    }
+
+    #[test]
+    fn the_product_line_rank_wins_over_recency() {
+        let sources = [
+            book("core", "RPG", Some("2009-08-01")),
+            book("pc", "Player Companion", Some("2015-01-01")),
+            book("ap", "Adventure Path", Some("2016-01-01")),
+        ];
+        let orders = PrintingOrders::new(&sources);
+        let mut stubs = [
+            stub("ref/feat/ap", &["ap"]),
+            stub("ref/feat/pc", &["pc"]),
+            stub("ref/feat/core", &["core"]),
+        ];
+        stubs.sort_by_key(|s| orders.of(s));
+        let ids: Vec<&str> = stubs.iter().map(|s| s.id.as_str()).collect();
+        assert_eq!(ids, ["ref/feat/core", "ref/feat/pc", "ref/feat/ap"]);
+    }
+
+    /// The rank is the primary book's; the recency is the newest member book's.
+    #[test]
+    fn rank_comes_from_the_primary_book_and_recency_from_every_member_book() {
+        let sources = [
+            book("core", "RPG", Some("2009-08-01")),
+            book("ap", "Adventure Path", Some("2016-01-01")),
+        ];
+        let orders = PrintingOrders::new(&sources);
+        let reprint = orders.of(&stub("ref/feat/x", &["core", "ap"]));
+        assert_eq!(reprint, PrintingOrder { rank: 0, newest: 2 });
+    }
+
+    /// Search and a list fold take their order from the same value: the keys of
+    /// [`PrintingOrders::of`], then title and id, sorted the way search sorts equal scores.
+    #[test]
+    fn list_keys_and_search_tie_breaks_agree() {
+        let sources = [
+            book("core", "RPG", Some("2009-08-01")),
+            book("ue", "RPG", Some("2012-08-01")),
+            book("pc", "Player Companion", Some("2013-01-01")),
+            book("none", "RPG", None),
+        ];
+        let orders = PrintingOrders::new(&sources);
+        let stubs = [
+            stub("ref/item/tent-core", &["core"]),
+            stub("ref/item/tent-ue", &["ue"]),
+            stub("ref/item/tent-pc", &["pc"]),
+            stub("ref/item/tent-none", &["none"]),
+            stub("ref/item/tent-pc2", &["pc"]),
+        ];
+        let mut by_list: Vec<&EntryStub> = stubs.iter().collect();
+        by_list.sort_by(|a, b| {
+            orders
+                .of(a)
+                .cmp(&orders.of(b))
+                .then_with(|| a.title.cmp(&b.title))
+                .then_with(|| a.id.cmp(&b.id))
+        });
+        let recency: std::collections::HashMap<&str, u32> =
+            printing_recency(&orders, &stubs).into_iter().collect();
+        let ranks: std::collections::HashMap<&str, u8> =
+            source_ranks(&sources).into_iter().collect();
+        // Search's keys: source rank ascending, recency descending, title, id.
+        let mut by_search: Vec<&EntryStub> = stubs.iter().collect();
+        by_search.sort_by(|a, b| {
+            let key = |s: &EntryStub| {
+                (
+                    ranks[s.source.as_str()],
+                    std::cmp::Reverse(recency.get(s.id.as_str()).copied().unwrap_or(0)),
+                )
+            };
+            key(a)
+                .cmp(&key(b))
+                .then_with(|| a.title.cmp(&b.title))
+                .then_with(|| a.id.cmp(&b.id))
+        });
+        let list_ids: Vec<&str> = by_list.iter().map(|s| s.id.as_str()).collect();
+        let search_ids: Vec<&str> = by_search.iter().map(|s| s.id.as_str()).collect();
+        assert_eq!(list_ids, search_ids);
+        assert_eq!(
+            list_ids,
+            [
+                "ref/item/tent-ue",
+                "ref/item/tent-core",
+                "ref/item/tent-none",
+                "ref/item/tent-pc",
+                "ref/item/tent-pc2",
+            ]
+        );
     }
 
     #[test]

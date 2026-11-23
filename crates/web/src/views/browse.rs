@@ -1597,6 +1597,7 @@ fn AzList(
     let groups = Shared::new(groups);
     let stubs = Shared::new(stubs);
     let source_titles = Shared::new(source_titles);
+    let library = use_library();
 
     // One list item per entry, with printings of one rule folded into one disclosure. The
     // indices belong to one letter group, or to the whole list when the kind is short. The
@@ -1632,6 +1633,7 @@ fn AzList(
                         .unwrap_or_else(|| "Source".to_string()),
                     kind: stub.kind,
                     parent: parent_of(stub),
+                    order: library.printing_order(stub),
                 })
                 .collect();
             let presentation_groups = group_variants(entries);

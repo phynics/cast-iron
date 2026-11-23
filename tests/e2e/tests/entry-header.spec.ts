@@ -101,7 +101,8 @@ test("Chips keep one form per role", async ({ page }) => {
   // Filters: the only pill; a selected one is filled and carries a check, and keeps its count.
   await page.goto("#/search?q=fire");
   await waitResults(page, "fire");
-  const chip = page.locator(".filters .chip", { hasText: /^Spells/ });
+  // The Kind group is a menu (#579), so a Publication chip is the pill sample.
+  const chip = page.locator('.filters .filter-group:has(legend:text-is("Publication")) .chip').first();
   const pill = chip.locator("span").first();
   expect(await pill.evaluate((el) => getComputedStyle(el).borderRadius)).toBe("999px");
   expect(await pill.evaluate((el) => getComputedStyle(el, "::before").content)).toBe("none");

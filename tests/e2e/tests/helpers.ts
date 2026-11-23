@@ -373,29 +373,6 @@ export function buildLibraryWithExpandedIn(
   });
 }
 
-/** One derived stat set, as the compiler stores it on an entry (#166). `cr` is in 24ths. */
-export type StatSetRow = { title: string; anchor: string; cr?: { twenty_fourths: number }; size?: string };
-
-/**
- * The same overlay for stat sets (#166): each listed creature gets `stat_sets` and one `##`
- * heading per set at the end of its body, so a link has a heading to scroll to. No pinned corpus
- * has converted stat sets yet; the compiler's own tests cover the derivation and the facet.
- */
-export function buildLibraryWithStatSets(sets: Record<string, StatSetRow[]>) {
-  return buildLibraryWithEntryPatch("stat-sets", Object.keys(sets), (entry) => {
-    entry.stat_sets = sets[entry.id];
-    for (const set of sets[entry.id]) {
-      entry.body.push({
-        t: "heading",
-        level: 2,
-        anchor: set.anchor,
-        content: [{ t: "text", v: set.title }],
-      });
-      entry.body.push({ t: "paragraph", content: [{ t: "text", v: `Statistics of ${set.title}.` }] });
-    }
-  });
-}
-
 /** Rewrites the shards of the named entries with `patch`, and the manifest hashes with them. */
 function buildLibraryWithEntryPatch(label: string, ids: string[], patch: (entry: any) => void) {
   const old = distManifest();
@@ -843,6 +820,66 @@ interface MemberStub {
  */
 export function memberBooks(stub: MemberStub): string[] {
   return stub.books && stub.books.length > 0 ? stub.books : [stub.source];
+}
+
+/**
+ * Same-name groups the compiled library keeps in several books of one product line, whose latest
+ * printings have distinct dates (#619, #637). They tie on relevance and on product line, so only
+ * the printing recency orders them. `sameText` keeps groups whose entries carry identical text
+ * (the printings of one rule); `kind` narrows to one kind. A group is kept only when its newest
+ * printing is neither the one the id order puts first nor the one the book title puts first, so
+ * neither older order could pass for the new one. The library repeats such titles across corpus
+ * versions, so the groups come from the catalog and not from a literal name. `stubs` run newest
+ * first; groups are sorted by the id of their newest entry.
+ */
+export function latestPrintingGroups(
+  corpus: { catalog: { sources: any[]; entries: any[] }; entries: Map<string, any> },
+  thirdParty: Set<string>,
+  options: { kind?: string; sameText?: boolean } = {},
+) {
+  const { kind, sameText = true } = options;
+  const sources = new Map<string, any>(corpus.catalog.sources.map((source: any) => [source.id, source]));
+  const dateOf = (stub: any): string | null => {
+    const dates = memberBooks(stub).map((book) => sources.get(book)?.publication_date).filter((date) => !!date);
+    return dates.length ? dates.sort().at(-1) : null;
+  };
+  const line = (stub: any) => {
+    const book = sources.get(stub.source);
+    return JSON.stringify([book?.category, !!book?.third_party, book?.series_kind]);
+  };
+  const text = (stub: any) => {
+    if (!sameText) return "";
+    const entry = corpus.entries.get(stub.id)!;
+    return JSON.stringify([entry.body, entry.fields, entry.tags]);
+  };
+  const bookTitle = (stub: any) => (sources.get(stub.source)?.title as string).toLowerCase();
+  const groups = new Map<string, any[]>();
+  for (const stub of corpus.catalog.entries) {
+    if (kind && stub.kind !== kind) continue;
+    const key = JSON.stringify([stub.kind, stub.title.trim().replace(/\s+/g, " ").toLowerCase(), text(stub)]);
+    groups.set(key, [...(groups.get(key) ?? []), stub]);
+  }
+  return [...groups.values()]
+    .filter((stubs) => stubs.length > 1)
+    .filter((stubs) => new Set(stubs.map(line)).size === 1)
+    .filter((stubs) => stubs.every((stub) => memberBooks(stub).every((book) => !thirdParty.has(book))))
+    .filter((stubs) => stubs.every((stub) => dateOf(stub) !== null) && new Set(stubs.map(dateOf)).size === stubs.length)
+    .map((stubs) => {
+      const ordered = [...stubs].sort((a, b) => dateOf(b)!.localeCompare(dateOf(a)!));
+      const byId = [...stubs].sort((a, b) => (a.id < b.id ? -1 : 1))[0];
+      const byBook = [...stubs].sort((a, b) => bookTitle(a).localeCompare(bookTitle(b)))[0];
+      return { stubs: ordered, newest: ordered[0], byId, byBook };
+    })
+    .filter((group) => group.newest.id !== group.byId.id)
+    .sort((a, b) => (a.newest.id < b.newest.id ? -1 : 1));
+}
+
+/** The first group of [`latestPrintingGroups`]. */
+export function latestPrintingGroup(
+  corpus: Parameters<typeof latestPrintingGroups>[0],
+  thirdParty: Set<string>,
+) {
+  return latestPrintingGroups(corpus, thirdParty)[0];
 }
 
 /** True when the entry belongs to `book`, active or not. */

@@ -11,7 +11,9 @@ use crate::membership::{self, BookMembership};
 use crate::reading::{BookReading, ReadingCache};
 use crate::revisions::EffectiveRevisions;
 use crate::store::{self, ActiveLibrary};
-use crate::views::book_tier::{Tier, printing_recency, source_ranks};
+use crate::views::book_tier::{
+    PrintingOrder, PrintingOrders, Tier, printing_recency, source_ranks,
+};
 use cast_iron_schema::{
     ALIASES_FILE, AliasIndex, BACKLINKS_FILE, BOOKS_FILE, BacklinkIndex, BacklinkSource,
     BacklinkTarget, BookIndex, Catalog, ContentManifest, CoverageReport, EntryId, EntryKind,
@@ -115,6 +117,9 @@ struct Inner {
     cache: Cache,
     shards: RefCell<Lru<String, Rc<Vec<RuleEntry>>>>,
     index: RefCell<Option<Rc<SearchIndex>>>,
+    /// The per-book facts behind the printing order of search and list folds, built on first
+    /// use from the immutable catalog.
+    printing_orders: std::cell::OnceCell<PrintingOrders>,
     legal: RefCell<Option<Rc<LegalNotices>>>,
     coverage: RefCell<Option<Rc<CoverageReport>>>,
     /// The legacy alias map, loaded eagerly so resolution is synchronous. Empty for a
@@ -302,6 +307,7 @@ impl Library {
             cache,
             shards: RefCell::new(Lru::new(SHARD_CACHE)),
             index: RefCell::new(None),
+            printing_orders: std::cell::OnceCell::new(),
             legal: RefCell::new(None),
             coverage: RefCell::new(None),
             aliases,
@@ -628,6 +634,18 @@ impl Library {
         self.0.catalog.sources.iter().find(|s| s.id == id)
     }
 
+    fn printing_orders(&self) -> &PrintingOrders {
+        self.0
+            .printing_orders
+            .get_or_init(|| PrintingOrders::new(&self.0.catalog.sources))
+    }
+
+    /// Where an entry's printing sits among the printings of one rule: the order that search
+    /// breaks ties by, so a list fold and a result list agree. Needs no file read.
+    pub fn printing_order(&self, stub: &EntryStub) -> PrintingOrder {
+        self.printing_orders().of(stub)
+    }
+
     /// The catalog stub for an id. Needs no file read.
     pub fn stub(&self, id: &EntryId) -> Option<&EntryStub> {
         let entries = &self.0.catalog.entries;
@@ -716,7 +734,7 @@ impl Library {
         // several books ranks by its newest-dated book (#619). Derived from the catalog like
         // the ranks, and not serialized.
         index.set_printing_recency(printing_recency(
-            &self.0.catalog.sources,
+            self.printing_orders(),
             &self.0.catalog.entries,
         ));
         // An entry printed in several books is indexed under its first. The index learns the

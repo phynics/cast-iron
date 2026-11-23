@@ -3,8 +3,9 @@
 //!
 //! Records remain independent: every variant keeps its permanent entry id and publication.
 use crate::route::Route;
+use crate::views::book_tier::PrintingOrder;
 use crate::views::icons;
-use cast_iron_schema::{EntryId, EntryKind, EntryStub};
+use cast_iron_schema::{EntryId, EntryKind};
 use leptos::prelude::*;
 
 /// What an entry belongs to: the race of a racial trait, the class of an archetype, the group of
@@ -23,6 +24,8 @@ pub struct SourceVariant {
     pub source: String,
     pub kind: EntryKind,
     pub parent: Option<Parent>,
+    /// Where this printing sits among the others of its rule: the order search breaks ties by.
+    pub order: PrintingOrder,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -51,6 +54,10 @@ pub fn normalized_title(title: &str) -> String {
 /// Groups identical normalized titles only within the same kind and parent: a fold joins the
 /// printings of one rule, never two rules that share a name. Input should already be filtered
 /// to active publications; the IDs and source labels are never collapsed.
+///
+/// A fold lists its printings the way search orders equal results: product line, then the
+/// newest printing (undated last), then book title, then id. Its summary takes the spelling of
+/// that first printing's title.
 pub fn group_variants(entries: Vec<SourceVariant>) -> Vec<SourceGroup> {
     let mut groups: Vec<SourceGroup> = Vec::new();
     let mut positions = std::collections::BTreeMap::<(String, String), usize>::new();
@@ -80,31 +87,16 @@ pub fn group_variants(entries: Vec<SourceVariant>) -> Vec<SourceGroup> {
     }
     for group in &mut groups {
         cast_iron_sort::sort_by(&mut group.variants, |a, b| {
-            a.source
-                .to_lowercase()
-                .cmp(&b.source.to_lowercase())
-                .then(a.id.cmp(&b.id))
+            a.order
+                .cmp(&b.order)
+                .then_with(|| a.source.to_lowercase().cmp(&b.source.to_lowercase()))
+                .then_with(|| a.id.cmp(&b.id))
         });
+        if let Some(first) = group.variants.first() {
+            group.title = first.title.clone();
+        }
     }
     groups
-}
-
-pub fn variants_for_stubs(
-    stubs: &[EntryStub],
-    source_title: impl Fn(&str) -> String,
-) -> Vec<SourceGroup> {
-    group_variants(
-        stubs
-            .iter()
-            .map(|s| SourceVariant {
-                id: s.id.clone(),
-                title: s.title.clone(),
-                source: source_title(&s.source),
-                kind: s.kind,
-                parent: None,
-            })
-            .collect(),
-    )
 }
 
 /// The text of each link in a fold, in order. A link names its book: the list already names the
@@ -183,7 +175,13 @@ mod tests {
             source: source.into(),
             kind,
             parent: None,
+            order: PrintingOrder::UNKNOWN,
         }
+    }
+
+    fn ordered(mut v: SourceVariant, rank: u8, newest: u32) -> SourceVariant {
+        v.order = PrintingOrder { rank, newest };
+        v
     }
 
     fn of(parent: &str, mut v: SourceVariant) -> SourceVariant {
@@ -312,6 +310,66 @@ mod tests {
                 "Core Rulebook (1)",
                 "Core Rulebook (2)",
                 "Advanced Race Guide"
+            ]
+        );
+    }
+
+    #[test]
+    fn a_fold_lists_the_newest_printing_first_and_names_itself_by_it() {
+        let kind = EntryKind::Item;
+        let groups = group_variants(vec![
+            ordered(
+                variant("ref/item/tent-apg", "Tent", "Advanced Player's Guide", kind),
+                0,
+                2,
+            ),
+            ordered(
+                variant("ref/item/tent-core", "tent", "Core Rulebook", kind),
+                0,
+                1,
+            ),
+            ordered(
+                variant("ref/item/tent-ue", "TENT", "Ultimate Equipment", kind),
+                0,
+                3,
+            ),
+        ]);
+        assert_eq!(groups.len(), 1);
+        let sources: Vec<&str> = groups[0]
+            .variants
+            .iter()
+            .map(|v| v.source.as_str())
+            .collect();
+        assert_eq!(
+            sources,
+            [
+                "Ultimate Equipment",
+                "Advanced Player's Guide",
+                "Core Rulebook"
+            ]
+        );
+        assert_eq!(groups[0].title, "TENT", "the first link's spelling");
+    }
+
+    #[test]
+    fn product_line_beats_recency_and_ties_fall_to_book_title_then_id() {
+        let kind = EntryKind::Item;
+        let groups = group_variants(vec![
+            ordered(variant("ref/item/z", "Rope", "Adventure", kind), 3, 9),
+            ordered(variant("ref/item/b", "Rope", "Beta", kind), 0, 4),
+            ordered(variant("ref/item/a2", "Rope", "Alpha", kind), 0, 4),
+            ordered(variant("ref/item/a1", "Rope", "Alpha", kind), 0, 4),
+            ordered(variant("ref/item/u", "Rope", "Aardvark", kind), 0, 0),
+        ]);
+        let ids: Vec<&str> = groups[0].variants.iter().map(|v| v.id.as_str()).collect();
+        assert_eq!(
+            ids,
+            [
+                "ref/item/a1",
+                "ref/item/a2",
+                "ref/item/b",
+                "ref/item/u",
+                "ref/item/z"
             ]
         );
     }
