@@ -110,39 +110,36 @@ pub fn InstallPanel(
 
     view! {
         <section class="install-panel" aria-label="Library installer">
-            {move || manifest.get().map(|m| {
-                let intro = match mode {
-                    InstallMode::Fresh => "Library to install".to_string(),
-                    InstallMode::Update => "Newer library available".to_string(),
-                };
-                view! {
-                    <dl class="facts">
-                        <div><dt>{intro}</dt><dd>{m.content_version.clone()}</dd></div>
-                        <div><dt>"Download size"</dt><dd data-testid="download-size">{fmt::bytes(m.total_bytes)}</dd></div>
-                        <div><dt>"Entries"</dt><dd>{fmt::count(m.entry_count)}</dd></div>
-                    </dl>
-                }
+            // The facts belong to the first install. In Settings the update row already names the
+            // version and the size, so the update form says neither again (#584).
+            {move || (mode == InstallMode::Fresh).then(|| manifest.get()).flatten().map(|m| view! {
+                <dl class="facts">
+                    <div><dt>"Library version"</dt><dd data-testid="install-version">{
+                        fmt::corpus_label(m.corpus_tag.as_deref(), &m.content_version)
+                    }</dd></div>
+                    <div><dt>"Download size"</dt><dd data-testid="download-size">{fmt::bytes(m.total_bytes)}</dd></div>
+                    <div><dt>"Entries"</dt><dd>{fmt::count(m.entry_count)}</dd></div>
+                </dl>
             })}
             {move || match phase.get() {
-                Phase::Checking => view! { <p>"Checking the library..."</p> }.into_any(),
-                Phase::Offer => {
-                    let label = match mode {
-                        InstallMode::Fresh => "Download",
-                        InstallMode::Update => "Download update",
-                    };
-                    let note = match mode {
-                        InstallMode::Fresh => "The library is saved on this device for offline use.",
-                        InstallMode::Update => "Your stars stay. The current library keeps working until the new one is verified.",
-                    };
-                    view! {
+                Phase::Checking => view! { <p class="status" role="status">"Checking the library…"</p> }.into_any(),
+                Phase::Offer => match mode {
+                    InstallMode::Fresh => view! {
                         <p class="install-guidance">
                             <strong>"On iPhone?"</strong> " In Safari, use Share, then Add to Home Screen, and open Cast Iron from your Home Screen before downloading. "
                             "The Home Screen app may need its own library download, and stars saved in Safari may not carry over."
                         </p>
-                        <p>{note}</p>
-                        <button class="btn btn-primary" type="button" on:click=move |_| start()>{label}</button>
-                    }.into_any()
-                }
+                        <p>"The library is saved on this device for offline use."</p>
+                        <button class="btn btn-primary" type="button" on:click=move |_| start()>"Download"</button>
+                    }.into_any(),
+                    // The reader installed the app already: one button and one reassurance.
+                    InstallMode::Update => view! {
+                        <button class="btn btn-primary" type="button" on:click=move |_| start()>"Download update"</button>
+                        <p class="muted">
+                            "Your stars and book choices stay. The current library keeps working until the new one is verified."
+                        </p>
+                    }.into_any(),
+                },
                 Phase::Failed(failure) => {
                     let label = if failure.kind == FailureKind::Schema || manifest.get().is_none() {
                         "Check again"

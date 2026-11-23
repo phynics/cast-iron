@@ -39,7 +39,7 @@ test("Licensing information is preserved and accessible", async ({ page }) => {
   await installLibrary(page);
   // Reachable from the settings screen and from every entry.
   await page.goto("#/settings");
-  await page.getByRole("link", { name: "Legal and attribution, and library coverage" }).click();
+  await page.getByRole("main").getByRole("link", { name: "Legal and attribution", exact: true }).click();
   await expect(page.getByRole("heading", { level: 1, name: "Legal and attribution" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Contact the maintainer" }))
     .toHaveAttribute("href", "https://github.com/phynics/cast-iron/issues");

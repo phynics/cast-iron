@@ -147,8 +147,7 @@ test("An installed app shows no header button and Settings says so", async ({ pa
     await installed.goto("#/settings");
     await waitReady(installed);
     await expect(installed.getByRole("heading", { name: "Settings" })).toBeVisible();
-    await expect(installed.getByTestId("app-install"), name).toContainText("Cast Iron is running as an installed app.");
-    await expect(installed.getByTestId("app-install"), name).toContainText(/^Installed\. /);
+    await expect(installed.getByTestId("app-install"), name).toContainText("Installed as an app");
     await expect(headerButton(installed), name).toHaveCount(0);
     await expect(installed.getByRole("button", { name: "Install app" }), name).toHaveCount(0);
     await installed.close();

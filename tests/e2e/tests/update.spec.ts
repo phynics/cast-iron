@@ -71,8 +71,18 @@ test("Content update keeps user records", async ({ page, context, server }) => {
     // activation for roughly 40 s.
     await server.hook(`content/${slow}`, "slow", { ms: 1500 });
     await page.getByRole("button", { name: "Check now", exact: true }).click();
-    await expect(page.getByText("Newer library available")).toBeVisible();
-    await expect(page.locator(".install-panel .facts")).toContainText(next.version);
+    // The update row says each thing once (#584): one size, one button, one reassurance, and
+    // nothing that belongs to the first install.
+    const updates = page.locator("#set-updates");
+    const offer = page.getByTestId("library-update");
+    await expect(offer.getByRole("button", { name: "Download update" })).toHaveCount(1);
+    await expect(offer.locator(".install-panel .facts")).toHaveCount(0);
+    await expect(updates.getByText("On iPhone?")).toHaveCount(0);
+    await expect(updates.getByTestId("download-size")).toHaveCount(0);
+    const text = (await updates.innerText()).replace(/\s+/g, " ");
+    expect(text.match(/\d+(\.\d+)? [MG]B/g) ?? [], "the size appears once").toHaveLength(1);
+    expect(text.match(/Your stars/g) ?? [], "the reassurance appears once").toHaveLength(1);
+    await expect(offer).toContainText("Your stars and book choices stay. The current library keeps working until the new one is verified.");
     await page.getByRole("button", { name: "Download update" }).click();
     await expect(page.getByTestId("install-status")).toContainText(/Downloading/);
 
@@ -140,8 +150,8 @@ test("The daily check surfaces a newer library, and Settings puts Updates first"
     const sections = page.locator("main section.settings-section");
     await expect(sections.first()).toHaveAttribute("id", "set-updates");
     const row = page.getByTestId("library-update");
-    await expect(row).toContainText(`Newer rules library: ${next.version}`);
-    await expect(row).toContainText("Your stars and book choices are kept.");
+    await expect(row.getByText("Rules library", { exact: true })).toBeVisible();
+    await expect(row).toContainText(next.manifest.corpus_tag ?? next.version);
     await expect(page.getByTestId("last-checked")).toContainText("Last checked:");
     await expect(page.getByRole("button", { name: "Check now", exact: true })).toBeVisible();
 
@@ -192,8 +202,8 @@ test("A stored newer library mounts no installer until the reader asks", async (
   // Opening Settings must not fetch the manifest just because a record names a newer library.
   await page.goto("#/settings");
   const row = page.getByTestId("library-update");
-  await expect(row).toContainText("Newer rules library: v0000000000000000");
-  await expect(row).toContainText("Your stars and book choices are kept.");
+  await expect(row.getByText("Rules library", { exact: true })).toBeVisible();
+  await expect(row).toContainText("v0000000000000000");
   await expect(row.locator(".install-panel")).toHaveCount(0);
   await expect(row.getByRole("button", { name: "Check now", exact: true })).toBeVisible();
   await expect
@@ -242,4 +252,61 @@ test("Offline, the automatic check asks for nothing and Settings still works", a
     )
     .toEqual([]);
   expect((await server.requests()).filter((p) => p === "content/manifest.json")).toEqual([]);
+});
+
+/** The `h2` texts of Settings, in page order (#584). */
+const SECTIONS = ["Updates", "Appearance", "Books", "Library", "Storage", "Install", "Help"];
+
+async function expectSettingsPage(page: import("@playwright/test").Page) {
+  await expect(page.getByRole("heading", { level: 1, name: "Settings", exact: true })).toBeVisible();
+  await expect(page.locator("main section.settings-section > h2")).toHaveText(SECTIONS);
+  // Every section is named by its own h2.
+  const unnamed = await page.locator("main section.settings-section").evaluateAll((sections) =>
+    sections.filter((section) => {
+      const id = section.getAttribute("aria-labelledby");
+      return !id || document.getElementById(id)?.tagName !== "H2";
+    }).length);
+  expect(unnamed).toBe(0);
+  await expect(page.locator("main section.settings-section").first()).toHaveAttribute("id", "set-updates");
+  // No maintainer words: those live in Diagnostics.
+  await expect(page.locator("main")).not.toContainText(/Content format|Corpus|manifest|schema/);
+  // The two version rows keep their values; the rest of the page names no hash.
+  await expect(page.getByTestId("library-version")).not.toHaveText("Checking…");
+  await expect(page.getByTestId("shell-version")).not.toHaveText("Checking…");
+}
+
+test("Settings has seven sections in a fixed order, Help links out, and Verify writes a status", async ({ page }) => {
+  await installLibrary(page);
+  await waitControlled(page);
+  await page.goto("#/settings");
+  await expectSettingsPage(page);
+
+  const help = page.locator("section[aria-labelledby=set-help]");
+  await expect(help.getByRole("link", { name: "Diagnostics", exact: true })).toHaveAttribute("href", "#/settings/diagnostics");
+  await expect(help.getByRole("link", { name: "Legal and attribution", exact: true })).toHaveAttribute("href", "#/legal");
+  const report = help.getByRole("link", { name: "Report a problem on GitHub (opens in a new tab)" });
+  await expect(report).toHaveAttribute("target", "_blank");
+  await expect(report).toHaveText("Report a problem");
+  await expect(page.locator("section[aria-labelledby=set-books]").getByRole("link", { name: "Manage books", exact: true })).toHaveAttribute("href", "#/books/manage");
+  // Content format is a Diagnostics fact now.
+  await expect(page.locator("main")).not.toContainText("Content format");
+
+  await page.getByRole("button", { name: "Verify library", exact: true }).click();
+  await expect(page.locator("section[aria-labelledby=set-library] [role=status]").filter({ hasText: "Library verified." })).toHaveCount(1, { timeout: 120_000 });
+  await expect(page.getByTestId("verify-status")).toHaveAttribute("role", "status");
+});
+
+test("The sections keep their order while an update waits", async ({ page, server }) => {
+  const next = buildNewerManifest();
+  try {
+    await installLibrary(page);
+    await waitControlled(page);
+    await server.overlay(next.dir);
+    await page.goto("#/settings");
+    await page.getByRole("button", { name: "Check now", exact: true }).click();
+    await expect(page.getByTestId("library-update")).toBeVisible();
+    await expectSettingsPage(page);
+  } finally {
+    next.cleanup();
+  }
 });
