@@ -1819,7 +1819,7 @@ mark {
   height: 1.4rem;
 }
 
-.star-btn:hover:not(:disabled) {
+.star-btn:hover:not([aria-disabled="true"]) {
   color: var(--accent);
   background: var(--surface-2);
 }
@@ -1834,7 +1834,7 @@ mark {
   fill: currentColor;
 }
 
-.star-btn:disabled {
+.star-btn[aria-disabled="true"] {
   opacity: 0.5;
   cursor: default;
 }

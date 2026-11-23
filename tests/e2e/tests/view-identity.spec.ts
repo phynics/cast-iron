@@ -43,15 +43,18 @@ test("An entry's page, panels and header are not rendered again by the star or b
   await expect(star).toBeEnabled();
   await hold(page, ["main article.entry", ".entry-rel", ".entry-meta", LEADS, ".bookmark-toggle"]);
 
-  // The star is disabled while it saves, and a disabled button gives up focus in Chromium, on
-  // main as well. So this step checks the nodes, the star's own included, and not focus.
-  await star.click();
+  // The star stays enabled while it saves (#627), so a keypress leaves focus on it. It is pressed
+  // with the keyboard here, as a keyboard reader does.
+  await star.focus();
+  await star.press("Enter");
   await expect(star).toHaveAttribute("aria-pressed", "true");
-  await expect(star).toBeEnabled();
+  await expect(star).not.toHaveAttribute("aria-disabled", "true");
+  await expect(star).toBeFocused();
   await expectHeld(page, "the star on");
-  await star.click();
+  await star.press("Space");
   await expect(star).toHaveAttribute("aria-pressed", "false");
-  await expect(star).toBeEnabled();
+  await expect(star).not.toHaveAttribute("aria-disabled", "true");
+  await expect(star).toBeFocused();
   await expectHeld(page, "the star off");
 
   const more = page.locator(LEADS).locator("details.backlink-more");
@@ -63,6 +66,37 @@ test("An entry's page, panels and header are not rendered again by the star or b
     await expect(summary).toBeFocused();
     await expectHeld(page, step);
   }
+});
+
+test("The star keeps keyboard focus while it saves, on an entry and on Home", async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await installLibrary(page);
+  // Reach the star with Tab, press it with Enter: focus stays, the state flips, the name follows.
+  for (const route of [POWER_ATTACK, WIZARD]) {
+    await page.goto(route);
+    await expect(page.getByTestId("entry-title")).toBeVisible();
+    const star = page.locator(".bookmark-toggle");
+    await expect(star).not.toHaveAttribute("aria-disabled", "true");
+    await page.locator("main").focus();
+    for (let i = 0; i < 30 && !(await star.evaluate((node) => node === document.activeElement)); i++) {
+      await page.keyboard.press("Tab");
+    }
+    await expect(star).toBeFocused();
+    await expect(star).toHaveAttribute("aria-pressed", "false");
+    await page.keyboard.press("Enter");
+    await expect(star).toHaveAttribute("aria-pressed", "true");
+    await expect(star).toHaveAccessibleName(/^Unstar /);
+    await expect(star).toBeFocused();
+  }
+  // Home: unstar the first row from the keyboard. The row goes; focus moves to the star that took its place.
+  await page.goto("#/");
+  const stars = page.locator(".home-bookmarks .star-btn");
+  await expect(stars).toHaveCount(2);
+  await stars.first().focus();
+  await page.keyboard.press("Enter");
+  await expect(stars).toHaveCount(1);
+  await expect(stars.first()).toBeFocused();
+  await expect(stars.first()).not.toHaveAttribute("aria-disabled", "true");
 });
 
 test("A class page is not rendered again by a section jump or by the archetype choices", async ({ page }) => {

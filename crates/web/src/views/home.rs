@@ -24,6 +24,31 @@ struct RowData {
     in_library: bool,
 }
 
+/// Moves focus to the star at `index` in the Starred list, or to the last one when the list is
+/// shorter now. Runs after two frames, when the list has been drawn again without the removed row.
+fn focus_star_near(index: usize) {
+    use wasm_bindgen::JsCast;
+    request_animation_frame(move || {
+        request_animation_frame(move || {
+            let Some(document) = web_sys::window().and_then(|window| window.document()) else {
+                return;
+            };
+            let Ok(stars) = document.query_selector_all(".home-bookmarks .star-btn") else {
+                return;
+            };
+            let Some(last) = stars.length().checked_sub(1) else {
+                return;
+            };
+            if let Some(star) = stars
+                .item((index as u32).min(last))
+                .and_then(|node| node.dyn_into::<web_sys::HtmlElement>().ok())
+            {
+                let _ = star.focus();
+            }
+        });
+    });
+}
+
 /// Lower-cased titles that occur more than once, so those rows can also name their book.
 fn duplicate_titles<'a>(titles: impl Iterator<Item = &'a str>) -> BTreeSet<String> {
     let mut seen = BTreeSet::new();
@@ -157,12 +182,12 @@ pub fn Home() -> impl IntoView {
                     let ambiguous = duplicate_titles(rows.iter().map(|r| r.title.as_str()));
                     let visible = move || {
                         let take = if expanded.get() { usize::MAX } else { STARRED_PREVIEW };
-                        rows.iter().take(take).map(|row| {
+                        rows.iter().take(take).enumerate().map(|(index, row)| {
                             let id = row.id.clone();
                             let unstar_name = format!("Unstar {}", row.title);
                             let library = library.clone();
                             let button = view! {
-                                <button class="btn star-btn is-on" type="button" aria-label=unstar_name disabled=move || unstarring.get() on:click=move |_| {
+                                <button class="btn star-btn is-on" type="button" aria-label=unstar_name aria-disabled=move || unstarring.get().then_some("true") on:click=move |_| {
                                     if unstarring.get_untracked() { return; }
                                     unstarring.set(true);
                                     let id = id.clone();
@@ -180,6 +205,9 @@ pub fn Home() -> impl IntoView {
                                                 bookmarks.set(Some(list));
                                                 if emptied && let Some(title) = title_ref.get_untracked() {
                                                     let _ = title.focus();
+                                                } else if !emptied {
+                                                    // The row is gone; the next star, or the last, takes the focus.
+                                                    focus_star_near(index);
                                                 }
                                             }
                                             Err(error) => star_error.set(Some(format!("Could not unstar this entry: {error}"))),
