@@ -1,4 +1,4 @@
-import { test, expect, loadCorpus } from "./fixtures";
+import { test, installedTest, expect, loadCorpus } from "./fixtures";
 import { installLibrary, waitControlled, waitReady } from "./helpers";
 
 const corpus = loadCorpus();
@@ -38,6 +38,7 @@ const legacyProfile = async (page: import("./fixtures").Page) => {
   }), legacyRows);
 };
 
+// Plain `test`: it writes a legacy profile before the install and restarts the profile offline.
 test("Home keeps legacy collection members as unique stars across offline restart", async ({ openProfile }) => {
   let context = await openProfile();
   let page = await context.newPage();
@@ -71,7 +72,7 @@ test("Home keeps legacy collection members as unique stars across offline restar
   await expect(page.locator(".bookmark-toggle")).toHaveAccessibleName(`Unstar ${distinctSpells[0].title}`);
 });
 
-test("More than six starred entries stay independently openable and removable", async ({ page }) => {
+installedTest("More than six starred entries stay independently openable and removable", async ({ page }) => {
   await installLibrary(page);
   await waitControlled(page);
   const distinct = distinctSpells.slice(0, 7);
