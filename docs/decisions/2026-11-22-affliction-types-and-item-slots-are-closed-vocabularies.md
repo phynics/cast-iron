@@ -2,7 +2,7 @@
 title: "Affliction types and item slots are closed vocabularies"
 date: 2026-11-22
 status: partly-superseded
-superseded_by: ["2026-11-23-drift-reads-creature-stats-from-stat-block-rows"]
+superseded_by: ["2026-11-23-drift-reads-creature-stats-from-stat-block-rows", "2026-11-23-arm-or-wrist-is-a-printed-slot-value"]
 issues: [592, 594]
 prs: [608, 610]
 area: corpus
