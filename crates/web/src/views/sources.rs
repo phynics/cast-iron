@@ -6,6 +6,7 @@
 //! its full URL. The view only adds the book and Archives of Nethys links.
 
 use crate::library::Library;
+use crate::printings::Printing;
 use crate::route::Route;
 use crate::views::icons;
 use cast_iron_schema::{Citation, EntryId, Expansion};
@@ -305,6 +306,35 @@ pub fn expanded_line(expanded: &[Expansion], library: &Library) -> AnyView {
         })
         .collect_view();
     view! { <p class="expanded-line" data-testid="expanded-line">"Expanded in: "{parts}</p> }
+        .into_any()
+}
+
+/// The muted `Other printings:` line under the `Expanded in:` line (#650). Nothing when no
+/// other book prints the rule. Each link names its book and opens that printing; one in a book
+/// the reader turned off is dimmed like an inactive `Expanded in` credit and says `Inactive`.
+/// Typed nodes only (AGENTS.md rule 2).
+pub fn printings_line(printings: &[Printing]) -> AnyView {
+    if printings.is_empty() {
+        return ().into_any();
+    }
+    let parts = printings
+        .iter()
+        .enumerate()
+        .map(|(at, printing)| {
+            let separator = (at > 0).then_some(view! { "; " });
+            let href = Route::entry(printing.id.clone()).href();
+            let label =
+                (!printing.active).then(|| view! { " · "<span class="tag">"Inactive"</span> });
+            view! {
+                {separator}
+                <span class="printing" data-inactive=(!printing.active).then_some("true")>
+                    <a href=href>{printing.label.clone()}</a>{label}
+                </span>
+            }
+            .into_any()
+        })
+        .collect_view();
+    view! { <p class="printings-line" data-testid="printings-line">"Other printings: "{parts}</p> }
         .into_any()
 }
 

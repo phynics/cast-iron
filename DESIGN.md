@@ -165,22 +165,22 @@ The sticky header holds the brand, the primary nav (from 48rem; below it the nav
 
 ### Primary navigation
 
-Four tabs in one order, **Home, Books, Table, Settings**, each an icon above or beside its label. Below 48rem they are the bottom bar: one equal column per tab, each at least 44 px wide and `--nav-h` tall (at 390 px, about 97 px wide). From 48rem they are the header's top nav, icon beside label, after the brand. The tab for the current section carries `aria-current="page"`, and a page inside a section keeps its tab: kind lists and spell lists belong to Home, a book and its chapters to Books, Legal to Settings. Table is the die icon (`views/icons.rs`, the set's 24 px grid and 1.8 px round stroke); its page is Quick reference, and nothing else belongs to it. The header keeps the `--wide` column edge from 48rem, so the header is one row at every width from 48rem: four tabs beside the brand, the search icon, the header action and the Offline mark. Below 64rem the header action and the Offline mark are glyph-only and the column gap is `--space-2`; from 64rem they carry their labels.
+Four tabs in one order, **Home, Books, Table, Settings**, each an icon above or beside its label. Below 48rem they are the bottom bar: one equal column per tab, each at least 44 px wide and `--nav-h` tall (at 390 px, about 97 px wide). From 48rem they are the header's top nav, icon beside label, after the brand. The tab that holds the current route carries `aria-current="page"`, and a page inside a section keeps its tab: spell lists belong to Home, a book and its chapters to Books, Legal to Settings. An entry or a kind list that names a book the library holds (`?book=` and `?source=`) belongs to Books; one that names a book the library lacks belongs to Home. Table is the die icon (`views/icons.rs`, the set's 24 px grid and 1.8 px round stroke); its page is Quick reference, and nothing else belongs to it. The header keeps the `--wide` column edge from 48rem, so the header is one row at every width from 48rem: four tabs beside the brand, the search icon, the header action and the Offline mark. Below 64rem the header action and the Offline mark are glyph-only and the column gap is `--space-2`; from 64rem they carry their labels.
 
-Which tab a route highlights, today:
+Which tab a route highlights (#571, `docs/decisions/2026-11-23-entry-breadcrumbs-and-tabs.md`):
 
 | Route | Tab |
 |---|---|
 | Home | Home |
 | Kind lists, Spell hub, Spell lists, Feat chains | Home |
+| A kind list filtered by a book (`?source=`) | Books when the library holds the book, otherwise Home |
 | Books, Manage books (and a share link), Book page, Chapter page, the removed-book Books | Books |
+| An old publication address (`#/browse/source/<id>`) | Books when the library has book pages, otherwise Home |
+| An entry opened from a book (`?book=`) | Books when the library holds the book, otherwise Home |
+| Every other entry page, including an unavailable or retired id | Home |
 | Quick reference | Table |
 | Settings, Diagnostics, Legal | Settings |
-| Entry pages | none |
-| Search | none |
-| Not found | none |
-
-Entry pages, Search and Not found highlight no tab today; `#571` decides whether they should.
+| Search, Not found | none |
 
 ### Breadcrumbs
 
@@ -326,7 +326,7 @@ Focusing a field never navigates. The scope control is never a second field in t
 4. The original-text disclosure of a revised entry.
 5. On a class page, the summary card and the section switcher, and `On this page` where the page keeps it. On a creature that prints several stat sets, the `Stat sets` list (see Stat sets).
 6. The body, ending in the footnotes group.
-7. The `Sources:` line, the `Expanded in:` line and the Archives of Nethys line.
+7. The `Sources:` line, the `Expanded in:` line, the `Other printings:` line and the Archives of Nethys line.
 8. The relation panels (see Attached entries for the add-ons, and the related panels for the rest).
 9. The reading footer, when the entry was opened from a book (see Books, Reading footer).
 10. `References` and `Referenced by`.
@@ -357,6 +357,12 @@ so an unconverted entry and a converted one read the same.
 - A credit from a book the reader turned off is dimmed (`data-inactive="true"`) with the `--ink-dim` colour token for its text and both links, never with opacity (an accent link under opacity measured 4.2:1 in the light theme). `--ink-dim` measures 4.76:1 in the light theme and 5.64:1 in the dark one against the page ground. The credit ends with the `Inactive` Label (`.tag`), so the state never rests on dimming alone. The title still links to the book page, as a book row on Books does.
 - A revision in force does not replace the credits like it replaces citations: the base's credits stay, then the revision's own, each once.
 - At 64 rem and wider the line owns the grid row `expanded` between `sources` and `aon`. With an `Archives of Nethys` line after it the line keeps the larger bottom margin that the 44 px AoN target needs.
+
+**The `Other printings:` line (#650)** sits directly under the `Expanded in:` line (under `Sources:` when there is no credit), in the same muted Metadata role (`.printings-line`), and only when another entry is a printing of the same rule: `Other printings: Ultimate Equipment; Core Rulebook`.
+- A printing is an entry with the same kind, normalized title and parent, the set that the browse folds join. Each link is the printing's book and opens that entry. The links run newest first, in the order of the folds and of search; there is no `Latest` label and no year. Two links that read alike take a last `(n)`.
+- Never listed: creatures (one name, different stat blocks), a pair that a revision joins (its notice links it), and a pair whose primary book is the same.
+- A printing whose books are all turned off stays, dimmed with `--ink-dim` and ending in the `Inactive` Label (`.tag`), as an inactive credit does.
+- At 64 rem and wider the line owns the grid row `printings` between `expanded` and `aon`. With an `Archives of Nethys` line after it the line keeps the larger bottom margin that the 44 px AoN target needs.
 
 **The base page,** after the body, in this order:
 

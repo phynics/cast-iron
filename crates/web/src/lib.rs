@@ -36,6 +36,7 @@ pub mod lru;
 pub mod membership;
 pub mod panic_notice;
 pub mod powers;
+pub mod printings;
 pub mod pwa;
 pub mod reading;
 pub mod report;
