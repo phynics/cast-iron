@@ -380,8 +380,10 @@ test("every feat chain opens from ?open= and keeps the chain open on Back", asyn
   await expect(item).toBeInViewport();
 
   // Opening and closing a head rewrites the address in place and adds no history entry.
+  await page.goto("#/browse");
   await page.goto("#/feats/chains");
   await expect(item.locator("summary").first()).toBeVisible();
+  await expect(item.locator("> details")).not.toHaveAttribute("open", "");
   const length = await page.evaluate(() => history.length);
   await item.locator("> details > summary").click();
   await expect(page).toHaveURL(new RegExp(`#/feats/chains\\?open=${encoded}$`));
