@@ -1,8 +1,8 @@
 ---
 title: "Chapter pages and their address"
 date: 2026-11-09
-status: current
-superseded_by: []
+status: partly-superseded
+superseded_by: [2026-11-23-entry-breadcrumbs-and-tabs]
 issues: [161]
 prs: []
 area: ui

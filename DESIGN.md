@@ -56,7 +56,7 @@ The table lists the changes that the rules in this file depend on, not every que
 
 ### Glyphs
 
-Text is never an icon. A chevron, arrow, cross, check or star is an inline SVG (`currentColor`, `aria-hidden="true"`), and the control keeps the accessible name. Every `<summary>` that opens a disclosure draws the same chevron and hides the platform's own marker. The exceptions are the two Collections pickers, which keep the platform marker, and the `+N more` link in a metadata line, which is text. All icons share the 24 px grid and a 1.8 px round stroke. Two separators stay text because they separate rather than act: the muted `·` in a metadata or count line, and the `›` between breadcrumbs (and in the book trail).
+Text is never an icon. A chevron, arrow, cross, check or star is an inline SVG (`currentColor`, `aria-hidden="true"`), and the control keeps the accessible name. Every `<summary>` that opens a disclosure draws the same chevron and hides the platform's own marker. The exceptions are the two Collections pickers, which keep the platform marker, and the `+N more` link in a metadata line, which is text. All icons share the 24 px grid and a 1.8 px round stroke. Two separators stay text because they separate rather than act: the muted `·` in a metadata or count line, and the `›` between breadcrumbs.
 
 ## Components
 
@@ -189,19 +189,21 @@ A breadcrumb lists only the pages between a tab destination and the current page
 | Page | Breadcrumb |
 |---|---|
 | A kind's list page | none |
+| A kind's list page filtered by a book the library holds (`?source=`) | `{Book}` |
 | Feat chains | `Feats` |
 | Spell hub | `Spells` |
 | Spell list | `Spells › Spell lists` |
 | Manage books | none |
 | Book page | none |
+| Chapter page | `{Book}` |
+| The old `#/browse/source/<id>` page, in a library without book pages | none |
 | Home, Search, Books, Quick reference, Settings, Diagnostics, Legal, Not found | none |
-| Entry that is not a Rule | `Home › {Kind} › {parent entries} › {printed section parts}` |
-| Rule entry | `Books › {parent entries} › {printed section parts}` |
-| Creature entry | `Home › {Kind} › {parent entries}`; a creature's printed taxonomy is never a crumb |
-| Chapter page | `Books › {Book} › {Chapter}` |
-| The old `#/browse/source/<id>` page, in a library without book pages | `Home` |
+| Entry opened with `?book=` that the book places (an add-on too) | `{Book} › {Chapter}`, both links; the chapter is the chapter page. The book alone when the entry is the chapter's own row or sits outside every listed chapter |
+| Add-on entry (variant, mythic, Stamina, revision, third-party change) opened any other way | none |
+| Rule entry opened any other way | its parent entries, root first; none when it has no parent |
+| Any other entry | `{Kind}` then its parent entries, root first (`Spells` on Fireball, `Class options` on a class option) |
 
-Entry pages and chapter pages still name `Home` or `Books`, which this rule forbids. `#571` decides the target; until it lands, do not copy their crumbs. The chapter page is a known conflict with the rule above.
+A printed section, and a creature's printed taxonomy, is never a crumb. The `{Book}` crumb opens the book page, and `{Chapter}` the chapter page. A book that the library does not hold gives no book crumb: the entry takes the row for an entry opened any other way. When the address names a held book, `{Book}` shows at once and `› {Chapter}` joins it when the book order has loaded; if the book does not place the entry, the kind trail replaces it. A long book title wraps the line at 390 px and is never truncated. The decision is `docs/decisions/2026-11-23-entry-breadcrumbs-and-tabs.md`.
 
 ### Page head
 
@@ -336,7 +338,7 @@ A creature that prints several stat sets (two or more `##` sections with a `Chal
 
 An add-on (variant, mythic version, Stamina rules, a third-party change or revision) is its own entry from its own book. It appears only while that book is active. An inactive base never hides it. Search, lists, facets, backlinks, stars and Recent already work per entry, so an add-on needs no second filter model. There is no rule-set switch and no gated body block.
 
-**The add-on's own page.** The metadata line ends with one link fragment: `Variant of {base}`, `Mythic version of {base}`, `Stamina rules for {base}`, `Changes {book} makes to {base}`, or `Revision of {base}`. The last appears only on the revision entry's own page. There is no `Base …` stat row; a value appears once. Search rows read `Mythic · {book}`, `Stamina · {book}`, or `Changes · {book}`; a class option reads `{Group singular} · {book}`. The page has the entry breadcrumb (see Breadcrumbs).
+**The add-on's own page.** The metadata line ends with one link fragment: `Variant of {base}`, `Mythic version of {base}`, `Stamina rules for {base}`, `Changes {book} makes to {base}`, or `Revision of {base}`. The last appears only on the revision entry's own page. There is no `Base …` stat row; a value appears once. Search rows read `Mythic · {book}`, `Stamina · {book}`, or `Changes · {book}`; a class option reads `{Group singular} · {book}`. Outside a book the page has no breadcrumb; opened from a book (`?book=`) it has the book's (see Breadcrumbs).
 
 **The entry's own text ends with one muted `Sources:` line** when the entry has typed citations:
 `Sources: Ultimate Combat p. 221; Advanced Player's Guide p. 12`. Each publication uses its
@@ -571,11 +573,11 @@ Six tiers, in this order (`Rulebooks`, `Player Companions`, `Campaign Setting`, 
 
 #### Chapter page
 
-Every top-level Contents row opens its chapter page, `#/browse/book/<id>/<chapter-id>`; the id is the chapter anchor or a slug of its printed title, never its row number. The chapter page is full width. Its breadcrumb today is `Books › {Book} › {Chapter}`, a known conflict with the Breadcrumbs rule, which `#571` decides. The chapter's first-level sections are `h2` headings and deeper levels are plain indented lists, with no disclosure. A section that is itself an entry and whose page already lists every entry below it keeps only its link. A chapter that is itself an entry offers one link to that entry. The off line (as on the book page, with its `Manage books` link) follows the `h1`, then that link. When the chapter holds entries of kinds that have a list page, an `In this chapter` heading and a `.jump-list` of `{Kind} {count}` links follow, in the form of `In this book`: counted from the chapter's subtree, in Home category order, each opening the book-filtered list (`#/browse/kind/<kind>?source=<id>`). A rules-only chapter has no such section; a turned-off book still shows it. Back from a chapter page restores the book page's scroll position, and Back from an entry returns to the chapter page it came from.
+Every top-level Contents row opens its chapter page, `#/browse/book/<id>/<chapter-id>`; the id is the chapter anchor or a slug of its printed title, never its row number. The chapter page is full width. Its breadcrumb is the book alone (see Breadcrumbs). The chapter's first-level sections are `h2` headings and deeper levels are plain indented lists, with no disclosure. A section that is itself an entry and whose page already lists every entry below it keeps only its link. A chapter that is itself an entry offers one link to that entry. The off line (as on the book page, with its `Manage books` link) follows the `h1`, then that link. When the chapter holds entries of kinds that have a list page, an `In this chapter` heading and a `.jump-list` of `{Kind} {count}` links follow, in the form of `In this book`: counted from the chapter's subtree, in Home category order, each opening the book-filtered list (`#/browse/kind/<kind>?source=<id>`). A rules-only chapter has no such section; a turned-off book still shows it. Back from a chapter page restores the book page's scroll position, and Back from an entry returns to the chapter page it came from.
 
 #### Reading footer
 
-An entry opened from a book or a chapter carries `?book=<id>` and ends with the reading footer: `Previous` and `Next in {Book}`, the chapter name added when the step crosses a chapter. Previous and next follow the same order as Contents, so the kinds Contents leaves out are skipped and the catch-all chapter is never a step. The footer appears only when the route carries `?book=`; an entry opened without it (from search, a bookmark or a link) has none, even when a book places it. Today the footer also holds a position bar above the two steps: the eyebrow `In the book`, plus `· draft order` while the book has open order questions (the condition of the review line under `Contents`), and a trail of links from the book to the chapters that hold the entry.
+An entry opened from a book or a chapter carries `?book=<id>` and ends with the reading footer: `Previous` and `Next in {Book}`, the chapter name added when the step crosses a chapter. Previous and next follow the same order as Contents, so the kinds Contents leaves out are skipped and the catch-all chapter is never a step. The footer appears only when the route carries `?book=`; an entry opened without it (from search, a bookmark or a link) has none, even when a book places it. A position bar sits above the two steps: the eyebrow `In the book`, plus `· draft order` while the book has open order questions (the condition of the review line under `Contents`). The trail from the book to the chapter is the page's breadcrumb, not part of the footer.
 
 #### Share a book set
 
