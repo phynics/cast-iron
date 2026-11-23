@@ -605,7 +605,7 @@ An entry opened from a book or a chapter carries `?book=<id>` and ends with the 
 
 Below the rows, or alone when nothing waits: the `Check for updates automatically` checkbox as a `.toggle-row`, the muted sentence about the daily check, a `.btn` `Check now` with `Last checked: 21 Nov 2026`, `You are offline. Connect to check for updates.` while offline, and a live `p.status` for the result of a check.
 
-No maintainer words on this page: no schema, manifest or content hash outside the version values; those live in Diagnostics, which holds the content format. Updates is always first; pending items sit at its top.
+No maintainer words on this page: no schema, manifest or content hash outside the version values and error text; those live in Diagnostics, which holds the content format. Updates is always first; pending items sit at its top.
 
 ### Diagnostics
 
