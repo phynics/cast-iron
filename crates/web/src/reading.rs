@@ -110,6 +110,15 @@ impl BookReading {
         self.places.contains_key(id)
     }
 
+    /// The chapter page above `id`: the Contents row that holds it, for the breadcrumb. `None`
+    /// when the book does not place the entry, when the entry sits outside every listed chapter,
+    /// and when the entry is itself the chapter's row, which the reader is already on.
+    pub fn chapter(&self, id: &EntryId) -> Option<&ChapterRow> {
+        let at = *self.places.get(id)?;
+        let row = self.chapters.get(self.chapter_of.get(at).copied().flatten()?)?;
+        (self.stops.get(at)?.path != row.path).then_some(row)
+    }
+
     /// The previous and next Contents-visible entries around `id`. A step crosses into the next
     /// chapter when the chapter row changes; the ends have one neighbour only.
     pub fn neighbors(&self, id: &EntryId) -> (Option<ReadingNeighbor>, Option<ReadingNeighbor>) {
@@ -262,6 +271,20 @@ mod tests {
             vec![0, 2, 0]
         );
         assert_eq!(reading.chapters.len(), 3);
+    }
+
+    #[test]
+    fn the_chapter_above_an_entry_is_its_contents_row_unless_the_entry_is_that_row() {
+        let reading = BookReading::new(&chapter_tree(), &hide);
+        let chapter = |entry: &str| reading.chapter(&id(entry)).map(|row| row.title.as_str());
+        // A section's entry and a deeper one belong to their top-level row.
+        assert_eq!(chapter("core/rule/actions"), Some("Combat"));
+        assert_eq!(chapter("core/rule/partial-cover"), Some("Combat"));
+        // The chapter's own entry is the chapter: there is no page above it to name.
+        assert_eq!(chapter("core/rule/combat"), None);
+        assert_eq!(chapter("core/rule/magic"), None);
+        // An entry the book does not place has no chapter.
+        assert_eq!(chapter("core/feat/power-attack"), None);
     }
 
     #[test]
