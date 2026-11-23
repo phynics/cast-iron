@@ -199,12 +199,15 @@ pub fn show_all(count: usize, rows: Rc<dyn Fn() -> AnyView>) -> AnyView {
     let rows = send_wrapper::SendWrapper::new(rows);
     view! {
         <details class="backlink-more" on:toggle=move |event| {
-            opened.set(
-                event
-                    .target()
-                    .and_then(|target| target.dyn_into::<web_sys::HtmlDetailsElement>().ok())
-                    .is_some_and(|details| details.open()),
-            );
+            let open = event
+                .target()
+                .and_then(|target| target.dyn_into::<web_sys::HtmlDetailsElement>().ok())
+                .is_some_and(|details| details.open());
+            // `set` notifies even for an equal value, and the rows must not render twice for
+            // one opening (they may be a view that is replaced when rendered again).
+            if open != opened.get_untracked() {
+                opened.set(open);
+            }
         }>
             <summary>{icons::chevron_right("disclosure-chevron")}{format!("Show all {}", fmt::count(count))}</summary>
             {move || opened.get().then(|| (**rows)())}
