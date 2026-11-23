@@ -46,9 +46,9 @@ pub fn parse_stat_set_cr(value: &str) -> Option<ChallengeRating> {
     ChallengeRating::parse(lead.split_whitespace().next()?)
 }
 
-/// The top-level block index of each `##` heading that opens a stat set, with the index one
-/// past the last block of its section.
-fn spans(body: &[Block]) -> Vec<(usize, usize)> {
+/// The top-level block index of each `##` heading whose section holds a block that `marks`
+/// accepts, with the index one past the last block of its section.
+fn spans_marked(body: &[Block], marks: impl Fn(&Block) -> bool) -> Vec<(usize, usize)> {
     let mut found = Vec::new();
     let mut start: Option<usize> = None;
     let mut marked = false;
@@ -68,19 +68,40 @@ fn spans(body: &[Block]) -> Vec<(usize, usize)> {
                     start = Some(index);
                 }
             }
-            Block::StatBlock { rows, .. }
-                if start.is_some()
-                    && rows
-                        .iter()
-                        .any(|row| row.label.eq_ignore_ascii_case(STAT_SET_MARKER_LABEL)) =>
-            {
-                marked = true;
-            }
+            block if start.is_some() && marks(block) => marked = true,
             _ => {}
         }
     }
     close(&mut start, &mut marked, body.len());
     found
+}
+
+fn has_rating_row(block: &Block) -> bool {
+    matches!(block, Block::StatBlock { rows, .. }
+        if rows.iter().any(|row| row.label.eq_ignore_ascii_case(STAT_SET_MARKER_LABEL)))
+}
+
+fn spans(body: &[Block]) -> Vec<(usize, usize)> {
+    spans_marked(body, has_rating_row)
+}
+
+/// A paragraph that prints `**Challenge rating:**`, the form of an entry before its stat block
+/// conversion.
+fn has_rating_line(block: &Block) -> bool {
+    let Block::Paragraph { content, .. } = block else {
+        return false;
+    };
+    let wanted = format!("{STAT_SET_MARKER_LABEL}:");
+    content.iter().any(
+        |inline| matches!(inline, crate::Inline::Strong { c } if plain_text(c).trim().eq_ignore_ascii_case(&wanted)),
+    )
+}
+
+/// How many `##` sections print a `**Challenge rating:**` paragraph. With two or more of them and
+/// no derived stat sets, a hand conversion is half done: the sections look like sets and the
+/// compiler cannot list them. The corpus check warns about that.
+pub fn paragraph_rating_sections(body: &[Block]) -> usize {
+    spans_marked(body, has_rating_line).len()
 }
 
 fn row_text(rows: &[&StatRow], label: &str) -> Option<String> {
@@ -97,7 +118,7 @@ pub fn derive_stat_sets(body: &[Block]) -> Vec<StatSet> {
         return Vec::new();
     }
     let keys = keyed_headings(body);
-    spans
+    let sets: Vec<StatSet> = spans
         .into_iter()
         .filter_map(|(open, end)| {
             let heading = &body[open];
@@ -124,7 +145,9 @@ pub fn derive_stat_sets(body: &[Block]) -> Vec<StatSet> {
                 size: row_text(&rows, "Size"),
             })
         })
-        .collect()
+        .collect();
+    // A heading with no key is dropped above; a list of one set is no list.
+    if sets.len() < 2 { Vec::new() } else { sets }
 }
 
 /// The part of `body` that an entry's `[fields]` describe. With two or more stat sets it ends
@@ -286,6 +309,49 @@ mod tests {
         body[0] = heading(2, "Small Air Elemental", None);
         body.extend(set("Large Air Elemental", "stat-large", "5", "Large"));
         assert_eq!(derive_stat_sets(&body)[0].anchor, "sec-small-air-elemental");
+    }
+
+    #[test]
+    fn a_heading_that_has_no_key_leaves_one_set_and_so_no_list() {
+        let mut body = set("Small", "stat-small", "1", "Small");
+        let mut keyless = set("", "x", "5", "Large");
+        keyless[0] = heading(2, "", None);
+        body.extend(keyless);
+        assert!(derive_stat_sets(&body).is_empty());
+    }
+
+    #[test]
+    fn a_template_adjustment_is_no_rating() {
+        assert_eq!(parse_stat_set_cr("+1"), None);
+        assert_eq!(parse_stat_set_cr("+1 (XP 400)"), None);
+    }
+
+    fn line(text: &str) -> Block {
+        Block::Paragraph {
+            style: Default::default(),
+            content: vec![
+                Inline::Strong {
+                    c: vec![Inline::text("Challenge rating:")],
+                },
+                Inline::text(text),
+            ],
+        }
+    }
+
+    #[test]
+    fn rating_lines_count_per_second_level_section() {
+        let body = vec![
+            heading(2, "Small", Some("a")),
+            line(" 1"),
+            heading(3, "Defense", None),
+            heading(2, "Large", Some("b")),
+            line(" 5"),
+            heading(2, "Lore", Some("c")),
+        ];
+        assert_eq!(paragraph_rating_sections(&body), 2);
+        assert_eq!(paragraph_rating_sections(&[line(" 1")]), 0);
+        // A stat block row is a converted set, not a line.
+        assert_eq!(paragraph_rating_sections(&set("A", "a", "1", "Small")), 0);
     }
 
     #[test]

@@ -924,6 +924,12 @@ The section runs to the next heading of level 1 or 2. The compiler derives the s
   keep document order.
 - **One set is no list.** An entry with fewer than two sets gets no `stat_sets` key. A single `##` section
   with a rating row is the entry itself.
+- **Creatures only.** The compiler derives sets for entries with creature fields. A `##` section with a
+  `Challenge rating` row on another kind of entry is not a stat set. A rating reads as digits or as one of
+  `1/8`, `1/6`, `1/4`, `1/3`, `1/2`; a sign (`+1`, a template's adjustment) is no rating.
+- **Half-done conversion.** `corpus-check` warns when a creature has two or more `##` sections that print a
+  `**Challenge rating:**` paragraph and yet derive no sets, so a hand conversion that stopped halfway
+  cannot pass unnoticed. The warning names the count and three examples with file and line.
 - **`[fields]` describe the first set.** The creature fields (`cr`, `size`, `hp`, `ac`, ...) hold the
   first set's values. The drift check compares them with the blocks above the second set's heading,
   and never with a later set.

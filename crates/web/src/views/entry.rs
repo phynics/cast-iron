@@ -29,7 +29,7 @@ use crate::views::rich::{RELATED_ANCHOR, RichBody, blocks, muted_line, plain_tex
 use crate::views::search::facet_label;
 use crate::views::section_switcher::SectionSwitcher;
 use crate::views::sources::{aon_line, expanded_line, source_line};
-use crate::views::stat_sets::StatSetList;
+use crate::views::stat_sets::{self, StatSetList};
 use crate::views::util::{
     addon_base_phrase, kind_name, local_resource, recovery_details, set_title,
 };
@@ -1082,7 +1082,7 @@ fn EntryView(
         }
     });
     // A creature that prints several stat sets lists them above the body (#166).
-    let stat_sets = (!hide_body && entry.stat_sets.len() > 1).then(|| {
+    let stat_sets = (!hide_body && stat_sets::listed(&entry)).then(|| {
         view! { <StatSetList sets=entry.stat_sets.clone() id=entry.id.clone() /> }
     });
     // A prestige class keeps its contents disclosure beside the switcher: the switcher has only

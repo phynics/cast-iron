@@ -763,7 +763,12 @@ impl ChallengeRating {
             "1/4" => 6,
             "1/3" => 8,
             "1/2" => 12,
-            whole => whole.parse::<u32>().ok()?.checked_mul(24)?,
+            // Digits only: `u32::parse` accepts a leading `+`, and a template's `CR +1` is an
+            // adjustment, not a rating.
+            whole if whole.bytes().all(|b| b.is_ascii_digit()) => {
+                whole.parse::<u32>().ok()?.checked_mul(24)?
+            }
+            _ => return None,
         };
         Some(Self { twenty_fourths })
     }
@@ -2103,6 +2108,14 @@ mod tests {
             let message = catalog(bad).validate().unwrap_err();
             assert!(message.contains("member books"), "{message}");
         }
+    }
+
+    #[test]
+    fn challenge_rating_rejects_a_sign_and_empty_text() {
+        assert_eq!(ChallengeRating::parse("+1"), None);
+        assert_eq!(ChallengeRating::parse("-1"), None);
+        assert_eq!(ChallengeRating::parse(""), None);
+        assert_eq!(ChallengeRating::parse(" 5 ").unwrap().twenty_fourths, 120);
     }
 
     #[test]

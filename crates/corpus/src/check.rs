@@ -10,7 +10,7 @@ use crate::load::Corpus;
 use cast_iron_schema::headings::{headings_in_order, keyed_headings, plain_text, slugify};
 use cast_iron_schema::{
     Block, BookNode, BookTree, EntryId, EntryKind, Inline, Relation, RelationKind, RelationLabel,
-    RuleEntry, TypedFields,
+    RuleEntry, TypedFields, stat_sets,
 };
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
@@ -1632,6 +1632,7 @@ pub fn check(corpus: &Corpus) -> Report {
     check_third_party_sharing(corpus, &mut report);
     check_uncited_memberships(corpus, &mut report);
     check_unfielded_feat_labels(corpus, &mut report);
+    check_unsettled_stat_sets(corpus, &mut report);
     check_closed_vocabularies(corpus, &mut report);
     check_option_groups(corpus, &ids, &mut report);
     check_replaces_features(corpus, &keys, &mut report);
@@ -1858,6 +1859,44 @@ fn check_unfielded_feat_labels(corpus: &Corpus, report: &mut Report) {
         .collect();
     report.warnings.push(format!(
         "{} feat labels print `**Prerequisites:**` or `**Special:**` in the normal part but have no typed field (for example {}); the drift check cannot compare them, so add the field (#615)",
+        found.len(),
+        examples.join(", ")
+    ));
+}
+
+/// Warns, once per run, about creatures with two or more `##` sections that print a
+/// `**Challenge rating:**` paragraph but derive no stat sets: a hand conversion to stat blocks
+/// that stopped halfway, which the compiler cannot list (phynics/cast-iron-data#166).
+fn check_unsettled_stat_sets(corpus: &Corpus, report: &mut Report) {
+    let mut found: Vec<(String, &str)> = Vec::new();
+    for stored in corpus.entries.values() {
+        let entry = &stored.entry;
+        if !matches!(entry.fields, TypedFields::Creature(_)) {
+            continue;
+        }
+        if stat_sets::paragraph_rating_sections(&entry.body) >= 2
+            && stat_sets::derive_stat_sets(&entry.body).is_empty()
+        {
+            found.push((
+                format!(
+                    "{}:{}",
+                    stored.path.display(),
+                    line_of(&stored.text, "Challenge rating")
+                ),
+                entry.id.as_str(),
+            ));
+        }
+    }
+    if found.is_empty() {
+        return;
+    }
+    let examples: Vec<String> = found
+        .iter()
+        .take(3)
+        .map(|(at, id)| format!("{at}: `{id}`"))
+        .collect();
+    report.warnings.push(format!(
+        "{} creatures have two or more `##` sections with a `**Challenge rating:**` line but no stat block `Challenge rating` row, so they list no stat sets (for example {}); finish the conversion of every set to a stat block",
         found.len(),
         examples.join(", ")
     ));
@@ -2873,6 +2912,66 @@ mod tests {
             ..Default::default()
         }));
         entry
+    }
+
+    fn rating_line(text: &str) -> Block {
+        paragraph(vec![
+            Inline::Strong {
+                c: vec![Inline::text("Challenge rating:")],
+            },
+            Inline::text(text),
+        ])
+    }
+
+    fn rating_block(text: &str) -> Block {
+        Block::StatBlock {
+            title: None,
+            rows: vec![cast_iron_schema::StatRow {
+                label: "Challenge rating".into(),
+                value: vec![Inline::text(text)],
+            }],
+        }
+    }
+
+    fn two_sections(entry_id: &str, mark: impl Fn(&str) -> Block) -> RuleEntry {
+        let mut entry = creature(entry_id, "outsider");
+        entry.body = vec![
+            heading(Some("stat-small"), "Small"),
+            mark(" 1"),
+            heading(Some("stat-large"), "Large"),
+            mark(" 5"),
+        ];
+        entry
+    }
+
+    #[test]
+    fn two_sections_with_rating_lines_but_no_stat_sets_warn() {
+        let entry = two_sections("ref/creature/half", rating_line);
+        let report = check(&corpus(vec![entry]));
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
+        let warning = report
+            .warnings
+            .iter()
+            .find(|warning| warning.contains("list no stat sets"))
+            .unwrap_or_else(|| panic!("{:?}", report.warnings));
+        assert!(warning.starts_with("1 creatures"), "{warning}");
+        assert!(warning.contains("`ref/creature/half`"), "{warning}");
+    }
+
+    #[test]
+    fn converted_sets_and_a_single_rating_line_do_not_warn() {
+        let converted = two_sections("ref/creature/done", |text| rating_block(text.trim()));
+        let mut single = creature("ref/creature/one", "outsider");
+        single.body = vec![heading(Some("only"), "Only"), rating_line(" 3")];
+        let report = check(&corpus(vec![converted, single]));
+        assert!(
+            report
+                .warnings
+                .iter()
+                .all(|warning| !warning.contains("list no stat sets")),
+            "{:?}",
+            report.warnings
+        );
     }
 
     #[test]

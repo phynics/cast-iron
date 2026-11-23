@@ -1322,7 +1322,18 @@ fn a_creature_with_several_stat_sets_stores_them_and_a_single_set_stores_none() 
         fields("3"),
         vec![],
     );
-    write_entries(&corpus, 2, &[many, single]);
+    // The same two sections on a trap are no stat sets: only a creature has them.
+    let mut template_body = stat_set_blocks("Young", "stat-young", "1", "Small");
+    template_body.extend(stat_set_blocks("Giant", "stat-giant", "5", "Large"));
+    let template = typed_entry(
+        "ref/trap/young-creature",
+        EntryKind::Trap,
+        "Young Creature",
+        template_body,
+        TypedFields::None,
+        vec![],
+    );
+    write_entries(&corpus, 2, &[many, single, template]);
     let files = compile_tree(&corpus, "stat-sets");
     let entries: Vec<RuleEntry> = files
         .iter()
@@ -1342,6 +1353,10 @@ fn a_creature_with_several_stat_sets_stores_them_and_a_single_set_stores_none() 
     assert_eq!(sets[0].cr, cast_iron_schema::ChallengeRating::parse("1"));
     assert_eq!(sets[1].size.as_deref(), Some("Large"));
     assert_eq!(sets[1].cr, cast_iron_schema::ChallengeRating::parse("5"));
+    assert!(
+        find("ref/trap/young-creature").stat_sets.is_empty(),
+        "a non-creature never derives stat sets"
+    );
     assert!(
         find("ref/monster/ettercap").stat_sets.is_empty(),
         "one set means no list"

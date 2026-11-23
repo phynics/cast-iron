@@ -30,15 +30,15 @@ test("a creature with several stat sets lists them with their rating and jumps t
 
     const list = page.getByRole("navigation", { name: "Stat sets" });
 
-    await test.step("the sets are listed above the body, in order, with CR and size", async () => {
+    await test.step("the sets are listed above the body, in order, with CR and size, named as one", async () => {
       await page.goto(`#/entry/${TARGET.id}`);
       await expect(page.getByTestId("entry-title")).toBeVisible();
       await expect(list).toHaveCount(1);
       const links = list.getByRole("link");
       await expect(links).toHaveCount(3);
-      await expect(links.nth(0)).toHaveText("Small Air ElementalCR 1 · Small");
-      await expect(links.nth(1)).toHaveText("Large Air ElementalCR 5 · Large");
-      await expect(links.nth(2)).toHaveText("Elder Air ElementalCR 11 · Huge");
+      await expect(links.nth(0)).toHaveAccessibleName("Small Air Elemental, CR 1 · Small");
+      await expect(links.nth(1)).toHaveAccessibleName("Large Air Elemental, CR 5 · Large");
+      await expect(links.nth(2)).toHaveAccessibleName("Elder Air Elemental, CR 11 · Huge");
       await expect(links.nth(2)).toHaveAttribute("href", `#/entry/${TARGET.id}?a=stat-elder`);
       // The list comes before the body it points into.
       const listTop = (await list.boundingBox())!.y;
