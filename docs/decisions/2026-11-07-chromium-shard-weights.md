@@ -1,8 +1,8 @@
 ---
 title: "Chromium shard weights"
 date: 2026-11-07
-status: current
-superseded_by: []
+status: superseded
+superseded_by: ["2026-11-23-chromium-ci-runs-in-four-shards"]
 issues: [97]
 prs: []
 area: process

@@ -227,15 +227,18 @@ jobs:
   # server and browser state, so the suite's single worker assumption holds inside
   # it (`workers: 1` in playwright.config.ts). Playwright splits its test groups
   # by test count, and equal shards are not equal in time. The Chromium weights
-  # below move short tests to shard 1, whose files are the cheapest; the sizing
-  # and the measurements are in docs/decisions.md.
+  # below give the tests that install the library in each test a small shard of
+  # their own; the sizing and the measurements are in
+  # docs/decisions/2026-11-23-chromium-ci-runs-in-four-shards.md.
   e2e-chromium:
-    name: Chromium shard ${{ matrix.shard }}/3 (required)
+    name: Chromium shard ${{ matrix.shard }}/4 (required)
     needs: [site]
     runs-on: ubuntu-latest
     # The image carries the Playwright version's browsers and system libraries, so
     # the job installs neither. Keep its tag equal to the lock file (checked by the
-    # Rust job). Longest recent successful shard: 6m30s.
+    # Rust job). With three shards the longest job took 15.0 minutes on run
+    # 45139208462, and a slow runner adds about 40 %. Four shards put the longest
+    # job at about 10 minutes. The limit only cuts a hang.
     container:
       image: mcr.microsoft.com/playwright:v1.64.1-noble
     timeout-minutes: 20
@@ -243,7 +246,7 @@ jobs:
       # Let every shard finish, so the merged report shows all failures.
       fail-fast: false
       matrix:
-        shard: [1, 2, 3]
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/download-artifact@v8
@@ -259,14 +262,17 @@ jobs:
       - name: Tests on Chromium (required)
         env:
           PLAYWRIGHT_BLOB_OUTPUT_DIR: blob-report
-          # Playwright's shard weights, one per shard. Shard 3 carries the update
-          # suite, the mobile project and the slower search tests, so give it a
-          # smaller share and shard 1 a larger one (see docs/decisions.md).
-          PWTEST_SHARD_WEIGHTS: "6:4:3"
+          # Playwright's shard weights, one per shard, as shares of the test count.
+          # Shards 1 and 2 hold the desktop tests that share one installed library.
+          # Shard 3 holds the tests that install the library in each test, which are
+          # about four times slower, so it gets a small share. Shard 4 holds the
+          # mobile project. Measure again before changing the weights or the shard
+          # count, and change REQUIRED_JOBS in scripts/merge-pr.py with the count.
+          PWTEST_SHARD_WEIGHTS: "3:3:1:2"
         run: >-
           npm --prefix tests/e2e test --
           --project=chromium --project=mobile-chromium
-          --shard=${{ matrix.shard }}/3
+          --shard=${{ matrix.shard }}/4
           --reporter=list,github,blob
           --output=test-results/chromium-${{ matrix.shard }}
       - name: Upload the blob report

@@ -47,12 +47,13 @@ ROWS = (
 UNCLASSIFIED = 'unclassified (no row names it)'
 
 # Job names of ci.yml. A name matches a job that equals it or starts with it and a
-# space, so "Chromium shard 2/3" matches "Chromium shard 2/3 (required)". The shards
+# space, so "Chromium shard 2/4" matches "Chromium shard 2/4 (required)". The shards
 # are listed one by one, so a run that lacks one fails; if ci.yml changes the shard
 # count, change this list with it.
 REQUIRED_JOBS = (
     'Rust checks', 'Content compiler', 'Content determinism', 'Build the site',
-    'Chromium shard 1/3', 'Chromium shard 2/3', 'Chromium shard 3/3', 'Chromium report',
+    'Chromium shard 1/4', 'Chromium shard 2/4', 'Chromium shard 3/4', 'Chromium shard 4/4',
+    'Chromium report',
 )
 PR_JOBS = ('Rust checks',)
 INFORMATIONAL_PREFIX = 'WebKit'

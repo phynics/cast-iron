@@ -17,8 +17,9 @@ def job(name, conclusion='success', status='completed'):
 
 def full_jobs(**overrides):
     names = ['Rust checks', 'Content compiler', 'Content determinism (NFR-05)',
-             'Build the site', 'Chromium shard 1/3 (required)',
-             'Chromium shard 2/3 (required)', 'Chromium shard 3/3 (required)',
+             'Build the site', 'Chromium shard 1/4 (required)',
+             'Chromium shard 2/4 (required)', 'Chromium shard 3/4 (required)',
+             'Chromium shard 4/4 (required)',
              'Chromium report', 'WebKit shard 1/3 (informational)', 'WebKit report']
     return [job(n, **overrides.get(n, {})) for n in names]
 
@@ -98,14 +99,14 @@ class JobTests(unittest.TestCase):
     def test_all_green(self):
         problems, results = merge.evaluate_jobs(full_jobs(), merge.REQUIRED_JOBS)
         self.assertEqual(problems, [])
-        self.assertEqual([len(results[f'Chromium shard {n}/3']) for n in (1, 2, 3)], [1, 1, 1])
+        self.assertEqual([len(results[f'Chromium shard {n}/4']) for n in (1, 2, 3, 4)], [1, 1, 1, 1])
         self.assertEqual(results['Content determinism'],
                          [('Content determinism (NFR-05)', 'success')])
 
     def test_failed_shard(self):
-        jobs = full_jobs(**{'Chromium shard 2/3 (required)': {'conclusion': 'failure'}})
+        jobs = full_jobs(**{'Chromium shard 2/4 (required)': {'conclusion': 'failure'}})
         problems, _ = merge.evaluate_jobs(jobs, merge.REQUIRED_JOBS)
-        self.assertEqual(problems, ['job "Chromium shard 2/3 (required)" is failure, not success'])
+        self.assertEqual(problems, ['job "Chromium shard 2/4 (required)" is failure, not success'])
 
     def test_skipped_and_running_jobs_fail(self):
         jobs = full_jobs(**{'Build the site': {'conclusion': 'skipped'},
@@ -120,24 +121,24 @@ class JobTests(unittest.TestCase):
         self.assertEqual(problems, ['job "Build the site" is missing from the run'])
 
     def test_each_chromium_shard_is_required(self):
-        for missing in (1, 2, 3):
+        for missing in (1, 2, 3, 4):
             with self.subTest(missing=missing):
                 jobs = [j for j in full_jobs()
-                        if not j['name'].startswith(f'Chromium shard {missing}/3')]
+                        if not j['name'].startswith(f'Chromium shard {missing}/4')]
                 problems, _ = merge.evaluate_jobs(jobs, merge.REQUIRED_JOBS)
                 self.assertEqual(problems,
-                                 [f'job "Chromium shard {missing}/3" is missing from the run'])
+                                 [f'job "Chromium shard {missing}/4" is missing from the run'])
 
     def test_no_chromium_shard_at_all(self):
         jobs = [j for j in full_jobs() if not j['name'].startswith('Chromium shard')]
         problems, _ = merge.evaluate_jobs(jobs, merge.REQUIRED_JOBS)
-        self.assertEqual(len(problems), 3)
+        self.assertEqual(len(problems), 4)
 
-    def test_run_with_two_of_three_shards_is_refused(self):
-        jobs = [j for j in full_jobs() if not j['name'].startswith('Chromium shard 3/3')]
+    def test_run_with_three_of_four_shards_is_refused(self):
+        jobs = [j for j in full_jobs() if not j['name'].startswith('Chromium shard 4/4')]
         picked, _, problems = merge.pick_run([run(1)], SHA, 'workflow_dispatch', lambda r: jobs)
         self.assertIsNone(picked)
-        self.assertIn('Chromium shard 3/3', problems[0])
+        self.assertIn('Chromium shard 4/4', problems[0])
 
     def test_name_prefix_needs_a_word_boundary(self):
         jobs = [job('Content compiler extra'), job('Content compilerX')]
