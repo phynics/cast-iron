@@ -48,7 +48,8 @@ pub enum Boot {
         active: ActiveLibrary,
         message: String,
     },
-    /// Something outside the library is broken, such as IndexedDB being unavailable.
+    /// The browser will not open its store, such as IndexedDB being unavailable. Carries the
+    /// engine's own text only; the reader's words are the `STORAGE_*` constants.
     Fatal(String),
 }
 
@@ -96,9 +97,7 @@ impl AppCtx {
 /// Decides between installer and Reader. `active_library` is the only source of "ready".
 async fn boot_check() -> Boot {
     match store::active_library().await {
-        Err(error) => Boot::Fatal(format!(
-            "This browser cannot open its local database, so Cast Iron cannot keep your library or bookmarks. {error}"
-        )),
+        Err(error) => Boot::Fatal(error.to_string()),
         Ok(None) => {
             let interrupted = store::pending_install().await.ok().flatten().is_some();
             Boot::Install {
@@ -221,13 +220,43 @@ pub fn App() -> impl IntoView {
             Boot::Install { notice } => view! { <InstallerScreen notice /> }.into_any(),
             Boot::Ready(library) => view! { <Reader library /> }.into_any(),
             Boot::BookSelection { active, message } => view! { <BookSelectionRecovery active message /> }.into_any(),
-            Boot::Fatal(message) => view! {
-                <main id="main" class="app install-main">
-                    <h1>"Cast Iron cannot start"</h1>
-                    <p class="error" role="alert">{message}</p>
-                </main>
-            }.into_any(),
+            Boot::Fatal(engine) => view! { <StorageFailure engine /> }.into_any(),
         }}
+    }
+}
+
+/// What the storage failure screen says (#583). The engine's text sits under the disclosure.
+pub const STORAGE_HEADING: &str = "Cast Iron can't open its storage";
+pub const STORAGE_WHAT: &str = "This browser won't let Cast Iron save its library on this device. A private window or strict privacy settings can cause this.";
+pub const STORAGE_NEXT: &str =
+    "Open Cast Iron in a normal window, or allow site data for this site, then try again.";
+
+/// The screen for a store that cannot open: the installer's masthead and column, one alert,
+/// the next step, and `Try again`, which reloads the page.
+#[component]
+fn StorageFailure(engine: String) -> impl IntoView {
+    view! {
+        <div class="app app-install">
+            <header class="app-header">
+                <span class="brand">
+                    <span class="brand-mark" aria-hidden="true"></span>
+                    <span class="sr-only">"Cast Iron"</span>
+                </span>
+            </header>
+            <main id="main" tabindex="-1" class="install-main recovery-main">
+                <h1>{STORAGE_HEADING}</h1>
+                <p class="error" role="alert">{STORAGE_WHAT}</p>
+                <p>{STORAGE_NEXT}</p>
+                <div class="actions">
+                    <button class="btn btn-primary" on:click=|_| {
+                        if let Some(window) = web_sys::window() {
+                            let _ = window.location().reload();
+                        }
+                    }>"Try again"</button>
+                </div>
+                {views::util::recovery_details(engine)}
+            </main>
+        </div>
     }
 }
 

@@ -10,6 +10,10 @@ const RECOVERY_WHAT =
 const RECOVERY_NEXT =
   "Try again. If that doesn't help, reset your book choices: every book turns on, except any third-party books you haven't seen before, which stay off. You can change this in Manage books.";
 const RECOVERY_RESET_FAILED = "Your book choices could not be reset, so nothing was changed. Try again.";
+const STORAGE_HEADING = "Cast Iron can't open its storage";
+const STORAGE_WHAT =
+  "This browser won't let Cast Iron save its library on this device. A private window or strict privacy settings can cause this.";
+const STORAGE_NEXT = "Open Cast Iron in a normal window, or allow site data for this site, then try again.";
 const BOOK_UNAVAILABLE =
   "This book isn't in your library. The link may be old or mistyped.";
 const BOOK_REMOVED =
@@ -117,6 +121,44 @@ installedTest("Unreadable book choices say what happened and keep the way out cl
   await waitReady(page);
   await page.goto("#/books");
   await expect(page.getByRole("heading", { level: 1, name: "Books", exact: true })).toBeVisible();
+});
+
+test("A browser that refuses its store says why in plain words, and Try again reloads", async ({ page }) => {
+  // Before any app script runs, as a private window or a locked-down WebView refuses IndexedDB.
+  await page.addInitScript(() => {
+    IDBFactory.prototype.open = function open() {
+      throw new DOMException("The operation is insecure.", "SecurityError");
+    };
+  });
+  await page.goto("./");
+
+  await expect(page.getByRole("heading", { level: 1, name: STORAGE_HEADING, exact: true })).toBeVisible();
+  // The masthead renders: the brand link, and no navigation.
+  await expect(page.locator("header.app-header .brand")).toBeVisible();
+  await expect(page.locator("header.app-header nav")).toHaveCount(0);
+  await expect(page.getByRole("alert")).toHaveText(STORAGE_WHAT);
+  await expect(page.getByText(STORAGE_NEXT, { exact: true })).toBeVisible();
+  // The engine's words stay out of sight: the alert and the visible text name no error.
+  expect(await page.getByRole("alert").innerText()).not.toMatch(/SecurityError|local storage error|Error:/);
+  expect(await visibleText(page)).not.toMatch(/SecurityError|local storage error|Error:/);
+
+  // They are in the closed disclosure, for a bug report.
+  const details = page.locator(".recovery-details");
+  await expect(details).not.toHaveAttribute("open", "");
+  await expect(details.locator("code")).toBeHidden();
+  await expect(details.locator("summary")).toHaveText("Details for a bug report");
+  expect(await details.locator("code").textContent()).toMatch(/local storage error.*SecurityError/);
+
+  const retry = page.getByRole("button", { name: "Try again", exact: true });
+  await expect(retry).toBeVisible();
+  expect((await retry.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await capture(page, "storage-failure");
+
+  // Try again reloads the page: a marker set on this document is gone afterwards.
+  await page.evaluate(() => ((window as any).__beforeReload = true));
+  await retry.click();
+  await expect.poll(() => page.evaluate(() => (window as any).__beforeReload)).toBeUndefined();
+  await expect(page.getByRole("heading", { level: 1, name: STORAGE_HEADING, exact: true })).toBeVisible();
 });
 
 /** The `Active {title}` checkbox for every book that Manage books lists, by title. */

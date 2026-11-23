@@ -94,14 +94,13 @@ const GROUPS = [
     },
     async run({ page, capture }) {
       await page.goto('./');
-      await page.getByRole('heading', { name: 'Cast Iron cannot start', exact: true }).waitFor();
+      await page.getByRole('heading', { name: "Cast Iron can't open its storage", exact: true }).waitFor();
       const text = await page.locator('main .error[role=alert]').innerText();
-      if (!text.includes('cannot open its local database')) throw new Error(`unexpected failure text: ${text}`);
+      if (!text.includes("won't let Cast Iron save its library")) throw new Error(`unexpected failure text: ${text}`);
       await capture('cannot-start', {
-        description: 'Boot::Fatal screen: heading "Cast Iron cannot start" and the alert naming the local database.',
-        ready: 'main .error[role=alert]',
-        mastheadExpected: false,
-        note: 'This screen renders only <main>; the app has not started the reader, so there is no masthead by design.',
+        description: 'Boot::Fatal screen: the installer masthead, heading "Cast Iron can\'t open its storage", the alert, the next step, Try again and the engine text under Details for a bug report.',
+        ready: 'main h1:text("Cast Iron can\'t open its storage")',
+        note: 'The brand-only installer masthead, no navigation: the reader has not started.',
       });
     },
   },
