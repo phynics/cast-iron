@@ -77,14 +77,19 @@ function statement(page: import("@playwright/test").Page, label: string) {
   return paragraph.or(row);
 }
 
-/** Whether the compiled body states `label`, as a paragraph or as a stat block row. */
+/** Whether the compiled body states `label` outside a note, as a paragraph or as a stat block row. */
 function statesLabel(id: string, label: string): boolean {
   const body: any[] = corpus.entries.get(id)!.body;
-  return body.some(
-    (block) =>
-      (block.t === "paragraph" && inlineText(block.content).includes(`${label}:`)) ||
-      (block.t === "stat_block" && (block.rows ?? []).some((row: any) => String(row.label).trim() === label)),
-  );
+  for (let i = 0; i < body.length; i++) {
+    const block = body[i];
+    if (isNote(block)) {
+      i += 1;
+      continue;
+    }
+    if (block.t === "paragraph" && inlineText(block.content).includes(`${label}:`)) return true;
+    if (block.t === "stat_block" && (block.rows ?? []).some((row: any) => String(row.label).trim() === label)) return true;
+  }
+  return false;
 }
 
 for (const scheme of ["light", "dark"] as const) {
@@ -174,6 +179,9 @@ test("A printed stat-block note moves to Notes, and its markers link to it and b
   const note = await style(notes.locator("li.note p"));
   if (inRow) expect(note.size).toBeLessThanOrEqual(rule.size);
   else expect(note.size).toBeLessThan(rule.size);
+  // Against prose, the note is strictly smaller in either form.
+  const prose = page.locator(".rich > p").first();
+  if ((await prose.count()) > 0) expect(note.size).toBeLessThan((await style(prose)).size);
   expect(note.color).not.toBe(rule.color);
 
   await markers.first().getByRole("link").click();

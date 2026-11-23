@@ -4,7 +4,7 @@ date: 2026-11-23
 status: current
 superseded_by: []
 issues: [254]
-prs: []
+prs: [628]
 area: corpus
 ---
 
@@ -40,8 +40,11 @@ costs no WASM and changes no output: the manifest hash of the pinned corpus is t
   without a trailing qualifier in parentheses, with each of the seven variant spellings mapped (`-` and `held` to
   `none`, `amulet` to `neck`, `cloak` and `shoulder` to `shoulders`, `waist` to `belt`, `eye` to `eyes`). Each part of a
   value with ` or ` maps alone. A value that print gives and that the vocabulary leaves open (`head and eyes`)
-  compares by its own text. A row that states another slot still drifts. The body is never edited, so the rule
-  carries the vocabulary decision instead of overriding it.
+  compares by its own text, and so does a printed value that is already a closed value (`arms (cybernetic)` is a tech slot,
+  not `arms` with a qualifier). A row that states another slot still drifts. The body is never edited.
+  This replaces one clause of the vocabulary decision: that a stat block `Slot:` row holding the old value "keeps the
+  field as it is, … and the body wins". The field now holds the closed value while the row keeps the printed spelling, and
+  they agree. The rest of that decision stands.
 - **Paragraph form.** `ac`, `hp`, `Type`, `Subtype`, `Slot` and the ability scores had no paragraph comparison and
   still have none: a value stated in only one place is not drift. Only `cr` is compared in both forms.
 

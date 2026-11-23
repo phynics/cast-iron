@@ -6,6 +6,7 @@
 //! copies. This check compares each pair that both state and reports every
 //! disagreement, naming both places, so a hand edit to one copy is noticed.
 
+use crate::check::is_item_slot;
 use crate::load::Stored;
 use cast_iron_schema::headings::plain_text;
 use cast_iron_schema::{
@@ -766,7 +767,9 @@ fn creature_pairs(entry: &RuleEntry, text: &str, rows: &[&StatRow]) -> Vec<Pair>
             field: "abilities",
             field_value: typed.join(", "),
             source: "stat block row `Ability Scores`".into(),
-            source_line: body_line(text, |line| line.starts_with("Ability Scores:")),
+            source_line: body_line(text, |line| {
+                line.to_lowercase().starts_with("ability scores:")
+            }),
             source_value: stated_text.trim().to_string(),
             agree: typed
                 .iter()
@@ -798,8 +801,11 @@ const SLOT_SPELLINGS: [(&str, &str); 7] = [
 fn slot_key(printed: &str) -> String {
     let printed = normalize(printed);
     let printed = printed.split(';').next().unwrap_or_default().trim();
+    // A closed value that holds parentheses itself (`arms (cybernetic)`) is whole.
     let printed = match printed.rfind(" (") {
-        Some(open) if printed.ends_with(')') => printed[..open].trim_end(),
+        Some(open) if printed.ends_with(')') && !is_item_slot(printed) => {
+            printed[..open].trim_end()
+        }
         _ => printed,
     };
     printed
@@ -1403,6 +1409,14 @@ mod tests {
             .is_empty()
         );
         assert!(find_drift(&creature(fields("10"), block("Hit points", "10"))).is_empty());
+        // Print holds a second tilde in the dice (`16~4`); only the first one is the separator.
+        assert!(
+            find_drift(&creature(
+                fields("34~3d8+1d10+16~4"),
+                block("Hit points", "34 (3d8+1d10+16~4)")
+            ))
+            .is_empty()
+        );
         let drift = find_drift(&creature(
             fields("103~9d12+45"),
             block("Hit points", "104 (9d12+45)"),
@@ -1495,6 +1509,8 @@ mod tests {
             ("none", "neck"),
             ("belt", "shoulder"),
             ("armor", "armor quality"),
+            // A tech slot with parentheses is whole, not `arms` with a qualifier.
+            ("arms", "arms (cybernetic)"),
             // `eye` maps to `eyes` whole, not by prefix.
             ("eyes", "eyewear"),
         ] {
