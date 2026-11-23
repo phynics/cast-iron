@@ -6,11 +6,11 @@ Every canonical entry of the pinned corpus that has no verified Archives of Neth
 
 | | |
 |---|---|
-| Corpus | [`phynics/cast-iron-data`](https://github.com/phynics/cast-iron-data/tree/5f4f84cfd394e6f8d205da021da334812759dc4b) |
-| Tag | `v0.1.38` |
-| Commit | `5f4f84cfd394e6f8d205da021da334812759dc4b` |
-| Tree hash | `a4f161d1de37e136e319f919db6f222466c37cd0065e49e06d0c3c58764031f5` |
-| Entries | 31,825 |
+| Corpus | [`phynics/cast-iron-data`](https://github.com/phynics/cast-iron-data/tree/0fd59c05c923b66aa4e172cb387e1446a6728090) |
+| Tag | `v0.1.39` |
+| Commit | `0fd59c05c923b66aa4e172cb387e1446a6728090` |
+| Tree hash | `7f97b8e77c72b1718d4d1a755dcd2d2601b9f233f250cdaf70622072b1bd3438` |
+| Entries | 31,742 |
 | Publications | 443 |
 
 ## Totals by kind
@@ -19,7 +19,7 @@ Every canonical entry of the pinned corpus that has no verified Archives of Neth
 
 | Kind | Matched | Missing | Total |
 |---|---:|---:|---:|
-| affliction | 0 | 369 | 369 |
+| affliction | 0 | 468 | 468 |
 | archetype | 1,246 | 53 | 1,299 |
 | class | 49 | 0 | 49 |
 | class_option | 30 | 2,789 | 2,819 |
@@ -29,12 +29,12 @@ Every canonical entry of the pinned corpus that has no verified Archives of Neth
 | prestige_class | 115 | 0 | 115 |
 | race | 74 | 2 | 76 |
 | racial_trait | 0 | 342 | 342 |
-| rule | 0 | 6,238 | 6,238 |
-| skill | 0 | 26 | 26 |
+| rule | 0 | 6,026 | 6,026 |
+| skill | 0 | 44 | 44 |
 | spell | 2,999 | 89 | 3,088 |
 | trait | 1,897 | 40 | 1,937 |
-| trap | 0 | 48 | 48 |
-| **Total** | **12,484** | **19,341** | **31,825** |
+| trap | 0 | 60 | 60 |
+| **Total** | **12,484** | **19,258** | **31,742** |
 
 ## Publications
 
@@ -68,9 +68,9 @@ Every canonical entry of the pinned corpus that has no verified Archives of Neth
 
 ## The per-entry list
 
-[`aon-path-coverage.tsv`](aon-path-coverage.tsv) holds one row per missing entry, sorted by kind then id: `id`, `kind`, and `title`, with a header row. 19,341 data rows.
+[`aon-path-coverage.tsv`](aon-path-coverage.tsv) holds one row per missing entry, sorted by kind then id: `id`, `kind`, and `title`, with a header row. 19,258 data rows.
 
-SHA-256 of the list: `cce7337d188d5c43974799cf4be9a27c3f9a35556e4e08fcfe24eec98d2bde7c`
+SHA-256 of the list: `4b7c520c4c758ff132335c9414b87fc61c5fe930dd2c184749faea17239847d3`
 
 ## What a missing row means
 
