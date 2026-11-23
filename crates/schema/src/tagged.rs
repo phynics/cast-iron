@@ -12,8 +12,10 @@
 //! variant. Nothing is buffered. The serialized form does not change; `Serialize` stays derived.
 //!
 //! Each struct variant has a private body struct here with the same fields and `serde`
-//! attributes. Constructing the variant from the body fails to compile when the two differ in
-//! fields; the tests in this module read every variant back from what `Serialize` wrote.
+//! attributes. The compiler checks the fields: constructing the variant from the body fails to
+//! compile when the two differ. It does not check the attributes (`default`); the tests in this
+//! module do, by reading every variant back from what `Serialize` wrote, with and without the
+//! optional keys. `cargo xtask content` then reads every entry of the compiled library back.
 
 use crate::{
     ArchetypeFields, Block, ClassFields, ClassOptionFields, CreatureFields, EntryId, FeatFields,
@@ -54,7 +56,7 @@ impl<'de, T: TagFirst<'de>> Visitor<'de> for TagFirstVisitor<T> {
     fn visit_map<A: MapAccess<'de>>(self, mut map: A) -> Result<T, A::Error> {
         match map.next_key_seed(IsKey(T::TAG))? {
             Some(true) => {}
-            Some(false) => return Err(tag_not_first(T::TAG)),
+            Some(false) => return Err(tag_not_first(map, T::TAG)),
             None => return Err(A::Error::missing_field(T::TAG)),
         }
         let tag = map.next_value()?;
@@ -62,9 +64,22 @@ impl<'de, T: TagFirst<'de>> Visitor<'de> for TagFirstVisitor<T> {
     }
 }
 
+/// The error for an object that starts with another key: the tag comes later, or there is none.
 #[cold]
-fn tag_not_first<E: Error>(tag: &'static str) -> E {
-    E::custom(format_args!("the key `{tag}` must come first"))
+fn tag_not_first<'de, A: MapAccess<'de>>(mut rest: A, tag: &'static str) -> A::Error {
+    loop {
+        match rest
+            .next_value::<IgnoredAny>()
+            .and_then(|_| rest.next_key_seed(IsKey(tag)))
+        {
+            Ok(Some(true)) => {
+                return A::Error::custom(format_args!("the key `{tag}` must come first"));
+            }
+            Ok(Some(false)) => {}
+            Ok(None) => return A::Error::missing_field(tag),
+            Err(error) => return error,
+        }
+    }
 }
 
 /// Reads a key and says whether it is the expected one.
@@ -586,6 +601,9 @@ mod tests {
         );
         let none = serde_json::from_str::<Block>("{}").unwrap_err();
         assert!(none.to_string().contains("missing field `t`"), "{none}");
+        // No tag at all is a missing field, not a tag in the wrong place.
+        let absent = serde_json::from_str::<Inline>(r#"{"v":"x","c":[{"a":1}]}"#).unwrap_err();
+        assert!(absent.to_string().contains("missing field `t`"), "{absent}");
     }
 
     #[test]
@@ -601,5 +619,15 @@ mod tests {
             "{missing}"
         );
         assert!(serde_json::from_str::<Block>(r#"[1]"#).is_err());
+    }
+
+    #[test]
+    fn a_numeric_tag_is_an_error_and_a_second_tag_is_ignored() {
+        // The derived reader took a variant index for the tag and refused a repeated tag.
+        assert!(serde_json::from_str::<Inline>(r#"{"t":0,"v":"x"}"#).is_err());
+        assert_eq!(
+            serde_json::from_str::<Inline>(r#"{"t":"text","v":"x","t":"break"}"#).unwrap(),
+            Inline::text("x")
+        );
     }
 }
