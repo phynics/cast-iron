@@ -400,18 +400,25 @@ test("Level 0 spells read as Cantrips on the spell page and the Wizard list", as
 });
 
 test("Rule entries preserve complex formatting: creature spell lists use readable level labels", async ({ page }) => {
+  // Since corpus v0.1.40 a creature's spell list is rows of a stat block (phynics/cast-iron-data#166);
+  // before, each level was a bold-label paragraph. The label is read from either form.
+  const levelLabel = /^\d+(st|nd|rd|th)-level spells$/;
+  const spellLabel = (entry: any): string | undefined => {
+    for (const block of entry.body) {
+      if (block.t === "stat_block") {
+        const row = (block.rows ?? []).find((row: any) => levelLabel.test(String(row.label).trim()));
+        if (row) return String(row.label).trim();
+      }
+      if (block.t === "paragraph" && block.content?.[0]?.t === "strong") {
+        const label = inlineText(block.content[0].c ?? []).replace(/:$/, "");
+        if (levelLabel.test(label)) return label;
+      }
+    }
+    return undefined;
+  };
   const creature = firstEntry("a creature with a class/level spell list", (entry) =>
-    entry.kind === "creature" && entry.body.some((block: any) => {
-      if (block.t !== "paragraph" || block.content?.[0]?.t !== "strong") return false;
-      const label = inlineText(block.content[0].c ?? []).replace(/:$/, "");
-      return /^\d+(st|nd|rd|th)-level spells$/.test(label);
-    }));
-  const labelBlock = creature.body.find((block: any) => {
-    if (block.t !== "paragraph" || block.content?.[0]?.t !== "strong") return false;
-    const label = inlineText(block.content[0].c ?? []).replace(/:$/, "");
-    return /^\d+(st|nd|rd|th)-level spells$/.test(label);
-  });
-  const label = inlineText(labelBlock.content[0].c).replace(/:$/, "");
+    entry.kind === "creature" && spellLabel(entry) !== undefined);
+  const label = spellLabel(creature)!;
   await page.goto(`#/entry/${creature.id}`);
   await expect(page.getByRole("heading", { level: 1, name: creature.title })).toBeVisible();
   await expect(page.locator(".rich")).toContainText(label);

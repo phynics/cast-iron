@@ -38,7 +38,7 @@ Section 15 notice), for wording identifiable as that content. A kept
 paraphrase has no basis beyond that, so its exact wording falls under the
 unresolved question, like any original wording by the dataset's editor or by
 AoN. The footnote audit (merged in cast-iron #526) found notes that only the
-editor added; the pinned corpus v0.1.39 removes them (data issue #117, PR
+editor added; the pinned corpus v0.1.40 removes them (data issue #117, PR
 #123, in v0.1.31). Its `LICENSE.md` names the Pathfinder Data notes that stay and their
 basis (data PR #119), and no longer says that none of the application content
 was copied.
