@@ -19,6 +19,7 @@ use crate::graph::{BookLookup, node_at};
 use crate::library::{Library, use_library};
 use crate::route::{Route, replace, toc_id, use_route};
 use crate::views::continue_reading;
+use crate::views::crumbs::{Crumb, Crumbs};
 use crate::views::icons;
 use crate::views::sources::aon_line;
 use crate::views::util::{Shared, local_resource, recovery_details, set_title};
@@ -495,11 +496,10 @@ pub fn ChapterView(
                             return ().into_any();
                         };
                         set_title(&row.title);
-                        let book_href = Route::Book {
+                        let book_route = Route::Book {
                             source: source.clone(),
                             chapter: None,
-                        }
-                        .href();
+                        };
                         let own = node
                             .entry
                             .as_ref()
@@ -526,13 +526,7 @@ pub fn ChapterView(
                             })
                             .collect_view();
                         view! {
-                            <nav class="crumbs" aria-label="Breadcrumb">
-                                <ol>
-                                    <li><a href=Route::books().href()>"Books"</a></li>
-                                    <li><a href=book_href>{tree.title.clone()}</a></li>
-                                    <li><span aria-current="page">{row.title.clone()}</span></li>
-                                </ol>
-                            </nav>
+                            <Crumbs items=vec![Crumb::new(tree.title.clone(), book_route)] />
                             <h1 data-testid="chapter-title">{row.title.clone()}</h1>
                             {book_off().then(off_line)}
                             {own.map(|href| view! {
