@@ -477,43 +477,77 @@ fn ReportProblem() -> impl IntoView {
     }
 }
 
-/// True when `link` is the section that `current` belongs to.
-fn in_section(link: &Route, current: &Route) -> bool {
-    matches!(
-        (link, current),
-        (
-            Route::Home,
-            Route::Home
-                | Route::BrowseKind { .. }
-                | Route::BrowseSource(_)
-                | Route::Spells
-                | Route::SpellList { .. }
-                | Route::FeatChains,
-        ) | (
-            Route::Books { .. },
-            Route::Books { .. }
-                | Route::BooksSet(_)
-                | Route::BookRemoved(_)
-                | Route::BooksManage { .. }
-                | Route::Book { .. }
-                | Route::BookChapter { .. },
-        ) | (Route::Quick, Route::Quick)
-            | (
-                Route::Settings,
-                Route::Settings | Route::Diagnostics | Route::Legal,
-            )
-    )
+/// What the masthead asks of the loaded library to place a route (#571).
+struct Held<'a> {
+    /// The library has `books.json`, so an old publication address is a book page.
+    book_pages: bool,
+    /// True when the library holds the book with this source id.
+    holds: &'a dyn Fn(&str) -> bool,
+}
+
+/// The tab that holds `current`, or `None` for a page that belongs to none (#571). A tab is the
+/// section that holds the route: Books for the Books family, and for an entry or a kind list that
+/// names a book the library holds; Table for Quick reference only; Settings for Settings,
+/// Diagnostics and Legal; Home for everything else that has a tab, including an entry reached
+/// without a book, an unavailable entry and a book the library does not hold. Search and Not
+/// found highlight none.
+fn section_of(current: &Route, held: &Held) -> Option<&'static str> {
+    Some(match current {
+        Route::Books { .. }
+        | Route::BooksSet(_)
+        | Route::BookRemoved(_)
+        | Route::BooksManage { .. }
+        | Route::Book { .. }
+        | Route::BookChapter { .. } => "Books",
+        Route::BrowseSource(_) if held.book_pages => "Books",
+        Route::Entry {
+            book: Some(book), ..
+        }
+        | Route::BrowseKind {
+            source: Some(book), ..
+        } if (held.holds)(book) => "Books",
+        Route::Home
+        | Route::BrowseKind { .. }
+        | Route::BrowseSource(_)
+        | Route::Spells
+        | Route::SpellList { .. }
+        | Route::FeatChains
+        | Route::Entry { .. } => "Home",
+        Route::Quick => "Table",
+        Route::Settings | Route::Diagnostics | Route::Legal => "Settings",
+        Route::Search { .. } | Route::NotFound(_) => return None,
+    })
+}
+
+/// True when `link` is the tab that holds `current`.
+fn in_section(link: &Route, current: &Route, held: &Held) -> bool {
+    let tab = match link {
+        Route::Home => "Home",
+        Route::Books { .. } => "Books",
+        Route::Quick => "Table",
+        Route::Settings => "Settings",
+        _ => return false,
+    };
+    section_of(current, held) == Some(tab)
 }
 
 #[component]
 fn NavLink(label: &'static str, route: Route) -> impl IntoView {
     let current = use_route();
+    let library = use_library();
     let href = route.href();
     view! {
         <a
             class="nav-link"
             href=href
-            aria-current=move || in_section(&route, &current.get()).then_some("page")
+            aria-current=move || {
+                let holds = |book: &str| library.source(book).is_some();
+                let held = Held {
+                    book_pages: library.has_books(),
+                    holds: &holds,
+                };
+                in_section(&route, &current.get(), &held).then_some("page")
+            }
         >
             <span class="nav-icon" aria-hidden="true">{views::icons::nav(label)}</span>
             <span>{label}</span>
@@ -674,29 +708,56 @@ pub use install::UpdateCheck;
 mod tests {
     use super::*;
 
+    /// The tab of `current` in a library that holds only `core-rulebook`, with book pages.
+    fn tab(current: &Route) -> Option<&'static str> {
+        tab_in(current, true)
+    }
+
+    fn tab_in(current: &Route, book_pages: bool) -> Option<&'static str> {
+        let holds = |book: &str| book == "core-rulebook";
+        let held = Held {
+            book_pages,
+            holds: &holds,
+        };
+        let tabs = [
+            ("Home", Route::Home),
+            ("Books", Route::books()),
+            ("Table", Route::Quick),
+            ("Settings", Route::Settings),
+        ];
+        let on: Vec<&str> = tabs
+            .iter()
+            .filter(|(_, link)| in_section(link, current, &held))
+            .map(|(name, _)| *name)
+            .collect();
+        assert!(on.len() <= 1, "{current:?} highlights {on:?}");
+        on.first().copied()
+    }
+
+    fn entry_of(book: Option<&str>) -> Route {
+        match Route::entry(cast_iron_schema::EntryId::parse("ref/rule/bleed").unwrap()) {
+            Route::Entry {
+                id,
+                anchor,
+                section,
+                arch,
+                ..
+            } => Route::Entry {
+                id,
+                anchor,
+                book: book.map(str::to_string),
+                section,
+                arch,
+            },
+            other => other,
+        }
+    }
+
     #[test]
     fn nav_highlights_the_containing_section() {
-        assert!(in_section(
-            &Route::Home,
-            &Route::browse_kind(cast_iron_schema::EntryKind::Spell)
-        ));
-        // A book-filtered kind list is still Home, not Books.
-        assert!(in_section(
-            &Route::Home,
-            &Route::browse_kind(cast_iron_schema::EntryKind::Spell)
-                .with_source(Some("core-rulebook".into()))
-        ));
-        assert!(!in_section(
-            &Route::books(),
-            &Route::browse_kind(cast_iron_schema::EntryKind::Spell)
-                .with_source(Some("core-rulebook".into()))
-        ));
-        assert!(in_section(
-            &Route::Home,
-            &Route::BrowseSource("core-rulebook".into())
-        ));
-        assert!(in_section(&Route::Settings, &Route::Legal));
-        assert!(in_section(&Route::Settings, &Route::Diagnostics));
+        let spell = Route::browse_kind(cast_iron_schema::EntryKind::Spell);
+        assert_eq!(tab(&spell), Some("Home"));
+        assert_eq!(tab(&Route::Home), Some("Home"));
         for inside in [
             Route::Spells,
             Route::SpellList {
@@ -707,42 +768,60 @@ mod tests {
             },
             Route::FeatChains,
         ] {
-            assert!(in_section(&Route::Home, &inside), "{inside:?}");
+            assert_eq!(tab(&inside), Some("Home"), "{inside:?}");
         }
-        assert!(in_section(
-            &Route::books(),
-            &Route::Book {
+        for inside in [
+            Route::books(),
+            Route::books_manage(),
+            Route::BooksSet("code".into()),
+            Route::BookRemoved("gone".into()),
+            Route::Book {
                 source: "core-rulebook".into(),
-                chapter: Some(cast_iron_schema::books::ContentsRow::Position(vec![1]))
-            }
-        ));
-        assert!(in_section(
-            &Route::books(),
-            &Route::BookChapter {
+                chapter: Some(cast_iron_schema::books::ContentsRow::Position(vec![1])),
+            },
+            Route::BookChapter {
                 source: "core-rulebook".into(),
                 chapter: "combat".into(),
-                anchor: None
-            }
-        ));
-        assert!(!in_section(&Route::Home, &Route::books()));
-        assert!(in_section(&Route::Home, &Route::Home));
-        assert!(!in_section(&Route::Home, &Route::Settings));
-        assert!(!in_section(&Route::Home, &Route::search("fire")));
-        // Table (#437) is one page and highlights only itself.
-        assert!(in_section(&Route::Quick, &Route::Quick));
-        for other in [
-            Route::Home,
-            Route::books(),
-            Route::Settings,
-            Route::Diagnostics,
-            Route::Legal,
-            Route::search("fire"),
-            Route::entry(cast_iron_schema::EntryId::parse("ref/rule/bleed").unwrap()),
+                anchor: None,
+            },
         ] {
-            assert!(!in_section(&Route::Quick, &other), "{other:?}");
+            assert_eq!(tab(&inside), Some("Books"), "{inside:?}");
         }
-        for link in [Route::Home, Route::books(), Route::Settings] {
-            assert!(!in_section(&link, &Route::Quick), "{link:?}");
+    }
+
+    #[test]
+    fn a_kind_list_of_a_held_book_highlights_books() {
+        let list = |source: &str| {
+            Route::browse_kind(cast_iron_schema::EntryKind::Spell)
+                .with_source(Some(source.to_string()))
+        };
+        assert_eq!(tab(&list("core-rulebook")), Some("Books"));
+        // A book the library does not hold shows the whole list, under Home.
+        assert_eq!(tab(&list("no-such-book")), Some("Home"));
+    }
+
+    #[test]
+    fn an_old_publication_address_follows_the_book_pages() {
+        let old = Route::BrowseSource("core-rulebook".into());
+        assert_eq!(tab_in(&old, true), Some("Books"));
+        assert_eq!(tab_in(&old, false), Some("Home"));
+    }
+
+    #[test]
+    fn an_entry_highlights_books_only_for_a_held_book() {
+        assert_eq!(tab(&entry_of(Some("core-rulebook"))), Some("Books"));
+        assert_eq!(tab(&entry_of(Some("no-such-book"))), Some("Home"));
+        assert_eq!(tab(&entry_of(None)), Some("Home"));
+    }
+
+    #[test]
+    fn settings_pages_and_pages_without_a_tab() {
+        for settings in [Route::Settings, Route::Diagnostics, Route::Legal] {
+            assert_eq!(tab(&settings), Some("Settings"), "{settings:?}");
         }
+        // Table (#437) is one page and highlights only itself.
+        assert_eq!(tab(&Route::Quick), Some("Table"));
+        assert_eq!(tab(&Route::search("fire")), None);
+        assert_eq!(tab(&Route::NotFound("#/nowhere".into())), None);
     }
 }
