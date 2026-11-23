@@ -15,6 +15,7 @@ use crate::library::Library;
 use crate::route::Route;
 use crate::views::backlinks::{GROUP_PREVIEW, show_all};
 use crate::views::chains::chain_tree;
+use crate::views::fresh::IntoFresh as _;
 use crate::views::icons;
 use crate::views::rich::{blocks, plain_text};
 use crate::views::sources::source_line;
@@ -233,9 +234,9 @@ fn capped_list(class: &'static str, mut items: Vec<RelRow>, cap: usize) -> AnyVi
         <ul class=class>{first}</ul>
         {(!rest.is_empty()).then(|| show_all(n, Rc::new(move || view! {
             <ul class=class>{rows(rest.clone())}</ul>
-        }.into_any())))}
+        }.into_fresh())))}
     }
-    .into_any()
+    .into_fresh()
 }
 
 /// Level links of one list, as in the spell hub.
@@ -313,7 +314,7 @@ fn race_panel(library: &Library, id: &EntryId, relations: &Relations) -> Option<
                 {groups}
             </section>
         }
-        .into_any(),
+        .into_fresh(),
     )
 }
 
@@ -340,7 +341,7 @@ fn class_panels(
                     {level_pills(list)}
                 </section>
             }
-            .into_any(),
+            .into_fresh(),
         );
     }
     // Class options: one navigation rectangle per group this class takes, with the number of
@@ -377,7 +378,7 @@ fn class_panels(
                         <ul class="jump-list">{rows}</ul>
                     </section>
                 }
-                .into_any(),
+                .into_fresh(),
             );
         }
     }
@@ -414,7 +415,7 @@ fn class_panels(
                         </details>
                     </section>
                 }
-                .into_any(),
+                .into_fresh(),
             );
         }
     }
@@ -525,10 +526,10 @@ fn AddonBody(
     view! {
         {move || {
             body.with(|state| match state {
-                None => view! { <p class="status" role="status">{loading}</p> }.into_any(),
+                None => view! { <p class="status" role="status">{loading}</p> }.into_fresh(),
                 Some(Err(error)) => view! {
                     <p class="error" role="alert">{error.to_string()}</p>
-                }.into_any(),
+                }.into_fresh(),
                 Some(Ok(entry)) => {
                     let sources = source_line(
                         &entry.sources,
@@ -538,7 +539,7 @@ fn AddonBody(
                     view! {
                         <div class="rich">{blocks(&attached_body(&entry.body))}</div>
                         {sources}
-                    }.into_any()
+                    }.into_fresh()
                 },
             })
         }}
@@ -572,7 +573,7 @@ fn mythic_panel(library: &Library, id: &EntryId, all: Option<&Relations>) -> Opt
     }
     let versions = addons
         .into_iter()
-        .map(|addon| view! { <MythicAddon library=library.clone() id=addon /> }.into_any())
+        .map(|addon| view! { <MythicAddon library=library.clone() id=addon /> }.into_fresh())
         .collect_view();
     Some(
         view! {
@@ -581,7 +582,7 @@ fn mythic_panel(library: &Library, id: &EntryId, all: Option<&Relations>) -> Opt
                 {versions}
             </section>
         }
-        .into_any(),
+        .into_fresh(),
     )
 }
 
@@ -619,7 +620,7 @@ fn stamina_panel(library: &Library, id: &EntryId, all: Option<&Relations>) -> Ve
         discovery.is_eligible(addon.as_str())
     })
     .into_iter()
-    .map(|addon| view! { <StaminaAddon library=library.clone() id=addon /> }.into_any())
+    .map(|addon| view! { <StaminaAddon library=library.clone() id=addon /> }.into_fresh())
     .collect()
 }
 
@@ -659,7 +660,7 @@ fn changes_panel(library: &Library, id: &EntryId, all: Option<&Relations>) -> Ve
                 <ChangesAddon library=library.clone() id=addon />
             </section>
         }
-        .into_any()
+        .into_fresh()
     })
     .collect()
 }
@@ -723,7 +724,7 @@ fn feat_panels(
                     {named_view}
                 </section>
             }
-            .into_any(),
+            .into_fresh(),
         );
     }
     if let Some(relations) = relations {
@@ -747,7 +748,7 @@ fn feat_panels(
                         </ul>
                     </section>
                 }
-                .into_any(),
+                .into_fresh(),
             );
         }
         let mut leads: Vec<(EntryId, String)> = relations
@@ -771,7 +772,7 @@ fn feat_panels(
                         {list}
                     </section>
                 }
-                .into_any(),
+                .into_fresh(),
             );
         }
     }
@@ -903,9 +904,9 @@ fn prestige_panel(library: &Library, entry: &RuleEntry) -> Option<AnyView> {
     let links = crate::views::source_variants::group_variants(variants).into_iter().map(|group| {
         if group.variants.len() == 1 {
             let variant = &group.variants[0];
-            view! { <li><a href=Route::entry(variant.id.clone()).href()>{variant.title.clone()}</a></li> }.into_any()
+            view! { <li><a href=Route::entry(variant.id.clone()).href()>{variant.title.clone()}</a></li> }.into_fresh()
         } else {
-            view! { <li><crate::views::source_variants::SourceVariants group with_kind=true /></li> }.into_any()
+            view! { <li><crate::views::source_variants::SourceVariants group with_kind=true /></li> }.into_fresh()
         }
     }).collect_view();
     Some(
@@ -916,7 +917,7 @@ fn prestige_panel(library: &Library, entry: &RuleEntry) -> Option<AnyView> {
                 {has_links.then(|| view! { <p class="rel-label">"Named feats and skills"</p><ul class="rel-chips">{links}</ul> })}
             </section>
         }
-        .into_any(),
+        .into_fresh(),
     )
 }
 
@@ -970,7 +971,7 @@ fn variants_panel(
                 <ul class="rel-list">{rows}</ul>
             </section>
         }
-        .into_any(),
+        .into_fresh(),
     )
 }
 
@@ -1007,9 +1008,9 @@ fn spell_panel(entry: &RuleEntry, lists: Option<&SpellLists>) -> Option<AnyView>
             };
             if lists.is_some() {
                 let href = Route::spell_list(l.class.clone(), Some(l.level)).href();
-                view! { <li><a class="jump" href=href>{text}</a></li> }.into_any()
+                view! { <li><a class="jump" href=href>{text}</a></li> }.into_fresh()
             } else {
-                view! { <li><span class="tag">{text}</span></li> }.into_any()
+                view! { <li><span class="tag">{text}</span></li> }.into_fresh()
             }
         })
         .collect_view();
@@ -1020,7 +1021,7 @@ fn spell_panel(entry: &RuleEntry, lists: Option<&SpellLists>) -> Option<AnyView>
                 <ul class="jump-list">{items}</ul>
             </section>
         }
-        .into_any(),
+        .into_fresh(),
     )
 }
 

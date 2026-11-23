@@ -10,6 +10,7 @@ use crate::report;
 use crate::route::{self, Route, provide_route, replace, use_route};
 use crate::store::{self, ActiveLibrary};
 use crate::theme::{self, Theme};
+use crate::views::fresh::IntoFresh as _;
 use crate::views::{
     self,
     active_books::ActiveBooks,
@@ -589,7 +590,7 @@ fn RouteView() -> impl IntoView {
         (route, selection)
     });
     move || match page.get().0 {
-        Route::Home => view! { <Home /> }.into_any(),
+        Route::Home => view! { <Home /> }.into_fresh(),
         Route::Search { .. } => view! { <Search /> }.into_any(),
         Route::BrowseKind {
             kind,
@@ -599,31 +600,35 @@ fn RouteView() -> impl IntoView {
         } => match kind {
             // A revision hides or replaces feat rows, so the feat list waits for the graph.
             cast_iron_schema::EntryKind::Feat => {
-                view! { <FeatBrowseKind letter=letter facets=facets source=source /> }.into_any()
+                view! { <FeatBrowseKind letter=letter facets=facets source=source /> }.into_fresh()
             }
-            _ => view! { <BrowseKind kind letter=letter facets=facets source=source /> }.into_any(),
+            _ => {
+                view! { <BrowseKind kind letter=letter facets=facets source=source /> }.into_fresh()
+            }
         },
-        Route::BrowseSource(id) => view! { <BrowseSource id /> }.into_any(),
-        Route::Books => view! { <Books /> }.into_any(),
-        Route::BookRemoved(_) => view! { <Books removed=true /> }.into_any(),
-        Route::BooksManage | Route::BooksSet(_) => view! { <ActiveBooks /> }.into_any(),
-        Route::Book { source, .. } => view! { <BookView source /> }.into_any(),
+        Route::BrowseSource(id) => view! { <BrowseSource id /> }.into_fresh(),
+        Route::Books => view! { <Books /> }.into_fresh(),
+        Route::BookRemoved(_) => view! { <Books removed=true /> }.into_fresh(),
+        Route::BooksManage | Route::BooksSet(_) => view! { <ActiveBooks /> }.into_fresh(),
+        Route::Book { source, .. } => view! { <BookView source /> }.into_fresh(),
         Route::BookChapter {
             source,
             chapter,
             anchor,
-        } => view! { <ChapterView source chapter anchor=anchor /> }.into_any(),
-        Route::Spells => view! { <SpellsHub /> }.into_any(),
-        Route::SpellList { class, level, .. } => view! { <SpellListView class level /> }.into_any(),
-        Route::FeatChains => view! { <FeatChains /> }.into_any(),
+        } => view! { <ChapterView source chapter anchor=anchor /> }.into_fresh(),
+        Route::Spells => view! { <SpellsHub /> }.into_fresh(),
+        Route::SpellList { class, level, .. } => {
+            view! { <SpellListView class level /> }.into_fresh()
+        }
+        Route::FeatChains => view! { <FeatChains /> }.into_fresh(),
         Route::Entry {
             id, anchor, book, ..
-        } => view! { <Entry id anchor book /> }.into_any(),
-        Route::Quick => view! { <Quick /> }.into_any(),
-        Route::Settings => view! { <Settings /> }.into_any(),
-        Route::Diagnostics => view! { <Diagnostics /> }.into_any(),
-        Route::Legal => view! { <Legal /> }.into_any(),
-        Route::NotFound(_) => view! { <NotFound /> }.into_any(),
+        } => view! { <Entry id anchor book /> }.into_fresh(),
+        Route::Quick => view! { <Quick /> }.into_fresh(),
+        Route::Settings => view! { <Settings /> }.into_fresh(),
+        Route::Diagnostics => view! { <Diagnostics /> }.into_fresh(),
+        Route::Legal => view! { <Legal /> }.into_fresh(),
+        Route::NotFound(_) => view! { <NotFound /> }.into_fresh(),
     }
 }
 
