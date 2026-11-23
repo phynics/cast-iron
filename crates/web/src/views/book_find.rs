@@ -130,7 +130,13 @@ impl Find {
         // address before the page leaves, so a stale field could type into the next page. The
         // reader may also have left the page in this frame. The removed-book line and a share
         // link are the same page as Books and Manage books; the text replaces their address.
-        let target = match (self.page, self.route.get_untracked()) {
+        let route = self.route.get_untracked();
+        // A blank text beside a link's question is no change: the address would lose the code
+        // for nothing, and the frame would treat that as a new page.
+        if matches!(route, Route::BooksSet(_)) && text.trim().is_empty() {
+            return;
+        }
+        let target = match (self.page, route) {
             (Page::Books, Route::Books { .. } | Route::BookRemoved(_)) => {
                 Route::Books { find: text }
             }
@@ -182,6 +188,10 @@ impl Find {
                         // The field itself may hold a key that the route has not seen yet.
                         if event.key() == "Escape" && !event_target_value(&event).is_empty() {
                             event.prevent_default();
+                            // The route may already hold an empty text (a key that has not been
+                            // written yet, or only spaces), and then nothing would empty the
+                            // field for us.
+                            event_target::<web_sys::HtmlInputElement>(&event).set_value("");
                             self.clear();
                         }
                     }
@@ -211,16 +221,22 @@ impl Find {
     }
 }
 
-/// Runs `run` with the matching ids whenever the needle changes: `None` while no search is on.
-/// The page uses it to draw the groups again.
+/// The ids of the books that match the needle, or `None` while no search is on. It is a memo,
+/// so the matcher runs once for a change of the needle, whoever reads it: the groups and the
+/// status line.
 pub fn matched(
     rows: Shared<Vec<BookListEntry>>,
     needle: Memo<String>,
-) -> impl Fn() -> Option<Shared<BTreeSet<String>>> + Clone + Send + Sync + 'static {
-    move || {
-        let needle = needle.get();
-        (!needle.is_empty()).then(|| Shared::new(matching_ids(&rows, &needle)))
-    }
+) -> Memo<Option<Shared<BTreeSet<String>>>> {
+    Memo::new_with_compare(
+        move |_| {
+            let needle = needle.get();
+            (!needle.is_empty()).then(|| Shared::new(matching_ids(&rows, &needle)))
+        },
+        // The needle is the only input and the memo that makes it holds equal values back, so a
+        // run is always a change.
+        |_, _| true,
+    )
 }
 
 #[cfg(test)]

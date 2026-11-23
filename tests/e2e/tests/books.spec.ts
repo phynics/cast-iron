@@ -1247,6 +1247,25 @@ test("Escape clears the field, and Enter does nothing", async ({ page }) => {
   await expect(page.locator('.book-tier[data-tier="Adventures"] .tier-toggle')).toHaveAttribute("aria-expanded", "false");
 });
 
+test("Escape pressed before the frame writes the address still empties the field", async ({ page }) => {
+  await page.goto("#/books");
+  const field = findField(page);
+  // Type and press Escape in one task: the key has not reached the address yet.
+  await field.evaluate((input: HTMLInputElement) => {
+    input.value = "bestiary";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+  });
+  await expect(field).toHaveValue("");
+  await expect(page).toHaveURL(/#\/books$/);
+  await expect(findStatus(page)).toHaveText("");
+  // Only spaces: the address holds no text, and Escape still empties the field.
+  await field.fill("   ");
+  await expect(page).toHaveURL(/#\/books$/);
+  await field.press("Escape");
+  await expect(field).toHaveValue("");
+});
+
 test("A search with no match says so, shows no group, and offers Clear", async ({ page }) => {
   await page.goto("#/books");
   await findField(page).fill("xyz123");
@@ -1277,6 +1296,7 @@ test("An address with q opens the filtered list, and Back from a book restores t
   await page.goto("#/settings");
   await page.goto("#/books");
   await findField(page).fill("bes");
+  await expect(page).toHaveURL(/q=bes$/);
   await findField(page).fill("bestiary");
   await expect(page).toHaveURL(/q=bestiary$/);
   await page.goBack();

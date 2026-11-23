@@ -377,8 +377,8 @@ pub fn share_parts() -> ShareParts {
     let alive = panel.alive.clone();
     on_cleanup(move || alive.store(false, Ordering::Relaxed));
 
-    // A link opens the question. The address keeps the code until the reader answers. Leaving
-    // the link's history entry by Back or Forward takes the question away.
+    // A link opens the question. The address keeps the code until the reader answers or types in
+    // Find a book. Leaving the link's history entry by Back or Forward takes the question away.
     let linked = panel.clone();
     crate::views::util::effect(move || match route.get() {
         Route::BooksSet(code) => {

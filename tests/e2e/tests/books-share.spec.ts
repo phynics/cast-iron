@@ -478,6 +478,12 @@ installedTest("A link's question sits above the Find a book field and keeps its 
   // The field did not take the focus from the question.
   await expect(heading).toBeFocused();
 
+  // A space as the first key is no text: the address keeps its code and the question its page.
+  await field.fill(" ");
+  await expect(page).toHaveURL(/#\/books\/manage\?set=/);
+  await expect(heading).toBeVisible();
+  await expect(field).toBeFocused();
+
   // Typing in the field leaves the question open, takes the code out of the address, and
   // narrows the rows; the books are as they were.
   await field.fill("core rulebook");

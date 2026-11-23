@@ -462,10 +462,10 @@ pub fn ActiveBooks() -> impl IntoView {
     let find = Find::new(FindPage::Manage);
     let matched = book_find::matched(rows.clone(), find.needle);
     let groups = {
-        let (rows, library, matched) = (rows.clone(), library.clone(), matched.clone());
-        move || groups_view(&rows, &render.found(matched()), &library)
+        let (rows, library) = (rows.clone(), library.clone());
+        move || groups_view(&rows, &render.found(matched.get()), &library)
     };
-    let found = move || matched().map_or(0, |ids| ids.len());
+    let found = move || matched.get().map_or(0, |ids| ids.len());
     let share = share_parts();
     let undo_panel = panel.clone();
     let live = live_recent(&library, panel.recent);
