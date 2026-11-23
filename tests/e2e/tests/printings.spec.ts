@@ -104,8 +104,13 @@ test("A revised feat shows no line on the base page or the revision's page", asy
       return same.length === 2 && same.some((candidate) => candidate.id === base);
     });
   expect(pair, "the library has a revised feat that no other book prints").toBeTruthy();
+  // Every book on, so the revision's book is active and its notice shows on the base page.
   await page.goto("#/");
+  await waitHomeIdle(page);
+  await writeMeta(page, "disabled_books", []);
+  await page.reload();
   await waitReady(page);
+  await waitHomeIdle(page);
   await open(page, pair!.base);
   await expect(page.locator(".revision-notice")).toContainText("Revised by");
   await expect(line(page)).toHaveCount(0);
