@@ -8,9 +8,9 @@ Edit this page only where a change makes a line untrue, and add a log file for t
 
 | | |
 |---|---|
-| Corpus | `phynics/cast-iron-data` tag `v0.1.38`, commit `5f4f84cfd394e6f8d205da021da334812759dc4b` (`sources/corpus.toml`), corpus format 3. Pin entry: [2026-11-22](status/2026-11-22-pin-corpus-v0-1-38.md) |
-| Content version | `vd8785578729b3bfc` (`cargo xtask content` on `main` at `6df0a44fa` plus the v0.1.38 pin, 2026-11-22). The release still serves `v28481793019cf75c` (corpus v0.1.37). |
-| Library | 31,825 entries, 443 publications, 443 books; 0 unreachable entries, 0 broken links |
+| Corpus | `phynics/cast-iron-data` tag `v0.1.39`, commit `0fd59c05c923b66aa4e172cb387e1446a6728090` (`sources/corpus.toml`), corpus format 3. Pin entry: [2026-11-22](status/2026-11-22-pin-corpus-v0-1-39.md) |
+| Content version | `v24b0ef873f202712` (`cargo xtask content` on `main` at `ee5f88d50` plus the v0.1.39 pin, 2026-11-22). The release still serves `v28481793019cf75c` (corpus v0.1.37). |
+| Library | 31,742 entries, 443 publications, 443 books; 0 unreachable entries, 0 broken links |
 | `SCHEMA_VERSION` | 6 (`crates/schema/src/lib.rs`; the client reads 1 to 6) |
 | `INDEX_FORMAT_VERSION` | 2 (`crates/search/src/lib.rs`) |
 
