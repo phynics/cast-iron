@@ -356,7 +356,7 @@ mod tests {
     }
 
     #[test]
-    fn a_class_option_group_and_a_racial_trait_race_are_scopes_like_any_facet() {
+    fn a_class_option_group_a_race_and_an_affliction_type_are_scopes_like_any_facet() {
         crate::views::search::register_facet_titles(
             "group",
             [("rage-power".to_string(), "Rage powers".to_string())],
@@ -389,6 +389,14 @@ mod tests {
         assert_eq!(dwarf.placeholder(), "Search Dwarf racial traits");
         assert_eq!(dwarf.label(), "Dwarf racial traits");
         assert_eq!(dwarf.remove_label(), "Remove scope: Dwarf racial traits");
+
+        let disease = Route::browse_kind_facets(
+            EntryKind::Affliction,
+            vec![("affliction_type".into(), "disease".into())],
+        );
+        let disease = Scope::of_page(&disease).unwrap();
+        assert_eq!(disease.placeholder(), "Search Disease afflictions");
+        assert_eq!(disease.show_all_label(), "Show all afflictions");
     }
 
     #[test]

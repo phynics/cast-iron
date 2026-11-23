@@ -194,6 +194,18 @@ pub const CREATURE_CR_MENU: MenuSpec = MenuSpec {
     plural: "ratings",
 };
 
+/// The affliction type menu: poison, disease, curse and the other three. Six values, so it has
+/// no find field.
+pub const AFFLICTION_TYPE_MENU: MenuSpec = MenuSpec {
+    field: "affliction_type",
+    group: "Type",
+    all_label: "All types",
+    find_label: "Find a type",
+    list_label: "Affliction type",
+    singular: "type",
+    plural: "types",
+};
+
 /// The facet that sorts the Classes list into headed sections instead of A to Z. A short list
 /// with a handful of well-known groups shows them all at once, so it needs no filter.
 pub const CLASS_GROUP_FIELD: &str = "class_type";
@@ -276,11 +288,10 @@ pub fn lenses(kind: EntryKind) -> Vec<Lens> {
         EntryKind::Archetype => vec![Lens::Menu(ARCHETYPE_CLASS_MENU)],
         EntryKind::ClassOption => vec![Lens::Menu(CLASS_OPTION_GROUP_MENU)],
         EntryKind::RacialTrait => vec![Lens::Menu(RACIAL_TRAIT_RACE_MENU)],
-        EntryKind::Rule
-        | EntryKind::PrestigeClass
-        | EntryKind::Skill
-        | EntryKind::Affliction
-        | EntryKind::Trap => Vec::new(),
+        EntryKind::Affliction => vec![Lens::Menu(AFFLICTION_TYPE_MENU)],
+        EntryKind::Rule | EntryKind::PrestigeClass | EntryKind::Skill | EntryKind::Trap => {
+            Vec::new()
+        }
     }
 }
 
@@ -422,6 +433,8 @@ mod tests {
         assert_eq!(menu(EntryKind::ClassOption), Some(CLASS_OPTION_GROUP_MENU));
         assert_eq!(menu(EntryKind::RacialTrait), Some(RACIAL_TRAIT_RACE_MENU));
         assert_eq!(RACIAL_TRAIT_RACE_MENU.field, "racial_trait_race");
+        assert_eq!(menu(EntryKind::Affliction), Some(AFFLICTION_TYPE_MENU));
+        assert_eq!(AFFLICTION_TYPE_MENU.field, "affliction_type");
         assert_eq!(ITEM_CATEGORY_MENU.field, "item_category");
         assert_eq!(TRAIT_CATEGORY_MENU.field, "trait_category");
         assert_eq!(ARCHETYPE_CLASS_MENU.field, "archetype_class");
@@ -431,6 +444,7 @@ mod tests {
             (EntryKind::Trait, TRAIT_CATEGORY_MENU),
             (EntryKind::Archetype, ARCHETYPE_CLASS_MENU),
             (EntryKind::RacialTrait, RACIAL_TRAIT_RACE_MENU),
+            (EntryKind::Affliction, AFFLICTION_TYPE_MENU),
             (EntryKind::Spell, SCHOOL_MENU),
         ] {
             let url = [(spec.field.to_string(), "x".to_string())];

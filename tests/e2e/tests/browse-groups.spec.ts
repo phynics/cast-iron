@@ -245,6 +245,82 @@ test("The Race menu narrows the racial traits to one race, and Quick search take
   await expect(main.getByRole("link", { name: "Show all racial traits" })).toBeVisible();
 });
 
+// ---- Afflictions: the Type menu (#592) ----
+
+const afflictionCount = activeStubs.filter((stub) => stub.kind === "affliction").length;
+const afflictionsOfType = (type: string) =>
+  [...corpus.entries.values()].filter(
+    (entry) => entry.kind === "affliction" && activeIds.has(entry.id) && (entry.tags ?? []).includes(type),
+  ).length;
+
+test("The affliction Type menu narrows the list in place, Back returns to all types, and Quick search takes the type", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/browse/kind/affliction");
+  const main = page.locator("main");
+  const button = main.getByRole("button", { name: /^Type: / });
+  await expect(button).toHaveText("Type: All types");
+  await expect(main.locator(".list-count")).toHaveText(`${count(afflictionCount)} afflictions`);
+  const disease = afflictionsOfType("disease");
+  expect(disease).toBeGreaterThan(0);
+  expect(disease).toBeLessThan(afflictionCount);
+
+  // Six types: a panel with no find field, the selected value marked.
+  await button.click();
+  const panel = page.locator(`#${await button.getAttribute("aria-controls")}`);
+  await expect(panel).toBeVisible();
+  await expect(panel.getByRole("searchbox")).toHaveCount(0);
+  const list = panel.getByRole("list", { name: "Affliction type" });
+  await expect(list.getByRole("link", { name: /^All types/ })).toHaveAttribute("aria-current", "true");
+  const labels = ["Addiction", "Curse", "Disease", "Infestation", "Insanity", "Poison"];
+  for (const label of labels) {
+    await expect(list.getByRole("link", { name: `${label}, ${count(afflictionsOfType(label.toLowerCase()))}`, exact: true })).toBeVisible();
+  }
+  await list.getByRole("link", { name: `Disease, ${count(disease)}`, exact: true }).click();
+
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/browse/kind/affliction?facet=affliction_type:disease");
+  await expect(main.locator(".list-count")).toHaveText(`${count(disease)} of ${count(afflictionCount)} afflictions · Show all`);
+  await expect(main.getByRole("button", { name: "Type: Disease" })).toBeFocused();
+  // Rows are listed, and none is a creature's poison.
+  await expect(main.locator(".entry-list a").first()).toBeVisible();
+  await expect(main.getByRole("link", { name: /^Poison \(Ex\)/ })).toHaveCount(0);
+
+  // The header search keeps the type as its scope.
+  await page.locator("header.app-header").getByRole("button", { name: "Search", exact: true }).click();
+  await expect(page.getByRole("button", { name: "Remove scope: Disease afflictions", exact: true })).toBeVisible();
+  await expect(quickField(page)).toHaveAttribute("placeholder", "Search Disease afflictions");
+  await page.keyboard.press("Escape");
+
+  // Back returns to every affliction.
+  await page.goBack();
+  await expect.poll(() => new URL(page.url()).hash).toBe("#/browse/kind/affliction");
+  await expect(main.getByRole("button", { name: "Type: All types" })).toBeVisible();
+  await expect(main.locator(".list-count")).toHaveText(`${count(afflictionCount)} afflictions`);
+
+  // The search filter panel offers the type for afflictions.
+  await page.goto("#/search?q=poison&kind=affliction");
+  await expect(page.locator('.filters .filter-group:has(legend:text-is("Type"))')).toBeVisible();
+});
+
+test("The poison type lists the creature afflictions titled Poison (Ex)", async ({ page }) => {
+  await installLibrary(page);
+  const poison = afflictionsOfType("poison");
+  expect(poison).toBeGreaterThan(0);
+  await page.goto("#/browse/kind/affliction?facet=affliction_type:poison&l=P");
+  const main = page.locator("main");
+  await expect(main.getByRole("button", { name: "Type: Poison" })).toBeVisible();
+  await expect(main.locator(".list-count")).toHaveText(`${count(poison)} of ${count(afflictionCount)} afflictions · Show all`);
+  await expect(main.locator(".entry-list a", { hasText: /^Poison \(Ex\)/ }).first()).toBeVisible();
+});
+
+test("A type that holds no affliction shows the empty state with the way out", async ({ page }) => {
+  await installLibrary(page);
+  const main = page.locator("main");
+  await page.goto("#/browse/kind/affliction?facet=affliction_type:lycanthropy");
+  await expect(main.getByText("No Lycanthropy afflictions in your active books.")).toBeVisible();
+  await expect(main.getByRole("link", { name: "Show all afflictions" })).toBeVisible();
+  await expect(main.getByRole("link", { name: "Manage books" })).toBeVisible();
+});
+
 // ---- Feats: the filter menu, filtering in place, Feat chains and the chain marker (#193 PR 2) ----
 
 const featsInCombat = [...corpus.entries.values()]
