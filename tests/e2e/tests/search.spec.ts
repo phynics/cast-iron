@@ -1963,3 +1963,75 @@ installedTest("A weak query that still finds a few entries shows the correction 
   await expect(page.getByTestId("did-you-mean")).toHaveCount(0);
   expect(await page.locator(".results > .hit").count()).toBeGreaterThan(0);
 });
+
+/**
+ * A same-name group the compiled library keeps in several books (#619): entries of one kind and
+ * title with the same text, all from books of one product line, whose latest printings have
+ * distinct dates. They tie on relevance and on product line, so only the printing recency orders
+ * them. The group whose newest printing is not the one that the id order would put first proves
+ * the rule; the library repeats such titles across corpus versions, so the group comes from the
+ * catalog and not from a literal name.
+ */
+function latestPrintingGroup() {
+  const sources = new Map<string, any>(corpus.catalog.sources.map((source: any) => [source.id, source]));
+  const dateOf = (stub: any): string | null => {
+    const dates = memberBooks(stub).map((book) => sources.get(book)?.publication_date).filter((date) => !!date);
+    return dates.length ? dates.sort().at(-1) : null;
+  };
+  const line = (stub: any) => {
+    const book = sources.get(stub.source);
+    return JSON.stringify([book?.category, !!book?.third_party, book?.series_kind]);
+  };
+  const text = (stub: any) => {
+    const entry = corpus.entries.get(stub.id)!;
+    return JSON.stringify([entry.body, entry.fields, entry.tags]);
+  };
+  const groups = new Map<string, any[]>();
+  for (const stub of corpus.catalog.entries) {
+    const key = JSON.stringify([stub.kind, stub.title.trim().replace(/\s+/g, " ").toLowerCase(), text(stub)]);
+    groups.set(key, [...(groups.get(key) ?? []), stub]);
+  }
+  const candidates = [...groups.values()]
+    .filter((stubs) => stubs.length > 1)
+    .filter((stubs) => new Set(stubs.map(line)).size === 1)
+    .filter((stubs) => stubs.every((stub) => memberBooks(stub).every((book) => !thirdParty.has(book))))
+    .filter((stubs) => stubs.every((stub) => dateOf(stub) !== null) && new Set(stubs.map(dateOf)).size === stubs.length)
+    .map((stubs) => {
+      const newest = [...stubs].sort((a, b) => dateOf(b)!.localeCompare(dateOf(a)!))[0];
+      const byId = [...stubs].sort((a, b) => (a.id < b.id ? -1 : 1))[0];
+      return { stubs, newest, byId };
+    })
+    .filter((group) => group.newest.id !== group.byId.id)
+    .sort((a, b) => (a.newest.id < b.newest.id ? -1 : 1));
+  return candidates[0];
+}
+
+installedTest("Equal relevance puts the latest printing of a rule first in its result group (#619)", async ({ page }) => {
+  const group = latestPrintingGroup();
+  expect(group, "the library must keep one rule in several books of one product line, with distinct dates").toBeTruthy();
+  const { stubs, newest } = group;
+  const title = newest.title as string;
+  await installLibrary(page);
+  await page.goto(`#/search?q=${encodeURIComponent(title)}&kind=${newest.kind}`);
+  await waitResults(page, title);
+  const fold = page.locator(".results > .hit-group").filter({ has: page.locator(`a[href="#/entry/${newest.id}"]`) });
+  await expect(fold).toHaveCount(1);
+  await fold.locator("summary").press("Enter");
+  const listed = await fold.locator("ul a.hit-link").evaluateAll((links) => links.map((link) => link.getAttribute("href")));
+  const ids = stubs.map((stub: any) => `#/entry/${stub.id}`);
+  for (const id of ids) expect(listed).toContain(id);
+  // Within the fold the printings run newest first: the lead row is the one whose books are newest.
+  const wanted = [...stubs]
+    .sort((a: any, b: any) => {
+      const date = (stub: any) =>
+        memberBooks(stub)
+          .map((book) => corpus.catalog.sources.find((source: any) => source.id === book)?.publication_date)
+          .filter((value: any) => !!value)
+          .sort()
+          .at(-1) as string;
+      return date(b).localeCompare(date(a));
+    })
+    .map((stub: any) => `#/entry/${stub.id}`);
+  expect(listed.filter((href) => ids.includes(href!))).toEqual(wanted);
+  expect(listed[0]).toBe(`#/entry/${newest.id}`);
+});

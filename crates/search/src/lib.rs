@@ -213,6 +213,9 @@ pub struct SearchIndex {
     /// Tie-break rank per document ordinal, empty until [`SearchIndex::set_source_ranks`] runs.
     /// Not serialized: the client derives it from the catalog, so the format is unchanged.
     pub(crate) doc_ranks: Vec<u8>,
+    /// Printing recency per document ordinal, empty until [`SearchIndex::set_printing_recency`]
+    /// runs. A larger value is a newer printing; 0 is undated. Not serialized.
+    pub(crate) doc_recency: Vec<u32>,
     /// The other books a document belongs to, besides its own `source`. Empty until
     /// [`SearchIndex::set_extra_sources`] runs. Not serialized, so the format is unchanged.
     pub(crate) extra_sources: ExtraSources,
@@ -234,6 +237,7 @@ impl SearchIndex {
             texts,
             doc_lists,
             doc_ranks: Vec::new(),
+            doc_recency: Vec::new(),
             extra_sources: ExtraSources::new(),
             names: correct::LazyNames::default(),
         }
@@ -257,6 +261,35 @@ impl SearchIndex {
                     .unwrap_or(NEUTRAL_SOURCE_RANK)
             })
             .collect();
+    }
+
+    /// Assigns each document a printing recency, as `(document id, recency)` pairs, for breaking
+    /// ties between equally relevant results of the same rule printed in several books. A larger
+    /// recency is a newer printing and sorts first; 0 means undated and sorts last. The recency
+    /// is a further tie-break after the score and the source rank, ahead of the title and id
+    /// tie-breaks, so relevance and product line still win. A document that is not listed counts
+    /// as undated, and a pair whose id is not a document is ignored. Plain data from the caller
+    /// (the catalog), so the serialized format is unchanged. Each call replaces the earlier pairs.
+    pub fn set_printing_recency<'a>(&mut self, recency: impl IntoIterator<Item = (&'a str, u32)>) {
+        let mut pairs = recency.into_iter().peekable();
+        if pairs.peek().is_none() {
+            self.doc_recency = Vec::new();
+            return;
+        }
+        let ords: std::collections::HashMap<&str, usize> = self
+            .meta
+            .docs
+            .iter()
+            .enumerate()
+            .map(|(ord, doc)| (doc.id.as_str(), ord))
+            .collect();
+        let mut by_doc = vec![0u32; self.meta.docs.len()];
+        for (id, value) in pairs {
+            if let Some(&ord) = ords.get(id) {
+                by_doc[ord] = value;
+            }
+        }
+        self.doc_recency = by_doc;
     }
 
     /// Tells the index which further books each entry belongs to, as `(document id, book)`

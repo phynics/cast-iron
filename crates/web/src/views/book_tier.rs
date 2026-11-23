@@ -3,7 +3,7 @@
 //! Core rulebooks matter most; adventures matter least. The mapping is pure so native
 //! tests cover it, including every category value that the reviewed file contains.
 
-use cast_iron_schema::{SeriesKind, SourceInfo};
+use cast_iron_schema::{EntryStub, SeriesKind, SourceInfo};
 use cast_iron_search::NEUTRAL_SOURCE_RANK;
 
 /// The search tie-break rank of every source in a catalog, from its reviewed category. Hand the
@@ -12,6 +12,45 @@ pub fn source_ranks(sources: &[SourceInfo]) -> Vec<(&str, u8)> {
     sources
         .iter()
         .map(|source| (source.id.as_str(), Tier::of(source).search_rank()))
+        .collect()
+}
+
+/// The printing recency of every entry, from the catalog `publication_date` of its books. Hand
+/// the result to `SearchIndex::set_printing_recency`.
+///
+/// An entry's recency is that of the newest-dated book among its member books, so a rule kept in
+/// several books ranks by its latest printing. A book that revises the rule is a different entry
+/// and its date does not count here. The values are dense ranks of the distinct dates (the date
+/// strings are ISO 8601, which sort as text): a larger value is a newer printing, and 0 means
+/// that no member book has a date. An undated entry is left out of the result.
+pub fn printing_recency<'a>(
+    sources: &[SourceInfo],
+    entries: &'a [EntryStub],
+) -> Vec<(&'a str, u32)> {
+    let dates: std::collections::BTreeSet<&str> = sources
+        .iter()
+        .filter_map(|source| source.publication_date.as_deref())
+        .filter(|date| !date.is_empty())
+        .collect();
+    let rank_of_date: std::collections::BTreeMap<&str, u32> =
+        dates.into_iter().zip(1u32..).collect();
+    let rank_of_book: std::collections::HashMap<&str, u32> = sources
+        .iter()
+        .filter_map(|source| {
+            let date = source.publication_date.as_deref()?;
+            Some((source.id.as_str(), *rank_of_date.get(date)?))
+        })
+        .collect();
+    entries
+        .iter()
+        .filter_map(|stub| {
+            let newest = stub
+                .member_books()
+                .iter()
+                .filter_map(|book| rank_of_book.get(book.as_str()))
+                .max()?;
+            Some((stub.id.as_str(), *newest))
+        })
         .collect()
 }
 
@@ -318,6 +357,78 @@ mod tests {
                 ("new", NEUTRAL_SOURCE_RANK)
             ]
         );
+    }
+
+    fn dated(id: &str, date: Option<&str>) -> SourceInfo {
+        let mut info = source(id, Some("RPG"));
+        info.publication_date = date.map(String::from);
+        info
+    }
+
+    fn stub(id: &str, books: &[&str]) -> EntryStub {
+        EntryStub {
+            id: cast_iron_schema::EntryId::parse(id).unwrap(),
+            kind: cast_iron_schema::EntryKind::Feat,
+            title: id.to_string(),
+            source: books[0].to_string(),
+            books: EntryStub::encode_books(
+                &books
+                    .iter()
+                    .map(|book| book.to_string())
+                    .collect::<Vec<_>>(),
+            ),
+            parent: None,
+            shard: "entries/feat-000.json".into(),
+        }
+    }
+
+    #[test]
+    fn printing_recency_is_the_newest_dated_member_book() {
+        let sources = [
+            dated("old", Some("2009-08-01")),
+            dated("mid", Some("2011-03-01")),
+            dated("new", Some("2017-04-26")),
+            dated("undated", None),
+        ];
+        let entries = [
+            stub("ref/feat/lone-old", &["old"]),
+            stub("ref/feat/lone-new", &["new"]),
+            // The primary book is the oldest, but the entry is also printed in `new`.
+            stub("ref/feat/reprinted", &["old", "new", "mid"]),
+            stub("ref/feat/undated-first", &["undated", "mid"]),
+            stub("ref/feat/undated", &["undated"]),
+            stub("ref/feat/unknown-book", &["not-in-catalog"]),
+        ];
+        assert_eq!(
+            printing_recency(&sources, &entries),
+            [
+                ("ref/feat/lone-old", 1),
+                ("ref/feat/lone-new", 3),
+                ("ref/feat/reprinted", 3),
+                ("ref/feat/undated-first", 2),
+            ]
+        );
+    }
+
+    #[test]
+    fn printing_recency_ranks_equal_dates_alike_and_ignores_empty_dates() {
+        let sources = [
+            dated("a", Some("2012-01-01")),
+            dated("b", Some("2012-01-01")),
+            dated("c", Some("")),
+            dated("d", Some("2013-02-01")),
+        ];
+        let entries = [
+            stub("ref/feat/a", &["a"]),
+            stub("ref/feat/b", &["b"]),
+            stub("ref/feat/c", &["c"]),
+            stub("ref/feat/d", &["d"]),
+        ];
+        assert_eq!(
+            printing_recency(&sources, &entries),
+            [("ref/feat/a", 1), ("ref/feat/b", 1), ("ref/feat/d", 2)]
+        );
+        assert!(printing_recency(&[], &[]).is_empty());
     }
 
     #[test]
