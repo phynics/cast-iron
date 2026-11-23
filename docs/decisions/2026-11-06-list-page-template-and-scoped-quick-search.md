@@ -2,7 +2,7 @@
 title: "List-page template and scoped Quick search"
 date: 2026-11-06
 status: partly-superseded
-superseded_by: [2026-11-23-entry-breadcrumbs-and-tabs]
+superseded_by: ["2026-11-23-entry-breadcrumbs-and-tabs"]
 issues: [193]
 prs: [1, 2]
 area: search
