@@ -623,7 +623,7 @@ While `legal.json` or `coverage.json` loads, the place of its content shows `Loa
 
 ### Installer screen
 
-The installer screen shows when no library is installed yet. It has the masthead (the brand only), then `main.install-main`: the `h1` `Install the rules library`, a lede that says the library downloads once and works offline afterwards, an optional `.notice`, and one `.install-panel`. The panel shows the download size and the entry count as `dl.facts`, a paragraph that starts `On iPhone?` and names the Home Screen install and its separate library, a `Download` `.btn-primary` (`Download update` when it updates a library), and then a progress bar named `Download progress` with a live `.status` line. A failure is an `.error` with `role="alert"` and a `.btn-primary` `Retry` (`Check again` when the manifest must be fetched again); after a failed integrity check the panel adds that verified files are kept, so a retry continues where it stopped. The footer carries the unofficial line without the legal link.
+The installer screen shows when no library is installed yet. It has the masthead (the brand only), then `main.install-main`: the `h1` `Install the rules library`, a lede that says the library downloads once and works offline afterwards, an optional `.notice`, and one `.install-panel`. The panel shows `Library version` (the corpus tag with a short id, `v0.1.37 (v28481793…)`, never the bare content hash), the download size and the entry count as `dl.facts`, a paragraph that starts `On iPhone?` and names the Home Screen install and its separate library, a `Download` `.btn-primary`, and then a progress bar named `Download progress` with a live `.status` line. A failure is an `.error` with `role="alert"` and a `.btn-primary` `Retry` (`Check again` when the manifest must be fetched again); after a failed integrity check the panel adds that verified files are kept, so a retry continues where it stopped. The footer carries the unofficial line without the legal link. The same panel updates a library from Settings; there it shows only `Download update` with one muted reassurance line, then the progress and failure states, with no facts and no iPhone paragraph (see Settings, The update rows). While it reads the file list it shows `Checking the library…`.
 
 ### Not yet designed
 
@@ -672,7 +672,7 @@ A book is active or inactive (count lines such as `28 of 443 books active`, the 
 
 ### Ellipsis
 
-Loading and progress text uses the single character `…` (`Loading entry…`, `Type: Loading…`, `Loading Cast Iron…`, `Collecting…`) and is `role="status"`. Settings and the installer still write three full stops (`Checking...`) until `#584`.
+Loading and progress text uses the single character `…` (`Loading entry…`, `Type: Loading…`, `Loading Cast Iron…`, `Collecting…`) and is `role="status"`.
 
 ### Numbers
 

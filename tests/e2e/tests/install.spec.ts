@@ -1,4 +1,4 @@
-import { test, expect, distManifest } from "./fixtures";
+import { test, expect, corpusLabel, distManifest } from "./fixtures";
 import { activeLibrary, cacheContents, columnEdges, contentCaches, installLibrary, waitReady } from "./helpers";
 import path from "node:path";
 
@@ -36,7 +36,12 @@ test("Representative rules dataset installs completely", async ({ page }) => {
   await page.goto("./");
   await expect(page.getByRole("heading", { name: "Install the rules library" })).toBeVisible();
   await expect(page.getByTestId("download-size")).toHaveText(/\d+(\.\d+)? [MG]B/);
-  await expect(page.locator(".facts")).toContainText(version);
+  // The version is the corpus tag with a short id, never the bare content hash (#584).
+  await expect(page.getByText("Library version", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("install-version")).toHaveText(corpusLabel(manifest));
+  if (manifest.corpus_tag) await expect(page.getByTestId("install-version")).toHaveText(/^v0\./);
+  await expect(page.locator(".facts")).not.toContainText(version);
+  await expect(page.getByText("On iPhone?")).toBeVisible();
   await page.getByRole("button", { name: "Download" }).click();
   await expect(page.getByTestId("install-status")).toContainText(/Downloading|Verifying|Checking what is already stored|Activating|installed/);
   await waitReady(page);

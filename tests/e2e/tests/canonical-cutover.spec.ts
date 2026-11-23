@@ -197,8 +197,7 @@ test("Legacy bookmarks and recents migrate to canonical ids after a library cuto
     await server.overlay(next.dir);
     await page.goto("#/settings");
     await page.getByRole("button", { name: "Check now", exact: true }).click();
-    await expect(page.getByText("Newer library available")).toBeVisible();
-    await page.getByRole("button", { name: "Download update" }).click();
+        await page.getByRole("button", { name: "Download update" }).click();
     await expect(page.getByTestId("library-version")).toHaveText(next.version, {
       timeout: 60_000,
     });

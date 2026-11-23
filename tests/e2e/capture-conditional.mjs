@@ -150,10 +150,10 @@ const GROUPS = [
       try {
         await control('overlay', { dir: overlay.dir });
         await checkNow(page);
-        await page.getByText('Newer library available').waitFor();
+        await page.getByRole('button', { name: 'Download update' }).waitFor();
         await capture('settings-updates', {
           description: 'Settings → Updates with a newer rules library offered (version, size, Download update). Nothing downloads.',
-          ready: '#set-updates .install-panel .facts',
+          ready: '#set-updates [data-testid="library-update"] .install-panel .btn-primary',
         });
         await page.goto(FIREBALL);
         await header(page).getByRole('button', { name: UPDATE_BUTTONS.library }).waitFor();
@@ -183,12 +183,12 @@ const GROUPS = [
         await control('shell', { version: `capture-next-${build.shell_version}` });
         await control('overlay', { dir: overlay.dir });
         await checkNow(page);
-        await page.getByText('Newer library available').waitFor();
+        await page.getByRole('button', { name: 'Download update' }).waitFor();
         await header(page).getByRole('button', { name: UPDATE_BUTTONS.both }).waitFor();
         await page.getByTestId('app-update').waitFor();
         await capture('settings-updates', {
           description: 'Settings → Updates with the app reload row and the newer library offered together.',
-          ready: '#set-updates .install-panel .facts',
+          ready: '#set-updates [data-testid="library-update"] .install-panel .btn-primary',
         });
         // The phone frame above stops above the reload row, so the combined state needs a scrolled
         // frame there. Desktop already shows both rows; it is not captured twice (#448).

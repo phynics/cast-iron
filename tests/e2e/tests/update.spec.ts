@@ -71,8 +71,18 @@ test("Content update keeps user records", async ({ page, context, server }) => {
     // activation for roughly 40 s.
     await server.hook(`content/${slow}`, "slow", { ms: 1500 });
     await page.getByRole("button", { name: "Check now", exact: true }).click();
-    await expect(page.getByText("Newer library available")).toBeVisible();
-    await expect(page.locator(".install-panel .facts")).toContainText(next.version);
+    // The update row says each thing once (#584): one size, one button, one reassurance, and
+    // nothing that belongs to the first install.
+    const updates = page.locator("#set-updates");
+    const offer = page.getByTestId("library-update");
+    await expect(offer.getByRole("button", { name: "Download update" })).toHaveCount(1);
+    await expect(offer.locator(".install-panel .facts")).toHaveCount(0);
+    await expect(updates.getByText("On iPhone?")).toHaveCount(0);
+    await expect(updates.getByTestId("download-size")).toHaveCount(0);
+    const text = (await updates.innerText()).replace(/\s+/g, " ");
+    expect(text.match(/\d+(\.\d+)? [MG]B/g) ?? [], "the size appears once").toHaveLength(1);
+    expect(text.match(/Your stars/g) ?? [], "the reassurance appears once").toHaveLength(1);
+    await expect(offer).toContainText("Your stars and book choices stay. The current library keeps working until the new one is verified.");
     await page.getByRole("button", { name: "Download update" }).click();
     await expect(page.getByTestId("install-status")).toContainText(/Downloading/);
 
@@ -271,18 +281,18 @@ test("Settings has seven sections in a fixed order, Help links out, and Verify w
   await page.goto("#/settings");
   await expectSettingsPage(page);
 
-  const help = page.locator("#set-help");
+  const help = page.locator("section[aria-labelledby=set-help]");
   await expect(help.getByRole("link", { name: "Diagnostics", exact: true })).toHaveAttribute("href", "#/settings/diagnostics");
   await expect(help.getByRole("link", { name: "Legal and attribution", exact: true })).toHaveAttribute("href", "#/legal");
   const report = help.getByRole("link", { name: "Report a problem on GitHub (opens in a new tab)" });
   await expect(report).toHaveAttribute("target", "_blank");
   await expect(report).toHaveText("Report a problem");
-  await expect(page.locator("#set-books").getByRole("link", { name: "Manage books", exact: true })).toHaveAttribute("href", "#/books/manage");
+  await expect(page.locator("section[aria-labelledby=set-books]").getByRole("link", { name: "Manage books", exact: true })).toHaveAttribute("href", "#/books/manage");
   // Content format is a Diagnostics fact now.
   await expect(page.locator("main")).not.toContainText("Content format");
 
   await page.getByRole("button", { name: "Verify library", exact: true }).click();
-  await expect(page.locator("#set-library [role=status]").filter({ hasText: "Library verified." })).toHaveCount(1, { timeout: 120_000 });
+  await expect(page.locator("section[aria-labelledby=set-library] [role=status]").filter({ hasText: "Library verified." })).toHaveCount(1, { timeout: 120_000 });
   await expect(page.getByTestId("verify-status")).toHaveAttribute("role", "status");
 });
 
