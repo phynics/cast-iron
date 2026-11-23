@@ -410,8 +410,20 @@ mod tests {
     #[test]
     fn the_title_scan_agrees_with_the_normalized_titles() {
         let titles = [
-            "Tent", " tent ", "TENT", "Tents", "Fire  Bolt", "fire bolt", "Fire", "",
-            "   ", "Ünïcode Étude", "ünïcode étude", "ÜNÏCODE ÉTUDE", "Odysseus", "ODYSSEUΣ",
+            "Tent",
+            " tent ",
+            "TENT",
+            "Tents",
+            "Fire  Bolt",
+            "fire bolt",
+            "Fire",
+            "",
+            "   ",
+            "Ünïcode Étude",
+            "ünïcode étude",
+            "ÜNÏCODE ÉTUDE",
+            "Odysseus",
+            "ODYSSEUΣ",
             "odysseuς",
         ];
         for a in titles {
@@ -436,7 +448,10 @@ mod tests {
             key(EntryKind::Item, None, " Tent "),
             key(EntryKind::Item, None, "tent")
         );
-        assert_ne!(key(EntryKind::Item, None, "Tent"), key(EntryKind::Feat, None, "Tent"));
+        assert_ne!(
+            key(EntryKind::Item, None, "Tent"),
+            key(EntryKind::Feat, None, "Tent")
+        );
         assert_ne!(
             key(EntryKind::RacialTrait, Some(&dwarf), "Hardy"),
             key(EntryKind::RacialTrait, None, "Hardy")
