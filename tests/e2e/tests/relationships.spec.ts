@@ -246,6 +246,19 @@ test("every feat chain Open the feat link has a 24 px hit area", async ({ page }
   expect(heights.filter((height) => height < 24)).toEqual([]);
 });
 
+/** Opens every closed branch below `root` until none is left: a branch builds its rows when it opens. */
+async function openAllBranches(page: import("@playwright/test").Page, root: import("@playwright/test").Locator) {
+  for (let round = 0; round < 12; round++) {
+    const closed = await root.locator(".chain-branch > details:not([open])").evaluateAll((all) => {
+      for (const details of all) (details as HTMLDetailsElement).open = true;
+      return all.length;
+    });
+    if (closed === 0) return;
+    await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
+  }
+  throw new Error("branches kept appearing");
+}
+
 test("every feat chain lists every descendant of the head, one row per route", async ({ page }) => {
   // The feats that name each feat as a prerequisite, from the compiled corpus. A revision row
   // is not a feat of its own in the chains: the page shows the feat it revises.
@@ -283,6 +296,7 @@ test("every feat chain lists every descendant of the head, one row per route", a
   await expect(item).toHaveCount(1);
   await item.locator("summary").click();
   await expect(item.locator("ul.chain")).toBeVisible();
+  await openAllBranches(page, item);
   await expect(item.locator(".chain-cut")).toHaveCount(0);
   const hrefs = await item.locator("ul.chain a").evaluateAll((links) => links.map((a) => a.getAttribute("href")!));
   const shown = new Set(hrefs.map((href) => decodeURIComponent(href.replace(/^#\/entry\//, ""))));
@@ -293,9 +307,90 @@ test("every feat chain lists every descendant of the head, one row per route", a
 
   // The children of a node come in title order, as the `Leads to` list shows them.
   const titles = await item.locator("ul.chain").evaluate((root) =>
-    [...root.querySelectorAll("ul")].map((list) =>
-      [...list.children].map((li) => li.querySelector(":scope > a")!.textContent!.trim().toLowerCase())));
+    [root, ...root.querySelectorAll("ul")].map((list) =>
+      [...list.children].map((li) =>
+        (li.querySelector(":scope > a") ?? li.querySelector(":scope > details > summary .chain-name"))!
+          .textContent!.trim().toLowerCase())));
   for (const siblings of titles) expect(siblings).toEqual([...siblings].sort());
+});
+
+test("every feat chain folds its branches when it has more than 20 feats", async ({ page }) => {
+  await page.goto("#/feats/chains");
+  await expect(page.locator(".chain-head").first()).toBeVisible();
+  const counts = await page.locator(".chain-head > details > summary .chain-count").evaluateAll((all) =>
+    all.map((el) => Number(/^(\d+) /.exec(el.textContent!)![1])));
+  const small = counts.findIndex((n) => n >= 3 && n <= 20);
+  // The smallest chain above 20 keeps the test quick; the big one is covered by the descendants test.
+  const big = counts.lastIndexOf(Math.min(...counts.filter((n) => n > 20)));
+  expect(small, "a chain of 20 or fewer").toBeGreaterThanOrEqual(0);
+  expect(big, "a chain above 20").toBeGreaterThanOrEqual(0);
+
+  // A chain of 20 or fewer stays fully open.
+  const shortItem = page.locator(".chain-head").nth(small);
+  await shortItem.locator("> details > summary").click();
+  await expect(shortItem.locator("ul.chain")).toBeVisible();
+  await expect(shortItem.locator(".chain-branch")).toHaveCount(0);
+  expect(await shortItem.locator("ul.chain a").count()).toBeGreaterThanOrEqual(counts[small]);
+
+  // A chain above 20 shows one closed row for each feat that has dependents.
+  const item = page.locator(".chain-head").nth(big);
+  await item.locator("> details > summary").click();
+  const list = item.locator("ul.chain.chain-fold");
+  await expect(list).toBeVisible();
+  const first = item.locator("ul.chain-fold > li.chain-branch").first();
+  const summary = first.locator("> details > summary");
+  await expect(summary).toBeVisible();
+  await expect(first.locator("> details")).not.toHaveAttribute("open", "");
+  await expect(first.locator("ul")).toHaveCount(0);
+  expect((await summary.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  const label = (await summary.locator(".chain-count").textContent())!;
+  const below = Number(/^(\d+) feats? build on it$/.exec(label)![1]);
+  expect(below).toBeGreaterThan(0);
+
+  // A branch opens from the keyboard, with the native summary.
+  await summary.focus();
+  await page.keyboard.press("Enter");
+  await expect(first.locator("> details")).toHaveAttribute("open", "");
+  await expect(first.locator("> details > ul").first()).toBeVisible();
+  await expect(first.locator("> details > .chain-go a")).toHaveText("Open the feat");
+
+  // The number of a branch is the number of distinct feats below it.
+  await openAllBranches(page, first);
+  const hrefs = await first.locator("> details > ul a").evaluateAll((links) => links.map((a) => a.getAttribute("href")));
+  expect(new Set(hrefs).size).toBe(below);
+});
+
+test("every feat chain opens from ?open= and keeps the chain open on Back", async ({ page }) => {
+  const head = entries.find((e) => e.kind === "feat" && e.title === "Improved Unarmed Strike" &&
+    related(e, "prerequisite").length === 0 && entries.some((o) => related(o, "prerequisite").some((r: any) => r.target === e.id)))!;
+  const encoded = encodeURIComponent(head.id);
+  const item = page.locator(".chain-head", { has: page.locator(`.chain-open a[href="#/entry/${head.id}"]`) });
+
+  await page.goto(`#/feats/chains?open=${encoded}`);
+  await expect(item.locator("> details")).toHaveAttribute("open", "");
+  await expect(item.locator("ul.chain-fold")).toBeVisible();
+  await expect(item).toBeInViewport();
+  await expect(page.locator(".chain-head > details[open]")).toHaveCount(1);
+
+  // Back from a feat of the chain returns to the open chain.
+  await item.locator(".chain-open a").click();
+  await expect(page.getByRole("heading", { name: head.title, level: 1 })).toBeVisible();
+  await page.goBack();
+  await expect(item.locator("> details")).toHaveAttribute("open", "");
+  await expect(item).toBeInViewport();
+
+  // Opening and closing a head rewrites the address in place and adds no history entry.
+  await page.goto("#/browse");
+  await page.goto("#/feats/chains");
+  await expect(item.locator("summary").first()).toBeVisible();
+  await expect(item.locator("> details")).not.toHaveAttribute("open", "");
+  const length = await page.evaluate(() => history.length);
+  await item.locator("> details > summary").click();
+  await expect(page).toHaveURL(new RegExp(`#/feats/chains\\?open=${encoded}$`));
+  expect(await page.evaluate(() => history.length)).toBe(length);
+  await item.locator("> details > summary").click();
+  await expect(page).toHaveURL(/#\/feats\/chains$/);
+  expect(await page.evaluate(() => history.length)).toBe(length);
 });
 
 test("category hub exposes requested reference areas and dedicated lenses", async ({ page }) => {

@@ -125,8 +125,11 @@ pub enum Route {
         /// The text of the name field, as typed. Empty is no name filter.
         name: String,
     },
-    /// Feats that other feats require, with their chains.
-    FeatChains,
+    /// Feats that other feats require, with their chains. `open` is the chain head that is shown
+    /// open and scrolled to, so Back from one of its feats returns to it.
+    FeatChains {
+        open: Option<EntryId>,
+    },
     Entry {
         id: EntryId,
         anchor: Option<String>,
@@ -184,6 +187,11 @@ impl Route {
             schools: Vec::new(),
             name: String::new(),
         }
+    }
+
+    /// The feat chains page with no chain asked open.
+    pub fn feat_chains() -> Self {
+        Route::FeatChains { open: None }
     }
 
     pub fn entry(id: EntryId) -> Self {
@@ -385,7 +393,11 @@ impl Route {
                     _ => not_found(),
                 }
             }
-            ["feats", "chains"] => Route::FeatChains,
+            ["feats", "chains"] => Route::FeatChains {
+                open: Some(parse_text(query, "open"))
+                    .filter(|id| !id.is_empty())
+                    .and_then(|id| EntryId::parse(id).ok()),
+            },
             ["entry", id @ ..] if !id.is_empty() => {
                 let Some(id) = percent_decode(&id.join("/")).and_then(|s| EntryId::parse(s).ok())
                 else {
@@ -548,7 +560,10 @@ impl Route {
                 }
                 href
             }
-            Route::FeatChains => "#/feats/chains".into(),
+            Route::FeatChains { open: None } => "#/feats/chains".into(),
+            Route::FeatChains { open: Some(id) } => {
+                with_text("#/feats/chains", "open", id.as_str())
+            }
             Route::Entry {
                 id,
                 anchor,
@@ -1214,6 +1229,25 @@ pub fn remember_scroll() {
 /// visited before (Back or Forward) returns the offset it was left at. A new entry gets a
 /// scroll id in its history state, next to any other field, and returns `None`.
 pub fn arrive_at_entry() -> Option<f64> {
+    let offset = arrive_at_entry_unrecorded();
+    ARRIVAL_OFFSET.with(|cell| cell.set(offset));
+    offset
+}
+
+thread_local! {
+    /// The offset that the last arrival at a history entry restored, for a page that builds
+    /// itself after the frame has scrolled (see [`take_arrival_offset`]).
+    static ARRIVAL_OFFSET: std::cell::Cell<Option<f64>> = const { std::cell::Cell::new(None) };
+}
+
+/// The offset that the last arrival restored (Back or Forward to an entry left earlier), once.
+/// A page that renders after its data has loaded uses it to scroll again when the content is
+/// tall enough; `None` means the arrival was a new page.
+pub fn take_arrival_offset() -> Option<f64> {
+    ARRIVAL_OFFSET.with(|cell| cell.take())
+}
+
+fn arrive_at_entry_unrecorded() -> Option<f64> {
     let history = web_sys::window()?.history().ok()?;
     let state = history.state().unwrap_or(wasm_bindgen::JsValue::NULL);
     if let Some(id) = state_field(&state, SCROLL_ID_FIELD).and_then(|value| value.as_f64()) {
@@ -1336,7 +1370,10 @@ mod tests {
             Route::books_manage(),
             Route::BooksSet("1ABC-DEF2".into()),
             Route::Spells,
-            Route::FeatChains,
+            Route::feat_chains(),
+            Route::FeatChains {
+                open: Some(EntryId::parse("ref/feat/power-attack").unwrap()),
+            },
         ] {
             round_trip(route);
         }
@@ -2272,7 +2309,7 @@ mod tests {
 
     #[test]
     fn feat_chains_route_does_not_swallow_other_feat_paths() {
-        assert_eq!(Route::parse("#/feats/chains"), Route::FeatChains);
+        assert_eq!(Route::parse("#/feats/chains"), Route::feat_chains());
         assert_eq!(Route::parse("#/feats"), Route::NotFound("#/feats".into()));
     }
 
