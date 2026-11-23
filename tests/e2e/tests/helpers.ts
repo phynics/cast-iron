@@ -373,29 +373,6 @@ export function buildLibraryWithExpandedIn(
   });
 }
 
-/** One derived stat set, as the compiler stores it on an entry (#166). `cr` is in 24ths. */
-export type StatSetRow = { title: string; anchor: string; cr?: { twenty_fourths: number }; size?: string };
-
-/**
- * The same overlay for stat sets (#166): each listed creature gets `stat_sets` and one `##`
- * heading per set at the end of its body, so a link has a heading to scroll to. No pinned corpus
- * has converted stat sets yet; the compiler's own tests cover the derivation and the facet.
- */
-export function buildLibraryWithStatSets(sets: Record<string, StatSetRow[]>) {
-  return buildLibraryWithEntryPatch("stat-sets", Object.keys(sets), (entry) => {
-    entry.stat_sets = sets[entry.id];
-    for (const set of sets[entry.id]) {
-      entry.body.push({
-        t: "heading",
-        level: 2,
-        anchor: set.anchor,
-        content: [{ t: "text", v: set.title }],
-      });
-      entry.body.push({ t: "paragraph", content: [{ t: "text", v: `Statistics of ${set.title}.` }] });
-    }
-  });
-}
-
 /** Rewrites the shards of the named entries with `patch`, and the manifest hashes with them. */
 function buildLibraryWithEntryPatch(label: string, ids: string[], patch: (entry: any) => void) {
   const old = distManifest();
