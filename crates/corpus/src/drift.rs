@@ -278,29 +278,33 @@ fn is_sources_line(block: &Block) -> bool {
     )
 }
 
-/// The normal feat's part of the body: everything before the first block that starts a
-/// second source. A source block starts at a level-3 heading that carries its own
-/// `**Sources:**` line, or at any later bare `**Sources:**` line (an Elephant-in-the-Room
-/// tail, a second printing). Those blocks hold another publication's version of the feat
-/// (a `### Mythic` or `### Stamina` block, an Elephant-in-the-Room replacement, …). A base
-/// feat's `[fields]` describe the normal feat, so those blocks are never compared.
+/// The normal part of an entry's body: everything before the first block that starts another
+/// publication's version of the entry. A base entry's `[fields]` describe the normal part, so the
+/// blocks after it (a `### Mythic` or `### Stamina` block, an Elephant-in-the-Room replacement, a
+/// subdomain or wildblooded mutation printed in a later book) are never compared.
 ///
-/// A `###` heading without its own `**Sources:**` line organizes the normal feat's own
-/// text (options, examples, a table) and stays in the comparison.
-fn normal_part(body: &[Block]) -> &[Block] {
-    let mut seen_sources = false;
+/// The entry's own citation is not in the body: the `[[sources]]` rows carry it. Two signs start
+/// another source's block:
+///
+/// 1. A `**Sources:**` paragraph, unless it is the first block. A first block names the entry's own
+///    citation (a legacy line, or a Paizo Blog citation that no row carries); a later one names
+///    another publication. A `###` heading directly above such a paragraph starts the block at
+///    the heading.
+/// 2. A `###` heading, when the entry prints in more than one publication (`source_ids`; every
+///    `[[sources]]` row names one of them). A second publication can print its own `###` section,
+///    and the data no longer keeps a `**Sources:**` paragraph under it, because the rows already
+///    cite the page. An entry of one publication has no other source, so its `###` headings
+///    organize the normal part (options, examples, a table) and stay in the comparison.
+fn normal_part(entry: &RuleEntry) -> &[Block] {
+    let body = &entry.body;
+    let other_sources = entry.source_ids.len() > 1;
     for (index, block) in body.iter().enumerate() {
-        if is_sources_line(block) {
-            // The entry's first `**Sources:**` line opens the normal part. A later bare
-            // one starts another source's block.
-            if seen_sources {
-                return &body[..index];
-            }
-            seen_sources = true;
-            continue;
+        if index > 0 && is_sources_line(block) {
+            return &body[..index];
         }
-        let is_subsection = matches!(block, Block::Heading { level: 3, .. });
-        if is_subsection && body.get(index + 1).is_some_and(is_sources_line) {
+        if matches!(block, Block::Heading { level: 3, .. })
+            && (other_sources || body.get(index + 1).is_some_and(is_sources_line))
+        {
             return &body[..index];
         }
     }
@@ -859,7 +863,7 @@ fn feat_pairs(entry: &RuleEntry, text: &str) -> Vec<Pair> {
         return vec![];
     };
     // A base feat's fields describe the normal feat, never a source subsection.
-    let body = normal_part(&entry.body);
+    let body = normal_part(entry);
     let mut pairs = Vec::new();
     for (field, value, label) in [
         ("prerequisites", &fields.prerequisites, "Prerequisites"),
@@ -899,7 +903,7 @@ pub fn unfielded_feat_labels(stored: &Stored) -> Vec<(&'static str, usize)> {
     let TypedFields::Feat(fields) = &stored.entry.fields else {
         return vec![];
     };
-    let body = normal_part(&stored.entry.body);
+    let body = normal_part(&stored.entry);
     let mut found = Vec::new();
     for (field, value, label) in [
         ("prerequisites", &fields.prerequisites, "Prerequisites"),
@@ -942,7 +946,7 @@ fn replaces_alters_pairs(
     replaces: &[String],
     alters: &[String],
 ) -> Vec<Pair> {
-    let body = normal_part(&entry.body);
+    let body = normal_part(entry);
     let mut pairs = Vec::new();
     for (field, values, label) in [
         ("replaces", replaces, "Replaces"),
@@ -974,7 +978,7 @@ fn replaces_alters_pairs(
 /// The printed `**Replaces:**` and `**Alters:**` names of the normal part, in body order.
 /// Each list is the concatenation of every such line in the entry.
 pub fn printed_replaces_alters(entry: &RuleEntry) -> (Vec<String>, Vec<String>) {
-    let body = normal_part(&entry.body);
+    let body = normal_part(entry);
     (
         printed_items(&labelled_texts(body, "Replaces")),
         printed_items(&labelled_texts(body, "Alters")),
@@ -1978,6 +1982,171 @@ mod tests {
                 .describe()
                 .contains("has no `**Prerequisites:**` statement in the normal part")
         );
+    }
+
+    /// The entry as two publications print it, with a `[[sources]]` row for each and no
+    /// `**Sources:**` paragraph in the body.
+    fn printed_twice(mut entry: RuleEntry) -> RuleEntry {
+        entry.source_ids = vec!["core-rulebook".into(), "advanced-players-guide".into()];
+        entry.sources = entry
+            .source_ids
+            .iter()
+            .map(|publication| cast_iron_schema::Citation {
+                publication: publication.clone(),
+                page: Some("10".into()),
+            })
+            .collect();
+        entry
+    }
+
+    fn subsection(title: &str) -> Block {
+        Block::Heading {
+            level: 3,
+            anchor: None,
+            content: vec![Inline::text(title)],
+        }
+    }
+
+    /// A class option whose body prints one `**Replaces:**` line above a `###` subsection and
+    /// one inside it, with `typed` as the typed list.
+    fn domain_with_subdomain(typed: &[&str], head: Vec<Block>) -> RuleEntry {
+        let mut body = vec![paragraph(labelled("Replaces", "Detect evil"))];
+        body.extend(head);
+        body.push(subsection("Alchemy Subdomain"));
+        body.push(paragraph(labelled("Replaces", "Smite evil")));
+        base(
+            "ref/domain/test",
+            EntryKind::ClassOption,
+            class_option(typed, &[]),
+            body,
+        )
+    }
+
+    #[test]
+    fn rows_without_a_body_sources_line_end_the_normal_part_at_a_heading() {
+        // Two publications, rows, no `**Sources:**` paragraph: the `###` section is another
+        // source's block, so the line inside it is not compared.
+        let entry = printed_twice(domain_with_subdomain(&["Detect evil"], vec![]));
+        assert!(find_drift(&stored(entry)).is_empty());
+        // The line above the heading still is.
+        let entry = printed_twice(domain_with_subdomain(&["Smite evil"], vec![]));
+        let drift = find_drift(&stored(entry));
+        assert_eq!(drift.len(), 1, "{drift:?}");
+        assert_eq!(drift[0].field, "replaces");
+        assert_eq!(drift[0].source_value, "Detect evil");
+    }
+
+    #[test]
+    fn a_heading_of_a_single_publication_entry_stays_in_the_normal_part() {
+        // One publication has no other source, so its `###` section organizes the normal part.
+        let both = domain_with_subdomain(&["Detect evil", "Smite evil"], vec![]);
+        assert!(find_drift(&stored(both)).is_empty());
+        let first_only = domain_with_subdomain(&["Detect evil"], vec![]);
+        let drift = find_drift(&stored(first_only));
+        assert_eq!(drift.len(), 1, "{drift:?}");
+        assert_eq!(drift[0].source_value, "Detect evil, Smite evil");
+    }
+
+    #[test]
+    fn a_heading_and_sources_line_still_end_the_normal_part() {
+        // The paragraph the data keeps for a blog or conflicting citation still marks the block,
+        // with or without rows, and for an entry of one publication too.
+        let mut entry = domain_with_subdomain(&["Detect evil"], vec![]);
+        entry
+            .body
+            .insert(2, sources("Advanced Player's Guide pg 10"));
+        assert!(find_drift(&stored(entry.clone())).is_empty());
+        let drift = find_drift(&stored(printed_twice(entry)));
+        assert!(drift.is_empty(), "{drift:?}");
+        // A bare line with no heading ends it as well.
+        let mut bare = domain_with_subdomain(&["Detect evil"], vec![]);
+        bare.body.remove(1);
+        bare.body
+            .insert(1, sources("Advanced Player's Guide pg 10"));
+        assert!(find_drift(&stored(bare)).is_empty());
+    }
+
+    #[test]
+    fn a_leading_sources_line_does_not_end_the_normal_part() {
+        // A first block names the entry's own citation (a blog post that no row carries).
+        let mut entry = printed_twice(domain_with_subdomain(&["Detect evil"], vec![]));
+        entry.body.insert(0, sources("Paizo Blog - Test"));
+        assert!(find_drift(&stored(entry)).is_empty());
+    }
+
+    #[test]
+    fn variant_paragraphs_after_the_normal_part_are_not_compared() {
+        let feat = |benefit: &str| {
+            printed_twice(base(
+                "ref/feat/test",
+                EntryKind::Feat,
+                TypedFields::Feat(FeatFields {
+                    benefit: Some(benefit.into()),
+                    ..Default::default()
+                }),
+                vec![
+                    paragraph(labelled("Benefit", "Normal wording.")),
+                    subsection("Mythic Test"),
+                    paragraph(labelled("Benefit", "Mythic wording.")),
+                ],
+            ))
+        };
+        assert!(find_drift(&stored(feat("Normal wording."))).is_empty());
+        let drift = find_drift(&stored(feat("Mythic wording.")));
+        assert_eq!(drift.len(), 1, "{drift:?}");
+        assert_eq!(drift[0].source_value, "Normal wording.");
+        // A label that only the variant states is reported, as with a body Sources line.
+        let mut only_variant = feat("Normal wording.");
+        let TypedFields::Feat(fields) = &mut only_variant.fields else {
+            panic!("feat");
+        };
+        fields.prerequisites = Some("Mythic Test.".into());
+        only_variant
+            .body
+            .push(paragraph(labelled("Prerequisites", "Mythic Test.")));
+        let drift = find_drift(&stored(only_variant));
+        assert_eq!(drift.len(), 1, "{drift:?}");
+        assert!(drift[0].missing);
+    }
+
+    #[test]
+    fn stat_blocks_neither_end_nor_mark_the_normal_part() {
+        let titled = Block::StatBlock {
+            title: Some("Advanced".into()),
+            rows: vec![row("AC", "99")],
+        };
+        // A creature: the rows come from the first stat block, whether a later titled block
+        // follows a `###` heading or not.
+        let entry = printed_twice(base(
+            "ref/monster/test",
+            EntryKind::Creature,
+            TypedFields::Creature(Box::new(CreatureFields {
+                ac: Some("15".into()),
+                ..Default::default()
+            })),
+            vec![
+                statblock(vec![row("AC", "15")]),
+                subsection("Advanced Test"),
+                titled.clone(),
+            ],
+        ));
+        assert!(find_drift(&stored(entry)).is_empty());
+        // An archetype: an untitled and a titled stat block between the printed lines stay in
+        // the normal part, and the part ends at the heading below them.
+        let entry = printed_twice(base(
+            "ref/arc-fighter/test",
+            EntryKind::Archetype,
+            archetype(&["Detect evil", "Smite evil"], &[]),
+            vec![
+                paragraph(labelled("Replaces", "Detect evil")),
+                statblock(vec![row("Size", "Medium")]),
+                titled.clone(),
+                paragraph(labelled("Replaces", "Smite evil")),
+                subsection("Variant"),
+                paragraph(labelled("Replaces", "Channel positive energy")),
+            ],
+        ));
+        assert!(find_drift(&stored(entry)).is_empty());
     }
 
     fn footnote_feat(field: &str, body: Vec<Inline>) -> Stored {

@@ -1139,7 +1139,12 @@ when any `**Label:**` line in the body says the same, because a feat with a
 mythic variant states the label twice. For the `replaces` and `alters` trades, an entry may
 print several lines, one per traded power; the printed names of the trades with that key are the concatenation
 of every line in body order, and a comma-separated line contributes one item per
-part. A value stated in only one place is not drift. See [the drift check reads creature and item statistics from stat-block rows](decisions/2026-11-23-drift-reads-creature-stats-from-stat-block-rows.md) for the stat-block rules: `cr` by value, `Type` beside a `Subtype` set, `ac` from three rows, `hp` with `~` read as `( )`, and `slot` through the closed vocabulary. The two copies are not
+part. The normal part of a feat, archetype or class option is the body before another source's version
+starts: at a `**Sources:**` paragraph that is not the first block, and at a `###` heading when the
+entry prints in more than one publication (`source_ids`) or has a `**Sources:**` paragraph directly
+below it. The `[[sources]]` rows need no body paragraph to mark the end. See [the drift check ends
+the normal part by publication](decisions/2026-11-23-drift-normal-part-ends-by-publication.md). A
+value stated in only one place is not drift. See [the drift check reads creature and item statistics from stat-block rows](decisions/2026-11-23-drift-reads-creature-stats-from-stat-block-rows.md) for the stat-block rules: `cr` by value, `Type` beside a `Subtype` set, `ac` from three rows, `hp` with `~` read as `( )`, and `slot` through the closed vocabulary. The two copies are not
 unified: the typed fields feed search and facets, and the body is what a reader
 sees.
 
