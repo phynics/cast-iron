@@ -12,6 +12,7 @@ use crate::views::categories;
 use crate::views::filter_menu::{
     FilterMenuButton, MenuState, MultiFilterMenuPanel, MultiOption, multi_trigger_text,
 };
+use crate::views::fresh::IntoFresh as _;
 use crate::views::icons;
 use crate::views::util::{Shared, local_resource, set_title};
 use cast_iron_schema::{EntryKind, SpellListClass, SpellListDetail, SpellLists};
@@ -200,10 +201,10 @@ pub fn SpellsHub() -> impl IntoView {
         move || {
             lists.with(|state| match state {
                 None => {
-                    view! { <p class="muted list-count" role="status" aria-live="polite">"Loading spell lists…"</p> }.into_any()
+                    view! { <p class="muted list-count" role="status" aria-live="polite">"Loading spell lists…"</p> }.into_fresh()
                 }
-                Some(Err(error)) => load_failed(error).into_any(),
-                Some(Ok(None)) => missing_lists().into_any(),
+                Some(Err(error)) => load_failed(error).into_fresh(),
+                Some(Ok(None)) => missing_lists().into_fresh(),
                 Some(Ok(Some(lists))) => {
                     let (common, rest) = picker_groups(lists);
                     let common_jumps = common.iter().map(|l| class_jump(l)).collect_view();
@@ -228,7 +229,7 @@ pub fn SpellsHub() -> impl IntoView {
                             {more}
                         </section>
                     }
-                    .into_any()
+                    .into_fresh()
                 }
             })
         }
@@ -265,17 +266,17 @@ pub fn SpellListView(class: String, level: Option<u8>) -> impl IntoView {
                     <p class="muted list-count" role="status" aria-live="polite">"Loading spell list…"</p>
                 </div>
             }
-            .into_any(),
+            .into_fresh(),
             Some(Err(error)) => view! {
                 <div class="wide list-page">{spell_crumbs(None)}<h1 tabindex="-1">"Spell list"</h1>{load_failed(error)}</div>
             }
-            .into_any(),
+            .into_fresh(),
             Some(Ok(None)) => view! {
                 <div class="wide list-page">{spell_crumbs(None)}<h1 tabindex="-1">"Spell list"</h1>{missing_lists()}</div>
             }
-            .into_any(),
+            .into_fresh(),
             Some(Ok(Some(lists))) => {
-                view! { <ListPage lists=Shared::from_rc(lists.clone()) class level library /> }.into_any()
+                view! { <ListPage lists=Shared::from_rc(lists.clone()) class level library /> }.into_fresh()
             }
         })
     }
@@ -426,7 +427,7 @@ fn ListPage(
                 <p><a href=Route::Spells.href()>"See all spell lists"</a></p>
             </div>
         }
-        .into_any();
+        .into_fresh();
     };
     // The schools and the name are the route's: a school is one more history entry and the name
     // replaces the current one, and this page reads both without being rebuilt.
@@ -788,7 +789,7 @@ fn ListPage(
             {body}
         </div>
     }
-    .into_any()
+    .into_fresh()
 }
 
 #[cfg(test)]

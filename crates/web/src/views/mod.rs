@@ -18,6 +18,7 @@ pub mod entry;
 pub mod entry_contents;
 pub mod filter_menu;
 pub mod footnotes;
+pub mod fresh;
 pub mod header_action;
 pub mod home;
 pub mod icons;

@@ -4,7 +4,7 @@ use crate::books::{
     BOOKS_DIR, BookLayout, PAGE_ORDER_TITLE, UNPAGED_TITLE, is_clean_page, is_reserved_chapter,
 };
 use crate::config::SPLIT_BOOKS_FORMAT;
-use crate::drift::{Disagreement, find_drift, printed_replaces_alters};
+use crate::drift::{Disagreement, find_drift, printed_replaces_alters, unfielded_feat_labels};
 use crate::entry::entry_path;
 use crate::load::Corpus;
 use cast_iron_schema::headings::{headings_in_order, keyed_headings, plain_text, slugify};
@@ -1631,6 +1631,7 @@ pub fn check(corpus: &Corpus) -> Report {
     check_relations(corpus, &mut report);
     check_third_party_sharing(corpus, &mut report);
     check_uncited_memberships(corpus, &mut report);
+    check_unfielded_feat_labels(corpus, &mut report);
     check_closed_vocabularies(corpus, &mut report);
     check_option_groups(corpus, &ids, &mut report);
     check_replaces_features(corpus, &keys, &mut report);
@@ -1829,6 +1830,35 @@ fn check_uncited_memberships(corpus: &Corpus, report: &mut Report) {
         "{} book memberships in {} entries have no `[[sources]]` row, although the book is not the entry's first (for example {}); add the row if the book prints the entry (a verified body citation becomes a row), or remove the book if it does not (#461)",
         uncited.len(),
         entries.len(),
+        examples.join(", ")
+    ));
+}
+
+/// Warns, once per run, about feats whose normal part prints `**Prerequisites:**` or
+/// `**Special:**` while the typed field is empty: the drift check compares only fields that
+/// exist, so nothing else notices. A warning until the corpus has none (#615).
+fn check_unfielded_feat_labels(corpus: &Corpus, report: &mut Report) {
+    let mut found: Vec<(String, &str, &str)> = Vec::new();
+    for stored in corpus.entries.values() {
+        for (field, line) in unfielded_feat_labels(stored) {
+            found.push((
+                format!("{}:{line}", stored.path.display()),
+                stored.entry.id.as_str(),
+                field,
+            ));
+        }
+    }
+    if found.is_empty() {
+        return;
+    }
+    let examples: Vec<String> = found
+        .iter()
+        .take(3)
+        .map(|(at, id, field)| format!("{at}: `{id}` has no `{field}`"))
+        .collect();
+    report.warnings.push(format!(
+        "{} feat labels print `**Prerequisites:**` or `**Special:**` in the normal part but have no typed field (for example {}); the drift check cannot compare them, so add the field (#615)",
+        found.len(),
         examples.join(", ")
     ));
 }

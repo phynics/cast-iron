@@ -429,6 +429,15 @@ pub(crate) fn canonical_facets(entries: &[RuleEntry]) -> BTreeMap<EntryId, Vec<(
             // A racial trait's race comes from its `part` edge, below.
             TypedFields::RacialTrait(_) | TypedFields::Archetype(_) | TypedFields::None => {}
         }
+        // An affliction carries its type as a tag (phynics/cast-iron-data#171). Only the six
+        // closed values become a facet value; any other tag stays a tag.
+        if entry.kind == EntryKind::Affliction {
+            for tag in &entry.tags {
+                if cast_iron_corpus::AFFLICTION_TYPES.contains(&tag.as_str()) {
+                    push(&mut facets, "affliction_type", tag);
+                }
+            }
+        }
         // A race's group is an optional entry field, not part of `TypedFields`.
         if let Some(group) = entry.race_group {
             push(&mut facets, "race_group", group.slug());
@@ -1016,6 +1025,39 @@ mod tests {
                 ("racial_trait_race".into(), "half-elf".into()),
             ]
         );
+    }
+
+    #[test]
+    fn an_affliction_has_one_type_facet_per_closed_type_tag() {
+        let tagged = |id: &str, tags: &[&str]| {
+            let mut e = entry(id, EntryKind::Affliction, 0);
+            e.tags = tags.iter().map(|t| t.to_string()).collect();
+            e
+        };
+        let poison = tagged("ref/affliction/poison-ex", &["poison"]);
+        // A tag outside the closed list is not a type; an untagged affliction has no facet.
+        let other = tagged("ref/affliction/other", &["poison", "magic"]);
+        let none = tagged("ref/affliction/untagged", &[]);
+        let unknown = tagged("ref/affliction/unknown", &["magic"]);
+        // The same tag on another kind is no affliction type.
+        let mut rule = entry("ref/rule/poison-rules", EntryKind::Rule, 0);
+        rule.tags = vec!["poison".into()];
+        let facets = canonical_facets(&[poison, other, none, unknown, rule]);
+        assert_eq!(
+            facets[&EntryId::parse("ref/affliction/poison-ex").unwrap()],
+            vec![("affliction_type".into(), "poison".into())]
+        );
+        assert_eq!(
+            facets[&EntryId::parse("ref/affliction/other").unwrap()],
+            vec![("affliction_type".into(), "poison".into())]
+        );
+        for id in [
+            "ref/affliction/untagged",
+            "ref/affliction/unknown",
+            "ref/rule/poison-rules",
+        ] {
+            assert!(!facets.contains_key(&EntryId::parse(id).unwrap()), "{id}");
+        }
     }
 
     #[test]

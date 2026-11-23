@@ -379,15 +379,22 @@ fn text_pair(
     field: &'static str,
     value: &str,
     label: &str,
+    first_only: bool,
 ) -> Option<Pair> {
     let stated = labelled_texts(body, label);
     let source_value = stated.first()?.clone();
     let marker = format!("**{label}:**");
     // A normal feat may state its label more than once in its own part (a variant
-    // statement), so the field agrees when any of those statements matches.
-    let agree = stated
-        .iter()
-        .any(|statement| normalize(value) == normalize(statement));
+    // statement), so the field agrees when any of those statements matches. With
+    // `first_only` only the first statement counts: a feat has one prerequisites line
+    // of its own, and a later one belongs to a sub-option.
+    let agree = if first_only {
+        normalize(value) == normalize(&source_value)
+    } else {
+        stated
+            .iter()
+            .any(|statement| normalize(value) == normalize(statement))
+    };
     Some(Pair {
         field,
         field_value: value.to_string(),
@@ -710,7 +717,7 @@ fn feat_pairs(entry: &RuleEntry, text: &str) -> Vec<Pair> {
         ("special", &fields.special, "Special"),
     ] {
         if let Some(value) = value {
-            match text_pair(text, body, field, value, label) {
+            match text_pair(text, body, field, value, label, label == "Prerequisites") {
                 Some(pair) => pairs.push(pair),
                 // The normal part states no such label, so nothing compares the field.
                 // Report it when another block in the body does state the label: the
@@ -730,6 +737,33 @@ fn feat_pairs(entry: &RuleEntry, text: &str) -> Vec<Pair> {
         }
     }
     pairs
+}
+
+/// The feat labels whose field is meant to hold a printed line but whose typed field is empty:
+/// a normal part that prints `**Prerequisites:**` or `**Special:**` with no field for it.
+/// `feat_pairs` compares only the fields that exist, so these entries escape the drift check.
+/// Each item is the field name and the line of the printed label. It is a warning, not drift,
+/// until the corpus has none (phynics/cast-iron-data#190).
+pub fn unfielded_feat_labels(stored: &Stored) -> Vec<(&'static str, usize)> {
+    let TypedFields::Feat(fields) = &stored.entry.fields else {
+        return vec![];
+    };
+    let body = normal_part(&stored.entry.body);
+    let mut found = Vec::new();
+    for (field, value, label) in [
+        ("prerequisites", &fields.prerequisites, "Prerequisites"),
+        ("special", &fields.special, "Special"),
+    ] {
+        if value.is_some() || labelled_texts(body, label).is_empty() {
+            continue;
+        }
+        let marker = format!("**{label}:**");
+        found.push((
+            field,
+            body_line(&stored.text, |line| line.contains(&marker)),
+        ));
+    }
+    found
 }
 
 /// The items of every printed `**Replaces:**` or `**Alters:**` line in the normal part, in
@@ -1144,6 +1178,102 @@ mod tests {
         assert_eq!(drift.len(), 1, "{drift:?}");
         assert_eq!(drift[0].field, "prerequisites");
         assert!(drift[0].describe().contains("`**Prerequisites:**` line"));
+    }
+
+    fn feat_with_statements(prerequisites: &str, statements: &[&str]) -> Stored {
+        let mut content = Vec::new();
+        for statement in statements {
+            if !content.is_empty() {
+                content.push(Inline::Break);
+            }
+            content.push(Inline::Strong {
+                c: vec![Inline::text("Prerequisites:")],
+            });
+            content.push(Inline::text(format!(" {statement}")));
+        }
+        stored(base(
+            "ref/feat/test",
+            EntryKind::Feat,
+            TypedFields::Feat(FeatFields {
+                prerequisites: Some(prerequisites.into()),
+                ..Default::default()
+            }),
+            vec![Block::Paragraph {
+                style: ParagraphStyle::Normal,
+                content,
+            }],
+        ))
+    }
+
+    #[test]
+    fn a_prerequisites_field_matches_only_the_first_printed_statement() {
+        let statements = ["Str 13.", "Dex 15."];
+        assert!(find_drift(&feat_with_statements("Str 13.", &statements)).is_empty());
+        let drift = find_drift(&feat_with_statements("Dex 15.", &statements));
+        assert_eq!(drift.len(), 1, "{drift:?}");
+        assert_eq!(drift[0].field, "prerequisites");
+        assert_eq!(drift[0].source_value, "Str 13.");
+    }
+
+    #[test]
+    fn a_benefit_field_may_match_a_later_printed_statement() {
+        let labelled = |text: &str| {
+            [
+                Inline::Strong {
+                    c: vec![Inline::text("Benefit:")],
+                },
+                Inline::text(format!(" {text}")),
+            ]
+        };
+        let mut content = Vec::new();
+        content.extend(labelled("First."));
+        content.push(Inline::Break);
+        content.extend(labelled("Second."));
+        let entry = base(
+            "ref/feat/test",
+            EntryKind::Feat,
+            TypedFields::Feat(FeatFields {
+                benefit: Some("Second.".into()),
+                ..Default::default()
+            }),
+            vec![Block::Paragraph {
+                style: ParagraphStyle::Normal,
+                content,
+            }],
+        );
+        assert!(find_drift(&stored(entry)).is_empty());
+    }
+
+    #[test]
+    fn a_printed_label_without_its_field_is_listed() {
+        let printed = |label: &str| Block::Paragraph {
+            style: ParagraphStyle::Normal,
+            content: vec![
+                Inline::Strong {
+                    c: vec![Inline::text(format!("{label}:"))],
+                },
+                Inline::text(" Printed."),
+            ],
+        };
+        let feat = |fields: FeatFields| {
+            stored(base(
+                "ref/feat/test",
+                EntryKind::Feat,
+                TypedFields::Feat(fields),
+                vec![printed("Prerequisites"), printed("Special")],
+            ))
+        };
+        let both = unfielded_feat_labels(&feat(FeatFields::default()));
+        assert_eq!(
+            both.iter().map(|item| item.0).collect::<Vec<_>>(),
+            ["prerequisites", "special"]
+        );
+        let none = unfielded_feat_labels(&feat(FeatFields {
+            prerequisites: Some("Printed.".into()),
+            special: Some("Printed.".into()),
+            ..Default::default()
+        }));
+        assert!(none.is_empty(), "{none:?}");
     }
 
     #[test]

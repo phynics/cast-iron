@@ -42,6 +42,7 @@ pub mod books;
 pub mod headings;
 pub mod manifest_check;
 pub mod power;
+mod tagged;
 pub mod validate;
 
 /// Version of the serialized content format.
@@ -530,7 +531,9 @@ pub struct Provenance {
 }
 
 /// Block-level rich content. Nested upstream sections flatten into headings with anchors.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+///
+/// `Deserialize` is written by hand in `tagged.rs`: the tag `t` must be the first key.
+#[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(tag = "t", rename_all = "snake_case")]
 pub enum Block {
     Heading {
@@ -625,7 +628,9 @@ fn is_one(value: &u16) -> bool {
 }
 
 /// Inline rich content.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+///
+/// `Deserialize` is written by hand in `tagged.rs`: the tag `t` must be the first key.
+#[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(tag = "t", rename_all = "snake_case")]
 pub enum Inline {
     Text {
@@ -662,7 +667,9 @@ impl Inline {
 
 /// Category-specific metadata. Text fields hold upstream wording after entity decoding,
 /// because PF1e values such as `Will negates (harmless)` are not enumerable.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+///
+/// `Deserialize` is written by hand in `tagged.rs`: the tag `kind` must be the first key.
+#[derive(Debug, Clone, PartialEq, Serialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum TypedFields {
     Spell(SpellFields),

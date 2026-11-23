@@ -21,6 +21,7 @@ use crate::views::book_tier::Tier;
 use crate::views::class_card::{SpellListLink, class_card};
 use crate::views::continue_reading;
 use crate::views::entry_contents::ArticleContents;
+use crate::views::fresh::IntoFresh as _;
 use crate::views::icons;
 use crate::views::recent;
 use crate::views::related::{Indexes, Related, needs};
@@ -307,7 +308,7 @@ pub fn Entry(id: EntryId, anchor: Option<String>, book: Option<String>) -> impl 
                 <p><a href=Route::Home.href()>"Go to Home"</a></p>
             </article>
         }
-        .into_any();
+        .into_fresh();
     }
     let stub_title = library.stub(&id).map(|s| s.title.clone());
     set_title(stub_title.as_deref().unwrap_or("Entry"));
@@ -439,7 +440,7 @@ pub fn Entry(id: EntryId, anchor: Option<String>, book: Option<String>) -> impl 
                 None => view! {
                     <h1>{stub_title.clone().unwrap_or_else(|| "Entry".to_string())}</h1>
                     <p class="status" role="status">"Loading entry…"</p>
-                }.into_any(),
+                }.into_fresh(),
                 Some(Err(error)) => {
                     let unknown = matches!(error, crate::library::LibraryError::UnknownEntry(_));
                     let title = stub_title.clone().unwrap_or_else(|| "Entry unavailable".to_string());
@@ -456,7 +457,7 @@ pub fn Entry(id: EntryId, anchor: Option<String>, book: Option<String>) -> impl 
                                 {recovery_details(error.to_string())}
                             })}
                         </div>
-                    }.into_any()
+                    }.into_fresh()
                 }
                 Some(Ok(loaded)) => view! {
                     <EntryView
@@ -468,11 +469,11 @@ pub fn Entry(id: EntryId, anchor: Option<String>, book: Option<String>) -> impl 
                         anchor=anchor.clone()
                         book=book.clone()
                     />
-                }.into_any(),
+                }.into_fresh(),
             })}
         </article>
     }
-    .into_any()
+    .into_fresh()
 }
 
 #[component]
@@ -752,7 +753,7 @@ fn EntryView(
                 <a class="meta-link" href=route.href()>{group.singular.clone()}</a>
                 {class_link}
             }
-            .into_any()
+            .into_fresh()
         }
         None => {
             let (route, label) = kind_link(&entry);
@@ -783,7 +784,7 @@ fn EntryView(
                 <a class="meta-link" href=route.href()>{label}</a>
                 {parents}
             }
-            .into_any()
+            .into_fresh()
         }
     };
     let disabled_book = !library.is_entry_active(&entry.id);
@@ -824,13 +825,13 @@ fn EntryView(
                         "Revised by "{book}". Changed: "{changed}"."
                     </p>
                 }
-                .into_any()
+                .into_fresh()
             }
             RevisionLabel::Removed => view! {
                 <p class="notice revision-notice">"Removed by "{book}"."</p>
                 <div class="rich revision-sentence">{blocks(&page.revision_entry.body)}</div>
             }
-            .into_any(),
+            .into_fresh(),
             RevisionLabel::Merged => {
                 let merged = page.revision_entry.links.first().map(|reference| {
                     let title = library
@@ -842,7 +843,7 @@ fn EntryView(
                         <a href=href>{title}</a>
                         {inactive.then(|| view! { <span class="tag">"Inactive"</span> })}
                     }
-                    .into_any()
+                    .into_fresh()
                 });
                 match merged {
                     Some(link) => view! {
@@ -850,11 +851,11 @@ fn EntryView(
                             "Merged by "{book}" into "{link}"."
                         </p>
                     }
-                    .into_any(),
+                    .into_fresh(),
                     None => view! {
                         <p class="notice revision-notice">"Merged by "{book}"."</p>
                     }
-                    .into_any(),
+                    .into_fresh(),
                 }
             }
         }
