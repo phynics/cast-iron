@@ -1181,7 +1181,8 @@ mod tests {
                 "Racial traits",
                 "Skills",
                 "Afflictions",
-                "Traps"
+                "Traps",
+                "Haunts"
             ]
         );
         assert!(!listed.iter().any(|(kind, _)| *kind == EntryKind::Rule));

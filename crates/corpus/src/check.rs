@@ -945,6 +945,7 @@ pub fn fields_match(kind: EntryKind, fields: &TypedFields) -> bool {
                 | EntryKind::Skill
                 | EntryKind::Affliction
                 | EntryKind::Trap
+                | EntryKind::Haunt
                 | EntryKind::Archetype
         ),
     }

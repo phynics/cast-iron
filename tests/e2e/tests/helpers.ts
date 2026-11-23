@@ -724,6 +724,7 @@ export const LINKED_KINDS = new Set([
   "skill",
   "affliction",
   "trap",
+  "haunt",
   "trait",
   "racial_trait",
   "archetype",

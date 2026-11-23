@@ -1041,6 +1041,19 @@ mod tests {
     }
 
     #[test]
+    fn a_star_made_under_rule_becomes_a_haunt_after_the_schema_7_upgrade() {
+        // The 45 haunts were rules before schema 7. Ids do not change, so the star stays and
+        // only its stored kind label follows the library.
+        let mut star = bookmark("ref/haunt/cold-spot", 4.0);
+        star.kind = EntryKind::Rule;
+        let updates = refreshed_kinds(&[star.clone()], |_| Some(EntryKind::Haunt));
+        assert_eq!(updates.len(), 1);
+        assert_eq!(updates[0].entry_id, star.entry_id);
+        assert_eq!(updates[0].kind, EntryKind::Haunt);
+        assert!(refreshed_kinds(&updates, |_| Some(EntryKind::Haunt)).is_empty());
+    }
+
+    #[test]
     fn a_new_database_gets_every_store_and_a_current_one_gets_none() {
         let names: Vec<_> = stores_to_create(0).iter().map(|s| s.name).collect();
         assert_eq!(names, [META, BOOKMARKS, COLLECTIONS]);

@@ -584,6 +584,7 @@ installedTest("A book page links each kind it holds to the kind list filtered to
     ["skill", "Skills"],
     ["affliction", "Afflictions"],
     ["trap", "Traps"],
+    ["haunt", "Haunts"],
   ];
   const expected = kindOrder
     .map(([kind, label]) => {
@@ -622,11 +623,11 @@ installedTest("A chapter page links the list-page kinds it holds, counted from i
   const book = bookTrees().find((row) => row.source === core.id)!;
   const kindOf = new Map<string, string>(corpus.catalog.entries.map((stub: any) => [stub.id, stub.kind]));
   const homeOrder = ["spell", "feat", "class", "prestige_class", "class_option", "race", "trait", "item",
-    "creature", "archetype", "racial_trait", "skill", "affliction", "trap"];
+    "creature", "archetype", "racial_trait", "skill", "affliction", "trap", "haunt"];
   const labels: Record<string, string> = {
     spell: "Spells", feat: "Feats", class: "Classes", prestige_class: "Prestige classes",
     class_option: "Class options", race: "Races", trait: "Traits", item: "Items", creature: "Creatures",
-    archetype: "Archetypes", racial_trait: "Racial traits", skill: "Skills", affliction: "Afflictions", trap: "Traps",
+    archetype: "Archetypes", racial_trait: "Racial traits", skill: "Skills", affliction: "Afflictions", trap: "Traps", haunt: "Haunts",
   };
   const under = (node: any, found = new Set<string>()): Set<string> => {
     if (node.entry) found.add(node.entry);
