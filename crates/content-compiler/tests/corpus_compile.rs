@@ -45,6 +45,7 @@ fn rule(id: &str, text: &str, link: Option<&str>) -> RuleEntry {
         source_ids: vec!["core-rulebook".into()],
         sources: vec![],
         expanded_in: vec![],
+        stat_sets: vec![],
         section: vec![],
         parent: None,
         body: vec![Block::Paragraph {
@@ -481,6 +482,7 @@ fn typed_entry(
         source_ids: vec!["core-rulebook".into()],
         sources: vec![],
         expanded_in: vec![],
+        stat_sets: vec![],
         section: vec![],
         parent: None,
         body,
@@ -1258,4 +1260,122 @@ fn a_curated_book_gets_the_catch_all_chapter_for_the_entries_it_does_not_place()
     );
     let reachability = fs::read_to_string(reports.join("reachability.json")).unwrap();
     assert!(reachability.contains("ref/rule/grapple"), "{reachability}");
+}
+
+fn stat_set_blocks(title: &str, anchor: &str, cr: &str, size: &str) -> Vec<Block> {
+    let row = |label: &str, value: &str| cast_iron_schema::StatRow {
+        label: label.into(),
+        value: vec![Inline::text(value)],
+    };
+    vec![
+        Block::Heading {
+            level: 2,
+            anchor: Some(anchor.into()),
+            content: vec![Inline::text(title)],
+        },
+        Block::Heading {
+            level: 3,
+            anchor: None,
+            content: vec![Inline::text("Statistics")],
+        },
+        Block::StatBlock {
+            title: None,
+            rows: vec![
+                row("Challenge rating", cr),
+                row("Size", size),
+                row("Type", "outsider"),
+            ],
+        },
+    ]
+}
+
+#[test]
+fn a_creature_with_several_stat_sets_stores_them_and_a_single_set_stores_none() {
+    let corpus = temp("stat-sets");
+    write_corpus(&corpus);
+    let fields = |cr: &str| {
+        TypedFields::Creature(Box::new(cast_iron_schema::CreatureFields {
+            cr: cast_iron_schema::ChallengeRating::parse(cr),
+            ..Default::default()
+        }))
+    };
+    let mut body = stat_set_blocks("Small Air Elemental", "stat-small", "1", "Small");
+    body.extend(stat_set_blocks(
+        "Large Air Elemental",
+        "stat-large",
+        "5",
+        "Large",
+    ));
+    let many = typed_entry(
+        "ref/monster/air-elemental",
+        EntryKind::Creature,
+        "Air Elemental",
+        body,
+        fields("1"),
+        vec![],
+    );
+    let single = typed_entry(
+        "ref/monster/ettercap",
+        EntryKind::Creature,
+        "Ettercap",
+        stat_set_blocks("Ettercap", "stat-ettercap", "3", "Medium"),
+        fields("3"),
+        vec![],
+    );
+    // The same two sections on a trap are no stat sets: only a creature has them.
+    let mut template_body = stat_set_blocks("Young", "stat-young", "1", "Small");
+    template_body.extend(stat_set_blocks("Giant", "stat-giant", "5", "Large"));
+    let template = typed_entry(
+        "ref/trap/young-creature",
+        EntryKind::Trap,
+        "Young Creature",
+        template_body,
+        TypedFields::None,
+        vec![],
+    );
+    write_entries(&corpus, 2, &[many, single, template]);
+    let files = compile_tree(&corpus, "stat-sets");
+    let entries: Vec<RuleEntry> = files
+        .iter()
+        .filter(|(path, _)| path.starts_with("entries/"))
+        .flat_map(|(_, bytes)| serde_json::from_slice::<Vec<RuleEntry>>(bytes).unwrap())
+        .collect();
+    let find = |id: &str| {
+        entries
+            .iter()
+            .find(|entry| entry.id.as_str() == id)
+            .unwrap()
+    };
+    let sets = &find("ref/monster/air-elemental").stat_sets;
+    assert_eq!(sets.len(), 2, "{sets:?}");
+    assert_eq!(sets[0].title, "Small Air Elemental");
+    assert_eq!(sets[0].anchor, "stat-small");
+    assert_eq!(sets[0].cr, cast_iron_schema::ChallengeRating::parse("1"));
+    assert_eq!(sets[1].size.as_deref(), Some("Large"));
+    assert_eq!(sets[1].cr, cast_iron_schema::ChallengeRating::parse("5"));
+    assert!(
+        find("ref/trap/young-creature").stat_sets.is_empty(),
+        "a non-creature never derives stat sets"
+    );
+    assert!(
+        find("ref/monster/ettercap").stat_sets.is_empty(),
+        "one set means no list"
+    );
+
+    // The search index finds the creature under every set's rating, and a creature with one
+    // set only under its own.
+    let bytes = &files
+        .iter()
+        .find(|(path, _)| path == "search.bin")
+        .unwrap()
+        .1;
+    let index = cast_iron_search::SearchIndex::from_bytes(bytes).unwrap();
+    let under = |cr: &str| {
+        let mut ids = index.facet_ids_eligible("cr", cr, |_| true);
+        ids.sort_unstable();
+        ids
+    };
+    assert_eq!(under("1"), ["ref/monster/air-elemental"]);
+    assert_eq!(under("5"), ["ref/monster/air-elemental"]);
+    assert_eq!(under("3"), ["ref/monster/ettercap"]);
 }

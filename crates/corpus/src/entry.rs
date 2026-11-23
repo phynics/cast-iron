@@ -550,6 +550,8 @@ pub fn read_entry_with_lines(
         source_ids: raw.source_ids,
         sources,
         expanded_in,
+        // Derived from the body by the compiler; the corpus never stores it.
+        stat_sets: vec![],
         section: raw.section,
         parent,
         body,
@@ -992,6 +994,7 @@ mod tests {
                 page: Some("221".into()),
             }],
             expanded_in: vec![],
+            stat_sets: vec![],
             section: vec!["Spells".into()],
             parent: Some(EntryId::parse("ref/spell").unwrap()),
             body: vec![

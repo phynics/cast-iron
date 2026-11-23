@@ -11,6 +11,7 @@ use crate::load::Stored;
 use cast_iron_schema::headings::plain_text;
 use cast_iron_schema::{
     Block, ChallengeRating, Inline, RuleEntry, StatRow, TradeOp, TypedFields, printed_trades,
+    stat_sets::first_stat_set_region,
 };
 use std::collections::BTreeSet;
 use std::path::PathBuf;
@@ -729,7 +730,10 @@ fn hit_points_pair(text: &str, rows: &[&StatRow], hp: &str) -> Option<Pair> {
     Some(pair)
 }
 
-fn creature_pairs(entry: &RuleEntry, text: &str, rows: &[&StatRow]) -> Vec<Pair> {
+/// `body` is the part that `[fields]` describe: the whole body, or with several stat sets the
+/// blocks before the second set's heading (see [`first_stat_set_region`]). A later set prints
+/// other values by design and never drifts against the entry's `[fields]`.
+fn creature_pairs(entry: &RuleEntry, text: &str, body: &[Block], rows: &[&StatRow]) -> Vec<Pair> {
     let TypedFields::Creature(fields) = &entry.fields else {
         return vec![];
     };
@@ -741,7 +745,7 @@ fn creature_pairs(entry: &RuleEntry, text: &str, rows: &[&StatRow]) -> Vec<Pair>
             pair.agree = challenge_rating_agrees(&pair.source_value, cr);
             pairs.push(pair);
         }
-        pairs.extend(challenge_rating_pair(text, &entry.body, "cr", cr));
+        pairs.extend(challenge_rating_pair(text, body, "cr", cr));
     }
     if let Some(hp) = &fields.hp {
         pairs.extend(hit_points_pair(text, rows, hp));
@@ -1026,7 +1030,11 @@ pub fn find_drift(stored: &Stored) -> Vec<Disagreement> {
     let rows = stat_rows(&entry.body);
     let pairs = match &entry.fields {
         TypedFields::Spell(_) => spell_pairs(entry, &stored.text, &rows),
-        TypedFields::Creature(_) => creature_pairs(entry, &stored.text, &rows),
+        TypedFields::Creature(_) => {
+            // `[fields]` describe the first stat set only.
+            let region = first_stat_set_region(&entry.body);
+            creature_pairs(entry, &stored.text, region, &stat_rows(region))
+        }
         TypedFields::Item(_) => item_pairs(entry, &stored.text, &rows),
         TypedFields::Feat(_) => feat_pairs(entry, &stored.text),
         TypedFields::Archetype(_) | TypedFields::ClassOption(_) => {
@@ -1087,6 +1095,7 @@ mod tests {
             source_ids: vec!["core-rulebook".into()],
             sources: vec![],
             expanded_in: vec![],
+            stat_sets: vec![],
             section: vec![],
             parent: None,
             body,
@@ -1348,6 +1357,101 @@ mod tests {
         assert!(find_drift(&creature(fields("1/2"), lines)).is_empty());
         let lines = paragraphs(&[("Challenge rating", "1/3")]);
         assert_eq!(find_drift(&creature(fields("1/2"), lines)).len(), 1);
+    }
+
+    /// One `##` stat set: a heading and a stat block with the given rows.
+    fn stat_set(title: &str, rows: &[(&str, &str)]) -> Vec<Block> {
+        vec![
+            Block::Heading {
+                level: 2,
+                anchor: None,
+                content: vec![Inline::text(title)],
+            },
+            statblock(
+                rows.iter()
+                    .map(|(label, value)| row(label, value))
+                    .collect(),
+            ),
+        ]
+    }
+
+    fn first_set_fields() -> CreatureFields {
+        CreatureFields {
+            cr: Some(ChallengeRating::parse("1").unwrap()),
+            size: Some("small".into()),
+            hp: Some("13~2d10+2".into()),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn a_later_stat_set_never_drifts_against_the_fields_of_the_first() {
+        let mut body = stat_set(
+            "Small",
+            &[
+                ("Challenge rating", "1"),
+                ("Size", "small"),
+                ("Hit points", "13 (2d10+2)"),
+            ],
+        );
+        for (title, cr, size, hp) in [
+            ("Medium", "3", "medium", "39 (4d10+16)"),
+            ("Large", "5", "large", "68 (8d10+24)"),
+            ("Elder", "11", "huge", "152 (16d10+64)"),
+        ] {
+            body.extend(stat_set(
+                title,
+                &[("Challenge rating", cr), ("Size", size), ("Hit points", hp)],
+            ));
+        }
+        let drift = find_drift(&creature(first_set_fields(), body));
+        assert!(drift.is_empty(), "{drift:?}");
+    }
+
+    #[test]
+    fn the_first_stat_set_still_drifts_against_the_fields() {
+        let mut body = stat_set("Small", &[("Challenge rating", "2"), ("Size", "small")]);
+        body.extend(stat_set(
+            "Large",
+            &[("Challenge rating", "1"), ("Size", "small")],
+        ));
+        let drift = find_drift(&creature(first_set_fields(), body));
+        assert_eq!(drift.len(), 1, "{drift:?}");
+        assert_eq!(drift[0].field, "cr");
+        assert_eq!(drift[0].source_value, "2");
+    }
+
+    #[test]
+    fn a_row_the_first_set_lacks_is_not_taken_from_a_later_set() {
+        let mut body = stat_set("Small", &[("Challenge rating", "1")]);
+        body.extend(stat_set(
+            "Large",
+            &[("Challenge rating", "5"), ("Size", "huge")],
+        ));
+        let drift = find_drift(&creature(first_set_fields(), body));
+        assert!(drift.is_empty(), "{drift:?}");
+    }
+
+    #[test]
+    fn the_paragraph_rating_of_a_later_set_is_not_read_either() {
+        let mut body = paragraphs(&[("Challenge rating", "1")]);
+        body.push(Block::Heading {
+            level: 2,
+            anchor: None,
+            content: vec![Inline::text("Small")],
+        });
+        body.push(statblock(vec![row("Challenge rating", "1")]));
+        body.extend(stat_set("Large", &[("Challenge rating", "5")]));
+        body.extend(paragraphs(&[("Challenge rating", "5")]));
+        let drift = find_drift(&creature(first_set_fields(), body));
+        assert!(drift.is_empty(), "{drift:?}");
+    }
+
+    #[test]
+    fn an_entry_with_one_stat_block_section_compares_all_of_it() {
+        let body = stat_set("Ettercap", &[("Challenge rating", "5")]);
+        let drift = find_drift(&creature(first_set_fields(), body));
+        assert_eq!(drift.len(), 1, "{drift:?}");
     }
 
     #[test]

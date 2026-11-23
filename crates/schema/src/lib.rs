@@ -42,6 +42,8 @@ pub mod books;
 pub mod headings;
 pub mod manifest_check;
 pub mod power;
+pub mod stat_sets;
+pub use stat_sets::StatSet;
 mod tagged;
 pub mod validate;
 
@@ -287,6 +289,12 @@ pub struct RuleEntry {
     /// and an older reader ignores it.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub expanded_in: Vec<Expansion>,
+    /// The stat sets of a creature that prints several (`##` headings with a `Challenge
+    /// rating` row), derived by the compiler from the body and never written to the corpus.
+    /// Empty for an entry with fewer than two. Optional and additive: an entry without sets
+    /// omits the key, and an older reader ignores it, so `SCHEMA_VERSION` stays.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub stat_sets: Vec<StatSet>,
     /// Breadcrumb path in the rules hierarchy, such as `["Combat", "Actions in Combat"]`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub section: Vec<String>,
@@ -755,7 +763,12 @@ impl ChallengeRating {
             "1/4" => 6,
             "1/3" => 8,
             "1/2" => 12,
-            whole => whole.parse::<u32>().ok()?.checked_mul(24)?,
+            // Digits only: `u32::parse` accepts a leading `+`, and a template's `CR +1` is an
+            // adjustment, not a rating.
+            whole if whole.bytes().all(|b| b.is_ascii_digit()) => {
+                whole.parse::<u32>().ok()?.checked_mul(24)?
+            }
+            _ => return None,
         };
         Some(Self { twenty_fourths })
     }
@@ -2095,6 +2108,14 @@ mod tests {
             let message = catalog(bad).validate().unwrap_err();
             assert!(message.contains("member books"), "{message}");
         }
+    }
+
+    #[test]
+    fn challenge_rating_rejects_a_sign_and_empty_text() {
+        assert_eq!(ChallengeRating::parse("+1"), None);
+        assert_eq!(ChallengeRating::parse("-1"), None);
+        assert_eq!(ChallengeRating::parse(""), None);
+        assert_eq!(ChallengeRating::parse(" 5 ").unwrap().twenty_fourths, 120);
     }
 
     #[test]

@@ -92,6 +92,12 @@ pub fn build_with_slots(
     // this keeps the guarantee local to the build.
     for entry in &mut entries {
         text::normalize_text_nodes(&mut entry.body);
+        // Derived, never stored in the corpus: the several statistics of one creature. Only a
+        // creature has them; another kind's `##` section with a `Challenge rating` row (a
+        // template, a trap) is not a set.
+        if matches!(entry.fields, cast_iron_schema::TypedFields::Creature(_)) {
+            entry.stat_sets = cast_iron_schema::stat_sets::derive_stat_sets(&entry.body);
+        }
     }
 
     // `entry_count` is the number of entries whose primary publication is the source.

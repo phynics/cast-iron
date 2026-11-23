@@ -315,7 +315,7 @@ Focusing a field never navigates. The scope control is never a second field in t
 2. The head: the `h1` with the star beside it, the metadata line (kind, the parent where there is one, book, an add-on's `Variant of …` fragment), and the muted `.entry-facts` line where the entry has typed facts to classify it (see Class page, Parent and classification).
 3. Notices: a book that is turned off, a revision in force, and a collision of revisions.
 4. The original-text disclosure of a revised entry.
-5. On a class page, the summary card and the section switcher, and `On this page` where the page keeps it.
+5. On a class page, the summary card and the section switcher, and `On this page` where the page keeps it. On a creature that prints several stat sets, the `Stat sets` list (see Stat sets).
 6. The body, ending in the footnotes group.
 7. The `Sources:` line, the `Expanded in:` line and the Archives of Nethys line.
 8. The relation panels (see Attached entries for the add-ons, and the related panels for the rest).
@@ -324,6 +324,10 @@ Focusing a field never navigates. The scope control is never a second field in t
 11. The entry footer: each distinct copyright notice, the licence sentence with `Legal and attribution`, and a closed `Provenance` disclosure.
 
 The sections below are the parts of the page that have rules of their own.
+
+#### Stat sets
+
+A creature that prints several stat sets (two or more `##` sections with a `Challenge rating` row, see `docs/corpus-format.md`) shows `Stat sets` above `On this page`: an `h2.sub-head` over a `.jump-list`. Each link is a `.jump` (Navigation role, a rectangle with the card radius, 44 px) with the set's heading text and a muted `.jump-count` that reads `CR 1/2 · Small`. The rating is text, never a colour alone. A link scrolls to the set's `##` heading and moves nothing else. The list is a `nav` named by its heading. An entry with one set shows no list. The list is not a filter: it never hides a set, and it follows the entry's visible text, so a revision that replaces the body brings its own sets. The CR filter of the lists finds the creature under every set's rating.
 
 #### Attached entries
 

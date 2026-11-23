@@ -405,6 +405,10 @@ pub(crate) fn canonical_facets(entries: &[RuleEntry]) -> BTreeMap<EntryId, Vec<(
                 if let Some(cr) = fields.cr {
                     push(&mut facets, "cr", &cr.display());
                 }
+                // A creature that prints several stat sets is found under every set's rating.
+                for cr in entry.stat_sets.iter().filter_map(|set| set.cr) {
+                    push(&mut facets, "cr", &cr.display());
+                }
             }
             TypedFields::Item(fields) => {
                 if let Some(value) = &fields.category {
@@ -785,6 +789,7 @@ mod tests {
             source_ids: vec!["s".into()],
             sources: vec![],
             expanded_in: vec![],
+            stat_sets: vec![],
             section: vec![],
             parent: None,
             body: vec![Block::Paragraph {
@@ -926,6 +931,31 @@ mod tests {
                 .all(|slot| cast_iron_corpus::is_item_slot(slot))
         );
         assert_eq!(emitted.len(), slots.len() - 1);
+    }
+
+    #[test]
+    fn a_creature_is_found_under_every_stat_sets_rating_once() {
+        let set = |anchor: &str, cr: &str| cast_iron_schema::StatSet {
+            title: anchor.into(),
+            anchor: anchor.into(),
+            cr: cast_iron_schema::ChallengeRating::parse(cr),
+            size: None,
+        };
+        let mut creature = entry("ref/monster/air-elemental", EntryKind::Creature, 0);
+        creature.fields = TypedFields::Creature(Box::new(cast_iron_schema::CreatureFields {
+            cr: cast_iron_schema::ChallengeRating::parse("1"),
+            ..Default::default()
+        }));
+        creature.stat_sets = vec![set("a", "1"), set("b", "5"), set("c", "1/2"), set("d", "5")];
+        let facets = canonical_facets(&[creature]);
+        assert_eq!(
+            facets[&EntryId::parse("ref/monster/air-elemental").unwrap()],
+            vec![
+                ("cr".into(), "1".into()),
+                ("cr".into(), "5".into()),
+                ("cr".into(), "1/2".into()),
+            ]
+        );
     }
 
     #[test]
