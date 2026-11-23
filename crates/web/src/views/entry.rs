@@ -11,6 +11,7 @@ use crate::js;
 use crate::library::{Library, Resolution, use_library};
 use crate::membership::preferred_book;
 use crate::powers;
+use crate::printings;
 use crate::revisions::{self, ActiveRevision, RevisionLabel};
 use crate::route::{self, Route};
 use crate::store::{self, Bookmark};
@@ -28,7 +29,7 @@ use crate::views::related::{Indexes, Related, needs};
 use crate::views::rich::{RELATED_ANCHOR, RichBody, blocks, muted_line, plain_text};
 use crate::views::search::facet_label;
 use crate::views::section_switcher::SectionSwitcher;
-use crate::views::sources::{aon_line, expanded_line, source_line};
+use crate::views::sources::{aon_line, expanded_line, printings_line, source_line};
 use crate::views::stat_sets::{self, StatSetList};
 use crate::views::util::{
     addon_base_phrase, kind_name, local_resource, recovery_details, set_title,
@@ -269,6 +270,63 @@ fn book_title(library: &Library, entry: &RuleEntry) -> String {
         .map_or_else(|| "Other".to_string(), |source| source.title.clone())
 }
 
+/// The other printings of `entry` for its `Other printings:` line (#650). The catalog finds the
+/// candidates by title alone, so a page whose title no other entry of its kind shares reads no
+/// index file for this. Only when a candidate exists does the page read the parent source
+/// (`relations.json` always, for the revision edges; `option-groups.json` for a class option),
+/// and a library that lacks one shows no line.
+async fn other_printings(
+    library: &Library,
+    entry: &RuleEntry,
+    indexes: &Indexes,
+) -> Vec<printings::Printing> {
+    let Some(stub) = library.stub(&entry.id) else {
+        return Vec::new();
+    };
+    let found = printings::candidates(library.entries_of_kind(stub.kind), stub);
+    if found.is_empty() {
+        return Vec::new();
+    }
+    let relations = match indexes.all_relations.clone() {
+        Some(relations) => Some(relations),
+        None => library.relations().await.ok().flatten(),
+    };
+    let Some(relations) = relations else {
+        return Vec::new();
+    };
+    let groups = match indexes.option_groups.clone() {
+        Some(groups) => Some(groups),
+        None if stub.kind == EntryKind::ClassOption => library.option_groups().await.ok().flatten(),
+        None => None,
+    };
+    let title_of = |id: &EntryId| library.stub(id).map(|stub| stub.title.clone());
+    let Some(parents) =
+        printings::parents_of(stub, &found, &relations, groups.as_deref(), &title_of)
+    else {
+        return Vec::new();
+    };
+    printings::others(
+        stub,
+        &found,
+        &parents,
+        &|a, b| {
+            relations
+                .revision_base(a)
+                .is_some_and(|(base, _)| base == b)
+                || relations
+                    .revision_base(b)
+                    .is_some_and(|(base, _)| base == a)
+        },
+        &|other| printings::Described {
+            book: library
+                .source(&other.source)
+                .map_or_else(|| other.source.clone(), |source| source.title.clone()),
+            order: library.printing_order(other),
+            active: library.is_stub_active(other),
+        },
+    )
+}
+
 #[component]
 pub fn Entry(id: EntryId, anchor: Option<String>, book: Option<String>) -> impl IntoView {
     let library = use_library();
@@ -375,6 +433,7 @@ pub fn Entry(id: EntryId, anchor: Option<String>, book: Option<String>) -> impl 
                 }
             }
         }
+        indexes.printings = other_printings(&fetch_library, &entry, &indexes).await;
         let mut loaded = LoadedEntry {
             entry,
             indexes,
@@ -1129,6 +1188,7 @@ fn EntryView(
         <RichBody body=rendered_body anchor=live_anchor changed=changed_labels marks=section_marks entry=entry.id.clone() book=live_book power_title archetype_list=archetype_slot />
         {source_line(&body_sources, &library, None)}
         {expanded_line(&entry.expanded_in, &library)}
+        {printings_line(&indexes.printings)}
         {aon_line(entry.aon.as_deref())}
         <div id=RELATED_ANCHOR><Related library=library.clone() entry=entry.clone() indexes /></div>
         <BookPosition library=library.clone() id=entry.id.clone() book=book.clone() />

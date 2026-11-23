@@ -320,7 +320,7 @@ Focusing a field never navigates. The scope control is never a second field in t
 4. The original-text disclosure of a revised entry.
 5. On a class page, the summary card and the section switcher, and `On this page` where the page keeps it. On a creature that prints several stat sets, the `Stat sets` list (see Stat sets).
 6. The body, ending in the footnotes group.
-7. The `Sources:` line, the `Expanded in:` line and the Archives of Nethys line.
+7. The `Sources:` line, the `Expanded in:` line, the `Other printings:` line and the Archives of Nethys line.
 8. The relation panels (see Attached entries for the add-ons, and the related panels for the rest).
 9. The reading footer, when the entry was opened from a book (see Books, Reading footer).
 10. `References` and `Referenced by`.
@@ -351,6 +351,12 @@ so an unconverted entry and a converted one read the same.
 - A credit from a book the reader turned off is dimmed (`data-inactive="true"`) with the `--ink-dim` colour token for its text and both links, never with opacity (an accent link under opacity measured 4.2:1 in the light theme). `--ink-dim` measures 4.76:1 in the light theme and 5.64:1 in the dark one against the page ground. The credit ends with the `Inactive` Label (`.tag`), so the state never rests on dimming alone. The title still links to the book page, as a book row on Books does.
 - A revision in force does not replace the credits like it replaces citations: the base's credits stay, then the revision's own, each once.
 - At 64 rem and wider the line owns the grid row `expanded` between `sources` and `aon`. With an `Archives of Nethys` line after it the line keeps the larger bottom margin that the 44 px AoN target needs.
+
+**The `Other printings:` line (#650)** sits directly under the `Expanded in:` line (under `Sources:` when there is no credit), in the same muted Metadata role (`.printings-line`), and only when another entry is a printing of the same rule: `Other printings: Ultimate Equipment; Core Rulebook`.
+- A printing is an entry with the same kind, normalized title and parent, the set that the browse folds join. Each link is the printing's book and opens that entry. The links run newest first, in the order of the folds and of search; there is no `Latest` label and no year. Two links that read alike take a last `(n)`.
+- Never listed: creatures (one name, different stat blocks), a pair that a revision joins (its notice links it), and a pair whose primary book is the same.
+- A printing whose books are all turned off stays, dimmed with `--ink-dim` and ending in the `Inactive` Label (`.tag`), as an inactive credit does.
+- At 64 rem and wider the line owns the grid row `printings` between `expanded` and `aon`. With an `Archives of Nethys` line after it the line keeps the larger bottom margin that the 44 px AoN target needs.
 
 **The base page,** after the body, in this order:
 
