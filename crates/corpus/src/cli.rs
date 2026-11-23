@@ -91,6 +91,9 @@ pub fn run_check(args: &[String]) -> Result<(), String> {
     for warning in &report.warnings {
         eprintln!("warning: {warning}");
     }
+    for note in &report.info {
+        println!("info: {note}");
+    }
     if !report.problems.is_empty() {
         for problem in &report.problems {
             eprintln!("{problem}");

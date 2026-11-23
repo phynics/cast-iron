@@ -4,7 +4,9 @@ use crate::books::{
     BOOKS_DIR, BookLayout, PAGE_ORDER_TITLE, UNPAGED_TITLE, is_clean_page, is_reserved_chapter,
 };
 use crate::config::SPLIT_BOOKS_FORMAT;
-use crate::drift::{Disagreement, find_drift, printed_replaces_alters, unfielded_feat_labels};
+use crate::drift::{
+    Disagreement, find_drift, printed_replaces_alters, unfielded_feat_labels, unmarked_heading_cut,
+};
 use crate::entry::entry_path;
 use crate::load::Corpus;
 use cast_iron_schema::headings::{headings_in_order, keyed_headings, plain_text, slugify};
@@ -189,6 +191,8 @@ pub struct Report {
     /// Suspicious content that needs review but does not fail the run. Third-party sharing is
     /// a warning until the corpus has no unclassified case.
     pub warnings: Vec<String>,
+    /// Facts to list that need no action and do not fail the run (#642).
+    pub info: Vec<String>,
     /// Values that `[fields]` and the body both state and that disagree. Each one is also
     /// listed in `problems`.
     pub drift: Vec<Disagreement>,
@@ -1633,6 +1637,7 @@ pub fn check(corpus: &Corpus) -> Report {
     check_uncited_memberships(corpus, &mut report);
     check_unfielded_feat_labels(corpus, &mut report);
     check_unsettled_stat_sets(corpus, &mut report);
+    note_unmarked_heading_cuts(corpus, &mut report);
     check_closed_vocabularies(corpus, &mut report);
     check_option_groups(corpus, &ids, &mut report);
     check_replaces_features(corpus, &keys, &mut report);
@@ -1899,6 +1904,41 @@ fn check_unsettled_stat_sets(corpus: &Corpus, report: &mut Report) {
         "{} creatures have two or more `##` sections with a `**Challenge rating:**` line but no stat block `Challenge rating` row, so they list no stat sets (for example {}); finish the conversion of every set to a stat block",
         found.len(),
         examples.join(", ")
+    ));
+}
+
+/// How many entry ids the information line names before it ends with a count of the rest.
+const INFO_IDS: usize = 5;
+
+/// Lists, as information, the entries whose drift comparison ends at a `###` heading that only
+/// the entry's second publication marks. The lines below it are not compared, so an editor can
+/// see the list and notice when it grows (#642). `corpus.entries` is sorted, so the line is
+/// deterministic.
+fn note_unmarked_heading_cuts(corpus: &Corpus, report: &mut Report) {
+    let ids: Vec<&str> = corpus
+        .entries
+        .values()
+        .filter(|stored| unmarked_heading_cut(stored).is_some())
+        .map(|stored| stored.entry.id.as_str())
+        .collect();
+    if ids.is_empty() {
+        return;
+    }
+    let shown: Vec<String> = ids
+        .iter()
+        .take(INFO_IDS)
+        .map(|id| format!("`{id}`"))
+        .collect();
+    let rest = ids.len().saturating_sub(INFO_IDS);
+    let more = if rest > 0 {
+        format!(" and {rest} more")
+    } else {
+        String::new()
+    };
+    report.info.push(format!(
+        "{} entries print in more than one publication and end the drift comparison at an unmarked `###` heading, so the lines below it are not compared (for example {}{more}); a `###` that organizes the entry's own rules text hides those lines, so read the heading of an entry that joins the list (#642)",
+        ids.len(),
+        shown.join(", ")
     ));
 }
 
@@ -5364,6 +5404,61 @@ mod tests {
 
     fn fighter_archetype(trades: Vec<Trade>, printed_line: &str) -> RuleEntry {
         fighter_archetype_with(trades, Default::default(), printed_line)
+    }
+
+    #[test]
+    fn entries_cut_at_an_unmarked_heading_are_one_information_line() {
+        // Two publications and a `###` heading with no `**Sources:**` paragraph: the drift
+        // comparison ends there. The line is information: no problem, no warning.
+        let cut = |id: &str| {
+            let mut entry = fighter_archetype(
+                vec![trade(TradeOp::Replaces, "Bravery", Some("bravery"))],
+                "Bravery.",
+            );
+            entry.id = EntryId::parse(id).unwrap();
+            entry.body.push(Block::Heading {
+                level: 3,
+                anchor: None,
+                content: vec![Inline::text("Variant")],
+            });
+            entry.source_ids.push("second-book".into());
+            entry
+        };
+        let mut c = corpus(vec![
+            fighter_class(),
+            cut("ref/arc-fighter/zeta"),
+            cut("ref/arc-fighter/alpha"),
+            fighter_archetype(
+                vec![trade(TradeOp::Replaces, "Bravery", Some("bravery"))],
+                "Bravery.",
+            ),
+        ]);
+        let mut publication = c.publications[0].clone();
+        publication.id = "second-book".into();
+        publication.title = "second-book".into();
+        c.publications.push(publication);
+        let report = check(&c);
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
+        assert_eq!(report.info.len(), 1, "{:?}", report.info);
+        let line = &report.info[0];
+        assert!(
+            line.starts_with("2 entries print in more than one publication"),
+            "{line}"
+        );
+        // Sorted by id, whatever the order of the input.
+        let alpha = line.find("`ref/arc-fighter/alpha`").expect(line);
+        let zeta = line.find("`ref/arc-fighter/zeta`").expect(line);
+        assert!(alpha < zeta, "{line}");
+        assert!(!line.contains("ref/arc-fighter/example"), "{line}");
+        // None when no entry takes the branch.
+        let report = check(&corpus(vec![
+            fighter_class(),
+            fighter_archetype(
+                vec![trade(TradeOp::Replaces, "Bravery", Some("bravery"))],
+                "Bravery.",
+            ),
+        ]));
+        assert!(report.info.is_empty(), "{:?}", report.info);
     }
 
     #[test]

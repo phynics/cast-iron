@@ -1149,10 +1149,18 @@ part. The normal part of a feat, archetype or class option is the body before an
 starts: at a `**Sources:**` paragraph that is not the first block, and at a `###` heading when the
 entry prints in more than one publication (`source_ids`) or has a `**Sources:**` paragraph directly
 below it. The `[[sources]]` rows need no body paragraph to mark the end. See [the drift check ends
-the normal part by publication](decisions/2026-11-23-drift-normal-part-ends-by-publication.md). A
-value stated in only one place is not drift. See [the drift check reads creature and item statistics from stat-block rows](decisions/2026-11-23-drift-reads-creature-stats-from-stat-block-rows.md) for the stat-block rules: `cr` by value, `Type` beside a `Subtype` set, `ac` from three rows, `hp` with `~` read as `( )`, and `slot` through the closed vocabulary. The two copies are not
+the normal part by publication](decisions/2026-11-23-drift-normal-part-ends-by-publication.md).
+A value stated in only one place is not drift. See [the drift check reads creature and item statistics from stat-block rows](decisions/2026-11-23-drift-reads-creature-stats-from-stat-block-rows.md) for the stat-block rules: `cr` by value, `Type` beside a `Subtype` set, `ac` from three rows, `hp` with `~` read as `( )`, and `slot` through the closed vocabulary. The two copies are not
 unified: the typed fields feed search and facets, and the body is what a reader
 sees.
+
+A `###` heading that only `source_ids` marks hides the lines below it from the comparison. If it
+organizes the entry's own rules text, those lines would be skipped without notice. So `corpus-check`
+prints one information line for the feats, archetypes and class options that take that branch:
+`info: N entries print in more than one publication and end the drift comparison at an unmarked
+### heading ...`. It gives the count and the first five ids in id order, then "and N more". It is
+not a warning and never fails the run; it exists so that the list cannot grow unnoticed. When an
+entry joins the list, read its heading.
 
 ## Class-option powers
 
