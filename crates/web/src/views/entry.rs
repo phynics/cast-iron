@@ -1087,7 +1087,7 @@ fn EntryView(
     view! {
         <nav class="crumbs" aria-label="Breadcrumb">
             <ol>
-                <li><a href=if kind == EntryKind::Rule { Route::Books.href() } else { Route::Home.href() }>{if kind == EntryKind::Rule { "Books" } else { "Home" }}</a></li>
+                <li><a href=if kind == EntryKind::Rule { Route::books().href() } else { Route::Home.href() }>{if kind == EntryKind::Rule { "Books" } else { "Home" }}</a></li>
                 {(kind != EntryKind::Rule).then(|| view! { <li><a href=Route::browse_kind(kind).href()>{kind.label()}</a></li> })}
                 {crumbs_chain}
                 {crumbs_sections}
@@ -1110,7 +1110,7 @@ fn EntryView(
             <p class="notice disabled-book-notice">
                 "This entry's book is turned off, so it doesn't appear in search or lists. "
                 {move || bookmark.with(|b| b.is_some()).then_some("It stays in your Starred list. ")}
-                <a href=Route::BooksManage.href()>"Manage books"</a>
+                <a href=Route::books_manage().href()>"Manage books"</a>
             </p>
         })}
         {revision_notice}
@@ -1177,7 +1177,7 @@ fn kind_link(entry: &RuleEntry) -> (Route, String) {
         ),
         _ => {
             let route = if entry.kind == EntryKind::Rule {
-                Route::Books
+                Route::books()
             } else {
                 Route::browse_kind(entry.kind)
             };

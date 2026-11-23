@@ -488,15 +488,22 @@ installedTest("Books has no share section, and its first group starts under the 
   await expect(disclosure(page)).toHaveCount(0);
   await expect(page.getByText("Share these books or enter a code")).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Manage books", exact: true })).toBeVisible();
-  // The count line, the link, then the first group: nothing between them.
+  // The count line, the filter row (the Find a book field and the link), the field's empty status
+  // line, then the first group: nothing else between them.
   const order = await page.locator(".wide").evaluate((wide: Element) => {
     const children = [...wide.children];
     const index = (selector: string) => children.findIndex((child) => child.matches(selector));
-    return { count: index(".books-count"), link: index(".filter-row"), group: index("section, .tier-group, h2") };
+    return {
+      count: index(".books-count"),
+      link: index(".filter-row"),
+      status: index(".book-find-status"),
+      group: index("section, .tier-group, h2"),
+    };
   });
   expect(order.count).toBeGreaterThan(0);
   expect(order.link).toBe(order.count + 1);
-  expect(order.group).toBe(order.link + 1);
+  expect(order.status).toBe(order.link + 1);
+  expect(order.group).toBe(order.status + 1);
 });
 
 installedTest("Another change on Manage books ends the share Undo, and a share ends the preset Undo", async ({ page }) => {

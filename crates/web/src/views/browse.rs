@@ -6,11 +6,12 @@ use crate::class_options;
 use crate::fmt;
 use crate::library::{Library, LibraryError, use_library};
 use crate::revisions::EffectiveRevisions;
-use crate::route::{Route, navigate, replace};
+use crate::route::{Route, navigate, replace, use_route};
 use crate::row_parents::{self, ParentMap};
 use crate::views::active_books::{
     MANAGE_LINK_ID, focus_after_frame, open_from_books, take_link_focus,
 };
+use crate::views::book_find::{self, Find, Page as FindPage, match_count};
 use crate::views::book_series::{
     NamedGroup, SeasonGroup, SeriesFields, adventure_sections, display_title,
 };
@@ -30,7 +31,7 @@ use crate::views::util::{
 };
 use cast_iron_schema::{EntryId, EntryKind, EntryStub, RelationLabel, SeriesKind};
 use leptos::prelude::*;
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap, HashSet};
 use wasm_bindgen::JsCast;
 
 // ---- pure helpers -----------------------------------------------------------------------
@@ -468,6 +469,10 @@ pub(crate) struct SeriesRender {
     row: Shared<Box<RowFactory>>,
     count: Shared<Box<CountFactory>>,
     bulk: Option<Shared<Box<BulkFactory>>>,
+    /// The ids of the books that match the `Find a book` text (#587), while a search is on.
+    /// Only those rows are drawn, and a heading counts matches. A bulk button still acts on its
+    /// whole group, whatever the search shows.
+    find: Option<Shared<BTreeSet<String>>>,
 }
 
 impl SeriesRender {
@@ -480,7 +485,34 @@ impl SeriesRender {
             row: Shared::new(row),
             count: Shared::new(count),
             bulk: bulk.map(Shared::new),
+            find: None,
         }
+    }
+
+    /// The same page furniture, narrowed to the books of a search (`None`: no search).
+    pub(crate) fn found(&self, find: Option<Shared<BTreeSet<String>>>) -> Self {
+        Self {
+            find,
+            ..self.clone()
+        }
+    }
+
+    /// Whether a search is on.
+    fn searching(&self) -> bool {
+        self.find.is_some()
+    }
+
+    /// The rows of `indices` to draw: all of them, or the books that match the search.
+    fn shown(&self, books: &[BookListEntry], indices: &[usize]) -> Vec<usize> {
+        indices
+            .iter()
+            .copied()
+            .filter(|&index| {
+                self.find
+                    .as_ref()
+                    .is_none_or(|found| found.contains(&books[index].id))
+            })
+            .collect()
     }
 
     fn row(&self, book: BookListEntry) -> AnyView {
@@ -489,6 +521,9 @@ impl SeriesRender {
     }
 
     fn count(&self, ids: &[String]) -> String {
+        if self.searching() {
+            return match_count(ids.len());
+        }
         let count: &CountFactory = &**self.count;
         count(ids)
     }
@@ -620,49 +655,50 @@ pub(crate) fn adventure_tier_section(
 ) -> AnyView {
     let sections = adventure_sections(&books);
     let books = Shared::new(books);
+    // A search keeps the series that hold a match, each with only its matches. The bulk button
+    // of a series still names the whole series.
+    let found = render.searching();
     let body = {
         let books = books.clone();
         let render = render.clone();
         move || {
             let mut blocks: Vec<AnyView> = Vec::new();
-            if !sections.paths.is_empty() {
-                let ap_ids: Vec<String> = sections
-                    .paths
+            // One series: its name, the rows to draw, and every book it holds.
+            let paths: Vec<(String, Vec<usize>, Vec<usize>)> = sections
+                .paths
+                .iter()
+                .filter_map(|NamedGroup { name, books: all }| {
+                    let shown = render.shown(&books, all);
+                    (!shown.is_empty()).then(|| (name.clone(), shown, all.clone()))
+                })
+                .collect();
+            if !paths.is_empty() {
+                let ap_ids: Vec<String> = paths
                     .iter()
-                    .flat_map(|group| series_ids(&books, &group.books))
+                    .flat_map(|(_, shown, _)| series_ids(&books, shown))
                     .collect();
-                let paths = sections.paths.clone();
                 let items: Shared<Box<ItemsFactory>> = {
                     let books = books.clone();
                     let render = render.clone();
                     Shared::new(Box::new(move || {
                         let children = paths
                             .iter()
-                            .map(
-                                |NamedGroup {
-                                     name,
-                                     books: indices,
-                                 }| {
-                                    let child_ids = series_ids(&books, indices);
-                                    let rows = series_list(
-                                        books.clone(),
-                                        indices.clone(),
-                                        render.clone(),
-                                        true,
-                                    );
-                                    let bulk = render.bulk(name, child_ids.clone());
-                                    series_block(
-                                        SeriesLevel::Subsection,
-                                        "adventure-series",
-                                        name.clone(),
-                                        name.clone(),
-                                        series_count(&render, &child_ids),
-                                        rows,
-                                        bulk,
-                                        true,
-                                    )
-                                },
-                            )
+                            .map(|(name, shown, all)| {
+                                let child_ids = series_ids(&books, shown);
+                                let rows =
+                                    series_list(books.clone(), shown.clone(), render.clone(), true);
+                                let bulk = render.bulk(name, series_ids(&books, all));
+                                series_block(
+                                    SeriesLevel::Subsection,
+                                    "adventure-series",
+                                    name.clone(),
+                                    name.clone(),
+                                    series_count(&render, &child_ids),
+                                    rows,
+                                    bulk,
+                                    true,
+                                )
+                            })
                             .collect_view();
                         view! { {children} }.into_any()
                     }))
@@ -679,15 +715,11 @@ pub(crate) fn adventure_tier_section(
                 ));
             }
 
-            if !sections.modules.is_empty() {
-                let module_ids = series_ids(&books, &sections.modules);
-                let rows = series_list(
-                    books.clone(),
-                    sections.modules.clone(),
-                    render.clone(),
-                    true,
-                );
-                let bulk = render.bulk("Modules", module_ids.clone());
+            let modules = render.shown(&books, &sections.modules);
+            if !modules.is_empty() {
+                let module_ids = series_ids(&books, &modules);
+                let rows = series_list(books.clone(), modules, render.clone(), true);
+                let bulk = render.bulk("Modules", series_ids(&books, &sections.modules));
                 blocks.push(series_block(
                     SeriesLevel::Section,
                     "adventure-group",
@@ -700,45 +732,42 @@ pub(crate) fn adventure_tier_section(
                 ));
             }
 
-            if !sections.seasons.is_empty() {
-                let society_ids: Vec<String> = sections
-                    .seasons
+            let seasons: Vec<(u16, Vec<usize>, Vec<usize>)> = sections
+                .seasons
+                .iter()
+                .filter_map(|SeasonGroup { season, books: all }| {
+                    let shown = render.shown(&books, all);
+                    (!shown.is_empty()).then(|| (*season, shown, all.clone()))
+                })
+                .collect();
+            if !seasons.is_empty() {
+                let society_ids: Vec<String> = seasons
                     .iter()
-                    .flat_map(|group| series_ids(&books, &group.books))
+                    .flat_map(|(_, shown, _)| series_ids(&books, shown))
                     .collect();
-                let seasons = sections.seasons.clone();
                 let items: Shared<Box<ItemsFactory>> = {
                     let books = books.clone();
                     let render = render.clone();
                     Shared::new(Box::new(move || {
                         let children = seasons
                             .iter()
-                            .map(
-                                |SeasonGroup {
-                                     season,
-                                     books: indices,
-                                 }| {
-                                    let season_ids = series_ids(&books, indices);
-                                    let label = format!("Season {season}");
-                                    let rows = series_list(
-                                        books.clone(),
-                                        indices.clone(),
-                                        render.clone(),
-                                        true,
-                                    );
-                                    let bulk = render.bulk(&label, season_ids.clone());
-                                    series_block(
-                                        SeriesLevel::Subsection,
-                                        "adventure-season",
-                                        format!("season-{season}"),
-                                        label,
-                                        series_count(&render, &season_ids),
-                                        rows,
-                                        bulk,
-                                        true,
-                                    )
-                                },
-                            )
+                            .map(|(season, shown, all)| {
+                                let season_ids = series_ids(&books, shown);
+                                let label = format!("Season {season}");
+                                let rows =
+                                    series_list(books.clone(), shown.clone(), render.clone(), true);
+                                let bulk = render.bulk(&label, series_ids(&books, all));
+                                series_block(
+                                    SeriesLevel::Subsection,
+                                    "adventure-season",
+                                    format!("season-{season}"),
+                                    label,
+                                    series_count(&render, &season_ids),
+                                    rows,
+                                    bulk,
+                                    true,
+                                )
+                            })
                             .collect_view();
                         view! { {children} }.into_any()
                     }))
@@ -755,10 +784,10 @@ pub(crate) fn adventure_tier_section(
                 ));
             }
 
-            if !sections.other.is_empty() {
-                let other_ids = series_ids(&books, &sections.other);
-                let rows =
-                    series_list(books.clone(), sections.other.clone(), render.clone(), false);
+            let other = render.shown(&books, &sections.other);
+            if !other.is_empty() {
+                let other_ids = series_ids(&books, &other);
+                let rows = series_list(books.clone(), other, render.clone(), false);
                 blocks.push(series_block(
                     SeriesLevel::Section,
                     "adventure-group",
@@ -780,13 +809,19 @@ pub(crate) fn adventure_tier_section(
     let list_id = "book-tier-list-adventures".to_string();
     let labelled_by = heading_id.clone();
     let controls = list_id.clone();
-    let starts_open = group_is_open(Tier::Adventures);
+    // A search opens every group that holds a match, whatever the reader had open, and what it
+    // opens or folds is not remembered: the choice that the reader made before is back when the
+    // search ends.
+    let starts_open = found || group_is_open(Tier::Adventures);
     let open = RwSignal::new(starts_open);
     let built = RwSignal::new(starts_open);
     let revision = library.selection_revision();
     let active_ids = ids;
     let count_text = move || {
         revision.get();
+        if found {
+            return match_count(total);
+        }
         let active = active_ids
             .iter()
             .filter(|id| library.book_active(id))
@@ -804,7 +839,9 @@ pub(crate) fn adventure_tier_section(
                         if next {
                             built.set(true);
                         }
-                        remember_group(Tier::Adventures, next);
+                        if !found {
+                            remember_group(Tier::Adventures, next);
+                        }
                     }>
                     {icons::tier_chevron()}
                     <span class="tier-name">{label}</span>
@@ -819,25 +856,55 @@ pub(crate) fn adventure_tier_section(
     .into_any()
 }
 
-/// The publication directory: a heading, one live count line, a link to Manage books, and one
-/// link row per book in the tier groups. There is one order (tier order, oldest first) and no
-/// sort control. The checkboxes and the presets live on Manage books.
-#[component]
-pub fn Books(
-    /// The address that opened this page named a book that was removed from the library.
-    #[prop(optional)]
-    removed: bool,
-) -> impl IntoView {
-    set_title("Books");
-    let library = use_library();
-    // Back from Manage books lands here: Done asks for focus on the link it was left from.
-    if take_link_focus() {
-        focus_after_frame(MANAGE_LINK_ID);
-    }
+/// The tier groups of Books and Manage books, from one list of rows. Each group is empty-checked
+/// first: a search leaves out the groups with no match, so they are not in the accessibility
+/// tree. A page draws a row with `render`, and a search is on while `render` holds one.
+pub(crate) fn groups_view(
+    rows: &Shared<Vec<BookListEntry>>,
+    render: &SeriesRender,
+    library: &Library,
+) -> AnyView {
+    let found = render.searching();
+    book_groups(rows)
+        .into_iter()
+        .filter_map(|group| {
+            let tier = group.tier;
+            let shown = render.shown(rows, &group.books);
+            if shown.is_empty() {
+                return None;
+            }
+            let ids = series_ids(rows, &shown);
+            if tier == Tier::Adventures {
+                let books = group.books.iter().map(|&i| rows[i].clone()).collect();
+                return Some(adventure_tier_section(
+                    books,
+                    ids,
+                    render.clone(),
+                    library.clone(),
+                ));
+            }
+            // Rows are built when the group opens; see `tier_section`.
+            let lazy_rows = rows.clone();
+            let lazy_render = render.clone();
+            let items = move || {
+                shown
+                    .iter()
+                    .map(|&i| lazy_render.row(lazy_rows[i].clone()))
+                    .collect_view()
+                    .into_any()
+            };
+            Some(tier_section(tier, ids, items, library.clone(), found))
+        })
+        .collect_view()
+        .into_any()
+}
+
+/// The rows of both pages: one per publication, with its entry count.
+pub(crate) fn book_rows(library: &Library) -> Vec<BookListEntry> {
     // One cached pass over the catalog gives every row its count. Counting per row rescanned
     // the whole catalog for each publication and stalled the page for seconds.
     let counts = library.source_entry_counts();
-    let rows: Vec<BookListEntry> = library
+    library
         .sources()
         .iter()
         .map(|source| BookListEntry {
@@ -852,8 +919,26 @@ pub fn Books(
             series_number: source.series_number.clone(),
             season: source.season,
         })
-        .collect();
+        .collect()
+}
+
+/// The publication directory: a heading, one live count line, the `Find a book` field beside a
+/// link to Manage books, and one link row per book in the tier groups. There is one order (tier
+/// order, oldest first) and no sort control; a search narrows the rows and keeps that order. The
+/// checkboxes and the presets live on Manage books.
+#[component]
+pub fn Books() -> impl IntoView {
+    set_title("Books");
+    let library = use_library();
+    // Back from Manage books lands here: Done asks for focus on the link it was left from.
+    if take_link_focus() {
+        focus_after_frame(MANAGE_LINK_ID);
+    }
+    let rows = Shared::new(book_rows(&library));
     let total = rows.len();
+    // The line above the groups reads the route: an old address of a removed book is this page.
+    let route = use_route();
+    let removed = move || matches!(route.get(), Route::BookRemoved(_));
     // The count line names the preset that the active set matches, or Custom.
     let revision = library.selection_revision();
     let count_library = library.clone();
@@ -869,7 +954,6 @@ pub fn Books(
         book_presets::count_line(active, total, Some(book_presets::name_or_custom(preset)))
     };
     // The rows of a closed group are built when it opens, so a mount builds one group's rows.
-    let rows = Shared::new(rows);
     let row_library = library.clone();
     let row: Box<RowFactory> = Box::new(move |row| book_row(row, row_library.clone()));
     // A series uses the tier's count form, and follows the selection as the tier's count does.
@@ -884,51 +968,29 @@ pub fn Books(
         group_count_text(active, ids.len())
     });
     let render = SeriesRender::new(row, count, None);
-    let groups = book_groups(&rows)
-        .into_iter()
-        .map(|group| {
-            let tier = group.tier;
-            let ids: Vec<String> = group
-                .books
-                .iter()
-                .map(|&index| rows[index].id.clone())
-                .collect();
-            if tier == Tier::Adventures {
-                let books = group
-                    .books
-                    .iter()
-                    .map(|&index| rows[index].clone())
-                    .collect();
-                return adventure_tier_section(books, ids, render.clone(), library.clone());
-            }
-            let lazy_rows = rows.clone();
-            let lazy_library = library.clone();
-            let books = group.books;
-            let items = move || {
-                let rows = &*lazy_rows;
-                books
-                    .iter()
-                    .map(|&index| book_row(rows[index].clone(), lazy_library.clone()))
-                    .collect_view()
-                    .into_any()
-            };
-            tier_section(tier, ids, items, library.clone())
-        })
-        .collect_view();
+    let find = Find::new(FindPage::Books);
+    let matched = book_find::matched(rows.clone(), find.needle);
+    let groups = {
+        let (rows, library, matched) = (rows.clone(), library.clone(), matched.clone());
+        move || groups_view(&rows, &render.found(matched()), &library)
+    };
+    let found = move || matched().map_or(0, |ids| ids.len());
     view! {
         <div class="wide">
             <h1>"Books"</h1>
-            {removed.then(|| view! {
+            {move || removed().then(|| view! {
                 <p class="notice" role="status" data-testid="book-removed">{BOOK_REMOVED_LINE}</p>
             })}
             <p class="muted books-count" aria-live="polite">{count_line}</p>
-            <div class="filter-row">
-                <a class="page-link" id=MANAGE_LINK_ID href=Route::BooksManage.href()
+            <div class="filter-row book-find-row">
+                {find.field()}
+                <a class="page-link" id=MANAGE_LINK_ID href=Route::books_manage().href()
                     on:click=open_from_books>
                     <span>"Manage books"</span>
                     {icons::chevron_right_large()}
                 </a>
             </div>
+            {find.status(found)}
             {groups}
         </div>
     }
@@ -967,6 +1029,7 @@ pub(crate) fn tier_section(
     ids: Vec<String>,
     items: impl Fn() -> AnyView + Send + 'static,
     library: Library,
+    found: bool,
 ) -> AnyView {
     let label = tier.label();
     let total = ids.len();
@@ -975,13 +1038,16 @@ pub(crate) fn tier_section(
     let list_id = format!("book-tier-list-{slug}");
     let labelled_by = heading_id.clone();
     let controls = list_id.clone();
-    let starts_open = group_is_open(tier);
+    let starts_open = found || group_is_open(tier);
     let open = RwSignal::new(starts_open);
     let built = RwSignal::new(starts_open);
     let revision = library.selection_revision();
     let active_ids = ids;
     let count_text = move || {
         revision.get();
+        if found {
+            return match_count(total);
+        }
         let active = active_ids
             .iter()
             .filter(|id| library.book_active(id))
@@ -999,7 +1065,9 @@ pub(crate) fn tier_section(
                         if next {
                             built.set(true);
                         }
-                        remember_group(tier, next);
+                        if !found {
+                            remember_group(tier, next);
+                        }
                     }>
                     {icons::tier_chevron()}
                     <span class="tier-name">{label}</span>
@@ -2251,7 +2319,7 @@ fn BrowseList(
                     {format!("Show all {}", kind.label().to_lowercase())}
                 </a>
                 " · "
-                <a class="count-action" href=Route::BooksManage.href()>"Manage books"</a>
+                <a class="count-action" href=Route::books_manage().href()>"Manage books"</a>
             </p>
         }
         .into_any()

@@ -16,10 +16,8 @@
 use crate::book_presets::{self, Change, Preset};
 use crate::library::{Library, Planned, use_library};
 use crate::route::{self, Route, replace, use_route};
-use crate::views::book_tier::Tier;
 use crate::views::browse::{
-    BookListEntry, BulkFactory, CountFactory, RowFactory, SeriesRender, adventure_tier_section,
-    book_groups, tier_section,
+    BookListEntry, BulkFactory, CountFactory, RowFactory, SeriesRender, book_rows, groups_view,
 };
 use crate::views::icons;
 use crate::views::share_set::ShareSet;
@@ -62,7 +60,7 @@ pub fn open_from_books(event: web_sys::MouseEvent) {
         return;
     }
     event.prevent_default();
-    route::push_flagged(&Route::BooksManage, OPENED_FROM_BOOKS);
+    route::push_flagged(&Route::books_manage(), OPENED_FROM_BOOKS);
 }
 
 /// Reads and clears the request that Done left. Books calls it once, when it is built.
@@ -112,7 +110,7 @@ fn done() {
         Some(history) if route::current_entry_has_flag(OPENED_FROM_BOOKS) => {
             let _ = history.back();
         }
-        _ => replace(&Route::Books),
+        _ => replace(&Route::books()),
     }
 }
 
@@ -391,23 +389,7 @@ pub fn ActiveBooks() -> impl IntoView {
         focus_after_frame("manage-books-heading");
     }
 
-    let counts = library.source_entry_counts();
-    let rows: Vec<BookListEntry> = library
-        .sources()
-        .iter()
-        .map(|source| BookListEntry {
-            id: source.id.clone(),
-            title: source.title.clone(),
-            category: source.category.clone(),
-            publication_date: source.publication_date.clone(),
-            count: counts.get(&source.id).copied().unwrap_or(0),
-            third_party: source.third_party,
-            series_kind: source.series_kind,
-            series: source.series.clone(),
-            series_number: source.series_number.clone(),
-            season: source.season,
-        })
-        .collect();
+    let rows = book_rows(&library);
     let total = rows.len();
     let rows = Shared::new(rows);
     let revision = library.selection_revision();
@@ -473,30 +455,7 @@ pub fn ActiveBooks() -> impl IntoView {
         .into_any()
     });
     let render = SeriesRender::new(row, count, Some(bulk));
-    let groups = book_groups(&rows)
-        .into_iter()
-        .map(|group| {
-            let tier = group.tier;
-            let ids: Vec<String> = group.books.iter().map(|&i| rows[i].id.clone()).collect();
-            if tier == Tier::Adventures {
-                let books = group.books.iter().map(|&i| rows[i].clone()).collect();
-                return adventure_tier_section(books, ids, render.clone(), library.clone());
-            }
-            // Rows are built when the group opens; see `tier_section`.
-            let lazy_rows = rows.clone();
-            let lazy_panel = panel.clone();
-            let books = group.books;
-            let items = move || {
-                let rows = &*lazy_rows;
-                books
-                    .iter()
-                    .map(|&i| toggle_row(rows[i].clone(), lazy_panel.clone()))
-                    .collect_view()
-                    .into_any()
-            };
-            tier_section(tier, ids, items, library.clone())
-        })
-        .collect_view();
+    let groups = groups_view(&rows, &render, &library);
     let undo_panel = panel.clone();
     let live = live_recent(&library, panel.recent);
     let live_text = live.clone();

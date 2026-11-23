@@ -345,7 +345,7 @@ mod tests {
         );
         for route in [
             Route::Home,
-            Route::Books,
+            Route::books(),
             Route::FeatChains,
             Route::Settings,
             Route::search("fire"),

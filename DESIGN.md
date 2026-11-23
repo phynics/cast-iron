@@ -521,11 +521,21 @@ Books is where a reader reads; Manage books is where a reader changes which book
 
 #### Books head
 
-The H1, one live count line (`aria-live=polite`) that names the matching preset or `Custom` (`28 of 439 books active · Paizo Rulebooks`; `No books active` when none), and a `.page-link` `Manage books ›` in the filter-row slot. There is no lede, no hint, no sort control, no group Activate or Deactivate button and no `Only Rulebooks`.
+The H1, one live count line (`aria-live=polite`) that names the matching preset or `Custom` (`28 of 439 books active · Paizo Rulebooks`; `No books active` when none), and, in the filter-row slot, the `Find a book` field and a `.page-link` `Manage books ›`. There is no lede, no hint, no sort control, no group Activate or Deactivate button and no `Only Rulebooks`. The one control besides `Manage books ›` is the `Find a book` field.
 
 #### One order
 
 Six tiers, in this order (`Rulebooks`, `Player Companions`, `Campaign Setting`, `Adventures`, `Other`, `Third party`), and inside a tier the oldest book first, undated books last, ties by title. An old `?sort=` address opens `#/books` and the address bar says so.
+
+#### Find a book
+
+**Find a book** (#587) narrows the groups of Books by name. It is the Filter-menu find field in the form of a page field (a 44 px `input[type=search]`, no new component), with a visible label `Find a book` above it (the placeholder repeats it) and `autocomplete="off"`.
+
+- **Place.** Books: in the filter row under the count line, left of `Manage books ›`. The field is full width at 390 px, and from 48rem at most 22rem wide, beside the link. - **Matching.** A substring of the full title or of the short display title (`#1 Burnt Offerings`, a module without `Pathfinder Module:`), without regard to case, accents or punctuation. It never re-sorts: matches keep book order inside each group, and the find never replaces that order with an alphabetical one.
+- **Groups.** A tier or series that holds a match is open and lists only its matches; a group with none is not in the page, so it is not in the accessibility tree either. Each visible heading's count reads `3 matches`. What the reader opens or folds during a search is not remembered, and the open groups the reader had come back when the field clears. The count line above the field still counts all books.
+- **Status line.** A `p.status` with `role="status"` under the field: `12 books match "bestiary"` (`1 book matches`), or `No books match "xyz123".`, each followed by a `.count-action` `Clear` that empties the field and keeps the focus in it. The line takes no height while the field is empty.
+- **Route.** The text is route state: `#/books?q=bestiary`, `#/books/manage?q=bestiary`. Typing replaces the history entry, written on the next animation frame from the route as it is then (a stale field cannot write into another page); no key makes an entry. Back from a book page restores the text and the filtered groups. An old `?sort=` address keeps its handling. A blank text is no search, and the address drops it.
+- **Keys.** Escape clears the field. Enter does nothing; the results are live.
 
 #### Groups
 
@@ -599,7 +609,6 @@ These views exist and have no design section yet. Each entry names the ticket th
 - Not found and the other recovery states: `#582`
 - Storage failure screen: `#583`
 - Search filter panel contents: `#579`
-- Find a book: `#587`
 
 The installer screen is described above under Installer screen, and the iOS guide and the panic notice under Sheets. No ticket follows for those three.
 

@@ -4,6 +4,7 @@ pub mod active_books;
 pub mod archetype_list;
 pub mod backlinks;
 pub mod book;
+pub mod book_find;
 pub mod book_series;
 pub mod book_tier;
 pub mod bookmarks;

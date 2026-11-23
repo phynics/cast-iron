@@ -169,7 +169,7 @@ impl Panel {
         if settled != 0 && route::current_entry_mark(LINK_ENTRY) == Some(settled) {
             self.settled.store(0, Ordering::Relaxed);
             if address_holds_link() {
-                replace(&Route::BooksManage);
+                replace(&Route::books_manage());
             }
             return;
         }
@@ -202,7 +202,7 @@ impl Panel {
             return;
         }
         if route::current_entry_mark(LINK_ENTRY) == asked_on {
-            replace(&Route::BooksManage);
+            replace(&Route::books_manage());
         } else if let Some(mark) = asked_on {
             self.settled.store(mark, Ordering::Relaxed);
         }
@@ -373,14 +373,14 @@ pub fn ShareSet() -> impl IntoView {
         Route::BooksSet(code) => {
             // The entry that Quick search left over an answered link keeps the link's address.
             if linked.is_handled_layer() {
-                replace(&Route::BooksManage);
+                replace(&Route::books_manage());
                 return;
             }
             linked.entered.set(String::new());
             linked.review(&code, true);
             if linked.pending.get_untracked().is_none() {
                 // A bad link has nothing left to answer; its error stays on the page.
-                replace(&Route::BooksManage);
+                replace(&Route::books_manage());
             }
         }
         _ => linked.left_link_entry(),
