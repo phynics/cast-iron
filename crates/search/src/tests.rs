@@ -1232,6 +1232,111 @@ fn ranked_order_is_deterministic_and_does_not_change_the_serialized_index() {
     assert_eq!(ids(&decoded, &q("fireball")), ids(&ranked, &q("fireball")));
 }
 
+// --- Printing recency tie-break ----------------------------------------------------------------
+
+/// The reprints, all of one product line, so only the recency can order them. Ids and titles
+/// sort opposite to recency.
+fn dated_reprints() -> SearchIndex {
+    let mut idx = reprints();
+    idx.set_source_ranks([("core", 0), ("pc", 0), ("ap", 0), ("other", 0)]);
+    idx
+}
+
+#[test]
+fn equal_scores_and_ranks_order_newest_printing_first_and_undated_last() {
+    let mut idx = dated_reprints();
+    assert_eq!(
+        ids(&idx, &q("fireball")),
+        ["a-adventure", "b-companion", "c-rulebook", "d-unlisted"],
+        "without recency the order is title then id"
+    );
+    idx.set_printing_recency([("a-adventure", 2), ("b-companion", 7), ("c-rulebook", 5)]);
+    assert_eq!(
+        ids(&idx, &q("fireball")),
+        ["b-companion", "c-rulebook", "a-adventure", "d-unlisted"],
+        "d-unlisted is not listed, so it is undated and last"
+    );
+    // An explicit 0 is undated too, and equal recency falls back to title then id.
+    idx.set_printing_recency([
+        ("a-adventure", 4),
+        ("b-companion", 4),
+        ("c-rulebook", 0),
+        ("d-unlisted", 0),
+        ("no-such-doc", 99),
+    ]);
+    assert_eq!(
+        ids(&idx, &q("fireball")),
+        ["a-adventure", "b-companion", "c-rulebook", "d-unlisted"]
+    );
+}
+
+#[test]
+fn source_rank_wins_over_printing_recency() {
+    let mut idx = reprints();
+    idx.set_source_ranks(RANKS);
+    idx.set_printing_recency([("a-adventure", 9), ("b-companion", 5), ("c-rulebook", 1)]);
+    assert_eq!(
+        ids(&idx, &q("fireball")),
+        ["c-rulebook", "b-companion", "a-adventure", "d-unlisted"]
+    );
+}
+
+#[test]
+fn a_better_score_wins_over_a_newer_printing() {
+    let mut idx = build(vec![
+        doc("old", "Lantern", "item", "core", "Short.", &[]),
+        doc(
+            "new",
+            "Gear",
+            "item",
+            "core",
+            "Long body about many things, and a single mention of lantern somewhere.",
+            &[],
+        ),
+    ]);
+    idx.set_printing_recency([("old", 1), ("new", 9)]);
+    let hits = idx.search(&q("lantern"));
+    assert!(hits[0].score > hits[1].score);
+    assert_eq!(hits[0].id, "old");
+}
+
+#[test]
+fn printing_recency_applies_to_summaries_and_to_bounded_results() {
+    let mut idx = dated_reprints();
+    idx.set_printing_recency([("a-adventure", 2), ("b-companion", 7), ("c-rulebook", 5)]);
+    let full = ids(&idx, &q("fireball"));
+    let summaries: Vec<String> = idx
+        .search_summaries(&q("fireball"))
+        .into_iter()
+        .map(|h| h.id)
+        .collect();
+    assert_eq!(summaries, full);
+    let mut limited = q("fireball");
+    limited.limit = 2;
+    assert_eq!(ids(&idx, &limited), full[..2]);
+}
+
+#[test]
+fn printing_recency_is_deterministic_and_does_not_change_the_serialized_index() {
+    let plain = dated_reprints();
+    let pairs = [("a-adventure", 2), ("b-companion", 7), ("c-rulebook", 5)];
+    let mut dated = dated_reprints();
+    dated.set_printing_recency(pairs);
+    assert_eq!(plain.to_bytes(), dated.to_bytes());
+    let mut again = dated_reprints();
+    again.set_printing_recency(pairs.iter().rev().copied());
+    assert_eq!(ids(&dated, &q("fireball")), ids(&again, &q("fireball")));
+    // A decoded index starts undated and orders the same way once the recency is set again.
+    let mut decoded = SearchIndex::from_bytes(&plain.to_bytes()).expect("round trip");
+    decoded.set_source_ranks([("core", 0), ("pc", 0), ("ap", 0), ("other", 0)]);
+    assert_eq!(ids(&decoded, &q("fireball")), ids(&plain, &q("fireball")));
+    decoded.set_printing_recency(pairs);
+    assert_eq!(ids(&decoded, &q("fireball")), ids(&dated, &q("fireball")));
+    // Clearing the recency restores the title and id order.
+    decoded.set_printing_recency([]);
+    assert_eq!(ids(&decoded, &q("fireball")), ids(&plain, &q("fireball")));
+}
+
 fn section(id: &str, title: &str, source: &str, chapter: &str, anchor: &str) -> DocInput {
     DocInput {
         id: id.into(),

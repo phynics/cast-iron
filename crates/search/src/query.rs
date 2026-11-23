@@ -652,7 +652,15 @@ impl SearchIndex {
             timer,
         )?;
         timer.enter(Phase::Sort);
-        sort_scored(&mut scored, &self.meta.docs, &self.doc_ranks, limit);
+        sort_scored(
+            &mut scored,
+            &self.meta.docs,
+            Tiebreaks {
+                ranks: &self.doc_ranks,
+                recency: &self.doc_recency,
+            },
+            limit,
+        );
         timer.exit(Phase::Sort);
         Some((scored, matcher))
     }
@@ -843,14 +851,25 @@ fn empty_matcher() -> Matcher {
     }
 }
 
-/// Final result order: score, then source rank, then title, then id. The source rank only
-/// separates exactly equal scores. A document without a rank counts as neutral.
+/// The runtime tie-break keys of a ranked index, both indexed by document ordinal and both
+/// empty until the caller sets them.
+#[derive(Clone, Copy)]
+struct Tiebreaks<'a> {
+    ranks: &'a [u8],
+    recency: &'a [u32],
+}
+
+/// Final result order: score, then source rank, then printing recency (newest first, undated
+/// last), then title, then id. The source rank and the recency only separate exactly equal
+/// scores. A document without a rank counts as neutral, one without a recency as undated.
 fn sort_scored(
     scored: &mut Vec<(u32, f32)>,
     docs: &[crate::store::DocMeta],
-    ranks: &[u8],
+    keys: Tiebreaks<'_>,
     limit: usize,
 ) {
+    let Tiebreaks { ranks, recency } = keys;
+    let newest = |ord: u32| recency.get(ord as usize).copied().unwrap_or(0);
     let rank = |ord: u32| {
         ranks
             .get(ord as usize)
@@ -861,6 +880,7 @@ fn sort_scored(
         let (da, db) = (&docs[a.0 as usize], &docs[b.0 as usize]);
         b.1.total_cmp(&a.1)
             .then_with(|| rank(a.0).cmp(&rank(b.0)))
+            .then_with(|| newest(b.0).cmp(&newest(a.0)))
             .then_with(|| da.title.cmp(&db.title))
             .then_with(|| da.id.cmp(&db.id))
     };

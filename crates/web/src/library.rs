@@ -11,7 +11,7 @@ use crate::membership::{self, BookMembership};
 use crate::reading::{BookReading, ReadingCache};
 use crate::revisions::EffectiveRevisions;
 use crate::store::{self, ActiveLibrary};
-use crate::views::book_tier::{Tier, source_ranks};
+use crate::views::book_tier::{Tier, printing_recency, source_ranks};
 use cast_iron_schema::{
     ALIASES_FILE, AliasIndex, BACKLINKS_FILE, BOOKS_FILE, BacklinkIndex, BacklinkSource,
     BacklinkTarget, BookIndex, Catalog, ContentManifest, CoverageReport, EntryId, EntryKind,
@@ -712,6 +712,13 @@ impl Library {
         // Equal relevance orders by product line. The ranks come from the catalog, so a library
         // installed before this ranking, or one without categories, still loads and searches.
         index.set_source_ranks(source_ranks(&self.0.catalog.sources));
+        // Equal relevance and product line orders by the latest printing: an entry kept in
+        // several books ranks by its newest-dated book (#619). Derived from the catalog like
+        // the ranks, and not serialized.
+        index.set_printing_recency(printing_recency(
+            &self.0.catalog.sources,
+            &self.0.catalog.entries,
+        ));
         // An entry printed in several books is indexed under its first. The index learns the
         // others from the catalog, so a book filter and a book chip see every member book.
         index.set_extra_sources(self.0.catalog.entries.iter().flat_map(|stub| {
