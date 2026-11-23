@@ -246,6 +246,58 @@ test("every feat chain Open the feat link has a 24 px hit area", async ({ page }
   expect(heights.filter((height) => height < 24)).toEqual([]);
 });
 
+test("every feat chain lists every descendant of the head, one row per route", async ({ page }) => {
+  // The feats that name each feat as a prerequisite, from the compiled corpus. A revision row
+  // is not a feat of its own in the chains: the page shows the feat it revises.
+  const followers = new Map<string, string[]>();
+  for (const entry of entries) {
+    if (entry.kind !== "feat" || related(entry, "revision").length > 0) continue;
+    for (const edge of related(entry, "prerequisite")) {
+      if (!followers.has(edge.target)) followers.set(edge.target, []);
+      followers.get(edge.target)!.push(entry.id);
+    }
+  }
+  const descendantsOf = (start: string): Set<string> => {
+    const seen = new Set<string>([start]);
+    const queue = [start];
+    for (let i = 0; i < queue.length; i++) {
+      for (const next of followers.get(queue[i]) ?? []) {
+        if (!seen.has(next)) {
+          seen.add(next);
+          queue.push(next);
+        }
+      }
+    }
+    seen.delete(start);
+    return seen;
+  };
+  const head = entries.find((e) => e.kind === "feat" && e.title === "Improved Unarmed Strike" &&
+    followers.has(e.id) && related(e, "prerequisite").length === 0)!;
+  expect(head, "Improved Unarmed Strike heads a chain").toBeTruthy();
+  const expected = descendantsOf(head.id);
+  // The old page stopped at 200 rows; the chain is well past that.
+  expect(expected.size).toBeGreaterThan(200);
+
+  await page.goto("#/feats/chains");
+  const item = page.locator(".chain-head", { has: page.locator(`.chain-open a[href="#/entry/${head.id}"]`) });
+  await expect(item).toHaveCount(1);
+  await item.locator("summary").click();
+  await expect(item.locator("ul.chain")).toBeVisible();
+  await expect(item.locator(".chain-cut")).toHaveCount(0);
+  const hrefs = await item.locator("ul.chain a").evaluateAll((links) => links.map((a) => a.getAttribute("href")!));
+  const shown = new Set(hrefs.map((href) => decodeURIComponent(href.replace(/^#\/entry\//, ""))));
+  expect([...expected].filter((id) => !shown.has(id))).toEqual([]);
+  expect([...shown].filter((id) => !expected.has(id))).toEqual([]);
+  // A feat that two routes reach keeps a row on each, so the rows are at least the feats.
+  expect(hrefs.length).toBeGreaterThanOrEqual(expected.size);
+
+  // The children of a node come in title order, as the `Leads to` list shows them.
+  const titles = await item.locator("ul.chain").evaluate((root) =>
+    [...root.querySelectorAll("ul")].map((list) =>
+      [...list.children].map((li) => li.querySelector(":scope > a")!.textContent!.trim().toLowerCase())));
+  for (const siblings of titles) expect(siblings).toEqual([...siblings].sort());
+});
+
 test("category hub exposes requested reference areas and dedicated lenses", async ({ page }) => {
   await page.goto("#/browse");
   const names = ["Spells", "Feats", "Classes", "Prestige classes", "Races", "Traits", "Items", "Creatures"];

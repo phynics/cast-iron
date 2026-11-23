@@ -8,6 +8,7 @@ use cast_iron_schema::{
     Block, BookIndex, BookNode, BookTree, EntryId, Inline, RelationIndex, RelationKind,
     RelationLabel, SpellListClass, SpellListDetail, SpellLists,
 };
+use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashMap, HashSet};
 
 // ---- relations --------------------------------------------------------------------------
@@ -47,9 +48,17 @@ pub struct ChainHead {
     pub total: usize,
 }
 
-/// Depth and size caps for chain walks. The longest chain in the library has 5 feats.
+/// Depth and size caps for chain walks. The depth cap holds for both directions: a chain
+/// with more than 8 levels is cut. The longest prerequisite chain in the library has 5 feats.
 const MAX_DEPTH: usize = 8;
+/// How a caller orders the feats that follow one feat.
+pub type SiblingOrder<'a> = dyn Fn(&EntryId, &EntryId) -> Ordering + 'a;
+/// The size cap of the prerequisite chain on a feat's own page.
 const MAX_NODES: usize = 200;
+/// The size cap of the chains page, which lists every feat below a chain head, one row per
+/// route. The biggest chain in the library has about 570 rows; this cap only guards against a
+/// pathological corpus and is never reached by the real one.
+const MAX_DEPENDENT_NODES: usize = 5_000;
 
 impl Relations {
     pub fn new(index: RelationIndex) -> Self {
@@ -326,26 +335,32 @@ impl Relations {
     /// The prerequisite tree above `feat`. The root is `feat` itself. A feat reached twice by
     /// different routes appears twice, which shows the diamond; a feat that is its own ancestor
     /// stops with `cycle` set. The walk ends at [`MAX_DEPTH`] or after [`MAX_NODES`] nodes, and
-    /// the nodes where it ended say so with `cut`.
+    /// the nodes where it ended say so with `cut`. Children come in index order.
     pub fn prerequisite_chain(&self, feat: &EntryId) -> ChainNode {
         self.tree(feat, true)
     }
 
-    /// The tree of feats that build on `feat`, walked the other way, with the same guards.
-    pub fn dependents_tree(&self, feat: &EntryId) -> ChainNode {
-        self.tree(feat, false)
+    /// The tree of feats that build on `feat`, walked the other way. It lists every feat below
+    /// `feat`, once for each route that reaches it, with the per-route cycle guard and
+    /// [`MAX_DEPTH`] but with a size cap ([`MAX_DEPENDENT_NODES`]) that a real library never
+    /// reaches. The children of each node come in the order of `order`.
+    pub fn dependents_tree(&self, feat: &EntryId, order: &SiblingOrder<'_>) -> ChainNode {
+        let mut budget = MAX_DEPENDENT_NODES;
+        let mut path: Vec<&EntryId> = Vec::new();
+        self.walk(feat, false, Some(order), &mut path, &mut budget)
     }
 
     fn tree(&self, feat: &EntryId, upward: bool) -> ChainNode {
         let mut budget = MAX_NODES;
         let mut path: Vec<&EntryId> = Vec::new();
-        self.walk(feat, upward, &mut path, &mut budget)
+        self.walk(feat, upward, None, &mut path, &mut budget)
     }
 
     fn walk<'a>(
         &'a self,
         id: &'a EntryId,
         upward: bool,
+        order: Option<&SiblingOrder<'_>>,
         path: &mut Vec<&'a EntryId>,
         budget: &mut usize,
     ) -> ChainNode {
@@ -359,11 +374,14 @@ impl Relations {
             };
         }
         path.push(id);
-        let following = if upward {
+        let mut following = if upward {
             self.targets_of(id, RelationKind::Prerequisite)
         } else {
             self.leads_to(id)
         };
+        if let Some(order) = order {
+            cast_iron_sort::sort_by(&mut following, |a, b| order(a, b));
+        }
         let mut next = Vec::new();
         let mut cut = false;
         if path.len() > MAX_DEPTH {
@@ -374,7 +392,7 @@ impl Relations {
                     cut = true;
                     break;
                 }
-                next.push(self.walk(follow, upward, path, budget));
+                next.push(self.walk(follow, upward, order, path, budget));
             }
         }
         path.pop();
@@ -1091,6 +1109,57 @@ mod tests {
         }
         let total = count(&r.prerequisite_chain(&id("c/l0-0")));
         assert!(total <= MAX_NODES + 1, "{total}");
+    }
+
+    #[test]
+    fn a_wide_chain_page_tree_lists_every_descendant_in_the_given_order() {
+        // One head, 150 feats that need it, and two feats under each of those: 450 feats,
+        // well past the 200 nodes that the prerequisite chain on a feat page stops at.
+        let mut edges: Vec<(String, RelationKind, String)> = Vec::new();
+        for i in 0..150 {
+            edges.push((format!("c/mid-{i:03}"), Prerequisite, "c/head".to_string()));
+            for k in 0..2 {
+                edges.push((
+                    format!("c/leaf-{i:03}-{k}"),
+                    Prerequisite,
+                    format!("c/mid-{i:03}"),
+                ));
+            }
+        }
+        let r = Relations::new(RelationIndex {
+            counts: BTreeMap::new(),
+            edges: edges
+                .iter()
+                .map(|(s, k, t)| RelationEdge::plain(id(s), *k, id(t)))
+                .collect(),
+        });
+        // Reverse id order, to show that the caller's order wins over index order.
+        let tree = r.dependents_tree(&id("c/head"), &|a, b| b.cmp(a));
+        fn walk<'a>(n: &'a ChainNode, out: &mut Vec<&'a str>) {
+            for child in &n.next {
+                out.push(child.id.as_str());
+                assert!(!child.cut && !child.cycle);
+                walk(child, out);
+            }
+        }
+        let mut rows = Vec::new();
+        walk(&tree, &mut rows);
+        assert!(!tree.cut);
+        assert_eq!(rows.len(), 450);
+        let distinct: HashSet<&str> = rows.iter().copied().collect();
+        assert_eq!(distinct.len(), r.descendants(&id("c/head")).len());
+        assert_eq!(tree.next[0].id, id("c/mid-149"));
+        assert_eq!(tree.next[0].next[0].id, id("c/leaf-149-1"));
+        // A feat reached by two routes keeps a row on each.
+        let r = relations(&[
+            ("c/a", Prerequisite, "c/head"),
+            ("c/b", Prerequisite, "c/head"),
+            ("c/both", Prerequisite, "c/a"),
+            ("c/both", Prerequisite, "c/b"),
+        ]);
+        let tree = r.dependents_tree(&id("c/head"), &|a, b| a.cmp(b));
+        assert_eq!(tree.next[0].next[0].id, id("c/both"));
+        assert_eq!(tree.next[1].next[0].id, id("c/both"));
     }
 
     #[test]
