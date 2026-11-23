@@ -298,7 +298,7 @@ test("The affliction Type menu narrows the list in place, Back returns to all ty
 
   // The search filter panel offers the type for afflictions.
   await page.goto("#/search?q=poison&kind=affliction");
-  await expect(page.locator(".filters").getByRole("button", { name: "Type: All types", exact: true })).toBeVisible();
+  await expect(page.locator(".filters").getByRole("button", { name: "Affliction type: All types", exact: true })).toBeVisible();
 });
 
 test("The poison type lists the creature afflictions titled Poison (Ex)", async ({ page }) => {

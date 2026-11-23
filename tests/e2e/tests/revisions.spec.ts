@@ -204,11 +204,11 @@ test("A facet count drops for a feat that an active revision removes", async ({ 
 
   // The feat type is a filter menu (#579): its Combat row names its count and shows it.
   const combatCount = async () => {
-    const trigger = page.locator(".filters").getByRole("button", { name: "Type: All types", exact: true });
+    const trigger = page.locator(".filters").getByRole("button", { name: "Feat type: All types", exact: true });
     if ((await trigger.getAttribute("aria-expanded")) !== "true") await trigger.click();
     const row = page
       .locator(`#${await trigger.getAttribute("aria-controls")}`)
-      .getByRole("checkbox", { name: /^Type Combat, / });
+      .getByRole("checkbox", { name: /^Feat type Combat, / });
     return row.locator("xpath=..").locator(".choice-count");
   };
   await page.goto("#/search?q=finesse&kind=feat");

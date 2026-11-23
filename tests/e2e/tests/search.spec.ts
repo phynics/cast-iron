@@ -151,7 +151,7 @@ installedTest("Filter menus: the CR group is one menu with no pills, and ticking
   // The group is the button and its panel: no pill, no legend above it.
   await expect(filters.locator(".filter-group", { has: button }).locator(".chip")).toHaveCount(0);
   // The same sidebar offers the other large groups as menus, one per group.
-  await expect(filters.getByRole("button", { name: "Type: All types", exact: true })).toBeVisible();
+  await expect(filters.getByRole("button", { name: "Creature type: All types", exact: true })).toBeVisible();
   await expect(filters.getByRole("button", { name: "Size: All sizes", exact: true })).toBeVisible();
 
   await button.click();
@@ -187,6 +187,22 @@ installedTest("Filter menus: the CR group is one menu with no pills, and ticking
   await expect(button).toHaveAttribute("aria-expanded", "false");
   // The sidebar is not a panel that closes: it stays on the page.
   await expect(page.locator("#filters-panel")).toBeVisible();
+});
+
+installedTest("Filter menus: two kinds chosen together show two menus with different names (#579)", async ({ page }) => {
+  await installLibrary(page);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("#/search?q=poison&kind=creature&kind=affliction");
+  await waitResults(page, "poison");
+  const filters = page.locator(".filters");
+  // A list page says `Type`; here each button names its kind, as the pill legends did.
+  await expect(filters.getByRole("button", { name: "Creature type: All types", exact: true })).toHaveCount(1);
+  await expect(filters.getByRole("button", { name: "Affliction type: All types", exact: true })).toHaveCount(1);
+  const names = await filters.locator(".filter-btn").allInnerTexts();
+  expect(new Set(names).size, names.join(" | ")).toBe(names.length);
+  // The rows carry the same prefix.
+  const menu = await openFacetMenu(page, "Affliction type: All types");
+  await expect(menu.getByRole("checkbox", { name: /^Affliction type Poison, [\d,]+ afflictions?$/ })).toBeVisible();
 });
 
 installedTest("Filter menus: the first Escape closes the menu and the second closes the filter panel (#579)", async ({ page }) => {
@@ -228,7 +244,7 @@ installedTest("Filter menus: a group of four values or fewer stays pills, and th
   // With every menu of a creature search open, nothing is wider than the page or the sidebar.
   await page.goto("#/search?q=dragon&kind=creature");
   await waitResults(page, "dragon");
-  for (const name of ["Type: All types", "CR: All CRs", "Size: All sizes"]) {
+  for (const name of ["Creature type: All types", "CR: All CRs", "Size: All sizes"]) {
     await filters.getByRole("button", { name, exact: true }).click();
   }
   expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);

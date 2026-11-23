@@ -98,15 +98,19 @@ async function measure(browserName, browserType) {
 
   const kindStart = Date.now();
   await page.locator(".filters .chip", { hasText: /^Spells/ }).click();
-  const school = page.locator('.filter-group:has(legend:text-is("School"))');
-  await school.locator(".chip-count").first().waitFor({ state: "visible", timeout: 180_000 });
+  // The School group is a filter menu (#579): a button, and a panel of checkbox rows.
+  const schoolButton = page.locator(".filters").getByRole("button", { name: "School: All schools", exact: true });
+  await schoolButton.waitFor({ state: "visible", timeout: 180_000 });
+  await schoolButton.click();
+  const school = page.locator("#filter-panel-school");
+  await school.locator(".choice-count").filter({ hasText: /\d/ }).first().waitFor({ state: "visible", timeout: 180_000 });
   const kindsFacetMs = Date.now() - kindStart;
 
   const toggleStart = Date.now();
   const countsBefore = await page.evaluate(() =>
     [...document.querySelectorAll(".filters .chip-count")].map((el) => el.textContent),
   );
-  await school.locator(".chip", { hasText: /^evocation\d*$/i }).first().click();
+  await school.getByRole("checkbox", { name: /^School Evocation, / }).check();
   await page.waitForFunction(
     (before) => {
       const now = [...document.querySelectorAll(".filters .chip-count")].map((el) => el.textContent);

@@ -304,6 +304,8 @@ fn as_pills(values: usize) -> bool {
 
 /// The menu of a facet field and the noun its row counts name: `CR 10, 4 creatures`. The specs of
 /// the list pages are reused, so the words match; a field that no list page filters has its own.
+/// A list page shows one kind, so its button can say `Type`; the search panel can show several
+/// kinds at once, so here such a button names its kind (`Creature type: All types`).
 fn facet_menu_spec(field: &str) -> Option<(MenuSpec, (&'static str, &'static str))> {
     const SPELLS: (&str, &str) = ("spell", "spells");
     const CREATURES: (&str, &str) = ("creature", "creatures");
@@ -317,12 +319,17 @@ fn facet_menu_spec(field: &str) -> Option<(MenuSpec, (&'static str, &'static str
         singular,
         plural,
     };
+    // The list label of a list-page menu is its kind-scoped name: `Creature type`.
+    let scoped = |spec: MenuSpec| MenuSpec {
+        group: spec.list_label,
+        ..spec
+    };
     Some(match field {
         "school" => (menus::SCHOOL_MENU, SPELLS),
         "class" => (
             own(
                 "class",
-                "Class",
+                "Spell class",
                 "All classes",
                 "Find a class",
                 "Spell class",
@@ -343,8 +350,8 @@ fn facet_menu_spec(field: &str) -> Option<(MenuSpec, (&'static str, &'static str
             ),
             SPELLS,
         ),
-        "feat_type" => (menus::FEAT_TYPE_MENU, ("feat", "feats")),
-        "creature_type" => (menus::CREATURE_TYPE_MENU, CREATURES),
+        "feat_type" => (scoped(menus::FEAT_TYPE_MENU), ("feat", "feats")),
+        "creature_type" => (scoped(menus::CREATURE_TYPE_MENU), CREATURES),
         "cr" => (menus::CREATURE_CR_MENU, CREATURES),
         "size" => (
             own(
@@ -358,7 +365,7 @@ fn facet_menu_spec(field: &str) -> Option<(MenuSpec, (&'static str, &'static str
             ),
             CREATURES,
         ),
-        "item_category" => (menus::ITEM_CATEGORY_MENU, ITEMS),
+        "item_category" => (scoped(menus::ITEM_CATEGORY_MENU), ITEMS),
         "slot" => (
             own(
                 "slot",
@@ -383,8 +390,11 @@ fn facet_menu_spec(field: &str) -> Option<(MenuSpec, (&'static str, &'static str
             ),
             ("class", "classes"),
         ),
-        "trait_category" => (menus::TRAIT_CATEGORY_MENU, ("trait", "traits")),
-        "archetype_class" => (menus::ARCHETYPE_CLASS_MENU, ("archetype", "archetypes")),
+        "trait_category" => (scoped(menus::TRAIT_CATEGORY_MENU), ("trait", "traits")),
+        "archetype_class" => (
+            scoped(menus::ARCHETYPE_CLASS_MENU),
+            ("archetype", "archetypes"),
+        ),
         "group" => (
             menus::CLASS_OPTION_GROUP_MENU,
             ("class option", "class options"),
@@ -393,7 +403,10 @@ fn facet_menu_spec(field: &str) -> Option<(MenuSpec, (&'static str, &'static str
             menus::RACIAL_TRAIT_RACE_MENU,
             ("racial trait", "racial traits"),
         ),
-        "affliction_type" => (menus::AFFLICTION_TYPE_MENU, ("affliction", "afflictions")),
+        "affliction_type" => (
+            scoped(menus::AFFLICTION_TYPE_MENU),
+            ("affliction", "afflictions"),
+        ),
         _ => return None,
     })
 }
@@ -2877,6 +2890,26 @@ mod tests {
             }
         }
         assert!(facet_menu_spec("no_such_field").is_none());
+        // Kinds chosen together show their menus together: no two buttons read the same.
+        let mut groups: Vec<&str> = EntryKind::ALL
+            .into_iter()
+            .flat_map(facet_fields_of)
+            .filter_map(|(field, _)| facet_menu_spec(field))
+            .map(|(spec, _)| spec.group)
+            .collect();
+        groups.sort_unstable();
+        let total = groups.len();
+        groups.dedup();
+        // `class_type` is offered by two kinds and is one field, so it appears twice above.
+        assert_eq!(groups.len(), total - 1, "{groups:?}");
+        assert_eq!(
+            facet_menu_spec("creature_type").map(|(spec, _)| spec.group),
+            Some("Creature type")
+        );
+        assert_eq!(
+            facet_menu_spec("cr").map(|(spec, _)| spec.group),
+            Some("CR")
+        );
     }
 
     #[test]
