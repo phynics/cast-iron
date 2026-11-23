@@ -1284,6 +1284,24 @@ mark {
   min-width: 0;
 }
 
+/* A facet group that is a filter menu: the button fills the panel, with no legend above it (the
+   button names the group). The menu's panel is in flow with no scroll of its own: the filter
+   panel (below 56 rem) or the sidebar (from 56 rem) is the scroll area, and the menu's find
+   field sticks to its top. The rows stay one column, so the 16 rem sidebar is not cut. */
+.filter-menu-group .filter-menu {
+  max-width: none;
+}
+
+.filter-menu-group .filter-panel {
+  max-height: none;
+  overflow: visible;
+  margin: var(--space-1) 0 0;
+}
+
+.filter-menu-group .choice-list {
+  columns: auto;
+}
+
 .filter-group legend {
   padding: 0;
   margin-bottom: var(--space-2);
@@ -1372,12 +1390,6 @@ mark {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
-}
-
-.chips-scroll {
-  max-height: 14rem;
-  overflow-y: auto;
-  padding: 2px;
 }
 
 .chip {
@@ -5464,6 +5476,11 @@ label.choice-row {
 
 .choice-row:has(input:checked) {
   font-weight: 600;
+}
+
+/* A chosen value that no result has stays listed, dimmed, so it can be cleared. */
+.choice-row.choice-empty:not(:has(input:checked)) {
+  color: var(--ink-muted);
 }
 
 .choice-row:has(input:focus-visible) {

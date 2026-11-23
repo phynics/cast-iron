@@ -202,19 +202,25 @@ test("A facet count drops for a feat that an active revision removes", async ({ 
   await waitControlled(page);
   await onlyBooks(page, [CORE]);
 
-  const combatChip = page
-    .locator(".filter-group", { hasText: "Feat type" })
-    .locator(".chip", { hasText: /^Combat/ });
+  // The feat type is a filter menu (#579): its Combat row names its count and shows it.
+  const combatCount = async () => {
+    const trigger = page.locator(".filters").getByRole("button", { name: "Feat type: All types", exact: true });
+    if ((await trigger.getAttribute("aria-expanded")) !== "true") await trigger.click();
+    const row = page
+      .locator(`#${await trigger.getAttribute("aria-controls")}`)
+      .getByRole("checkbox", { name: /^Feat type Combat, / });
+    return row.locator("xpath=..").locator(".choice-count");
+  };
   await page.goto("#/search?q=finesse&kind=feat");
   await waitResults(page, "finesse");
-  await expect(combatChip.locator(".chip-count")).toHaveText("1");
+  await expect(await combatCount()).toHaveText("1");
 
   // The revision removes Weapon Finesse from the effective rows, so the facet count drops by
   // that one feat even though search still finds the removed feat.
   await onlyBooks(page, [CORE, ELEPHANT]);
   await page.goto("#/search?q=finesse&kind=feat");
   await waitResults(page, "finesse");
-  await expect(combatChip.locator(".chip-count")).toHaveText("0");
+  await expect(await combatCount()).toHaveText("0");
 });
 
 test("A revised page keeps its notice and original text above the body on a wide screen", async ({ page }) => {

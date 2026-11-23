@@ -20,6 +20,22 @@ const chipOf = (page: Page, label: RegExp) => page.locator(".filters .chip", { h
 const chipCount = async (page: Page, label: RegExp) =>
   num(await chipOf(page, label).locator(".chip-count").innerText());
 
+/**
+ * A facet group with more than four values is a filter menu (#579): a button that names the
+ * group and an in-flow panel with one checkbox row per value. Opens it, and returns the panel.
+ */
+async function openFacetMenu(page: Page, button: string) {
+  const trigger = page.locator(".filters").getByRole("button", { name: button, exact: true });
+  if ((await trigger.getAttribute("aria-expanded")) !== "true") await trigger.click();
+  return page.locator(`#${await trigger.getAttribute("aria-controls")}`);
+}
+
+/** The values of a menu's rows with the group prefix and the count taken off: `Size Huge, 3 creatures` is `Huge`. */
+async function menuValues(menu: ReturnType<Page["locator"]>, group: string) {
+  const names = await menu.getByRole("checkbox").evaluateAll((inputs) => inputs.map((input) => input.getAttribute("aria-label") ?? ""));
+  return names.map((name) => name.replace(new RegExp(`^${group} `), "").replace(/, [\d,]+ [a-z ]+$/, ""));
+}
+
 /** Every entry that the results list renders, after opening all pages and publication groups. */
 async function renderedEntries(page: Page) {
   const more = page.getByRole("button", { name: "Show more results" });
@@ -55,11 +71,13 @@ installedTest("Filter chips count the entries that choosing them shows", async (
   expect(await chipCount(page, /^Feats/)).toBe(feats);
 
   // A facet value equals the results of choosing it, on top of the query and the kind.
-  const school = page.locator(".filter-group", { hasText: "School" }).locator(".chip", { hasText: /^evocation[\d,]+$/i });
-  const evocation = num(await school.locator(".chip-count").innerText());
+  const schools = await openFacetMenu(page, "School: All schools");
+  const school = schools.getByRole("checkbox", { name: /^School Evocation, / });
+  await expect(school).toHaveAccessibleName(/, [\d,]+ spells?$/);
+  const evocation = num(await school.locator("xpath=..").locator(".choice-count").innerText());
   expect(evocation).toBeGreaterThan(0);
   expect(evocation).toBeLessThanOrEqual(spells);
-  await school.click();
+  await school.check();
   await expect.poll(() => page.url()).toContain("school:evocation");
   await expect.poll(() => renderedEntries(page)).toBe(evocation);
   // A publication chip now counts what that book adds to the same selection.
@@ -80,11 +98,9 @@ installedTest("Filter chips count the entries that choosing them shows", async (
 installedTest("Filter chips list each creature size once, from Fine to Colossal, and an old capitalised link still narrows (#593)", async ({ page }) => {
   await installLibrary(page);
   await page.goto("#/search?q=dragon&kind=creature");
-  const group = page.locator(".filters .filter-group", { has: page.locator("legend", { hasText: /^Size$/ }) });
-  await expect(group.locator(".chip").first()).toBeVisible();
-  const labels = (await group.locator(".chip").locator("input").evaluateAll((inputs) =>
-    inputs.map((input) => (input.getAttribute("aria-label") ?? "").replace(/, [\d,]+ entr(y|ies)$/, "")),
-  ));
+  const group = await openFacetMenu(page, "Size: All sizes");
+  await expect(group.getByRole("checkbox").first()).toBeVisible();
+  const labels = await menuValues(group, "Size");
   // No two values are equal ignoring case, and they follow the size order.
   const lower = labels.map((label) => label.toLowerCase());
   expect(new Set(lower).size).toBe(lower.length);
@@ -97,21 +113,22 @@ installedTest("Filter chips list each creature size once, from Fine to Colossal,
 
   // A link that says `Huge` narrows the same way as `huge`, and the chip is selected.
   await page.goto("#/search?q=dragon&kind=creature&facet=size:huge");
-  const lowerCount = await group.locator(".chip", { hasText: /^Huge/ }).locator(".chip-count").innerText();
+  const huge = group.getByRole("checkbox", { name: /^Size Huge, / });
+  await expect(huge).toBeChecked();
+  const lowerCount = (await huge.locator("xpath=..").locator(".choice-count").textContent())!;
   await page.goto("#/search?q=dragon&kind=creature&facet=size:Huge");
-  await expect(group.getByRole("checkbox", { name: /^Huge/ })).toBeChecked();
-  await expect(group.locator(".chip", { hasText: /^Huge/ }).locator(".chip-count")).toHaveText(lowerCount);
+  await expect(huge).toBeChecked();
+  await expect(page.locator(".filters").getByRole("button", { name: "Size: Huge", exact: true })).toBeVisible();
+  await expect(huge.locator("xpath=..").locator(".choice-count")).toHaveText(lowerCount);
   await expect.poll(() => new URL(page.url()).hash).toContain("size:");
 });
 
 installedTest("Filter chips list item slots as printed, with no price or cross-reference text in a value (phynics/cast-iron-data#171)", async ({ page }) => {
   await installLibrary(page);
   await page.goto("#/search?q=cloak&kind=item");
-  const group = page.locator(".filters .filter-group", { has: page.locator("legend", { hasText: /^Slot$/ }) });
-  await expect(group.locator(".chip").first()).toBeVisible();
-  const labels = (await group.locator(".chip").locator("input").evaluateAll((inputs) =>
-    inputs.map((input) => (input.getAttribute("aria-label") ?? "").replace(/, [\d,]+ entr(y|ies)$/, "")),
-  ));
+  const group = await openFacetMenu(page, "Slot: All slots");
+  await expect(group.getByRole("checkbox").first()).toBeVisible();
+  const labels = await menuValues(group, "Slot");
   expect(labels.length, "the cloak items have slot values").toBeGreaterThan(0);
   // Two values that name two slots at once stay open by owner decision, and print gives them a
   // `(see text)` qualifier; every other value is a plain slot.
@@ -119,6 +136,119 @@ installedTest("Filter chips list item slots as printed, with no price or cross-r
   for (const label of labels.filter((label) => !open.has(label))) expect(label, `slot value ${label}`).not.toMatch(/Price|see/i);
   expect(labels.filter((label) => /Price/i.test(label))).toEqual([]);
   expect(labels).toContain("shoulders");
+});
+
+installedTest("Filter menus: the CR group is one menu with no pills, and ticking two values keeps focus on the row (#579)", async ({ page }) => {
+  await installLibrary(page);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("#/search?q=dragon&kind=creature");
+  await waitResults(page, "dragon");
+  const filters = page.locator(".filters");
+  // By id: the button's name follows the choice.
+  const button = filters.locator("#filter-btn-cr");
+  await expect(button).toHaveText("CR: All CRs");
+  await expect(button).toHaveRole("button");
+  // The group is the button and its panel: no pill, no legend above it.
+  await expect(filters.locator(".filter-group", { has: button }).locator(".chip")).toHaveCount(0);
+  // The same sidebar offers the other large groups as menus, one per group.
+  await expect(filters.getByRole("button", { name: "Creature type: All types", exact: true })).toBeVisible();
+  await expect(filters.getByRole("button", { name: "Size: All sizes", exact: true })).toBeVisible();
+
+  await button.click();
+  const panel = page.locator(`#${await button.getAttribute("aria-controls")}`);
+  // More than ten ratings: opening focuses the find field.
+  await expect(panel.getByRole("searchbox", { name: "Find a CR" })).toBeFocused();
+  // In the filter panel a menu has no scroll of its own: it pushes the groups below it down.
+  expect(await panel.evaluate((el) => getComputedStyle(el).maxHeight)).toBe("none");
+  expect(await panel.evaluate((el) => el.scrollHeight <= el.clientHeight + 1)).toBe(true);
+
+  const ten = panel.getByRole("checkbox", { name: /^CR 10, / });
+  await expect(ten).toHaveAccessibleName(/^CR 10, [\d,]+ creatures?$/);
+  await ten.check();
+  await expect(button).toHaveText("CR: 10");
+  const eleven = panel.getByRole("checkbox", { name: /^CR 11, / });
+  await eleven.check();
+  await expect(button).toHaveText("CR: 2 chosen");
+  const hash = new URL(page.url()).hash;
+  expect(hash).toContain("facet=cr:10");
+  expect(hash).toContain("facet=cr:11");
+  // The panel stays open and the tick stays under the reader's finger.
+  await expect(panel).toBeVisible();
+  await expect(eleven).toBeChecked();
+  await expect(eleven).toBeFocused();
+  // Both values are ticked and listed in the order they were made.
+  await expect(ten).toBeChecked();
+  await expect(filters.locator(".filter-group", { has: button }).locator(".chip")).toHaveCount(0);
+
+  // Escape closes the menu and returns focus to its button.
+  await page.keyboard.press("Escape");
+  await expect(panel).toBeHidden();
+  await expect(button).toBeFocused();
+  await expect(button).toHaveAttribute("aria-expanded", "false");
+  // The sidebar is not a panel that closes: it stays on the page.
+  await expect(page.locator("#filters-panel")).toBeVisible();
+});
+
+installedTest("Filter menus: two kinds chosen together show two menus with different names (#579)", async ({ page }) => {
+  await installLibrary(page);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("#/search?q=poison&kind=creature&kind=affliction");
+  await waitResults(page, "poison");
+  const filters = page.locator(".filters");
+  // A list page says `Type`; here each button names its kind, as the pill legends did.
+  await expect(filters.getByRole("button", { name: "Creature type: All types", exact: true })).toHaveCount(1);
+  await expect(filters.getByRole("button", { name: "Affliction type: All types", exact: true })).toHaveCount(1);
+  const names = await filters.locator(".filter-btn").allInnerTexts();
+  expect(new Set(names).size, names.join(" | ")).toBe(names.length);
+  // The rows carry the same prefix.
+  const menu = await openFacetMenu(page, "Affliction type: All types");
+  await expect(menu.getByRole("checkbox", { name: /^Affliction type Poison, [\d,]+ afflictions?$/ })).toBeVisible();
+});
+
+installedTest("Filter menus: the first Escape closes the menu and the second closes the filter panel (#579)", async ({ page }) => {
+  await installLibrary(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("#/search?q=dragon&kind=creature");
+  await waitResults(page, "dragon");
+  const toggle = page.locator(".filters-toggle");
+  await toggle.click();
+  const panel = page.locator("#filters-panel");
+  await expect(panel).toHaveClass(/open/);
+  const button = panel.getByRole("button", { name: "CR: All CRs", exact: true });
+  await button.click();
+  const menu = page.locator(`#${await button.getAttribute("aria-controls")}`);
+  await expect(menu).toBeVisible();
+  // The menu is in the panel's flow: the panel is the scroll area, so the menu has none.
+  expect(await menu.evaluate((el) => getComputedStyle(el).maxHeight)).toBe("none");
+
+  await page.keyboard.press("Escape");
+  await expect(menu).toBeHidden();
+  await expect(button).toBeFocused();
+  await expect(panel).toHaveClass(/open/);
+  await page.keyboard.press("Escape");
+  await expect(panel).not.toHaveClass(/open/);
+  await expect(toggle).toBeFocused();
+});
+
+installedTest("Filter menus: a group of four values or fewer stays pills, and the page does not scroll sideways (#579)", async ({ page }) => {
+  await installLibrary(page);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.goto("#/search?q=elf&kind=race");
+  await waitResults(page, "elf");
+  const filters = page.locator(".filters");
+  const group = filters.locator(".filter-group", { has: page.locator("legend", { hasText: /^Race group$/ }) });
+  await expect(group.locator(".chip").first()).toBeVisible();
+  expect(await group.locator(".chip").count()).toBeLessThanOrEqual(4);
+  await expect(filters.getByRole("button", { name: /^Race group/ })).toHaveCount(0);
+
+  // With every menu of a creature search open, nothing is wider than the page or the sidebar.
+  await page.goto("#/search?q=dragon&kind=creature");
+  await waitResults(page, "dragon");
+  for (const name of ["Creature type: All types", "CR: All CRs", "Size: All sizes"]) {
+    await filters.getByRole("button", { name, exact: true }).click();
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(0);
+  expect(await filters.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(0);
 });
 
 installedTest("Publication filter hides empty books, pages the rest, and keeps selections in the URL", async ({ page }) => {
@@ -574,13 +704,13 @@ test("Search operates entirely offline", async ({ page, context, server }) => {
   await page.goto("#/search");
   await page.locator("#search-input").fill("");
   await page.locator(".filters .chip", { hasText: /^Spells/ }).click();
-  const schoolChip = page.locator(".filters .chip", { hasText: new RegExp(`^${escape(chosen.school)}\\d*$`, "i") });
-  await expect(schoolChip.first()).toBeVisible();
-  await schoolChip.first().click();
+  const schoolRow = (await openFacetMenu(page, "School: All schools")).getByRole("checkbox", { name: new RegExp(`^School ${escape(chosen.school)}, `, "i") });
+  await expect(schoolRow).toBeVisible();
+  await schoolRow.check();
   const levelText = chosen.level === 0 ? "Cantrips" : String(chosen.level);
-  const levelChip = page.locator(".filter-group", { hasText: "Spell level" }).locator(".chip", { hasText: new RegExp(`^${escape(levelText)}\\d*$`) });
-  await expect(levelChip.first()).toBeVisible();
-  await levelChip.first().click();
+  const levelRow = (await openFacetMenu(page, "Spell level: All levels")).getByRole("checkbox", { name: new RegExp(`^Spell level ${escape(levelText)}, `) });
+  await expect(levelRow).toBeVisible();
+  await levelRow.check();
   await expect.poll(() => page.url()).toContain(`spell_level:${chosen.level}`);
   await showAllResults(page);
   await expect(page.locator(".results > .hit")).toHaveCount(expectedGroups.length);
@@ -1371,7 +1501,7 @@ installedTest("A class-option group is a scope like any facet: the pill, the sug
   await expect(page.locator(".result-count")).toHaveText(/^(Top [\d,]+ of )?[\d,]+ results? in Rage powers.* · Show all class options/);
   await expect(scopePill(page, "Rage powers")).toBeVisible();
   // The filter panel (the sidebar on a desktop) offers the group of the kind.
-  await expect(page.locator('.filters .filter-group:has(legend:text-is("Group"))')).toBeVisible();
+  await expect(page.locator(".filters").getByRole("button", { name: /^Group: Rage power/i })).toBeVisible();
 });
 
 installedTest("A recent search remembers its scope: the row shows it, tapping restores it, and the same words in another scope are another row", async ({ page }) => {

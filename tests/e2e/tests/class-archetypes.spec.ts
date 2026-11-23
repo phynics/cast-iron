@@ -176,12 +176,12 @@ test("Keep narrows the list to the archetypes that leave the chosen features alo
     const choices = panel(page, "keep");
     await expect(choices, label).toBeVisible();
     // Tick one feature: Arcane Bond, which several archetypes replace.
-    await choices.getByRole("checkbox", { name: /^Arcane Bond, \d+ archetypes?$/ }).check();
+    await choices.getByRole("checkbox", { name: /^Keep Arcane Bond, \d+ archetypes?$/ }).check();
     await expect(keep, label).toHaveText("Keep: Arcane Bond");
     // The choice is the route's: one history entry, in the address.
     await expect.poll(() => page.evaluate(() => location.hash), label).toContain("keep=arcane-bond");
     // It leaves the reader where they are: no jump to the section, focus stays on the row.
-    await expect(choices.getByRole("checkbox", { name: /^Arcane Bond, / }), label).toBeFocused();
+    await expect(choices.getByRole("checkbox", { name: /^Keep Arcane Bond, / }), label).toBeFocused();
     // The panel stays open while the reader ticks several rows.
     await expect(choices, label).toBeVisible();
     let want = expectedNarrowed(expected, ["arcane-bond"]);
@@ -191,7 +191,7 @@ test("Keep narrows the list to the archetypes that leave the chosen features alo
     await expect(countLine(page), label).toContainText(`${want.compatible.length} of ${expected.length} archetypes`);
     await expect(countLine(page), label).toContainText("Show all");
     // Two features.
-    await choices.getByRole("checkbox", { name: /^Scribe Scroll, \d+ archetypes?$/ }).check();
+    await choices.getByRole("checkbox", { name: /^Keep Scribe Scroll, \d+ archetypes?$/ }).check();
     await expect(keep, label).toHaveText("Keep: 2 chosen");
     await expect.poll(() => page.evaluate(() => location.hash), label).toMatch(/keep=arcane-bond&keep=scribe-scroll/);
     want = expectedNarrowed(expected, ["arcane-bond", "scribe-scroll"]);
@@ -325,7 +325,7 @@ test("The Keep menu has a find field above ten features", async ({ page }) => {
   const find = choices.getByRole("searchbox", { name: "Find a feature" });
   await expect(find).toBeFocused();
   // Narrow by the label of the last feature; the status line and the rows follow.
-  const label = ((await choices.getByRole("checkbox").last().getAttribute("aria-label")) ?? "").split(", ")[0];
+  const label = ((await choices.getByRole("checkbox").last().getAttribute("aria-label")) ?? "").split(", ")[0].replace(/^Keep /, "");
   await find.fill(label.toLowerCase());
   await expect(choices.getByRole("status")).toContainText("feature");
   const left = await choices.getByRole("checkbox").count();
@@ -352,7 +352,7 @@ test("The first choice from a bare or an anchored address leaves scroll and focu
       const keep = menu(page, "keep");
       await keep.evaluate((el) => el.scrollIntoView({ block: "start" }));
       await keep.click();
-      const checkbox = panel(page, "keep").getByRole("checkbox", { name: /^Arcane Bond, / });
+      const checkbox = panel(page, "keep").getByRole("checkbox", { name: /^Keep Arcane Bond, / });
       await expect(checkbox, label).toBeVisible();
       await checkbox.scrollIntoViewIfNeeded();
       const before = await scrollY();
