@@ -889,6 +889,7 @@ mod tests {
             .iter()
             .chain(cast_iron_corpus::ITEM_TECH_SLOTS.iter())
             .chain(cast_iron_corpus::ITEM_QUALITY_SLOTS.iter())
+            .chain(cast_iron_corpus::PRINTED_SLOT_VALUES.iter())
             .map(|slot| slot.to_string())
             .chain(["neck or shoulders".to_string(), "none or neck".to_string()])
             .collect();

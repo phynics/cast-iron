@@ -166,13 +166,22 @@ pub const ITEM_QUALITY_SLOTS: [&str; 4] = [
     "armor/shield quality",
 ];
 
-/// Whether `value` is a closed `slot` value: one body slot, one tech slot, one enhancement value, or
-/// two distinct body slots joined by ` or `. A tech slot or an enhancement value never joins a pair.
-/// Case counts: the corpus spells every value in lower case.
+/// Printed `slot` values that the pair rule does not produce: a closed list, each value named here
+/// and nowhere else. Start with `arm or wrist`, printed by Kerchief of Remembrance (Heroes of the
+/// High Court p. 13). `arm` is a tech slot that never joins a pair, and `wrist` is not the body slot
+/// `wrists`, so the pair rule rejects it. The owner ruled on 2026-11-23 that the printed value is
+/// allowed as written (phynics/cast-iron-data#171). Add a value only with a print citation.
+pub const PRINTED_SLOT_VALUES: [&str; 1] = ["arm or wrist"];
+
+/// Whether `value` is a closed `slot` value: one body slot, one tech slot, one enhancement value, one
+/// printed value of `PRINTED_SLOT_VALUES`, or two distinct body slots joined by ` or `. A tech slot
+/// or an enhancement value never joins a pair. Case counts: the corpus spells every value in lower
+/// case.
 pub fn is_item_slot(value: &str) -> bool {
     if ITEM_BODY_SLOTS.contains(&value)
         || ITEM_TECH_SLOTS.contains(&value)
         || ITEM_QUALITY_SLOTS.contains(&value)
+        || PRINTED_SLOT_VALUES.contains(&value)
     {
         return true;
     }
@@ -3103,6 +3112,7 @@ mod tests {
             .iter()
             .chain(ITEM_TECH_SLOTS.iter())
             .chain(ITEM_QUALITY_SLOTS.iter())
+            .chain(PRINTED_SLOT_VALUES.iter())
             .copied()
             .collect();
         let unique: BTreeSet<&str> = all.iter().copied().collect();
@@ -3148,9 +3158,8 @@ mod tests {
             "cloak",
             "veemod goggles or neck",
             "neck or skillslot",
-            "arm or wrist",
-            "arm or arm",
             "weapon quality or neck",
+            "arm or arm",
             "neck, ring, or none",
             "head and eyes",
             "neck or neck",
@@ -3158,6 +3167,22 @@ mod tests {
             "neck or",
         ] {
             assert!(!is_item_slot(bad), "{bad}");
+        }
+    }
+
+    #[test]
+    fn a_printed_slot_value_is_accepted_by_name_and_only_by_name() {
+        // Kerchief of Remembrance (Heroes of the High Court p. 13) prints `arm or wrist`; the pair
+        // rule does not produce it (phynics/cast-iron-data#171).
+        assert!(is_item_slot("arm or wrist"));
+        for rejected in [
+            "arm or wrists",
+            "wrist",
+            "arm or neck",
+            "wrist or arm",
+            "Arm or wrist",
+        ] {
+            assert!(!is_item_slot(rejected), "{rejected}");
         }
     }
 
