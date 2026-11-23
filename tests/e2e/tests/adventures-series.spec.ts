@@ -1,4 +1,4 @@
-import { test, expect, loadCorpus } from "./fixtures";
+import { installedTest, expect, loadCorpus } from "./fixtures";
 import { installLibrary, waitHomeIdle } from "./helpers";
 
 const corpus = loadCorpus();
@@ -64,12 +64,12 @@ async function openManageAdventures(page: any) {
 const grouped = (n: number) => n.toLocaleString("en-US");
 const allActive = (n: number) => `${grouped(n)} ${n === 1 ? "book" : "books"}`;
 
-test.beforeEach(async ({ page }) => {
+installedTest.beforeEach(async ({ page }) => {
   await installLibrary(page);
   await waitHomeIdle(page);
 });
 
-test("Adventures shows Adventure Path groups, and Rise of the Runelords opens its volumes in order", async ({ page }) => {
+installedTest("Adventures shows Adventure Path groups, and Rise of the Runelords opens its volumes in order", async ({ page }) => {
   const tier = await openAdventures(page);
   const paths = tier.locator('.adventure-group[data-series="adventure-paths"]');
   await expect(paths).toBeVisible();
@@ -98,7 +98,7 @@ test("Adventures shows Adventure Path groups, and Rise of the Runelords opens it
   await expect(rows.nth(1).locator(".cat-name")).toHaveText("#2 The Skinsaw Murders");
 });
 
-test("Modules are one dated list without the printed prefix", async ({ page }) => {
+installedTest("Modules are one dated list without the printed prefix", async ({ page }) => {
   const tier = await openAdventures(page);
   const group = tier.locator('.adventure-group[data-series="modules"]');
   await expect(group).toBeVisible();
@@ -122,7 +122,7 @@ test("Modules are one dated list without the printed prefix", async ({ page }) =
   await expect(rows.first().locator(".cat-name")).toHaveText(modules[0].title);
 });
 
-test("Pathfinder Society groups by season and lists its scenarios by number", async ({ page }) => {
+installedTest("Pathfinder Society groups by season and lists its scenarios by number", async ({ page }) => {
   const tier = await openAdventures(page);
   const society = tier.locator('.adventure-group[data-series="society"]');
   await expect(society).toBeVisible();
@@ -148,7 +148,7 @@ test("Pathfinder Society groups by season and lists its scenarios by number", as
   }
 });
 
-test("An Adventure Path's bulk toggle changes its active tally", async ({ page }) => {
+installedTest("An Adventure Path's bulk toggle changes its active tally", async ({ page }) => {
   const tier = await openManageAdventures(page);
   const group = tier.locator(
     '.adventure-group[data-series="adventure-paths"] .adventure-series[data-series="Rise of the Runelords"]',
@@ -178,7 +178,7 @@ test("An Adventure Path's bulk toggle changes its active tally", async ({ page }
 
 // ---- Find a book (#587) ---------------------------------------------------------------------
 
-test("A series bulk button acts on the whole series while a search shows only some of its books", async ({ page }) => {
+installedTest("A series bulk button acts on the whole series while a search shows only some of its books", async ({ page }) => {
   const volumes = apVolumes("Rise of the Runelords");
   const burnt = volumes[0];
   await page.goto("#/books/manage?q=burnt%20offerings");

@@ -1,4 +1,4 @@
-import { test, expect, loadCorpus, loadBacklinks } from "./fixtures";
+import { test, installedTest, expect, loadCorpus, loadBacklinks } from "./fixtures";
 import { bodyLinks, buildLibraryWithoutBacklinks, installLibrary, waitControlled } from "./helpers";
 
 const corpus = loadCorpus();
@@ -32,7 +32,7 @@ function choosePair() {
   return undefined;
 }
 
-test("Show all builds its rows only when it opens", async ({ page }) => {
+installedTest("Show all builds its rows only when it opens", async ({ page }) => {
   const target = [...backlinks.entries()].find(
     ([targetId, sources]) => sources.length > 8 && corpus.entries.has(targetId),
   )?.[0];
@@ -61,7 +61,7 @@ test("Show all builds its rows only when it opens", async ({ page }) => {
   expect(await more.locator("li").count()).toBeGreaterThan(0);
 });
 
-test("Show all keeps its rows when it is closed and reopened", async ({ page }) => {
+installedTest("Show all keeps its rows when it is closed and reopened", async ({ page }) => {
   const target = [...backlinks.entries()].find(
     ([targetId, sources]) => sources.length > 8 && corpus.entries.has(targetId),
   )?.[0];
@@ -90,6 +90,7 @@ test("Show all keeps its rows when it is closed and reopened", async ({ page }) 
   await expect(more.locator("li")).toHaveCount(opened);
 });
 
+// Plain `test`: it installs a variant library from a server overlay, so it needs a clean profile.
 test("A library without the reverse index shows no Referenced by panel", async ({ page, server }) => {
   const pair = choosePair();
   expect(pair, "the compiled corpus has a body link with a reverse-index row").toBeTruthy();
@@ -117,6 +118,7 @@ test("A library without the reverse index shows no Referenced by panel", async (
   }
 });
 
+// Plain `test`: it reads the library offline straight after its own install.
 test("Referenced by lists a body link's source and returns to it offline", async ({
   page,
   context,
