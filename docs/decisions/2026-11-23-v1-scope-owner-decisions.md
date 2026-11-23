@@ -35,10 +35,12 @@ the owner decided the open questions that stood in the way.
   rewrite. Whether the class-option layout changes the same way is not decided. This is the last large
   corpus rewrite, and the UI/UX work after v1 then runs on final data.
 - **The print queues finish, with no cut line:** wrong book memberships
-  ([#461](https://github.com/phynics/cast-iron/issues/461)), missing citation pages
-  ([cast-iron-data#215](https://github.com/phynics/cast-iron-data/issues/215)) and the 9 leftover creature
-  key rows ([#254](https://github.com/phynics/cast-iron/issues/254)). The 9 rows need prints that were not
-  available on 2026-11-22.
+  ([#461](https://github.com/phynics/cast-iron/issues/461)) and missing citation pages
+  ([cast-iron-data#215](https://github.com/phynics/cast-iron-data/issues/215)).
+- **Update later on 2026-11-23:** the owner moved the 9 leftover creature key rows
+  ([#254](https://github.com/phynics/cast-iron/issues/254)) to `post-v1`. They cite Adventure Path volumes
+  (#33, #34, #48, #49, #70, #89 and #142) that are not available for a print check, so by the rule above
+  they no longer block v1. They are tracked in phynics/cast-iron-data#166 and #215.
 - **Device checks run on simulators.** An iOS Simulator and an Android Emulator, driven through the T3 Code
   device tools, replace the physical-device session for
   [#423](https://github.com/phynics/cast-iron/issues/423),
@@ -65,3 +67,11 @@ the owner decided the open questions that stood in the way.
   ([#650](https://github.com/phynics/cast-iron/issues/650)), the linking part of the #637 intention.
 - **The `Wide` spell row density is renamed `Expanded`**
   ([#651](https://github.com/phynics/cast-iron/issues/651)).
+- **Leftover creature key rows** ([#254](https://github.com/phynics/cast-iron/issues/254)): the 9 rows stay
+  until their prints are available (see the update under In v1).
+
+## Status at the end of 2026-11-23
+
+- [#637](https://github.com/phynics/cast-iron/issues/637) closed with #654. The feat-chain cap fix of
+  [#647](https://github.com/phynics/cast-iron/issues/647) merged as #653; folding and the deep link are
+  post-v1.
