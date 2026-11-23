@@ -635,7 +635,7 @@ installedTest("Spell lists at 390 px: Wizard is one tap from the hub, and rows s
   const schools = await page.locator(".spell-school").allInnerTexts();
   expect(schools.length).toBe(evocationCount);
   expect(new Set(schools)).toEqual(new Set(["Evocation"]));
-  await page.getByRole("checkbox", { name: /^Conjuration, / }).check();
+  await page.getByRole("checkbox", { name: /^School Conjuration, / }).check();
   await expect(page.getByRole("button", { name: "School: 2 chosen", exact: true })).toBeVisible();
   expect(new Set(await page.locator(".spell-school").allInnerTexts())).toEqual(new Set(["Evocation", "Conjuration"]));
   expect(await overflow()).toBeLessThanOrEqual(0);
@@ -1243,7 +1243,7 @@ installedTest("A class page's archetype list fits 390 px and keeps 44 px targets
   }
   // The choice rows of both menus are 44 px, and a tick narrows the list without sideways scroll.
   await keep.click();
-  const feature = page.locator("#filter-panel-keep").getByRole("checkbox", { name: /^Arcane Bond, / });
+  const feature = page.locator("#filter-panel-keep").getByRole("checkbox", { name: /^Keep Arcane Bond, / });
   const featureRow = feature.locator("xpath=ancestor::label");
   expect(Math.round((await featureRow.boundingBox())!.height)).toBeGreaterThanOrEqual(44);
   await feature.check();

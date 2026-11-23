@@ -83,7 +83,7 @@ test("A class page is not rendered again by a section jump or by the archetype c
   // `?keep=`: tick a feature. The panel stays open and focus stays on the row.
   await page.locator("#filter-btn-keep").click();
   const keep = page.locator("#filter-panel-keep");
-  const row = keep.getByRole("checkbox", { name: /^Arcane Bond, \d+ archetypes?$/ });
+  const row = keep.getByRole("checkbox", { name: /^Keep Arcane Bond, \d+ archetypes?$/ });
   await row.check();
   await expect.poll(() => page.evaluate(() => location.hash)).toContain("keep=arcane-bond");
   await expect(row).toBeFocused();
