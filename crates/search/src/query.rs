@@ -624,16 +624,24 @@ impl SearchIndex {
                 return Some((Vec::new(), empty_matcher()));
             }
             timer.enter(Phase::Scoring);
-            let mut ords: Vec<(String, &str, u32)> = (0..self.meta.docs.len())
-                .filter(|&i| accept(i) && self.passes(i, &query.filters))
-                .map(|i| {
-                    (
-                        normalize(&self.meta.docs[i].title),
-                        self.meta.docs[i].id.as_str(),
-                        i as u32,
-                    )
-                })
-                .collect();
+            // Equal titles order like equal scores do: product line, then the newest printing,
+            // then id, so a filtered list agrees with ranked results and with list folds.
+            let mut ords: Vec<(String, u8, std::cmp::Reverse<u32>, &str, u32)> =
+                (0..self.meta.docs.len())
+                    .filter(|&i| accept(i) && self.passes(i, &query.filters))
+                    .map(|i| {
+                        (
+                            normalize(&self.meta.docs[i].title),
+                            self.doc_ranks
+                                .get(i)
+                                .copied()
+                                .unwrap_or(crate::NEUTRAL_SOURCE_RANK),
+                            std::cmp::Reverse(self.doc_recency.get(i).copied().unwrap_or(0)),
+                            self.meta.docs[i].id.as_str(),
+                            i as u32,
+                        )
+                    })
+                    .collect();
             timer.exit(Phase::Scoring);
             timer.enter(Phase::Sort);
             cast_iron_sort::sort(&mut ords);
@@ -641,7 +649,7 @@ impl SearchIndex {
             let ranked = ords
                 .into_iter()
                 .take(limit)
-                .map(|(_, _, ord)| (ord, 0.0))
+                .map(|(.., ord)| (ord, 0.0))
                 .collect();
             return Some((ranked, empty_matcher()));
         }

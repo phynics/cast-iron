@@ -1,6 +1,6 @@
 import type { Locator, Page } from "@playwright/test";
 import { installedTest as test, expect, loadCorpus, goOffline } from "./fixtures";
-import { groupLetter, memberBooks, installLibrary, openBookGroups, waitControlled, waitResults } from "./helpers";
+import { groupLetter, latestPrintingGroups, memberBooks, installLibrary, openBookGroups, waitControlled, waitResults } from "./helpers";
 
 const corpus = loadCorpus();
 /**
@@ -193,4 +193,30 @@ test("Creatures with one title still fold, since they have no parent", async ({ 
   const fold = page.locator(".entry-list .source-variants").filter({ has: page.locator("summary", { hasText: /^\s*Acolyte / }) });
   await expect(fold).toHaveCount(1);
   await expect(fold.locator("summary .row-source")).toHaveCount(0);
+});
+
+// ---- A fold lists the latest printing first, as search does (#637) ----
+
+test("An item fold lists the newest printing first and names itself by it", async ({ page }) => {
+  const thirdParty = new Set<string>(
+    corpus.catalog.sources.filter((source: any) => source.third_party).map((source: any) => source.id as string),
+  );
+  // Several printings of one product line with distinct dates, where neither the id order nor
+  // the book-title order would put the newest first, so only the new order passes.
+  const group = latestPrintingGroups(corpus, thirdParty, { kind: "item", sameText: false }).find(
+    (candidate) => candidate.newest.id !== candidate.byBook.id,
+  );
+  expect(group, "the library must keep an item in several books of one product line, with distinct dates").toBeTruthy();
+  const { stubs, newest } = group!;
+  const bookOf = (stub: Stub) => corpus.catalog.sources.find((source) => source.id === stub.source)!.title as string;
+  await installLibrary(page);
+  await page.goto(`#/browse/kind/item?l=${encodeURIComponent(groupLetter(newest.title))}`);
+  const fold = page.locator(".entry-list .source-variants").filter({ has: page.locator(`a[href="#/entry/${newest.id}"]`) });
+  await expect(fold).toHaveCount(1);
+  await expect(fold.locator("summary")).toContainText(new RegExp(`^${escape(newest.title)} `));
+  await fold.locator("summary").press("Enter");
+  // Each link names its book, newest printing first; a repeated name only gains a number.
+  const links = await fold.locator("ul a").evaluateAll((anchors) => anchors.map((a) => a.getAttribute("href")));
+  expect(links).toEqual(stubs.map((stub: Stub) => `#/entry/${stub.id}`));
+  await expect(fold.locator("ul a").first()).toHaveText(new RegExp(`^${escape(bookOf(newest))}( \\(\\d+\\))?$`));
 });

@@ -898,6 +898,7 @@ fn prestige_panel(library: &Library, entry: &RuleEntry) -> Option<AnyView> {
                     .source(&stub.source)
                     .map_or_else(|| stub.source.clone(), |s| s.title.clone()),
                 parent: None,
+                order: library.printing_order(stub),
             })
         })
         .collect();

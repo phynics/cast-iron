@@ -1271,6 +1271,24 @@ fn equal_scores_and_ranks_order_newest_printing_first_and_undated_last() {
 }
 
 #[test]
+fn a_search_with_filters_and_no_text_orders_equal_titles_like_ranked_results() {
+    let mut idx = reprints();
+    let filtered = || Query {
+        filters: mk_filters(&["spell"], &[], &[]),
+        ..Default::default()
+    };
+    let by_text = |idx: &SearchIndex| ids(idx, &q("fireball"));
+    let by_filter = |idx: &SearchIndex| ids(idx, &filtered());
+    assert_eq!(by_filter(&idx), by_text(&idx), "no keys: title, then id");
+    idx.set_source_ranks(RANKS);
+    assert_eq!(by_filter(&idx), by_text(&idx), "product line first");
+    idx.set_source_ranks([("core", 0), ("pc", 0), ("ap", 0), ("other", 0)]);
+    idx.set_printing_recency([("a-adventure", 2), ("b-companion", 7), ("c-rulebook", 5)]);
+    assert_eq!(by_filter(&idx), by_text(&idx), "then the newest printing");
+    assert_eq!(by_filter(&idx)[0], "b-companion");
+}
+
+#[test]
 fn source_rank_wins_over_printing_recency() {
     let mut idx = reprints();
     idx.set_source_ranks(RANKS);
