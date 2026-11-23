@@ -317,6 +317,8 @@ fn Reader(library: Library) -> impl IntoView {
         ) || previous.as_ref().is_some_and(|p| same_book(p, &route))
             // Choosing a school edits the schools in the URL of the spell list that is on screen.
             || previous.as_ref().is_some_and(|p| spells::same_spell_list(p, &route))
+            // Typing in the Find a book field of Books or Manage books edits `?q=` of the page.
+            || previous.as_ref().is_some_and(|p| views::book_find::same_page(p, &route))
             // So does choosing an archetype filter on the class page that is on screen.
             || previous.as_ref().is_some_and(|p| p.only_arch_differs(&route));
         // A jump to another section of the entry page that is on screen, also from an `?a=`
@@ -377,7 +379,7 @@ fn Reader(library: Library) -> impl IntoView {
                 </a>
                 <nav aria-label="Primary">
                     <NavLink label="Home" route=Route::Home />
-                    <NavLink label="Books" route=Route::Books />
+                    <NavLink label="Books" route=Route::books() />
                     <NavLink label="Table" route=Route::Quick />
                     <NavLink label="Settings" route=Route::Settings />
                 </nav>
@@ -459,11 +461,11 @@ fn in_section(link: &Route, current: &Route) -> bool {
                 | Route::SpellList { .. }
                 | Route::FeatChains,
         ) | (
-            Route::Books,
-            Route::Books
+            Route::Books { .. },
+            Route::Books { .. }
                 | Route::BooksSet(_)
                 | Route::BookRemoved(_)
-                | Route::BooksManage
+                | Route::BooksManage { .. }
                 | Route::Book { .. }
                 | Route::BookChapter { .. },
         ) | (Route::Quick, Route::Quick)
@@ -537,7 +539,12 @@ fn RouteView() -> impl IntoView {
             // A share link is Manage books with a question on top. Clearing the code after the
             // reader answers must not rebuild the page, which would drop the Undo line it just
             // wrote.
-            Route::BooksSet(_) => Route::BooksManage,
+            Route::BooksSet(_) | Route::BooksManage { .. } => Route::books_manage(),
+            // The find text of Books and Manage books is the page's own state: it reads the text
+            // from the route and must not be rebuilt for a keystroke, which would drop the focus
+            // in the field. The removed-book line is the same page, so a search clears it without
+            // a rebuild.
+            Route::Books { .. } | Route::BookRemoved(_) => Route::books(),
             // The schools of a spell list are the list's own state: it reads them from the route
             // and must not be rebuilt for a choice, which would close its open menu.
             Route::SpellList { class, level, .. } => Route::spell_list(class, level),
@@ -576,10 +583,10 @@ fn RouteView() -> impl IntoView {
         // a rebuild after each toggle would drop focus and the scroll position.
         let selection = if matches!(
             route,
-            Route::Books
+            Route::Books { .. }
                 | Route::BooksSet(_)
                 | Route::BookRemoved(_)
-                | Route::BooksManage
+                | Route::BooksManage { .. }
                 | Route::Book { .. }
                 | Route::BookChapter { .. }
         ) {
@@ -607,9 +614,8 @@ fn RouteView() -> impl IntoView {
             }
         },
         Route::BrowseSource(id) => view! { <BrowseSource id /> }.into_fresh(),
-        Route::Books => view! { <Books /> }.into_fresh(),
-        Route::BookRemoved(_) => view! { <Books removed=true /> }.into_fresh(),
-        Route::BooksManage | Route::BooksSet(_) => view! { <ActiveBooks /> }.into_fresh(),
+        Route::Books { .. } | Route::BookRemoved(_) => view! { <Books /> }.into_fresh(),
+        Route::BooksManage { .. } | Route::BooksSet(_) => view! { <ActiveBooks /> }.into_fresh(),
         Route::Book { source, .. } => view! { <BookView source /> }.into_fresh(),
         Route::BookChapter {
             source,
@@ -652,7 +658,7 @@ mod tests {
                 .with_source(Some("core-rulebook".into()))
         ));
         assert!(!in_section(
-            &Route::Books,
+            &Route::books(),
             &Route::browse_kind(cast_iron_schema::EntryKind::Spell)
                 .with_source(Some("core-rulebook".into()))
         ));
@@ -675,21 +681,21 @@ mod tests {
             assert!(in_section(&Route::Home, &inside), "{inside:?}");
         }
         assert!(in_section(
-            &Route::Books,
+            &Route::books(),
             &Route::Book {
                 source: "core-rulebook".into(),
                 chapter: Some(cast_iron_schema::books::ContentsRow::Position(vec![1]))
             }
         ));
         assert!(in_section(
-            &Route::Books,
+            &Route::books(),
             &Route::BookChapter {
                 source: "core-rulebook".into(),
                 chapter: "combat".into(),
                 anchor: None
             }
         ));
-        assert!(!in_section(&Route::Home, &Route::Books));
+        assert!(!in_section(&Route::Home, &Route::books()));
         assert!(in_section(&Route::Home, &Route::Home));
         assert!(!in_section(&Route::Home, &Route::Settings));
         assert!(!in_section(&Route::Home, &Route::search("fire")));
@@ -697,7 +703,7 @@ mod tests {
         assert!(in_section(&Route::Quick, &Route::Quick));
         for other in [
             Route::Home,
-            Route::Books,
+            Route::books(),
             Route::Settings,
             Route::Diagnostics,
             Route::Legal,
@@ -706,7 +712,7 @@ mod tests {
         ] {
             assert!(!in_section(&Route::Quick, &other), "{other:?}");
         }
-        for link in [Route::Home, Route::Books, Route::Settings] {
+        for link in [Route::Home, Route::books(), Route::Settings] {
             assert!(!in_section(&link, &Route::Quick), "{link:?}");
         }
     }

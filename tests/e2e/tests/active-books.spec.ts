@@ -726,3 +726,60 @@ installedTest("A search hint offers to include an inactive book without changing
   await expect(page.locator(`.book-directory-item[data-book-id="${book.source}"]`)
     .getByRole("checkbox", { name: `Active ${source.title}`, exact: true })).toBeChecked();
 });
+
+// ---- Find a book (#587) ---------------------------------------------------------------------
+
+const manageField = (page: any) => page.getByRole("searchbox", { name: "Find a book", exact: true });
+const manageStatus = (page: any) => page.locator(".book-find-status");
+
+installedTest("Manage books has the Find a book field above Presets, and a search narrows the rows", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/books/manage");
+  await waitReady(page);
+  const field = manageField(page);
+  await expect(page.locator("label[for='book-find']")).toHaveText("Find a book");
+  expect((await field.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  // Under the count line, above the presets.
+  const countY = (await page.locator(".books-count").boundingBox())!.y;
+  const fieldY = (await field.boundingBox())!.y;
+  const presetsY = (await page.getByRole("heading", { name: "Presets", exact: true }).boundingBox())!.y;
+  expect(fieldY).toBeGreaterThan(countY);
+  expect(fieldY).toBeLessThan(presetsY);
+
+  const core = corpus.catalog.sources.find((row: any) => row.id === "core-rulebook")!;
+  await field.fill("core rulebook");
+  await expect(page).toHaveURL(/#\/books\/manage\?q=core%20rulebook$/);
+  const matches = corpus.catalog.sources.filter((row: any) => row.title.toLowerCase().includes("core rulebook"));
+  await expect(manageStatus(page)).toContainText(`${matches.length === 1 ? "1 book matches" : `${count(matches.length)} books match`} "core rulebook"`);
+  await expect(page.locator(".book-directory-item")).toHaveCount(matches.length);
+  await expect(page.locator(`.book-directory-item[data-book-id="${core.id}"]`)).toBeVisible();
+  // Only the groups that hold a match are in the page.
+  const tiersOfMatches = new Set(matches.map((row: any) => row.category));
+  await expect(page.locator(".book-tier")).toHaveCount(tiersOfMatches.size);
+  // The presets are still there, and they still act on every book (the bulk change is the page's).
+  await expect(page.getByRole("button", { name: "Paizo Rulebooks", exact: true })).toBeVisible();
+
+  await manageStatus(page).getByRole("button", { name: "Clear", exact: true }).click();
+  await expect(field).toHaveValue("");
+  await expect(page).toHaveURL(/#\/books\/manage$/);
+  await expect(page.locator(".book-tier").first()).toBeVisible();
+});
+
+installedTest("Ticking a checkbox inside a filtered view changes the count line, which still counts all books", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/books/manage?q=core%20rulebook");
+  await waitReady(page);
+  const core = corpus.catalog.sources.find((row: any) => row.id === "core-rulebook")!;
+  const line = page.locator(".books-count");
+  await expect(line).toHaveText(`${count(paizoBooks.length)} of ${count(allBooks.length)} books active`);
+  const box = page.locator(`.book-directory-item[data-book-id="${core.id}"]`)
+    .getByRole("checkbox", { name: `Active ${core.title}`, exact: true });
+  await expect(box).toBeChecked();
+  await box.uncheck();
+  await expect(line).toHaveText(`${count(paizoBooks.length - 1)} of ${count(allBooks.length)} books active`);
+  // The search is where it was, and Back keeps the page.
+  await expect(manageField(page)).toHaveValue("core rulebook");
+  await expect(page).toHaveURL(/q=core%20rulebook$/);
+  await box.check();
+  await expect(line).toHaveText(`${count(paizoBooks.length)} of ${count(allBooks.length)} books active`);
+});

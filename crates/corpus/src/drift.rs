@@ -6,6 +6,7 @@
 //! copies. This check compares each pair that both state and reports every
 //! disagreement, naming both places, so a hand edit to one copy is noticed.
 
+use crate::check::is_item_slot;
 use crate::load::Stored;
 use cast_iron_schema::headings::plain_text;
 use cast_iron_schema::{
@@ -420,10 +421,7 @@ fn challenge_rating_pair(
     let marker = "**Challenge rating:**";
     let agree = stated
         .iter()
-        .any(|statement| match ChallengeRating::parse(statement) {
-            Some(parsed) => parsed == value,
-            None => normalize(&value.display()) == normalize(statement),
-        });
+        .any(|statement| challenge_rating_agrees(statement, value));
     Some(Pair {
         field,
         field_value: value.display(),
@@ -601,17 +599,102 @@ fn spell_pairs(entry: &RuleEntry, text: &str, rows: &[&StatRow]) -> Vec<Pair> {
     pairs
 }
 
-/// The six ability scores of an `Ability Scores` row: `Str 3, Dex 16, ...`.
+/// The six ability scores of an `Ability Scores` row: `Str 3, Dex 16, ...`. Each item is what
+/// follows the ability name, so `Str - (22 while corporeal)` gives `- (22 while corporeal)`, the
+/// value that the typed field keeps.
 fn parse_abilities(value: &str) -> Vec<String> {
     value
         .split(',')
         .map(|part| {
-            part.split_whitespace()
-                .last()
-                .unwrap_or_default()
-                .to_string()
+            let part = part.trim();
+            let (name, rest) = part.split_once(char::is_whitespace).unwrap_or((part, ""));
+            if ABILITY_NAMES
+                .iter()
+                .any(|ability| name.eq_ignore_ascii_case(ability))
+            {
+                rest.trim().to_string()
+            } else {
+                part.to_string()
+            }
         })
         .collect()
+}
+
+const ABILITY_NAMES: [&str; 6] = ["Str", "Dex", "Con", "Int", "Wis", "Cha"];
+
+/// Whether a printed challenge rating states `value`. Fractions compare by parsed value.
+fn challenge_rating_agrees(statement: &str, value: ChallengeRating) -> bool {
+    match ChallengeRating::parse(statement) {
+        Some(parsed) => parsed == value,
+        None => normalize(&value.display()) == normalize(statement),
+    }
+}
+
+/// The text of the first stat block row with `label`, if any.
+fn row_text(rows: &[&StatRow], label: &str) -> Option<String> {
+    rows.iter()
+        .find(|row| row.label.eq_ignore_ascii_case(label))
+        .map(|row| plain_text(&row.value).trim().to_string())
+}
+
+/// The `Subtype` row of a stat block against `[fields] subtypes`, as sets of words: the row
+/// is `Chaotic, Demon, Evil, Extraplanar` and the field `chaotic, demon, evil, extraplanar`.
+/// Pf Data prints the type alone in `Type` and the subtypes in this row.
+fn subtype_pair(text: &str, rows: &[&StatRow], subtypes: &[String]) -> Option<Pair> {
+    let stated = row_text(rows, "Subtype")?;
+    if subtypes.is_empty() {
+        return None;
+    }
+    let set = |items: &[&str]| -> BTreeSet<String> {
+        items
+            .iter()
+            .flat_map(|item| item.split(','))
+            .map(|item| creature_type_key(item.trim().trim_start_matches("or ")))
+            .filter(|item| !item.is_empty())
+            .collect()
+    };
+    let typed: Vec<&str> = subtypes.iter().map(String::as_str).collect();
+    Some(Pair {
+        field: "subtypes",
+        field_value: joined(subtypes),
+        source: "stat block row `Subtype`".into(),
+        source_line: body_line(text, |line| line.to_lowercase().starts_with("subtype:")),
+        agree: set(&typed) == set(&[stated.as_str()]),
+        source_value: stated,
+        missing: false,
+    })
+}
+
+/// `[fields] ac` (`20/10/19`) against the `Armor class`, `Touch` and `Flat-footed` rows.
+fn armor_class_pair(text: &str, rows: &[&StatRow], ac: &str) -> Option<Pair> {
+    let (armor, touch, flat) = (
+        row_text(rows, "Armor class")?,
+        row_text(rows, "Touch")?,
+        row_text(rows, "Flat-footed")?,
+    );
+    let stated = format!("{armor}/{touch}/{flat}");
+    Some(Pair {
+        field: "ac",
+        field_value: ac.to_string(),
+        source: "stat block rows `Armor class`, `Touch`, `Flat-footed`".into(),
+        source_line: body_line(text, |line| line.to_lowercase().starts_with("armor class:")),
+        agree: normalize(ac) == normalize(&stated),
+        source_value: stated,
+        missing: false,
+    })
+}
+
+/// `[fields] hp` against the `hp` or `Hit points` row. The field writes `103~9d12+45` where
+/// print writes `103 (9d12+45)`.
+fn hit_points_pair(text: &str, rows: &[&StatRow], hp: &str) -> Option<Pair> {
+    let printed = match hp.split_once('~') {
+        Some((total, dice)) => format!("{total} ({dice})"),
+        None => hp.to_string(),
+    };
+    let mut pair = row_pair(text, rows, "hp", &printed, &["hp", "Hit points"])?;
+    pair.field_value = hp.to_string();
+    pair.agree = pair.agree || normalize(hp) == normalize(&pair.source_value);
+    Some(pair)
 }
 
 fn creature_pairs(entry: &RuleEntry, text: &str, rows: &[&StatRow]) -> Vec<Pair> {
@@ -621,13 +704,20 @@ fn creature_pairs(entry: &RuleEntry, text: &str, rows: &[&StatRow]) -> Vec<Pair>
     let mut pairs = Vec::new();
     if let Some(cr) = fields.cr {
         pairs.extend(row_pair(text, rows, "cr", &cr.display(), &["CR"]));
+        // The Pf Data `Challenge rating` row compares by value, like the paragraph line.
+        if let Some(mut pair) = row_pair(text, rows, "cr", &cr.display(), &["Challenge rating"]) {
+            pair.agree = challenge_rating_agrees(&pair.source_value, cr);
+            pairs.push(pair);
+        }
         pairs.extend(challenge_rating_pair(text, &entry.body, "cr", cr));
+    }
+    if let Some(hp) = &fields.hp {
+        pairs.extend(hit_points_pair(text, rows, hp));
     }
     for (field, value, labels) in [
         ("size", &fields.size, &["Size"][..]),
         ("alignment", &fields.alignment, &["Alignment"][..]),
         ("ac", &fields.ac, &["AC"][..]),
-        ("hp", &fields.hp, &["hp"][..]),
         ("fortitude", &fields.fortitude, &["Fort"][..]),
         ("reflex", &fields.reflex, &["Ref"][..]),
         ("will", &fields.will, &["Will"][..]),
@@ -648,9 +738,14 @@ fn creature_pairs(entry: &RuleEntry, text: &str, rows: &[&StatRow]) -> Vec<Pair>
             pairs.extend(row_pair(text, rows, field, value, labels));
         }
     }
+    if let Some(ac) = &fields.ac {
+        pairs.extend(armor_class_pair(text, rows, ac));
+    }
+    pairs.extend(subtype_pair(text, rows, &fields.subtypes));
     if let Some(kind) = &fields.creature_type {
-        // The row may add the subtypes in parentheses.
-        let with_subtypes = if fields.subtypes.is_empty() {
+        // A stat block with a `Subtype` row prints the type alone in `Type`. Without that row,
+        // the `Type` row may add the subtypes in parentheses.
+        let with_subtypes = if fields.subtypes.is_empty() || row_text(rows, "Subtype").is_some() {
             kind.clone()
         } else {
             format!("{kind} ({})", joined(&fields.subtypes))
@@ -672,7 +767,9 @@ fn creature_pairs(entry: &RuleEntry, text: &str, rows: &[&StatRow]) -> Vec<Pair>
             field: "abilities",
             field_value: typed.join(", "),
             source: "stat block row `Ability Scores`".into(),
-            source_line: body_line(text, |line| line.starts_with("Ability Scores:")),
+            source_line: body_line(text, |line| {
+                line.to_lowercase().starts_with("ability scores:")
+            }),
             source_value: stated_text.trim().to_string(),
             agree: typed
                 .iter()
@@ -684,6 +781,54 @@ fn creature_pairs(entry: &RuleEntry, text: &str, rows: &[&StatRow]) -> Vec<Pair>
     pairs
 }
 
+/// The variant spellings that print gives a slot and that the corpus maps to a closed `slot`
+/// value in the field only (decision 2026-11-22, affliction types and item slots are closed
+/// vocabularies). The body keeps the printed spelling, so the drift check maps it the same way.
+const SLOT_SPELLINGS: [(&str, &str); 7] = [
+    ("-", "none"),
+    ("amulet", "neck"),
+    ("cloak", "shoulders"),
+    ("eye", "eyes"),
+    ("held", "none"),
+    ("shoulder", "shoulders"),
+    ("waist", "belt"),
+];
+
+/// A printed `Slot` row reduced to the closed value it states: the text up to the first `;` (a
+/// price or weight that the row repeats), without a trailing qualifier in parentheses (`(see
+/// text)`, `(replaces hand)`, `(barding)`), with each variant spelling mapped. A value that this
+/// leaves unchanged is returned as it is, so an open value compares by its own text.
+fn slot_key(printed: &str) -> String {
+    let printed = normalize(printed);
+    let printed = printed.split(';').next().unwrap_or_default().trim();
+    // A closed value that holds parentheses itself (`arms (cybernetic)`) is whole.
+    let printed = match printed.rfind(" (") {
+        Some(open) if printed.ends_with(')') && !is_item_slot(printed) => {
+            printed[..open].trim_end()
+        }
+        _ => printed,
+    };
+    printed
+        .split(" or ")
+        .map(|part| {
+            SLOT_SPELLINGS
+                .iter()
+                .find(|(spelling, _)| *spelling == part)
+                .map_or(part, |(_, slot)| slot)
+        })
+        .collect::<Vec<_>>()
+        .join(" or ")
+}
+
+/// `[fields] slot` against the `Slot` row. The field holds the closed value and the row the
+/// printed one, so the row agrees when it states the field itself or a variant spelling that
+/// maps to it.
+fn slot_pair(text: &str, rows: &[&StatRow], slot: &str) -> Option<Pair> {
+    let mut pair = row_pair(text, rows, "slot", slot, &["Slot"])?;
+    pair.agree = pair.agree || slot_key(&pair.source_value) == normalize(slot);
+    Some(pair)
+}
+
 fn item_pairs(entry: &RuleEntry, text: &str, rows: &[&StatRow]) -> Vec<Pair> {
     let TypedFields::Item(fields) = &entry.fields else {
         return vec![];
@@ -692,13 +837,15 @@ fn item_pairs(entry: &RuleEntry, text: &str, rows: &[&StatRow]) -> Vec<Pair> {
     for (field, value, labels) in [
         ("price", &fields.price, &["Price"][..]),
         ("weight", &fields.weight, &["Weight"][..]),
-        ("slot", &fields.slot, &["Slot"][..]),
         ("aura", &fields.aura, &["Aura"][..]),
         ("caster_level", &fields.caster_level, &["CL"][..]),
     ] {
         if let Some(value) = value {
             pairs.extend(row_pair(text, rows, field, value, labels));
         }
+    }
+    if let Some(slot) = &fields.slot {
+        pairs.extend(slot_pair(text, rows, slot));
     }
     pairs
 }
@@ -1124,6 +1271,270 @@ mod tests {
         assert_eq!(drift[0].field, "cr");
         assert_eq!(drift[0].field_value, "1/2");
         assert_eq!(drift[0].source_value, "1/3");
+    }
+
+    fn creature(fields: CreatureFields, body: Vec<Block>) -> Stored {
+        stored(base(
+            "ref/monster/test",
+            EntryKind::Creature,
+            TypedFields::Creature(Box::new(fields)),
+            body,
+        ))
+    }
+
+    /// The same statements as bold-label paragraphs, the form of the entries before the
+    /// stat-block pass.
+    fn paragraphs(pairs: &[(&str, &str)]) -> Vec<Block> {
+        pairs
+            .iter()
+            .map(|(label, text)| Block::Paragraph {
+                style: ParagraphStyle::Normal,
+                content: labelled(label, text),
+            })
+            .collect()
+    }
+
+    #[test]
+    fn a_challenge_rating_row_compares_by_value() {
+        let fields = |cr: &str| CreatureFields {
+            cr: Some(ChallengeRating::parse(cr).unwrap()),
+            ..Default::default()
+        };
+        let block = |text: &str| vec![statblock(vec![row("Challenge rating", text)])];
+        assert!(find_drift(&creature(fields("1/2"), block("1/2"))).is_empty());
+        assert!(find_drift(&creature(fields("8"), block("8"))).is_empty());
+        let drift = find_drift(&creature(fields("1/2"), block("1/3")));
+        assert_eq!(drift.len(), 1, "{drift:?}");
+        assert_eq!(drift[0].field, "cr");
+        assert!(
+            drift[0].source.contains("`Challenge rating`"),
+            "{}",
+            drift[0].source
+        );
+        // The paragraph form keeps comparing as before.
+        let lines = paragraphs(&[("Challenge rating", "1/2")]);
+        assert!(find_drift(&creature(fields("1/2"), lines)).is_empty());
+        let lines = paragraphs(&[("Challenge rating", "1/3")]);
+        assert_eq!(find_drift(&creature(fields("1/2"), lines)).len(), 1);
+    }
+
+    #[test]
+    fn the_type_row_holds_the_type_alone_beside_a_subtype_row() {
+        let fields = |subtypes: &[&str]| CreatureFields {
+            creature_type: Some("outsider".into()),
+            subtypes: subtypes.iter().map(|item| item.to_string()).collect(),
+            ..Default::default()
+        };
+        let block = |kind: &str, subtype: &str| {
+            vec![statblock(vec![row("Type", kind), row("Subtype", subtype)])]
+        };
+        let both = fields(&["chaotic", "demon", "evil", "extraplanar"]);
+        let ok = block("outsider", "Chaotic, Demon, Evil, Extraplanar");
+        assert!(find_drift(&creature(both.clone(), ok)).is_empty());
+        // The subtypes compare as a set, in any order.
+        let shuffled = block("Outsider", "Evil, Extraplanar, Demon, Chaotic");
+        assert!(find_drift(&creature(both.clone(), shuffled)).is_empty());
+        // A subtype that differs is drift in `subtypes`, not in the type.
+        let wrong = block("outsider", "Chaotic, Demon, Extraplanar");
+        let drift = find_drift(&creature(both.clone(), wrong));
+        assert_eq!(drift.len(), 1, "{drift:?}");
+        assert_eq!(drift[0].field, "subtypes");
+        assert!(drift[0].source.contains("`Subtype`"), "{}", drift[0].source);
+        // A different type is drift in `creature_type`.
+        let wrong = block("dragon", "Chaotic, Demon, Evil, Extraplanar");
+        let drift = find_drift(&creature(both, wrong));
+        assert_eq!(drift.len(), 1, "{drift:?}");
+        assert_eq!(drift[0].field, "creature_type");
+        // A field with no subtypes leaves the `Subtype` row uncompared.
+        let none = block("outsider", "Native");
+        assert!(find_drift(&creature(fields(&[]), none)).is_empty());
+        // Without a `Subtype` row, the `Type` row still adds the subtypes in parentheses.
+        let inline = vec![statblock(vec![row("Type", "Outsider (native)")])];
+        assert!(find_drift(&creature(fields(&["native"]), inline)).is_empty());
+        // The paragraph form is not compared, so it cannot drift.
+        let lines = paragraphs(&[("Type", "outsider"), ("Subtype", "Native")]);
+        assert!(find_drift(&creature(fields(&["native"]), lines)).is_empty());
+    }
+
+    #[test]
+    fn armor_class_rows_compare_as_one_value() {
+        let fields = |ac: &str| CreatureFields {
+            ac: Some(ac.into()),
+            ..Default::default()
+        };
+        let block = |armor: &str, touch: &str, flat: &str| {
+            vec![statblock(vec![
+                row("Armor class", armor),
+                row("Touch", touch),
+                row("Flat-footed", flat),
+                row("AC modifiers", "+1 Dex, +10 natural, -1 size"),
+            ])]
+        };
+        assert!(find_drift(&creature(fields("20/10/19"), block("20", "10", "19"))).is_empty());
+        let drift = find_drift(&creature(fields("20/10/19"), block("20", "10", "18")));
+        assert_eq!(drift.len(), 1, "{drift:?}");
+        assert_eq!(drift[0].field, "ac");
+        assert_eq!(drift[0].source_value, "20/10/18");
+        // One row alone says nothing about the whole value.
+        let partial = vec![statblock(vec![row("Armor class", "21")])];
+        assert!(find_drift(&creature(fields("20/10/19"), partial)).is_empty());
+        // The paragraph form is not compared, so it cannot drift.
+        let lines = paragraphs(&[
+            ("Armor class", "21"),
+            ("Touch", "10"),
+            ("Flat-footed", "19"),
+        ]);
+        assert!(find_drift(&creature(fields("20/10/19"), lines)).is_empty());
+    }
+
+    #[test]
+    fn hit_points_read_a_tilde_as_parentheses() {
+        let fields = |hp: &str| CreatureFields {
+            hp: Some(hp.into()),
+            ..Default::default()
+        };
+        let block = |label: &str, text: &str| vec![statblock(vec![row(label, text)])];
+        assert!(
+            find_drift(&creature(
+                fields("103~9d12+45"),
+                block("Hit points", "103 (9d12+45)")
+            ))
+            .is_empty()
+        );
+        assert!(
+            find_drift(&creature(
+                fields("103~9d12+45"),
+                block("hp", "103 (9d12+45)")
+            ))
+            .is_empty()
+        );
+        assert!(find_drift(&creature(fields("10"), block("Hit points", "10"))).is_empty());
+        // Print holds a second tilde in the dice (`16~4`); only the first one is the separator.
+        assert!(
+            find_drift(&creature(
+                fields("34~3d8+1d10+16~4"),
+                block("Hit points", "34 (3d8+1d10+16~4)")
+            ))
+            .is_empty()
+        );
+        let drift = find_drift(&creature(
+            fields("103~9d12+45"),
+            block("Hit points", "104 (9d12+45)"),
+        ));
+        assert_eq!(drift.len(), 1, "{drift:?}");
+        assert_eq!(drift[0].field, "hp");
+        assert_eq!(drift[0].field_value, "103~9d12+45");
+        assert_eq!(drift[0].source_value, "104 (9d12+45)");
+        // The paragraph form is not compared, so it cannot drift.
+        let lines = paragraphs(&[("Hit points", "104 (9d12+45)")]);
+        assert!(find_drift(&creature(fields("103~9d12+45"), lines)).is_empty());
+    }
+
+    #[test]
+    fn an_ability_row_keeps_the_value_after_each_name() {
+        let fields = |first: &str| CreatureFields {
+            abilities: Some([
+                first.into(),
+                "16".into(),
+                "-".into(),
+                "11".into(),
+                "13".into(),
+                "22".into(),
+            ]),
+            ..Default::default()
+        };
+        let block = |text: &str| vec![statblock(vec![row("Ability scores", text)])];
+        let printed = "Str - (22 while corporeal), Dex 16, Con -, Int 11, Wis 13, Cha 22";
+        assert!(find_drift(&creature(fields("- (22 while corporeal)"), block(printed))).is_empty());
+        let drift = find_drift(&creature(fields("-"), block(printed)));
+        assert_eq!(drift.len(), 1, "{drift:?}");
+        assert_eq!(drift[0].field, "abilities");
+        assert_eq!(
+            parse_abilities("Str 3, Dex 16, Con -"),
+            vec!["3", "16", "-"]
+        );
+        // The paragraph form is not compared, so it cannot drift.
+        let lines = paragraphs(&[("Ability scores", printed)]);
+        assert!(find_drift(&creature(fields("5"), lines)).is_empty());
+    }
+
+    fn item_with_slot(slot: &str, printed: &str) -> Stored {
+        stored(base(
+            "ref/item/test",
+            EntryKind::Item,
+            TypedFields::Item(ItemFields {
+                slot: Some(slot.into()),
+                ..Default::default()
+            }),
+            vec![statblock(vec![row("Slot", printed)])],
+        ))
+    }
+
+    #[test]
+    fn a_slot_row_agrees_with_the_closed_value_it_maps_to() {
+        // The corpus maps the spellings in the field only; the row keeps the printed one.
+        for (field, printed) in [
+            ("neck", "neck"),
+            ("neck", "amulet"),
+            ("neck", "neck (but see text)"),
+            ("none", "-"),
+            ("none", "held"),
+            ("none", "none (replaces hand)"),
+            ("none", "none (see below)"),
+            ("none", "none; price 10,000 gp; weight 1 lb."),
+            ("shoulders", "shoulder"),
+            ("shoulders", "cloak"),
+            ("belt", "waist"),
+            ("eyes", "eye"),
+            ("eyes", "eye; Price 6,000 gp (Minor), 18,000 gp (Major)"),
+            ("armor", "armor (barding)"),
+            ("neck or none", "neck or none (see text)"),
+            ("neck or none", "neck or -"),
+            // A value that stays open keeps its own text.
+            ("head and eyes", "head and eyes"),
+            ("chest and neck (see text)", "chest and neck (see text)"),
+            ("arms (cybernetic)", "arms (cybernetic)"),
+            ("weapon", "weapon"),
+        ] {
+            let drift = find_drift(&item_with_slot(field, printed));
+            assert!(drift.is_empty(), "{field} / {printed}: {drift:?}");
+        }
+    }
+
+    #[test]
+    fn a_slot_row_that_names_another_slot_still_drifts() {
+        for (field, printed) in [
+            ("neck", "ring"),
+            ("neck", "amulet or ring"),
+            ("none", "neck"),
+            ("belt", "shoulder"),
+            ("armor", "armor quality"),
+            // A tech slot with parentheses is whole, not `arms` with a qualifier.
+            ("arms", "arms (cybernetic)"),
+            // `eye` maps to `eyes` whole, not by prefix.
+            ("eyes", "eyewear"),
+        ] {
+            let drift = find_drift(&item_with_slot(field, printed));
+            assert_eq!(drift.len(), 1, "{field} / {printed}: {drift:?}");
+            assert_eq!(drift[0].field, "slot");
+        }
+        let text = find_drift(&item_with_slot("neck", "ring"))[0].describe();
+        assert!(text.contains("stat block row `Slot`"), "{text}");
+    }
+
+    #[test]
+    fn a_slot_in_a_paragraph_is_not_compared() {
+        let body = paragraphs(&[("Slot", "amulet")]);
+        let item = stored(base(
+            "ref/item/test",
+            EntryKind::Item,
+            TypedFields::Item(ItemFields {
+                slot: Some("ring".into()),
+                ..Default::default()
+            }),
+            body,
+        ));
+        assert!(find_drift(&item).is_empty());
     }
 
     #[test]

@@ -5200,6 +5200,57 @@ html:has(.quick-search[open]) {
   margin: var(--space-3) 0 0;
 }
 
+/* Find a book (#587): one labelled search field. On Books it shares the filter row with
+   `Manage books ›`, at full width on a phone and at most 22rem from 48rem; on Manage books it
+   has its own block above the presets. The status line under it holds the match count and
+   `Clear`, and takes no room while no search is on. */
+.book-find-row {
+  align-items: flex-end;
+}
+
+.book-find {
+  flex: 1 1 100%;
+  min-width: 0;
+}
+
+.book-find label {
+  display: block;
+  margin-bottom: var(--space-1);
+  color: var(--ink-muted);
+  font-size: var(--step--1);
+}
+
+.book-find input {
+  width: 100%;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.book-find-block {
+  margin: var(--space-3) 0 0;
+}
+
+.book-find-status {
+  min-height: 0;
+  margin: 0;
+  font-size: var(--step--1);
+}
+
+.book-find-status.book-find-on {
+  min-height: 1.5em;
+  margin: var(--space-2) 0 0;
+}
+
+@media (min-width: 48rem) {
+  .book-find {
+    flex: 0 1 22rem;
+  }
+
+  .book-find-block .book-find {
+    max-width: 22rem;
+  }
+}
+
 /* A library that has no values for a menu's facet leaves the row with nothing in it. */
 .filter-row:not(:has(.filter-btn, .page-link)) {
   display: none;

@@ -169,7 +169,7 @@ impl Panel {
         if settled != 0 && route::current_entry_mark(LINK_ENTRY) == Some(settled) {
             self.settled.store(0, Ordering::Relaxed);
             if address_holds_link() {
-                replace(&Route::BooksManage);
+                replace(&Route::books_manage());
             }
             return;
         }
@@ -202,7 +202,7 @@ impl Panel {
             return;
         }
         if route::current_entry_mark(LINK_ENTRY) == asked_on {
-            replace(&Route::BooksManage);
+            replace(&Route::books_manage());
         } else if let Some(mark) = asked_on {
             self.settled.store(mark, Ordering::Relaxed);
         }
@@ -340,13 +340,24 @@ fn page_address() -> String {
         .unwrap_or_default()
 }
 
-/// The question, the share disclosure and the status line. It renders nothing for a library
-/// whose books carry no slots (compiled before #408): such a library cannot name a set.
-#[component]
-pub fn ShareSet() -> impl IntoView {
+/// The share section in two places on Manage books: the error and the question go above the
+/// `Find a book` field, where a link's question is seen first, and the disclosure with its status
+/// line goes after the presets.
+pub struct ShareParts {
+    pub question: AnyView,
+    pub disclosure: AnyView,
+}
+
+/// The error and the question, the share disclosure and the status line. They render nothing for
+/// a library whose books carry no slots (compiled before #408): such a library cannot name a set.
+/// Call it where the page is built: it holds the state of both parts.
+pub fn share_parts() -> ShareParts {
     let library = use_library();
     if book_share::slot_map(library.sources()).is_none() {
-        return ().into_any();
+        return ShareParts {
+            question: ().into_any(),
+            disclosure: ().into_any(),
+        };
     }
     let route = use_route();
     let panel = Panel {
@@ -366,21 +377,21 @@ pub fn ShareSet() -> impl IntoView {
     let alive = panel.alive.clone();
     on_cleanup(move || alive.store(false, Ordering::Relaxed));
 
-    // A link opens the question. The address keeps the code until the reader answers. Leaving
-    // the link's history entry by Back or Forward takes the question away.
+    // A link opens the question. The address keeps the code until the reader answers or types in
+    // Find a book. Leaving the link's history entry by Back or Forward takes the question away.
     let linked = panel.clone();
     crate::views::util::effect(move || match route.get() {
         Route::BooksSet(code) => {
             // The entry that Quick search left over an answered link keeps the link's address.
             if linked.is_handled_layer() {
-                replace(&Route::BooksManage);
+                replace(&Route::books_manage());
                 return;
             }
             linked.entered.set(String::new());
             linked.review(&code, true);
             if linked.pending.get_untracked().is_none() {
                 // A bad link has nothing left to answer; its error stays on the page.
-                replace(&Route::BooksManage);
+                replace(&Route::books_manage());
             }
         }
         _ => linked.left_link_entry(),
@@ -457,11 +468,14 @@ pub fn ShareSet() -> impl IntoView {
     let problem = panel.problem;
     let notice = panel.notice;
     let copied = panel.copied;
-    view! {
+    let question = view! {
         {move || notice.get().map(|message| view! {
             <p class="error share-notice" role="alert" data-testid="share-notice">{message}</p>
         })}
         {question}
+    }
+    .into_any();
+    let disclosure = view! {
         <details class="share-set">
             <summary>
                 {icons::chevron_right("disclosure-chevron")}
@@ -517,5 +531,9 @@ pub fn ShareSet() -> impl IntoView {
             })}
         </div>
     }
-    .into_any()
+    .into_any();
+    ShareParts {
+        question,
+        disclosure,
+    }
 }
