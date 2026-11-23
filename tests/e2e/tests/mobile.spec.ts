@@ -387,14 +387,24 @@ installedTest("Search results at 390 px: the filter panel opens in the page flow
   expect(box.height).toBeLessThanOrEqual(viewportHeight / 2 + 1);
   await expect(page.getByRole("dialog")).toHaveCount(0);
   expect(await pageOverflow(page)).toBeLessThanOrEqual(0);
-  // The Kind chips inside are full-size targets.
-  for (const chip of await panel.locator(".filter-group").first().locator(".chip").all()) {
-    expect((await chip.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  // The Kind button and its rows are full-size targets.
+  const kindButton = panel.locator("#filter-btn-kind");
+  expect((await kindButton.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+  await kindButton.click();
+  const kindPanel = page.locator(`#${await kindButton.getAttribute("aria-controls")}`);
+  for (const row of await kindPanel.locator(".choice-row").all()) {
+    expect((await row.boundingBox())!.height).toBeGreaterThanOrEqual(44);
   }
 
   // The count follows the active filters.
-  await panel.locator(".chip", { hasText: /^Spells/ }).click();
+  await kindPanel.getByRole("checkbox", { name: /^Kind Spells, / }).check();
   await expect(toggle).toHaveText("Filters · 1");
+  await expect(panel).toBeVisible();
+  await expect(kindPanel).toBeVisible();
+
+  // The first Escape closes the open menu; the next one closes the panel.
+  await page.keyboard.press("Escape");
+  await expect(kindPanel).toBeHidden();
   await expect(panel).toBeVisible();
 
   // Escape closes the panel and returns focus to the button.
