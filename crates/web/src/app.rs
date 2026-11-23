@@ -346,6 +346,11 @@ fn Reader(library: Library) -> impl IntoView {
         ) || previous.as_ref().is_some_and(|p| same_book(p, &route))
             // Choosing a school edits the schools in the URL of the spell list that is on screen.
             || previous.as_ref().is_some_and(|p| spells::same_spell_list(p, &route))
+            // Opening a chain head edits `?open=` of the feat chains page that is on screen.
+            || matches!(
+                (&previous, &route),
+                (Some(Route::FeatChains { .. }), Route::FeatChains { .. })
+            )
             // Typing in the Find a book field of Books or Manage books edits `?q=` of the page.
             || previous.as_ref().is_some_and(|p| views::book_find::same_page(p, &route))
             // So does choosing an archetype filter on the class page that is on screen.
@@ -488,7 +493,7 @@ fn in_section(link: &Route, current: &Route) -> bool {
                 | Route::BrowseSource(_)
                 | Route::Spells
                 | Route::SpellList { .. }
-                | Route::FeatChains,
+                | Route::FeatChains { .. },
         ) | (
             Route::Books { .. },
             Route::Books { .. }
@@ -577,6 +582,9 @@ fn RouteView() -> impl IntoView {
             // The schools of a spell list are the list's own state: it reads them from the route
             // and must not be rebuilt for a choice, which would close its open menu.
             Route::SpellList { class, level, .. } => Route::spell_list(class, level),
+            // The open chain of the feat chains page is the page's own state: opening a head
+            // writes it into the URL, and that must not rebuild the page and close the rest.
+            Route::FeatChains { .. } => Route::feat_chains(),
             // The section of a class page is a place on the page that is already on screen: a
             // jump scrolls it and must not rebuild it, which would drop open disclosures and the
             // focus on the switcher. The page reads its section from the route itself. A stop
@@ -655,7 +663,7 @@ fn RouteView() -> impl IntoView {
         Route::SpellList { class, level, .. } => {
             view! { <SpellListView class level /> }.into_fresh()
         }
-        Route::FeatChains => view! { <FeatChains /> }.into_fresh(),
+        Route::FeatChains { .. } => view! { <FeatChains /> }.into_fresh(),
         Route::Entry {
             id, anchor, book, ..
         } => view! { <Entry id anchor book /> }.into_fresh(),
@@ -705,7 +713,7 @@ mod tests {
                 schools: Vec::new(),
                 name: String::new(),
             },
-            Route::FeatChains,
+            Route::feat_chains(),
         ] {
             assert!(in_section(&Route::Home, &inside), "{inside:?}");
         }
