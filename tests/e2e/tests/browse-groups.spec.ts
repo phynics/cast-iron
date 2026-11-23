@@ -728,7 +728,7 @@ const inBookTotal = (source: string) =>
 const bookPill = (page: Page, title: string) =>
   page.getByRole("button", { name: `Remove filter: ${title}`, exact: true });
 
-test("A book-filtered kind list keeps the Home tab, names the book in a pill, and counts the book", async ({ page }) => {
+test("A book-filtered kind list highlights the Books tab, names the book in a pill, and counts the book", async ({ page }) => {
   await installLibrary(page);
   const core = corpus.catalog.sources.find((source: any) => source.id === "core-rulebook")!;
   const spells = inBook(core.id, "spell");
@@ -745,8 +745,8 @@ test("A book-filtered kind list keeps the Home tab, names the book in a pill, an
   await expect(line).not.toContainText(core.title);
   await expect(main.locator(".book-filter")).toHaveCount(1);
 
-  // The tab stays Home, and the rows are the book's spells.
-  await expect(page.locator('a.nav-link[aria-current="page"]')).toHaveText("Home");
+  // The tab is Books, because the library holds the book (#571), and the rows are the book's spells.
+  await expect(page.locator('a.nav-link[aria-current="page"]')).toHaveText("Books");
   await expect(main.locator('.entry-list a[href^="#/entry/"]').first()).toBeVisible();
 });
 
@@ -813,6 +813,37 @@ test("An unknown book shows the whole kind list with a notice, not a missing pag
   );
   await expect(page.getByRole("heading", { name: "Page not found" })).toHaveCount(0);
   await expect(page.locator('a.nav-link[aria-current="page"]')).toHaveText("Home");
+});
+
+test("The tab is the section that holds the page: an entry names a held book, Search and Not found have none (#571)", async ({ page }) => {
+  await installLibrary(page);
+  const tab = page.locator('a.nav-link[aria-current="page"]');
+  const fireball = corpusEntry("spell", "Fireball");
+  const core = corpus.catalog.sources.find((source: any) => source.id === "core-rulebook")!;
+
+  await page.goto(`#/entry/${fireball.id}?book=${core.id}`);
+  await expect(page.getByRole("heading", { level: 1, name: "Fireball", exact: true })).toBeVisible();
+  await expect(tab).toHaveText("Books");
+
+  // Without a book, or with one the library does not hold, the entry is Home's.
+  await page.goto(`#/entry/${fireball.id}`);
+  await expect(page.getByRole("heading", { level: 1, name: "Fireball", exact: true })).toBeVisible();
+  await expect(tab).toHaveText("Home");
+  await page.goto(`#/entry/${fireball.id}?book=no-such-book`);
+  await expect(page.getByRole("heading", { level: 1, name: "Fireball", exact: true })).toBeVisible();
+  await expect(tab).toHaveText("Home");
+
+  await page.goto("#/legal");
+  await expect(tab).toHaveText("Settings");
+  await page.goto("#/settings/diagnostics");
+  await expect(tab).toHaveText("Settings");
+
+  await page.goto("#/search?q=fireball");
+  await expect(page.locator("main")).toBeVisible();
+  await expect(tab).toHaveCount(0);
+  await page.goto("#/nowhere-at-all");
+  await expect(page.getByRole("heading", { name: "Page not found" })).toBeVisible();
+  await expect(tab).toHaveCount(0);
 });
 
 // ---- Creatures: type and challenge rating menus (#193 PR 4) ----

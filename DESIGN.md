@@ -165,22 +165,22 @@ The sticky header holds the brand, the primary nav (from 48rem; below it the nav
 
 ### Primary navigation
 
-Four tabs in one order, **Home, Books, Table, Settings**, each an icon above or beside its label. Below 48rem they are the bottom bar: one equal column per tab, each at least 44 px wide and `--nav-h` tall (at 390 px, about 97 px wide). From 48rem they are the header's top nav, icon beside label, after the brand. The tab for the current section carries `aria-current="page"`, and a page inside a section keeps its tab: kind lists and spell lists belong to Home, a book and its chapters to Books, Legal to Settings. Table is the die icon (`views/icons.rs`, the set's 24 px grid and 1.8 px round stroke); its page is Quick reference, and nothing else belongs to it. The header keeps the `--wide` column edge from 48rem, so the header is one row at every width from 48rem: four tabs beside the brand, the search icon, the header action and the Offline mark. Below 64rem the header action and the Offline mark are glyph-only and the column gap is `--space-2`; from 64rem they carry their labels.
+Four tabs in one order, **Home, Books, Table, Settings**, each an icon above or beside its label. Below 48rem they are the bottom bar: one equal column per tab, each at least 44 px wide and `--nav-h` tall (at 390 px, about 97 px wide). From 48rem they are the header's top nav, icon beside label, after the brand. The tab that holds the current route carries `aria-current="page"`, and a page inside a section keeps its tab: spell lists belong to Home, a book and its chapters to Books, Legal to Settings. An entry or a kind list that names a book the library holds (`?book=` and `?source=`) belongs to Books; one that names a book the library lacks belongs to Home. Table is the die icon (`views/icons.rs`, the set's 24 px grid and 1.8 px round stroke); its page is Quick reference, and nothing else belongs to it. The header keeps the `--wide` column edge from 48rem, so the header is one row at every width from 48rem: four tabs beside the brand, the search icon, the header action and the Offline mark. Below 64rem the header action and the Offline mark are glyph-only and the column gap is `--space-2`; from 64rem they carry their labels.
 
-Which tab a route highlights, today:
+Which tab a route highlights (#571, `docs/decisions/2026-11-23-entry-breadcrumbs-and-tabs.md`):
 
 | Route | Tab |
 |---|---|
 | Home | Home |
 | Kind lists, Spell hub, Spell lists, Feat chains | Home |
+| A kind list filtered by a book (`?source=`) | Books when the library holds the book, otherwise Home |
 | Books, Manage books (and a share link), Book page, Chapter page, the removed-book Books | Books |
+| An old publication address (`#/browse/source/<id>`) | Books when the library has book pages, otherwise Home |
+| An entry opened from a book (`?book=`) | Books when the library holds the book, otherwise Home |
+| Every other entry page, including an unavailable or retired id | Home |
 | Quick reference | Table |
 | Settings, Diagnostics, Legal | Settings |
-| Entry pages | none |
-| Search | none |
-| Not found | none |
-
-Entry pages, Search and Not found highlight no tab today; `#571` decides whether they should.
+| Search, Not found | none |
 
 ### Breadcrumbs
 
