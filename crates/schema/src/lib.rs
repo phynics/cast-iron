@@ -42,6 +42,8 @@ pub mod books;
 pub mod headings;
 pub mod manifest_check;
 pub mod power;
+pub mod stat_sets;
+pub use stat_sets::StatSet;
 mod tagged;
 pub mod validate;
 
@@ -287,6 +289,12 @@ pub struct RuleEntry {
     /// and an older reader ignores it.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub expanded_in: Vec<Expansion>,
+    /// The stat sets of a creature that prints several (`##` headings with a `Challenge
+    /// rating` row), derived by the compiler from the body and never written to the corpus.
+    /// Empty for an entry with fewer than two. Optional and additive: an entry without sets
+    /// omits the key, and an older reader ignores it, so `SCHEMA_VERSION` stays.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub stat_sets: Vec<StatSet>,
     /// Breadcrumb path in the rules hierarchy, such as `["Combat", "Actions in Combat"]`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub section: Vec<String>,

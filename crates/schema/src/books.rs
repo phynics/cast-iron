@@ -1009,6 +1009,7 @@ mod tests {
             source_ids: vec!["core".into()],
             sources: vec![],
             expanded_in: vec![],
+            stat_sets: vec![],
             section: vec![],
             parent: None,
             body,

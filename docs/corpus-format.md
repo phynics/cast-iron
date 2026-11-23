@@ -889,6 +889,50 @@ the first unescaped colon splits the label from the inline value. A label
 escapes `\` and `:` with a backslash. This example is from Fog Cloud (Core
 Rulebook).
 
+### Stat sets
+
+A monster that prints several stat blocks (Air Elemental from Small to Elder, Ettercap, Draugr)
+keeps each **stat set** under its own `##` heading with an explicit anchor. The set's `###` sections
+(`Defense`, `Offense`, `Statistics`, `Ecology`) and its `::: statblock` blocks follow the heading.
+
+```markdown
+## Small Air Elemental {#stat-small}
+
+### Defense
+
+::: statblock
+Armor class: 17
+:::
+
+### Statistics
+
+::: statblock
+Challenge rating: 1
+Size: small
+:::
+
+## Medium Air Elemental {#stat-medium}
+```
+
+A `##` heading is a stat set when its section holds a stat block row labelled `Challenge rating`.
+The section runs to the next heading of level 1 or 2. The compiler derives the sets
+(`cast_iron_schema::stat_sets::derive_stat_sets`); nothing about them is written in front matter.
+
+- **Derived list.** Each set becomes a `stat_sets` row on the entry: `title` (the heading text),
+  `anchor` (the heading's anchor), `cr` (the `Challenge rating` row: `5`, `1/2`, and a mythic `10/MR 4`
+  reads as 10; omitted when the row is no rating) and `size` (the `Size` row, as printed). The rows
+  keep document order.
+- **One set is no list.** An entry with fewer than two sets gets no `stat_sets` key. A single `##` section
+  with a rating row is the entry itself.
+- **`[fields]` describe the first set.** The creature fields (`cr`, `size`, `hp`, `ac`, ...) hold the
+  first set's values. The drift check compares them with the blocks above the second set's heading,
+  and never with a later set.
+- **Facets.** The `cr` facet of a creature holds the rating of every set, so a CR filter finds the
+  creature under each of them. `[fields] cr` stays the first set's rating, and other creature facets
+  and sorts read `[fields]` only.
+- **Additive.** `stat_sets` is an optional entry field. An older reader ignores it, so `SCHEMA_VERSION`
+  does not change.
+
 ### Entry links
 
 ```markdown

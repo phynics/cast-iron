@@ -41,4 +41,5 @@ pub mod share_set;
 pub mod source_variants;
 pub mod sources;
 pub mod spells;
+pub mod stat_sets;
 pub mod util;

@@ -29,6 +29,7 @@ use crate::views::rich::{RELATED_ANCHOR, RichBody, blocks, muted_line, plain_tex
 use crate::views::search::facet_label;
 use crate::views::section_switcher::SectionSwitcher;
 use crate::views::sources::{aon_line, expanded_line, source_line};
+use crate::views::stat_sets::StatSetList;
 use crate::views::util::{
     addon_base_phrase, kind_name, local_resource, recovery_details, set_title,
 };
@@ -1080,6 +1081,10 @@ fn EntryView(
             });
         }
     });
+    // A creature that prints several stat sets lists them above the body (#166).
+    let stat_sets = (!hide_body && entry.stat_sets.len() > 1).then(|| {
+        view! { <StatSetList sets=entry.stat_sets.clone() id=entry.id.clone() /> }
+    });
     // A prestige class keeps its contents disclosure beside the switcher: the switcher has only
     // the stops, and the disclosure reaches one feature (#443).
     let contents = (class_sections.is_none() || kind == EntryKind::PrestigeClass).then(|| {
@@ -1119,6 +1124,7 @@ fn EntryView(
         {original_disclosure}
         {class_card}
         {switcher}
+        {stat_sets}
         {contents}
         <RichBody body=rendered_body anchor=live_anchor changed=changed_labels marks=section_marks entry=entry.id.clone() book=live_book power_title archetype_list=archetype_slot />
         {source_line(&body_sources, &library, None)}
@@ -1465,6 +1471,7 @@ mod tests {
             source_ids: vec!["c".into()],
             sources: vec![],
             expanded_in: vec![],
+            stat_sets: vec![],
             section: vec![],
             parent: None,
             body: vec![],
