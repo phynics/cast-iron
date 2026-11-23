@@ -252,13 +252,11 @@ ref/carried/bestiary/monsters/devil/bone/special-abilities/poison/bone-devil-ven
 ref/carried/bestiary/monsters/devil/imp/special-abilities/poison/imp-venom	affliction	Imp Venom
 ref/carried/bestiary/monsters/devil/pit-fiend/pit-fiend/special-abilities/disease/devil-chills/pit-fiend	affliction	Devil Chills, Pit Fiend
 ref/carried/bestiary/monsters/devil/pit-fiend/pit-fiend/special-abilities/poison/pit-fiend-venom	affliction	Pit Fiend Venom
-ref/carried/bestiary/monsters/dog/dog/dog/rabies	affliction	Rabies
 ref/carried/bestiary/monsters/drider/special-abilities/poison/drider-venom	affliction	Drider Venom
 ref/carried/bestiary/monsters/drow/drow/special-abilities/poison-use/drow-poison	affliction	Drow Poison
 ref/carried/bestiary/monsters/ettercap/special-abilities/poison/ettercap-venom	affliction	Ettercap Venom
 ref/carried/bestiary/monsters/familiar/viper/special-abilities/poison/viper-venom	affliction	Viper Venom
 ref/carried/bestiary/monsters/frog/poison/special-abilities/poison/frog-poison	affliction	Frog Poison
-ref/carried/bestiary/monsters/ghoul/special-abilities/disease/ghoul-fever	affliction	Ghoul Fever
 ref/carried/bestiary/monsters/golem/iron/golem/iron/special-abilities/breath-weapon/breath-weapon/iron-golem	affliction	Breath weapon, Iron Golem
 ref/carried/bestiary/monsters/homunculus/special-abilities/poison/homunculus-venom	affliction	Homunculus Venom
 ref/carried/bestiary/monsters/iron-cobra/special-abilities/poison/black-adder-venom	affliction	Black Adder Venom
@@ -5214,7 +5212,6 @@ ref/carried/ultimate-combat/rules/mastering-combat/siege-engines/siege-weapon-de
 ref/carried/ultimate-combat/rules/mastering-combat/siege-engines/siege-weapon-descriptions/springal	item	Springal
 ref/carried/ultimate-combat/rules/mastering-combat/siege-engines/siege-weapon-descriptions/trebuchet	item	Trebuchet
 ref/carried/ultimate-equipment/rules/arms-and-armor/armor/armor-and-shields/lamellar	item	Lamellar
-ref/carried/ultimate-equipment/rules/arms-and-armor/armor/armor-and-shields/madu	item	Madu
 ref/carried/ultimate-equipment/rules/arms-and-armor/weapons/weapon-descriptions/bamboo-shaft-arrow	item	Bamboo Shaft Arrow
 ref/carried/ultimate-equipment/rules/arms-and-armor/weapons/weapon-descriptions/heavy-shield	item	Heavy Shield
 ref/carried/ultimate-equipment/rules/arms-and-armor/weapons/weapon-descriptions/light-shield	item	Light Shield
@@ -7383,7 +7380,6 @@ ref/eq-reagent/cooperation-crystals	item	Cooperation Crystals
 ref/eq-reagent/cytillesh-spores	item	Cytillesh Spores
 ref/eq-reagent/darkwood	item	Darkwood
 ref/eq-reagent/dew-of-lunary	item	Dew of Lunary
-ref/eq-reagent/dragons-gut	item	Dragon's Gut
 ref/eq-reagent/fire-fragment	item	Fire Fragment
 ref/eq-reagent/flash-powder	item	Flash Powder
 ref/eq-reagent/ginger-extract	item	Ginger Extract
@@ -7394,7 +7390,6 @@ ref/eq-reagent/liquid-ice	item	Liquid Ice
 ref/eq-reagent/magnesium	item	Magnesium
 ref/eq-reagent/mugwort-extract	item	Mugwort Extract
 ref/eq-reagent/myrrh	item	Myrrh
-ref/eq-reagent/odor-stalk	item	Odor Stalk
 ref/eq-reagent/pesh	item	Pesh
 ref/eq-reagent/phosphorus	item	Phosphorus
 ref/eq-reagent/quicksilver	item	Quicksilver
@@ -19082,9 +19077,7 @@ ref/carried/advanced-players-guide/spells/invigorate/mass	spell	Invigorate, Mass
 ref/carried/advanced-players-guide/spells/pain-strike/mass	spell	Pain Strike, Mass
 ref/carried/advanced-players-guide/spells/planar-adaptation/mass	spell	Planar Adaptation, Mass
 ref/carried/advanced-players-guide/spells/rejuvenate-eidolon/greater	spell	Rejuvenate Eidolon, Greater
-ref/carried/advanced-players-guide/spells/shared-wrath	spell	Shared Wrath
 ref/carried/advanced-players-guide/spells/suffocation/mass	spell	Suffocation, Mass
-ref/carried/advanced-players-guide/spells/tireless-pursuers	spell	Tireless Pursuers
 ref/carried/core-rulebook/spells/arcane-sight/greater	spell	Arcane Sight, Greater
 ref/carried/core-rulebook/spells/bears-endurance/mass	spell	Bear's Endurance, Mass
 ref/carried/core-rulebook/spells/bulls-strength/mass	spell	Bull's Strength, Mass
