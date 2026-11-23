@@ -78,7 +78,7 @@ async function measure(browserName, browserType) {
   await page.locator(".entry > .rich").waitFor({ state: "visible", timeout: 120_000 });
   const firstEntryMs = Date.now() - entryStart;
 
-  // Facet chips: the time from opening Search until every rendered chip has a count, the
+  // Facet counts: the time from opening Search until every rendered Publication chip has a count, the
   // time from choosing a kind until its School and Spell level chips appear, and the time
   // from toggling one facet value until the chip counts reflect that selection. These are
   // the user-visible costs of facet counting on the full canonical library.
@@ -97,7 +97,9 @@ async function measure(browserName, browserType) {
   const openCountsMs = Date.now() - openStart;
 
   const kindStart = Date.now();
-  await page.locator(".filters .chip", { hasText: /^Spells/ }).click();
+  // The Kind group is a filter menu (#579): open it and tick Spells.
+  await page.locator(".filters #filter-btn-kind").click();
+  await page.locator(".filters").getByRole("checkbox", { name: /^Kind Spells, / }).check();
   // The School group is a filter menu (#579): a button, and a panel of checkbox rows.
   const schoolButton = page.locator(".filters").getByRole("button", { name: "School: All schools", exact: true });
   await schoolButton.waitFor({ state: "visible", timeout: 180_000 });

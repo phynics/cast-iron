@@ -1489,25 +1489,84 @@ pub fn Search() -> impl IntoView {
                 }),
         )
     });
-    let kind_chips = kind_counts
-        .into_iter()
-        .map(|(kind, total)| {
-            let checked = move || state.with(|s| s.kinds.contains(&kind));
-            let slug = kind.slug();
-            let n = move || chip_count(counts, total, |c| c.kind(slug));
-            view! {
-                <label class="chip" class:chip-empty=move || n() == 0 && !checked()>
-                    <input
-                        type="checkbox"
-                        prop:checked=checked
-                        aria-label=move || chip_name(kind.label(), n())
-                        on:change=move |_| change_filters(&|s| s.kinds = toggled(&s.kinds, &kind))
-                    />
-                    <span>{kind.label()}<small class="chip-count">{move || fmt::count(n())}</small></span>
-                </label>
-            }
-        })
-        .collect_view();
+    // The Kind group is one menu, like a large facet group: a tick goes through `change_filters`,
+    // so the facets tied to a dropped kind go with it and the history keeps a step per change.
+    // The counts are the active books' totals until the first result arrives.
+    let kind_menu = {
+        let spec = MenuSpec {
+            field: "kind",
+            group: "Kind",
+            all_label: "All kinds",
+            find_label: "Find a kind",
+            list_label: "Kind",
+            singular: "kind",
+            plural: "kinds",
+        };
+        let menu = MenuState::new();
+        let totals: Vec<(&'static str, usize)> = kind_counts
+            .iter()
+            .map(|(kind, total)| (kind.slug(), *total))
+            .collect();
+        let options: Vec<MultiOption> = kind_counts
+            .iter()
+            .map(|(kind, _)| MultiOption {
+                value: kind.slug().to_string(),
+                label: kind.label().to_string(),
+                count: 0,
+            })
+            .collect();
+        let chosen = Signal::derive(move || {
+            state.with(|s| {
+                s.kinds
+                    .iter()
+                    .map(|kind| kind.slug().to_string())
+                    .collect::<Vec<_>>()
+            })
+        });
+        let button_text = Signal::derive(move || {
+            let names: Vec<String> = state.with(|s| {
+                s.kinds
+                    .iter()
+                    .map(|kind| kind.label().to_string())
+                    .collect()
+            });
+            Some(multi_trigger_text(&spec, &names))
+        });
+        let narrowed = Signal::derive(move || state.with(|s| !s.kinds.is_empty()));
+        // `All kinds` keeps the typed text and the other filters, and drops the facets of the
+        // kinds it clears.
+        let all_href = Signal::derive(move || {
+            let mut next = state.get();
+            next.q = text.get();
+            next.kinds.clear();
+            next.facets = prune_facets(&next.facets, &next.kinds);
+            next.route().href()
+        });
+        let on_change = Callback::new(move |slugs: Vec<String>| {
+            change_filters(&|s| {
+                s.kinds = slugs
+                    .iter()
+                    .filter_map(|slug| EntryKind::from_slug(slug))
+                    .collect();
+            });
+        });
+        let count_of = Callback::new(move |slug: String| {
+            let total = totals
+                .iter()
+                .find(|(known, _)| *known == slug)
+                .map_or(0, |(_, total)| *total);
+            Some(chip_count(counts, total, |c| c.kind(&slug)))
+        });
+        view! {
+            <div class="filter-group filter-menu-group">
+                <div class="filter-menu">
+                    <FilterMenuButton spec state=menu text=button_text narrowed focus=false />
+                </div>
+                <MultiFilterMenuPanel spec state=menu options chosen all_href
+                    count_noun=("entry", "entries") on_change count_of />
+            </div>
+        }
+    };
     let quick_scopes = [
         ("All entries", None),
         ("Rules text", Some(EntryKind::Rule)),
@@ -2355,10 +2414,7 @@ pub fn Search() -> impl IntoView {
                     <div id="filters-panel" class="filters-panel" class:open=move || filters_open.get()
                         node_ref=filters_panel role="group" aria-label="Filter results" tabindex="-1"
                         on:keydown=close_filters_on_escape>
-                        <fieldset class="filter-group">
-                            <legend>"Kind"</legend>
-                            <div class="chips">{kind_chips}</div>
-                        </fieldset>
+                        {kind_menu}
                         <fieldset class="filter-group">
                             <legend>"Publication"</legend>
                             {publication_tools}
