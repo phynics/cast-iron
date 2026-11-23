@@ -688,17 +688,17 @@ fn EntryView(
     // The same test decides the breadcrumb: an add-on has none outside a book.
     let is_addon = addon_of.is_some();
     let addon_base = addon_of.map(|(phrase, base)| {
-            let title = library
-                .stub(&base)
-                .map_or_else(|| base.to_string(), |stub| stub.title.clone());
-            let href = Route::entry(base.clone()).href();
-            let inactive = !library.is_entry_active(&base);
-            view! {
-                <span class="meta-sep" aria-hidden="true">"·"</span>
-                <a class="meta-link" href=href>{format!("{phrase} {title}")}</a>
-                {inactive.then(|| view! { <span class="tag">"Inactive"</span> })}
-            }
-        });
+        let title = library
+            .stub(&base)
+            .map_or_else(|| base.to_string(), |stub| stub.title.clone());
+        let href = Route::entry(base.clone()).href();
+        let inactive = !library.is_entry_active(&base);
+        view! {
+            <span class="meta-sep" aria-hidden="true">"·"</span>
+            <a class="meta-link" href=href>{format!("{phrase} {title}")}</a>
+            {inactive.then(|| view! { <span class="tag">"Inactive"</span> })}
+        }
+    });
     // A class option's metadata line names its group, and links the class when the group has
     // exactly one. A group shared by several classes has no single class to link.
     let class_option_group = indexes

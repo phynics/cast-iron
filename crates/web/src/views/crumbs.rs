@@ -92,9 +92,9 @@ pub enum Placement {
 pub fn entry_trail(facts: &EntryFacts, book: Option<(&Crumb, &Placement)>) -> Vec<Crumb> {
     match book {
         Some((book, Placement::Pending)) => vec![book.clone()],
-        Some((book, Placement::Placed { chapter })) => {
-            std::iter::once(book.clone()).chain(chapter.clone()).collect()
-        }
+        Some((book, Placement::Placed { chapter })) => std::iter::once(book.clone())
+            .chain(chapter.clone())
+            .collect(),
         Some((_, Placement::Missing)) | None => {
             if facts.addon {
                 Vec::new()
@@ -120,12 +120,10 @@ pub fn EntryCrumbs(
     book: Option<String>,
     facts: EntryFacts,
 ) -> impl IntoView {
-    let named = book
-        .filter(|_| library.has_books())
-        .and_then(|source| {
-            let title = library.source(&source)?.title.clone();
-            Some((source, title))
-        });
+    let named = book.filter(|_| library.has_books()).and_then(|source| {
+        let title = library.source(&source)?.title.clone();
+        Some((source, title))
+    });
     let Some((source, title)) = named else {
         return view! { <Crumbs items=entry_trail(&facts, None) /> }.into_any();
     };
@@ -249,6 +247,9 @@ mod tests {
         let spell = facts(EntryKind::Spell, false, &[]);
         assert_eq!(labels(&entry_trail(&spell, None)), ["Spells"]);
         let option = facts(EntryKind::ClassOption, false, &["Rogue"]);
-        assert_eq!(labels(&entry_trail(&option, None)), ["Class options", "Rogue"]);
+        assert_eq!(
+            labels(&entry_trail(&option, None)),
+            ["Class options", "Rogue"]
+        );
     }
 }

@@ -115,7 +115,9 @@ impl BookReading {
     /// and when the entry is itself the chapter's row, which the reader is already on.
     pub fn chapter(&self, id: &EntryId) -> Option<&ChapterRow> {
         let at = *self.places.get(id)?;
-        let row = self.chapters.get(self.chapter_of.get(at).copied().flatten()?)?;
+        let row = self
+            .chapters
+            .get(self.chapter_of.get(at).copied().flatten()?)?;
         (self.stops.get(at)?.path != row.path).then_some(row)
     }
 
