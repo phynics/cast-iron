@@ -120,7 +120,7 @@ A summary keeps the 44 px target. The Collections pickers are the exception to t
 
 ### Toggles
 
-**Star.** The star is an icon-only 44 by 44 button (`.star-btn`), in the title row on an entry and at the end of each starred cell on Home. It keeps its accessible name (`Star {title}` or `Unstar {title}`) through `aria-label`. A starred entry shows a filled icon in `--accent`. Do not add visible text next to it.
+**Star.** The star is an icon-only 44 by 44 button (`.star-btn`), in the title row on an entry and at the end of each starred cell on Home. It keeps its accessible name (`Star {title}` or `Unstar {title}`) through `aria-label`. A starred entry shows a filled icon in `--accent`. Do not add visible text next to it. While it saves, the star stays enabled and reads `aria-disabled="true"` (never `disabled`, which drops keyboard focus); a second press does nothing. On Home, removing a star moves focus to the star that takes its place.
 
 **Toggle row.** Use it for a stored on/off choice that is saved right away: the rows on Manage books. The whole row is a `<label>` of at least 44 px (56 px with a meta line) that holds a native checkbox (no `role=switch`). It has no chevron and does not navigate. A row has one accessory: a chevron (it opens something) or a checkbox (it toggles something), never both. The checkbox never disables itself while it saves, because that drops keyboard focus; writes queue instead. Class: `.toggle-row`.
 

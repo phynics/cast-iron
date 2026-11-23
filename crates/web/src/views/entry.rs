@@ -1255,7 +1255,9 @@ fn EntryStar(
     }
     let toggle_title = title.clone();
     let toggle = move |_| {
-        if writing.get_untracked() {
+        // The button stays enabled while it loads or saves, so a keyboard reader keeps the
+        // focus (a disabled button gives it up); `aria-disabled` and this guard stop a second press.
+        if writing.get_untracked() || !loaded.get_untracked() {
             return;
         }
         writing.set(true);
@@ -1296,7 +1298,7 @@ fn EntryStar(
             <button class="btn star-btn bookmark-toggle" type="button"
                 aria-label=move || format!("{} {label}", if bookmark.with(|b| b.is_some()) { "Unstar" } else { "Star" })
                 aria-pressed=move || bookmark.with(|b| b.is_some()).to_string()
-                disabled=move || !loaded.get() || writing.get() on:click=toggle>
+                aria-disabled=move || (!loaded.get() || writing.get()).then_some("true") on:click=toggle>
                 {icons::star()}
             </button>
             {move || error.get().map(|message| view! { <p class="error" role="alert">{message}</p> })}
