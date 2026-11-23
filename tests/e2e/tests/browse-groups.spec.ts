@@ -237,7 +237,7 @@ test("The Race menu narrows the racial traits to one race, and Quick search take
 
   // The search filter panel offers the race for racial traits.
   await page.goto("#/search?q=attributes&kind=racial_trait");
-  await expect(page.locator('.filters .filter-group:has(legend:text-is("Race"))')).toBeVisible();
+  await expect(page.locator(".filters").getByRole("button", { name: "Race: All races", exact: true })).toBeVisible();
 
   // A race that holds no trait shows the empty state with the way out.
   await page.goto("#/browse/kind/racial_trait?facet=racial_trait_race:aboleth");
@@ -298,7 +298,7 @@ test("The affliction Type menu narrows the list in place, Back returns to all ty
 
   // The search filter panel offers the type for afflictions.
   await page.goto("#/search?q=poison&kind=affliction");
-  await expect(page.locator('.filters .filter-group:has(legend:text-is("Type"))')).toBeVisible();
+  await expect(page.locator(".filters").getByRole("button", { name: "Type: All types", exact: true })).toBeVisible();
 });
 
 test("The poison type lists the creature afflictions titled Poison (Ex)", async ({ page }) => {

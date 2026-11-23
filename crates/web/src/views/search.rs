@@ -8,6 +8,10 @@ use crate::library::use_library;
 use crate::route::{Route, navigate, replace, use_route};
 use crate::views::book_series::adventure_sections;
 use crate::views::book_tier::Tier;
+use crate::views::categories as menus;
+use crate::views::filter_menu::{
+    FilterMenuButton, MenuSpec, MenuState, MultiFilterMenuPanel, MultiOption, multi_trigger_text,
+};
 use crate::views::icons;
 use crate::views::quick_search::{QuickSearch, STARTERS, focus_results_field};
 use crate::views::scope::{Scope, ScopePill};
@@ -288,6 +292,130 @@ fn chip_count(
     pick: impl Fn(&FilterCounts) -> u32,
 ) -> usize {
     counts.with(|c| c.as_ref().map_or(total, |c| pick(c) as usize))
+}
+
+/// A facet group with at most this many values stays a row of Filter pills; a larger one is a
+/// multi-select filter menu (DESIGN.md, "Filter menu"). Four short values fit one row at 320 px.
+const PILL_LIMIT: usize = 4;
+
+fn as_pills(values: usize) -> bool {
+    values <= PILL_LIMIT
+}
+
+/// The menu of a facet field and the noun its row counts name: `CR 10, 4 creatures`. The specs of
+/// the list pages are reused, so the words match; a field that no list page filters has its own.
+fn facet_menu_spec(field: &str) -> Option<(MenuSpec, (&'static str, &'static str))> {
+    const SPELLS: (&str, &str) = ("spell", "spells");
+    const CREATURES: (&str, &str) = ("creature", "creatures");
+    const ITEMS: (&str, &str) = ("item", "items");
+    let own = |field, group, all_label, find_label, list_label, singular, plural| MenuSpec {
+        field,
+        group,
+        all_label,
+        find_label,
+        list_label,
+        singular,
+        plural,
+    };
+    Some(match field {
+        "school" => (menus::SCHOOL_MENU, SPELLS),
+        "class" => (
+            own(
+                "class",
+                "Class",
+                "All classes",
+                "Find a class",
+                "Spell class",
+                "class",
+                "classes",
+            ),
+            SPELLS,
+        ),
+        "spell_level" => (
+            own(
+                "spell_level",
+                "Spell level",
+                "All levels",
+                "Find a level",
+                "Spell level",
+                "level",
+                "levels",
+            ),
+            SPELLS,
+        ),
+        "feat_type" => (menus::FEAT_TYPE_MENU, ("feat", "feats")),
+        "creature_type" => (menus::CREATURE_TYPE_MENU, CREATURES),
+        "cr" => (menus::CREATURE_CR_MENU, CREATURES),
+        "size" => (
+            own(
+                "size",
+                "Size",
+                "All sizes",
+                "Find a size",
+                "Creature size",
+                "size",
+                "sizes",
+            ),
+            CREATURES,
+        ),
+        "item_category" => (menus::ITEM_CATEGORY_MENU, ITEMS),
+        "slot" => (
+            own(
+                "slot",
+                "Slot",
+                "All slots",
+                "Find a slot",
+                "Item slot",
+                "slot",
+                "slots",
+            ),
+            ITEMS,
+        ),
+        "class_type" => (
+            own(
+                "class_type",
+                "Class type",
+                "All class types",
+                "Find a class type",
+                "Class type",
+                "class type",
+                "class types",
+            ),
+            ("class", "classes"),
+        ),
+        "trait_category" => (menus::TRAIT_CATEGORY_MENU, ("trait", "traits")),
+        "archetype_class" => (menus::ARCHETYPE_CLASS_MENU, ("archetype", "archetypes")),
+        "group" => (
+            menus::CLASS_OPTION_GROUP_MENU,
+            ("class option", "class options"),
+        ),
+        "racial_trait_race" => (
+            menus::RACIAL_TRAIT_RACE_MENU,
+            ("racial trait", "racial traits"),
+        ),
+        "affliction_type" => (menus::AFFLICTION_TYPE_MENU, ("affliction", "afflictions")),
+        _ => return None,
+    })
+}
+
+/// `facets` with the values of `field` replaced by `values`, in the order given. The other
+/// fields keep their place; the field's values go last.
+fn set_field_values(
+    facets: &[(String, String)],
+    field: &str,
+    values: &[String],
+) -> Vec<(String, String)> {
+    let mut next: Vec<(String, String)> = facets
+        .iter()
+        .filter(|(name, _)| name != field)
+        .cloned()
+        .collect();
+    next.extend(
+        values
+            .iter()
+            .map(|value| (field.to_string(), value.clone())),
+    );
+    next
 }
 
 /// The accessible name of a chip with its count.
@@ -1606,25 +1734,103 @@ pub fn Search() -> impl IntoView {
         </Show>
     };
 
+    // One menu for a large facet group. Values of one field combine with OR, as the engine does.
+    // The route stays the state: a tick replaces the field's values in the address and the page
+    // reads them back without rebuilding, so the panel stays open and the tick keeps focus.
+    // Every read of `state` and `counts` is inside a closure below, never in the builder itself.
+    let facet_menu = move |group: FacetGroup,
+                           spec: MenuSpec,
+                           noun: (&'static str, &'static str)| {
+        let field = group.field;
+        let menu = MenuState::new();
+        let options: Vec<MultiOption> = group
+            .values
+            .into_iter()
+            .map(|value| MultiOption {
+                label: facet_label(field, &value),
+                value,
+                count: 0,
+            })
+            .collect();
+        let labelled: Vec<(String, String)> = options
+            .iter()
+            .map(|option| (option.value.clone(), option.label.clone()))
+            .collect();
+        let chosen = Signal::derive(move || {
+            state.with(|s| {
+                s.facets
+                    .iter()
+                    .filter(|(name, _)| name == field)
+                    .map(|(_, value)| value.clone())
+                    .collect::<Vec<_>>()
+            })
+        });
+        let button_text = Signal::derive(move || {
+            let names: Vec<String> = chosen.with(|values| {
+                values
+                    .iter()
+                    .map(|value| {
+                        labelled
+                            .iter()
+                            .find(|(known, _)| known.eq_ignore_ascii_case(value))
+                            .map_or_else(|| facet_label(field, value), |(_, label)| label.clone())
+                    })
+                    .collect()
+            });
+            Some(multi_trigger_text(&spec, &names))
+        });
+        let narrowed = Signal::derive(move || chosen.with(|values| !values.is_empty()));
+        // `All` keeps the typed text and every other field's choices.
+        let all_href = Signal::derive(move || {
+            let mut next = state.get();
+            next.q = text.get();
+            next.facets = set_field_values(&next.facets, field, &[]);
+            next.route().href()
+        });
+        let on_change = Callback::new(move |values: Vec<String>| {
+            change_filters(&|s| s.facets = set_field_values(&s.facets, field, &values));
+        });
+        // Without a result yet there is no count to show.
+        let count_of = Callback::new(move |value: String| {
+            counts.with(|c| c.as_ref().map(|c| c.facet(field, &value) as usize))
+        });
+        view! {
+            <div class="filter-group filter-menu-group">
+                <div class="filter-menu">
+                    <FilterMenuButton spec state=menu text=button_text narrowed focus=false />
+                </div>
+                <MultiFilterMenuPanel spec state=menu options chosen all_href count_noun=noun
+                    on_change count_of />
+            </div>
+        }
+        .into_any()
+    };
     let facet_view = move || {
         option_groups.track();
         let groups = facet_groups.get();
-        let kinds_empty = state.with(|s| s.kinds.is_empty());
         if groups.is_empty() {
-            return kinds_empty
-                .then(|| {
-                    view! { <p class="hint">"Choose a kind to filter by school, level, CR, and more."</p> }
-                })
-                .into_any();
+            // Read inside the view, so a kind chosen or cleared later shows or hides the hint
+            // without rebuilding the groups.
+            return view! {
+                <Show when=move || state.with(|s| s.kinds.is_empty())>
+                    <p class="hint">"Choose a kind to filter by school, level, CR, and more."</p>
+                </Show>
+            }
+            .into_any();
         }
         groups
             .into_iter()
             .map(|group| {
+                if !as_pills(group.values.len())
+                    && let Some((spec, noun)) = facet_menu_spec(group.field)
+                {
+                    return facet_menu(group, spec, noun);
+                }
                 let field = group.field;
                 view! {
                     <fieldset class="filter-group">
                         <legend>{group.label}</legend>
-                        <div class="chips chips-scroll">
+                        <div class="chips">
                             {group.values.into_iter().map(|value| {
                                 let label = facet_label(field, &value);
                                 let pair = (field.to_string(), value.clone());
@@ -1648,10 +1854,12 @@ pub fn Search() -> impl IntoView {
                                         <span>{label}<small class="chip-count">{move || n.get().map(fmt::count)}</small></span>
                                     </label>
                                 }
+                                .into_any()
                             }).collect_view()}
                         </div>
                     </fieldset>
                 }
+                .into_any()
             })
             .collect_view()
             .into_any()
@@ -2028,6 +2236,11 @@ pub fn Search() -> impl IntoView {
         }
     };
     let close_filters_on_escape = move |ev: web_sys::KeyboardEvent| {
+        // A filter menu inside the panel takes the first Escape: it closes itself and marks the
+        // event handled. The next one closes the panel.
+        if ev.default_prevented() {
+            return;
+        }
         if ev.key() == "Escape" && filters_open.get_untracked() {
             ev.prevent_default();
             filters_open.set(false);
@@ -2638,6 +2851,55 @@ mod tests {
         assert_eq!((both.kind("spell"), core.kind("spell")), (3, 2));
         assert_eq!((both.source("apg"), core.source("apg")), (1, 0));
         assert_eq!((both.total, core.total), (4, 3));
+    }
+
+    #[test]
+    fn a_group_of_four_values_or_fewer_stays_pills() {
+        assert!(as_pills(1));
+        assert!(as_pills(PILL_LIMIT));
+        assert!(!as_pills(PILL_LIMIT + 1));
+    }
+
+    #[test]
+    fn every_facet_field_has_a_menu_that_names_it() {
+        for kind in EntryKind::ALL {
+            for (field, _) in facet_fields_of(kind) {
+                // The four race groups always fit one row of pills.
+                if *field == "race_group" {
+                    assert!(facet_menu_spec(field).is_none());
+                    continue;
+                }
+                let (spec, (singular, plural)) = facet_menu_spec(field)
+                    .unwrap_or_else(|| panic!("{field} of {kind:?} has no menu"));
+                assert_eq!(spec.field, *field);
+                assert_ne!(singular, plural, "{field}");
+                assert!(spec.all_label.starts_with("All "), "{field}");
+            }
+        }
+        assert!(facet_menu_spec("no_such_field").is_none());
+    }
+
+    #[test]
+    fn choosing_values_of_a_field_leaves_the_other_fields_alone() {
+        let facet = |f: &str, v: &str| (f.to_string(), v.to_string());
+        let facets = vec![facet("cr", "10"), facet("size", "large"), facet("cr", "11")];
+        let values = ["12".to_string(), "1/2".to_string()];
+        assert_eq!(
+            set_field_values(&facets, "cr", &values),
+            [
+                facet("size", "large"),
+                facet("cr", "12"),
+                facet("cr", "1/2")
+            ]
+        );
+        assert_eq!(
+            set_field_values(&facets, "cr", &[]),
+            [facet("size", "large")]
+        );
+        assert_eq!(
+            set_field_values(&[], "cr", &values[..1]),
+            [facet("cr", "12")]
+        );
     }
 
     #[test]
