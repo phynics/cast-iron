@@ -295,19 +295,47 @@ fn is_sources_line(block: &Block) -> bool {
 ///    cite the page. An entry of one publication has no other source, so its `###` headings
 ///    organize the normal part (options, examples, a table) and stay in the comparison.
 fn normal_part(entry: &RuleEntry) -> &[Block] {
+    split_normal_part(entry).0
+}
+
+/// Whether the normal part of `entry` ends at a `###` heading that only the entry's second
+/// publication marks: no `**Sources:**` paragraph, before the heading or directly below it, says
+/// that another source's block starts there (the second branch of [`normal_part`]). Lines below
+/// such a heading are not compared, so a `###` that organizes the entry's own rules text would
+/// hide them; the check lists these entries as information (#642). Only the kinds that compare
+/// the normal part (a feat, an archetype, a class option) are asked: the others read the whole
+/// body. Returns the 1-based line of the heading. The result of [`find_drift`] does not depend
+/// on it.
+pub fn unmarked_heading_cut(stored: &Stored) -> Option<usize> {
+    let entry = &stored.entry;
+    if !matches!(
+        entry.fields,
+        TypedFields::Feat(_) | TypedFields::Archetype(_) | TypedFields::ClassOption(_)
+    ) {
+        return None;
+    }
+    let (normal, unmarked) = split_normal_part(entry);
+    unmarked.then(|| stored.block_lines.get(normal.len()).copied().unwrap_or(1))
+}
+
+/// The normal part, and whether it ends at a heading that only `source_ids` marks.
+fn split_normal_part(entry: &RuleEntry) -> (&[Block], bool) {
     let body = &entry.body;
     let other_sources = entry.source_ids.len() > 1;
     for (index, block) in body.iter().enumerate() {
         if index > 0 && is_sources_line(block) {
-            return &body[..index];
+            return (&body[..index], false);
         }
-        if matches!(block, Block::Heading { level: 3, .. })
-            && (other_sources || body.get(index + 1).is_some_and(is_sources_line))
-        {
-            return &body[..index];
+        if matches!(block, Block::Heading { level: 3, .. }) {
+            if body.get(index + 1).is_some_and(is_sources_line) {
+                return (&body[..index], false);
+            }
+            if other_sources {
+                return (&body[..index], true);
+            }
         }
     }
-    body
+    (body, false)
 }
 
 /// The 1-based line of the first line after the front matter that satisfies `matches`.
@@ -1930,6 +1958,32 @@ mod tests {
         assert_eq!(drift.len(), 1, "{drift:?}");
         assert_eq!(drift[0].field, "replaces");
         assert_eq!(drift[0].source_value, "Detect evil");
+    }
+
+    #[test]
+    fn only_an_unmarked_heading_of_a_multi_publication_entry_is_listed() {
+        // Two publications and no `**Sources:**` paragraph: the heading is cut by `source_ids` alone.
+        let twice = printed_twice(domain_with_subdomain(&["Detect evil"], vec![]));
+        let before = find_drift(&stored(twice.clone()));
+        // The heading is the second block, and its line comes from the parser's block lines.
+        let mut located = stored(twice);
+        located.block_lines = vec![5, 9, 11];
+        assert_eq!(unmarked_heading_cut(&located), Some(9));
+        // Listing the entry does not change the drift result.
+        assert_eq!(before.len(), find_drift(&located).len());
+        // One publication: the heading stays in the normal part.
+        let once = domain_with_subdomain(&["Detect evil", "Smite evil"], vec![]);
+        assert_eq!(unmarked_heading_cut(&stored(once)), None);
+        // A `**Sources:**` paragraph below the heading marks it, so it is not listed.
+        let mut marked = domain_with_subdomain(&["Detect evil"], vec![]);
+        marked
+            .body
+            .insert(2, sources("Advanced Player's Guide pg 10"));
+        assert_eq!(unmarked_heading_cut(&stored(printed_twice(marked))), None);
+        // No heading, nothing cut.
+        let mut plain = printed_twice(domain_with_subdomain(&["Detect evil"], vec![]));
+        plain.body.truncate(1);
+        assert_eq!(unmarked_heading_cut(&stored(plain)), None);
     }
 
     #[test]
