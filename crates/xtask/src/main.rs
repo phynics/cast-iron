@@ -33,6 +33,9 @@ cargo xtask <command>
   check-book-slots [--base REF]
                              Fail unless sources/published-books.txt keeps every id line that
                              REF (default origin/main) has, in place; only appends are allowed
+  entries-round-trip [dir]   Read every entry shard of a compiled library (default
+                             generated/content) with the client's reader, write it again and
+                             fail unless the bytes match. `content` runs it after the compile
   build-site [--public-url P]
                              Build dist/ from generated/content. The default public URL is
                              /cast-iron/, the GitHub Pages project path
@@ -67,6 +70,11 @@ fn main() -> ExitCode {
         Some("fetch-sources") => fetch_sources(),
         Some("corpus-tree-hash") => corpus_tree_hash(&args[1..]),
         Some("content") => content(&args[1..]),
+        Some("entries-round-trip") => match &args[1..] {
+            [] => entries_round_trip(&root().join("generated/content")),
+            [dir] => entries_round_trip(Path::new(dir)),
+            _ => Err("usage: entries-round-trip [content dir]".into()),
+        },
         Some("published-ids") => published_ids(),
         Some("published-books") => published_books(),
         Some("legacy-sections") => legacy_sections::run(&args[1..]),
@@ -371,7 +379,63 @@ fn content(args: &[String]) -> Result {
             "--corpus-tag",
             &tag,
         ],
+    )?;
+    // The compiler wrote the library. Read every entry back through the client's reader.
+    entries_round_trip(&root().join("generated/content"))
+}
+
+/// Reads every `entries/*.json` shard of the library in `content` as the client does
+/// (`Vec<RuleEntry>`), writes it again, and fails unless the bytes are the same.
+///
+/// The reader of `Block`, `Inline` and `TypedFields` is written by hand and requires the tag to
+/// be the first key (`crates/schema/src/tagged.rs`). Its unit tests use small values; this runs
+/// it on every entry of a real library. A shard the reader refuses, or reads into something that
+/// writes differently, fails here and not on a reader's device. `content` runs it on the library
+/// it just compiled; `cargo xtask entries-round-trip <dir>` runs it on any library on disk, such
+/// as a retained copy of a released one.
+fn entries_round_trip(content: &Path) -> Result {
+    let manifest_path = content.join("manifest.json");
+    let manifest: cast_iron_schema::ContentManifest = serde_json::from_slice(
+        &fs::read(&manifest_path)
+            .map_err(|e| format!("cannot read {}: {e}", manifest_path.display()))?,
     )
+    .map_err(|e| format!("{} is not a content manifest: {e}", manifest_path.display()))?;
+    let mut shards = 0usize;
+    let mut entries = 0usize;
+    for file in &manifest.files {
+        if !file.path.contains("/entries/") {
+            continue;
+        }
+        let path = content.join(&file.path);
+        let written =
+            fs::read(&path).map_err(|e| format!("cannot read {}: {e}", path.display()))?;
+        let read: Vec<cast_iron_schema::RuleEntry> = serde_json::from_slice(&written)
+            .map_err(|e| format!("{}: the entry reader refuses it: {e}", path.display()))?;
+        let again = serde_json::to_vec(&read).map_err(|e| e.to_string())?;
+        if again != written {
+            let at = again
+                .iter()
+                .zip(&written)
+                .position(|(a, b)| a != b)
+                .unwrap_or(again.len().min(written.len()));
+            return Err(format!(
+                "{}: read and written again, the bytes differ from byte {at} ({} bytes on disk, {} written again)",
+                path.display(),
+                written.len(),
+                again.len()
+            ));
+        }
+        shards += 1;
+        entries += read.len();
+    }
+    if shards == 0 {
+        return Err(format!("{} lists no entry shard", manifest_path.display()));
+    }
+    println!(
+        "entry round trip: {entries} entries in {shards} shards of schema {} read and written back byte for byte",
+        manifest.schema_version
+    );
+    Ok(())
 }
 
 /// Every id that a published library has used. `content` fails when one stops resolving.
