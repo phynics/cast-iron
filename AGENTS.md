@@ -25,6 +25,7 @@ On Nix hosts, run each command inside the dev shell: `devenv shell -- <command>`
 | Print a tree hash (to bump the corpus pin) | `cargo xtask corpus-tree-hash <dir>` |
 | Add the ids of a published library to the guard | `cargo xtask published-ids` (after `cargo xtask content`; see `docs/releasing.md`) |
 | Give new books their share slot | `cargo xtask published-books` (`cargo xtask content` fails until each book of the pinned corpus has a line in `sources/published-books.txt`; commit the added lines, never edit one) |
+| Read every entry of a compiled library back with the client's reader | `cargo xtask entries-round-trip [dir]` (default `generated/content`; `cargo xtask content` runs it after the compile; give the directory of a retained released library to prove that an installed library still reads; `docs/decisions/2026-11-22-tagged-enums-read-tag-first.md`) |
 | Validate a corpus | `cargo xtask corpus-check <dir>` |
 | Put a corpus into canonical form | `cargo xtask corpus-fmt <dir>` (`--check` to only list differences) |
 | Split a corpus's `books.toml` into the curated `books/` files (format 3 layout, idempotent) | `cargo xtask corpus-migrate-layout <dir>` |
