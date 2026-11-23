@@ -127,10 +127,10 @@ const GROUPS = [
         ready: 'header.app-header [role=status]:text("App update ready.")',
       });
       await page.goto('#/settings');
-      await page.locator('.banner-inline', { hasText: 'App update ready' }).waitFor();
+      await page.getByTestId('app-update').waitFor();
       await capture('settings-updates', {
         description: 'Settings → Updates with the app-update row and its Reload button; the library is unchanged.',
-        ready: '#set-updates .banner-inline',
+        ready: '#set-updates [data-testid="app-update"]',
       });
     },
   },
@@ -185,7 +185,7 @@ const GROUPS = [
         await checkNow(page);
         await page.getByText('Newer library available').waitFor();
         await header(page).getByRole('button', { name: UPDATE_BUTTONS.both }).waitFor();
-        await page.locator('.banner-inline', { hasText: 'App update ready' }).waitFor();
+        await page.getByTestId('app-update').waitFor();
         await capture('settings-updates', {
           description: 'Settings → Updates with the app reload row and the newer library offered together.',
           ready: '#set-updates .install-panel .facts',
@@ -193,9 +193,9 @@ const GROUPS = [
         // The phone frame above stops above the reload row, so the combined state needs a scrolled
         // frame there. Desktop already shows both rows; it is not captured twice (#448).
         if (viewport === 'phone') await capture('settings-reload-row', {
-          description: 'Settings → Updates scrolled so the app reload row ("App update ready." and Reload) and part of the library offer are in view.',
+          description: 'Settings → Updates scrolled so the app reload row ("Update ready" and Reload) and part of the library offer are in view.',
           ready: '[data-testid="app-update"]',
-          scrollTo: { selector: '[data-testid="app-update"]', text: ['App update ready.', 'Reload'] },
+          scrollTo: { selector: '[data-testid="app-update"]', text: ['Update ready', 'Reload'] },
         });
         await page.goto(FIREBALL);
         await header(page).getByRole('button', { name: UPDATE_BUTTONS.both }).waitFor();
@@ -219,7 +219,7 @@ const GROUPS = [
       'Install the library in WebKit.',
       'Reopen with the iPhone Safari user agent, touch and mobile emulation (the app detects iOS Safari from that user agent).',
       'The header shows Install. Tap it: the Add to Home Screen guide opens as a modal dialog. Settings → Install app offers the same guide.',
-      'Settings is taller than the viewport: the frame from the top shows no install row. Scroll the App section to the middle for the scrolled frame, which needs the row fully in view with its sentence and button.',
+      'Settings is taller than the viewport: the frame from the top shows no install row. Scroll the Install section to the middle for the scrolled frame, which needs the row fully in view with its sentence and button.',
     ],
     async run({ page, capture }) {
       await page.goto(FIREBALL);
@@ -245,10 +245,10 @@ const GROUPS = [
         description: 'Settings with the Install app row that opens the same guide.',
         ready: 'main button:text("Install app")',
       });
-      // The App section is below the first screen, so the frame above does not show the row it
+      // The Install section is below the first screen, so the frame above does not show the row it
       // names. This frame scrolls the row into the middle and checks its bounds and text (#448).
       await capture('settings-install-row-scrolled', {
-        description: 'Settings scrolled to the App section: the Install app row with its sentence and button in view.',
+        description: 'Settings scrolled to the Install section: the Install app row with its sentence and button in view.',
         ready: '[data-testid="app-install"]',
         scrollTo: { selector: '[data-testid="app-install"]', text: ['Install Cast Iron as an app', 'Install app'] },
       });

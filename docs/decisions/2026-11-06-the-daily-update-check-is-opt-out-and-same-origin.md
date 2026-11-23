@@ -1,8 +1,8 @@
 ---
 title: "The daily update check is opt-out and same-origin"
 date: 2026-11-06
-status: current
-superseded_by: []
+status: partly-superseded
+superseded_by: ["2026-11-23-settings-has-seven-sections-and-one-update-row"]
 issues: [206]
 prs: []
 area: install-offline

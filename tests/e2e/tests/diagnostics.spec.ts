@@ -46,7 +46,7 @@ async function shown(page: Page) {
 installedTest("Settings links to Diagnostics, which lists the launch, the library and the install", async ({ page, browserName }) => {
   await installLibrary(page);
   await page.goto("#/settings");
-  await page.getByRole("link", { name: "Timings and storage" }).click();
+  await page.getByRole("main").getByRole("link", { name: "Diagnostics", exact: true }).click();
   await expect(page).toHaveURL(/#\/settings\/diagnostics$/);
   await expect(page.getByRole("heading", { level: 1, name: "Diagnostics" })).toBeVisible();
   await expect(page.getByText("Collecting…")).toHaveCount(0);

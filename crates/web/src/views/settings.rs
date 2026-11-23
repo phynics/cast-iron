@@ -1,6 +1,7 @@
-//! Settings: theme, library, storage, app version, updates, verification, and a link to Legal.
+//! Settings (#584): seven sections in a fixed order. Updates comes first and never moves.
 
 use crate::app::use_app;
+use crate::book_presets;
 use crate::density::{self, Density};
 use crate::fmt;
 use crate::install::{
@@ -10,10 +11,12 @@ use crate::install::{
 use crate::js::{self, StorageEstimate};
 use crate::library::use_library;
 use crate::pwa::use_install;
+use crate::report;
 use crate::route::{self, Route};
 use crate::store::ActiveLibrary;
 use crate::theme::{self, Theme};
 use crate::updates::use_updates;
+use crate::views::icons;
 use crate::views::installer::{InstallMode, InstallPanel};
 use leptos::prelude::*;
 use leptos::task::spawn_local;
@@ -77,7 +80,6 @@ pub fn Settings() -> impl IntoView {
     let app = use_app();
     let install_ctx = use_install();
     let library = use_library();
-    let updates = use_updates();
     let active = library.active().clone();
 
     // The header's update action asks for the Updates section. The Reader's route effect scrolls
@@ -102,19 +104,6 @@ pub fn Settings() -> impl IntoView {
     let shell = RwSignal::new(None::<Option<js::ShellInfo>>);
     spawn_local(async move { shell.set(Some(js::shell_info().await)) });
 
-    // Settings moves the Updates section to the top while something waits. That remounts it, so
-    // focus falls to <body>; remember whether it was inside and put it back on the moved section.
-    let focus_inside_updates = RwSignal::new(false);
-    let focus_handle = window_event_listener_untyped("focusin", move |event| {
-        let inside = event
-            .target()
-            .and_then(|target| target.dyn_into::<web_sys::Element>().ok())
-            .and_then(|element| element.closest("#set-updates").ok().flatten())
-            .is_some();
-        focus_inside_updates.set(inside);
-    });
-    on_cleanup(move || focus_handle.remove());
-
     let verify = RwSignal::new(VerifyState::Idle);
 
     let run_verify = {
@@ -135,29 +124,53 @@ pub fn Settings() -> impl IntoView {
 
     // The conversion is retried on the next load, so this is a notice, not an error.
     let conversion_pending = library.migration_refused();
-    // Updates come first while something waits, so the reader sees the action without scrolling.
-    let waiting =
-        Memo::new(move |_| app.shell_update_ready.get() || updates.library_update.get().is_some());
-    Effect::new(move |previous: Option<bool>| {
-        let now = waiting.get();
-        if previous == Some(false) && now && focus_inside_updates.get_untracked() {
-            request_animation_frame(|| request_animation_frame(focus_updates));
-        }
-        now
-    });
 
     let corpus_label = fmt::corpus_label(
         library.manifest().corpus_tag.as_deref(),
         &active.content_version,
     );
 
+    // The same link as the footer's, for this page.
+    let report_link = {
+        let library = library.clone();
+        Memo::new(move |_| {
+            let active = library.active();
+            report::for_route(
+                &Route::Settings,
+                None,
+                app.app_version.get().as_deref().unwrap_or_default(),
+                &active.content_version,
+                active.schema_version,
+            )
+        })
+    };
+
+    // The Books row repeats the count line of the Books page.
+    let books_revision = library.selection_revision();
+    let books_library = library.clone();
+    let books_line = move || {
+        books_revision.get();
+        let sources = books_library.sources();
+        let active = sources
+            .iter()
+            .filter(|source| books_library.book_active(&source.id))
+            .count();
+        let books = book_presets::books_of(sources);
+        let preset = book_presets::matching(&books, |id| books_library.book_active(id));
+        book_presets::count_line(
+            active,
+            sources.len(),
+            Some(book_presets::name_or_custom(preset)),
+        )
+    };
+
     view! {
         <h1>"Settings"</h1>
 
-        {move || waiting.get().then(|| view! { <UpdatesSection /> })}
+        <UpdatesSection />
 
-        <section class="settings-section" aria-labelledby="set-theme">
-            <h2 id="set-theme">"Appearance"</h2>
+        <section class="settings-section" aria-labelledby="set-appearance">
+            <h2 id="set-appearance">"Appearance"</h2>
             <fieldset class="choice">
                 <legend>"Theme"</legend>
                 {Theme::ALL.into_iter().map(|choice| view! {
@@ -196,27 +209,26 @@ pub fn Settings() -> impl IntoView {
             </fieldset>
         </section>
 
-        <section class="settings-section" aria-labelledby="set-about">
-            <h2 id="set-about">"This app"</h2>
-            <dl class="facts" data-testid="library-facts">
-                <div><dt>"Corpus"</dt><dd data-testid="library-version">{corpus_label}</dd></div>
-                <div><dt>"App"</dt><dd data-testid="shell-version">{move || match shell.get() {
-                    None => "Checking...".to_string(),
-                    Some(Some(info)) => fmt::app_label(info.date.as_deref(), &info.version),
-                    Some(None) => "Not available until the app has been reloaded once".to_string(),
-                }}</dd></div>
-                <div><dt>"Content format"</dt><dd>{active.schema_version}</dd></div>
-                <div><dt>"Installed"</dt><dd>{format_date(active.activated_at)}</dd></div>
-                <div><dt>"Diagnostics"</dt><dd><a href=Route::Diagnostics.href()>"Timings and storage"</a></dd></div>
+        <section class="settings-section" aria-labelledby="set-books">
+            <h2 id="set-books">"Books"</h2>
+            <dl class="facts">
+                <div><dt>"Active"</dt><dd data-testid="books-active">{books_line}</dd></div>
             </dl>
+            <p>
+                <a class="page-link" href=Route::BooksManage.href()>
+                    <span>"Manage books"</span>
+                    {icons::chevron_right_large()}
+                </a>
+            </p>
         </section>
 
         <section class="settings-section" aria-labelledby="set-library">
             <h2 id="set-library">"Library"</h2>
-            <dl class="facts">
+            <dl class="facts" data-testid="library-facts">
+                <div><dt>"Rules library"</dt><dd data-testid="library-version">{corpus_label}</dd></div>
                 <div><dt>"Entries"</dt><dd data-testid="library-entries">{fmt::count(active.entry_count)}</dd></div>
                 <div><dt>"Size on this device"</dt><dd data-testid="library-size">{fmt::bytes(active.total_bytes)}</dd></div>
-                <div><dt>"Books"</dt><dd><a href=Route::BooksManage.href()>"Manage books"</a></dd></div>
+                <div><dt>"Installed"</dt><dd>{format_date(active.activated_at)}</dd></div>
             </dl>
             <p>
                 <button class="btn" type="button" on:click=run_verify
@@ -224,41 +236,38 @@ pub fn Settings() -> impl IntoView {
                     "Verify library"
                 </button>
             </p>
-            <div role="status" aria-live="polite" data-testid="verify-status">
+            <p class="status" role="status" aria-live="polite" data-testid="verify-status">
                 {move || match verify.get() {
                     VerifyState::Idle => String::new(),
-                    VerifyState::Running(p) => format!("Verifying: {}", p.summary()),
+                    VerifyState::Running(p) => format!("Verifying… {}", p.summary()),
                     VerifyState::Passed(done) => format!(
-                        "All {} files verified against their checksums ({}).",
+                        "Library verified. All {} files match their checksums ({}).",
                         done.files,
                         fmt::bytes(done.bytes)
                     ),
                     VerifyState::Failed(message) => format!("Verification failed: {message}"),
                 }}
-            </div>
+            </p>
             {conversion_pending.then(|| view! {
                 <p class="notice" role="status" data-testid="migration-notice">
                     "Saved items will be converted when storage is available."
                 </p>
             })}
-            <p><a href=Route::Legal.href()>"Legal and attribution, and library coverage"</a></p>
         </section>
-
-        {move || (!waiting.get()).then(|| view! { <UpdatesSection /> })}
 
         <section class="settings-section" aria-labelledby="set-storage">
             <h2 id="set-storage">"Storage"</h2>
             <dl class="facts">
                 <div><dt>"Used"</dt><dd data-testid="storage-usage">{move || match estimate.get() {
-                    None => "Checking...".to_string(),
+                    None => "Checking…".to_string(),
                     Some(e) => e.usage.map_or("Not reported".to_string(), |u| fmt::bytes(u as u64)),
                 }}</dd></div>
                 <div><dt>"Available to this app"</dt><dd data-testid="storage-quota">{move || match estimate.get() {
-                    None => "Checking...".to_string(),
+                    None => "Checking…".to_string(),
                     Some(e) => e.quota.map_or("Not reported".to_string(), |q| fmt::bytes(q as u64)),
                 }}</dd></div>
                 <div><dt>"Persistent storage"</dt><dd data-testid="storage-persisted">{move || match persisted.get() {
-                    None => "Checking...".to_string(),
+                    None => "Checking…".to_string(),
                     Some(true) => "Granted. The browser will not clear the library on its own.".to_string(),
                     Some(false) => "Not granted. The browser may clear the library if the device runs low on space.".to_string(),
                 }}</dd></div>
@@ -275,13 +284,13 @@ pub fn Settings() -> impl IntoView {
             </Show>
         </section>
 
-        <section class="settings-section" aria-labelledby="set-app">
-            <h2 id="set-app">"App"</h2>
+        <section class="settings-section" aria-labelledby="set-install">
+            <h2 id="set-install">"Install"</h2>
             {move || if install_ctx.standalone() {
                 view! {
-                    <p data-testid="app-install">
-                        "Installed. Cast Iron is running as an installed app."
-                    </p>
+                    <dl class="facts" data-testid="app-install">
+                        <div><dt>"Installed as an app"</dt><dd>"Yes"</dd></div>
+                    </dl>
                 }.into_any()
             } else if install_ctx.offer_in_settings() {
                 view! {
@@ -305,12 +314,46 @@ pub fn Settings() -> impl IntoView {
                 }.into_any()
             }}
         </section>
+
+        <section class="settings-section" aria-labelledby="set-help">
+            <h2 id="set-help">"Help"</h2>
+            <dl class="facts">
+                <div><dt>"App version"</dt><dd data-testid="shell-version">{move || match shell.get() {
+                    None => "Checking…".to_string(),
+                    Some(Some(info)) => fmt::app_label(info.date.as_deref(), &info.version),
+                    Some(None) => "Not available until the app has been reloaded once".to_string(),
+                }}</dd></div>
+            </dl>
+            <p>
+                <a class="page-link" href=Route::Diagnostics.href()>
+                    <span>"Diagnostics"</span>
+                    {icons::chevron_right_large()}
+                </a>
+            </p>
+            <p>
+                <a
+                    class="page-link"
+                    href=move || report_link.get().url
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label=move || report_link.get().label
+                >
+                    <span>"Report a problem"</span>
+                    {icons::chevron_right_large()}
+                </a>
+            </p>
+            <p>
+                <a class="page-link" href=Route::Legal.href()>
+                    <span>"Legal and attribution"</span>
+                    {icons::chevron_right_large()}
+                </a>
+            </p>
+        </section>
     }
 }
 
-/// The Updates section. It lists what is waiting, each with the control that applies it, then
-/// the automatic-check switch and the explicit check. Settings renders it first while an update
-/// waits, and in its usual place otherwise.
+/// The Updates section, always first. What waits sits at its top, one row each, with the control
+/// that applies it; then the automatic-check switch and the explicit check.
 #[component]
 fn UpdatesSection() -> impl IntoView {
     let app = use_app();
@@ -340,13 +383,22 @@ fn UpdatesSection() -> impl IntoView {
                     return ().into_any();
                 };
                 let manifest = found.manifest.clone();
-                let size = (found.bytes > 0).then(|| format!(" ({})", fmt::bytes(found.bytes)));
-                let name = format!("{}{}", found.version, size.unwrap_or_default());
+                // The tag when the manifest is known, otherwise the version that was recorded.
+                let name = manifest
+                    .as_ref()
+                    .and_then(|manifest| manifest.corpus_tag.clone())
+                    .unwrap_or_else(|| found.version.clone());
+                let value = if found.bytes > 0 {
+                    format!("{name} · {}", fmt::bytes(found.bytes))
+                } else {
+                    name
+                };
                 let online = app.online.get();
                 view! {
                     <div class="update-row" data-testid="library-update">
-                        <p><strong>"Newer rules library: "</strong>{name}</p>
-                        <p class="muted">"Your stars and book choices are kept."</p>
+                        <dl class="facts">
+                            <div><dt>"Rules library"</dt><dd>{value}</dd></div>
+                        </dl>
                         // Only a manifest from this session may mount the panel: the panel fetches
                         // one on mount, which would bypass the switch and the daily budget.
                         {match (manifest, online) {
@@ -362,7 +414,7 @@ fn UpdatesSection() -> impl IntoView {
                                         prop:disabled=move || !app.online.get()>
                                         "Check now"
                                     </button>
-                                    <span class="muted">"This app reads the file list from the manifest first."</span>
+                                    <span class="muted">"Check first, then download it."</span>
                                 </p>
                             }.into_any(),
                         }}
@@ -371,31 +423,32 @@ fn UpdatesSection() -> impl IntoView {
             }}
 
             {move || app.shell_update_ready.get().then(|| view! {
-                <p class="banner-inline" data-testid="app-update">
-                    "App update ready. "
-                    <button class="btn" type="button" on:click=|_| js::apply_shell_update()>"Reload"</button>
-                </p>
+                <div class="update-row" data-testid="app-update">
+                    <dl class="facts">
+                        <div><dt>"App"</dt><dd>"Update ready"</dd></div>
+                    </dl>
+                    <p>
+                        <button class="btn" type="button" on:click=|_| js::apply_shell_update()>"Reload"</button>
+                    </p>
+                </div>
             })}
 
-            <fieldset class="choice update-auto">
-                <legend>"Automatic checks"</legend>
-                <label class="choice-item">
-                    <input
-                        type="checkbox"
-                        prop:checked=move || updates.auto.get()
-                        on:change=move |event| {
-                            let enabled = event
-                                .target()
-                                .and_then(|target| target.dyn_into::<web_sys::HtmlInputElement>().ok())
-                                .is_some_and(|input| input.checked());
-                            updates.set_auto(enabled);
-                        }
-                    />
-                    <span>"Check for updates automatically"</span>
-                </label>
-            </fieldset>
+            <label class="toggle-row">
+                <input
+                    type="checkbox"
+                    prop:checked=move || updates.auto.get()
+                    on:change=move |event| {
+                        let enabled = event
+                            .target()
+                            .and_then(|target| target.dyn_into::<web_sys::HtmlInputElement>().ok())
+                            .is_some_and(|input| input.checked());
+                        updates.set_auto(enabled);
+                    }
+                />
+                <span>"Check for updates automatically"</span>
+            </label>
             <p class="muted">
-                "Once a day when online, reading only this app's own manifest. The library never downloads without you."
+                "Once a day when online, asking only this app's own server. The library never downloads without you."
             </p>
 
             <p class="update-check">
@@ -413,14 +466,14 @@ fn UpdatesSection() -> impl IntoView {
             <Show when=move || !app.online.get()>
                 <p class="muted">"You are offline. Connect to check for updates."</p>
             </Show>
-            <div role="status" aria-live="polite" data-testid="update-status">
+            <p class="status" role="status" aria-live="polite" data-testid="update-status">
                 {move || match status.get() {
                     UpdateState::Idle => String::new(),
-                    UpdateState::Checking => "Checking...".to_string(),
+                    UpdateState::Checking => "Checking…".to_string(),
                     UpdateState::UpToDate => "The library is up to date.".to_string(),
                     UpdateState::Failed(message) => message,
                 }}
-            </div>
+            </p>
         </section>
     }
 }

@@ -1,8 +1,8 @@
 ---
 title: "Settings names the corpus tag and the app release date"
 date: 2026-11-07
-status: current
-superseded_by: []
+status: partly-superseded
+superseded_by: ["2026-11-23-settings-has-seven-sections-and-one-update-row"]
 issues: [258]
 prs: []
 area: install-offline

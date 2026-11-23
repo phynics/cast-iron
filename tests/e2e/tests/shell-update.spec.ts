@@ -46,8 +46,8 @@ test("App update waits for reload and keeps the installed library and Home bookm
   await expect(shell).toContainText(`(${previousShell.slice(0, 8)}…)`);
   await expect(page.getByTestId("library-version")).toHaveText(previousLabel);
   // Settings keeps its own reload row.
-  const settingsRow = page.locator(".banner-inline");
-  await expect(settingsRow).toContainText("App update ready");
+  const settingsRow = page.getByTestId("app-update");
+  await expect(settingsRow).toContainText("Update ready");
   await expect(settingsRow.getByRole("button", { name: "Reload", exact: true })).toBeVisible();
   expect((await activeLibrary(page)).content_version).toBe(library.content_version);
   await expect.poll(async () => Object.keys(await cacheContents(page))).toContain(`cast-iron-shell-${nextShell}`);
