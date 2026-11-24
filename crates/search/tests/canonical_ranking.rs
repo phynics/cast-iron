@@ -1,12 +1,21 @@
 //! Ranking golden for the canonical library.
 //!
-//! The golden file records the top-50 ids that the previous engine produced for
-//! the query list in `tests/e2e/measure-library.mjs`. It pins ranking, not
-//! snippet text, so the display refactor can change materialization without
-//! reordering results. When the corpus version differs the test skips: the
-//! golden is evidence for the build where it was captured, not for later data.
-//! It is an optional extra. `synthetic_ranking.rs` pins ranking on a checked-in corpus and
-//! always runs.
+//! `golden/canonical-top50.txt` records the top-50 ids of 50 short queries (the list in
+//! `tests/e2e/measure-library.mjs`) against the pinned corpus. It pins ranking, not snippet text.
+//! A corpus pin changes the library and so the ranking; the pin PR regenerates the golden with
+//! `cargo xtask search-golden` and reads the diff for ranking regressions.
+//!
+//! * `the_golden_is_for_the_pinned_corpus` always runs: it compares the corpus commit that the
+//!   golden records with `sources/corpus.toml`, so a pin PR that skips the refresh fails
+//!   `Rust checks`.
+//! * `canonical_top50_ranking_matches_the_golden` compares the rankings whenever a generated
+//!   search index exists (`cargo xtask content`, or `CAST_IRON_SEARCH_INDEX`).
+//!
+//! `synthetic_ranking.rs` pins the ranking rules on a checked-in corpus and needs neither.
+//!
+//! Format: `#` lines are comments (`# content <version>` and `# corpus <commit>` are read);
+//! a `query: <text>` line starts a block; every other non-empty line is a result id. Ids are
+//! never read as queries, whatever their prefix (`ref/`, `book-section/`, ...).
 
 use cast_iron_search::{Query, SearchIndex};
 use std::path::{Path, PathBuf};
@@ -14,6 +23,9 @@ use std::path::{Path, PathBuf};
 const GOLDEN: &str = include_str!("golden/canonical-top50.txt");
 const SAMPLE_QUERIES: usize = 50;
 const TOP: usize = 50;
+const REGENERATE: &str = "run `cargo xtask content`, then `cargo xtask search-golden`, \
+     review the diff of crates/search/tests/golden/canonical-top50.txt for ranking regressions, \
+     and commit it";
 
 fn manifest_version(manifest: &str) -> Option<String> {
     let start = manifest.find("\"content_version\"")?;
@@ -36,45 +48,88 @@ fn index_path() -> Option<(PathBuf, String)> {
     path.exists().then_some((path, version))
 }
 
-fn golden_blocks() -> Vec<(String, Vec<String>)> {
-    let mut blocks = Vec::new();
-    let mut current: Option<(String, Vec<String>)> = None;
-    for line in GOLDEN.lines() {
+/// The value of a `# <key> <value>` comment line.
+fn header(text: &str, key: &str) -> Option<String> {
+    let prefix = format!("# {key} ");
+    text.lines()
+        .find_map(|line| line.strip_prefix(&prefix))
+        .map(|value| value.trim().to_string())
+}
+
+fn golden_blocks(text: &str) -> Vec<(String, Vec<String>)> {
+    let mut blocks: Vec<(String, Vec<String>)> = Vec::new();
+    for line in text.lines() {
         if line.is_empty() || line.starts_with('#') {
             continue;
         }
-        if line.starts_with("ref/") {
-            current
-                .as_mut()
-                .expect("an id without a query")
+        if let Some(query) = line.strip_prefix("query: ") {
+            blocks.push((query.to_string(), Vec::new()));
+        } else {
+            blocks
+                .last_mut()
+                .expect("an id before the first `query:` line")
                 .1
                 .push(line.to_string());
-        } else {
-            if let Some(block) = current.take() {
-                blocks.push(block);
-            }
-            current = Some((line.to_string(), Vec::new()));
         }
-    }
-    if let Some(block) = current {
-        blocks.push(block);
     }
     blocks
 }
 
+fn pinned_commit() -> String {
+    let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../sources/corpus.toml");
+    let text = std::fs::read_to_string(path).expect("read sources/corpus.toml");
+    text.lines()
+        .find_map(|line| {
+            let value = line
+                .strip_prefix("commit")?
+                .trim_start()
+                .strip_prefix('=')?;
+            Some(value.trim().trim_matches('"').to_string())
+        })
+        .expect("sources/corpus.toml has no commit")
+}
+
 #[test]
-fn canonical_top50_ranking_matches_the_previous_engine() {
+fn the_golden_parser_reads_every_id_prefix_as_an_id() {
+    let text = "# content vabc\nquery: fire\nref/rule/fire\nbook-section/x/y\nref/spell/fire-ball\n\nquery: ref\nbook-section/z\n";
+    assert_eq!(
+        golden_blocks(text),
+        vec![
+            (
+                "fire".to_string(),
+                vec![
+                    "ref/rule/fire".to_string(),
+                    "book-section/x/y".to_string(),
+                    "ref/spell/fire-ball".to_string()
+                ]
+            ),
+            ("ref".to_string(), vec!["book-section/z".to_string()]),
+        ]
+    );
+}
+
+#[test]
+fn the_golden_is_for_the_pinned_corpus() {
+    let recorded = header(GOLDEN, "corpus").unwrap_or_default();
+    let pinned = pinned_commit();
+    assert_eq!(
+        recorded, pinned,
+        "crates/search/tests/golden/canonical-top50.txt was generated for corpus commit {recorded:?}, \
+         but sources/corpus.toml pins {pinned}; {REGENERATE}"
+    );
+    assert_eq!(golden_blocks(GOLDEN).len(), SAMPLE_QUERIES);
+}
+
+#[test]
+fn canonical_top50_ranking_matches_the_golden() {
     let Some((path, version)) = index_path() else {
         eprintln!("skipping: no generated canonical search index");
         return;
     };
-    if !version.is_empty() && !GOLDEN.contains(&format!("content {version}")) {
-        eprintln!("skipping: golden is for another content version");
-        return;
-    }
+    let recorded = header(GOLDEN, "content").unwrap_or_default();
     let bytes = std::fs::read(&path).expect("read search index");
     let index = SearchIndex::from_bytes(&bytes).expect("decode search index");
-    let blocks = golden_blocks();
+    let blocks = golden_blocks(GOLDEN);
     assert_eq!(blocks.len(), SAMPLE_QUERIES);
     for (query, expected) in blocks {
         let hits = index.search_summaries(&Query {
@@ -83,7 +138,11 @@ fn canonical_top50_ranking_matches_the_previous_engine() {
             ..Default::default()
         });
         let got: Vec<String> = hits.into_iter().map(|hit| hit.id).collect();
-        assert_eq!(got, expected, "ranking changed for {query:?}");
+        assert_eq!(
+            got, expected,
+            "ranking changed for {query:?} (golden: content {recorded}, index: content {version:?}); \
+             if the library or the ranking changed on purpose, {REGENERATE}"
+        );
     }
 }
 

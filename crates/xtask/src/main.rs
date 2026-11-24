@@ -39,6 +39,10 @@ cargo xtask <command>
   build-site [--public-url P]
                              Build dist/ from generated/content. The default public URL is
                              /cast-iron/, the GitHub Pages project path
+  search-golden              Regenerate crates/search/tests/golden/canonical-top50.txt (the top-50
+                             ranking of 50 queries) from generated/content, for the pinned
+                             corpus. Run it in every corpus-pin PR, after `content`, and read the
+                             diff for ranking regressions. The queries are the file's `query:` lines
   size-budget                Fail when generated/content or the WASM binary in dist/ is larger than
                              sources/size-budget.toml allows (run after build-site)
   stamp-shell                Stamp dist/sw.js with the app shell file list and version
@@ -84,6 +88,7 @@ fn main() -> ExitCode {
         Some("aon-coverage") => aon_coverage::run(&args[1..]),
         Some("check-book-slots") => check_book_slots(&args[1..]),
         Some("build-site") => build_site(&args[1..]),
+        Some("search-golden") => search_golden(&args[1..]),
         Some("size-budget") => size_budget(&args[1..]),
         Some("stamp-shell") => stamp_shell(&root().join("dist"), commit_date().as_deref()),
         Some("corpus-check") => corpus_check(&args[1..]),
@@ -848,6 +853,69 @@ fn compare_budget(
 }
 
 /// Measures `generated/content` and the WASM binary in `dist/` against `sources/size-budget.toml`.
+const SEARCH_GOLDEN: &str = "crates/search/tests/golden/canonical-top50.txt";
+
+/// Rewrites the canonical top-50 ranking golden from the compiled library. The queries stay: they
+/// are the `query: ` lines of the file itself. The header records the corpus commit (which the
+/// always-run test compares with `sources/corpus.toml`) and the content version.
+fn search_golden(args: &[String]) -> Result {
+    if let Some(argument) = args.first() {
+        return Err(format!(
+            "unknown argument {argument:?} for search-golden\nusage: search-golden"
+        ));
+    }
+    let manifest: serde_json::Value = read_json(&root().join("generated/content/manifest.json"))
+        .map_err(|e| format!("{e}\nrun `cargo xtask content` first"))?;
+    let version = manifest["content_version"]
+        .as_str()
+        .ok_or("manifest.json has no content_version")?;
+    let index = format!("generated/content/{version}/search.bin");
+    let pin = read_corpus_pin()?;
+    let golden = root().join(SEARCH_GOLDEN);
+    println!("$ cargo run --release -p cast-iron-search --example dump_rankings");
+    let output = Command::new("cargo")
+        .args([
+            "run",
+            "--quiet",
+            "--release",
+            "--package",
+            "cast-iron-search",
+            "--example",
+            "dump_rankings",
+            "--",
+            &index,
+            SEARCH_GOLDEN,
+        ])
+        .current_dir(root())
+        .output()
+        .map_err(|e| format!("cannot start cargo: {e}"))?;
+    if !output.status.success() {
+        return Err(format!(
+            "dump_rankings failed: {}\n{}",
+            output.status,
+            String::from_utf8_lossy(&output.stderr)
+        ));
+    }
+    let blocks = String::from_utf8(output.stdout).map_err(|e| e.to_string())?;
+    let tag = pin.tag.as_deref().unwrap_or("untagged");
+    let text = format!(
+        "# Top-50 result ids for the 50 queries of tests/e2e/measure-library.mjs.\n\
+         # Regenerate with `cargo xtask search-golden` (after `cargo xtask content`) in every corpus-pin PR.\n\
+         # corpus {commit}\n\
+         # tag {tag}\n\
+         # content {version}\n\
+         # Format: `query: <text>` starts a block; each other line is a result id.\n\
+         {blocks}",
+        commit = pin.commit
+    );
+    fs::write(&golden, text).map_err(|e| format!("cannot write {}: {e}", golden.display()))?;
+    println!(
+        "wrote {SEARCH_GOLDEN} for corpus {} ({tag}), content {version}",
+        pin.commit
+    );
+    Ok(())
+}
+
 fn size_budget(args: &[String]) -> Result {
     if let Some(argument) = args.first() {
         return Err(format!(
