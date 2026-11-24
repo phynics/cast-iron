@@ -75,6 +75,11 @@ fn format_date(ms: f64) -> String {
     fmt::day_month_year(&iso).unwrap_or(iso)
 }
 
+const PERSISTED_GRANTED: &str = "Granted. The browser will not clear the library on its own.";
+/// The longest of the row's texts. The row reserves its height, so the answer cannot move the page.
+const PERSISTED_DENIED: &str =
+    "Not granted. The browser may clear the library if the device runs low on space.";
+
 #[component]
 pub fn Settings() -> impl IntoView {
     let app = use_app();
@@ -255,35 +260,6 @@ pub fn Settings() -> impl IntoView {
             })}
         </section>
 
-        <section class="settings-section" aria-labelledby="set-storage">
-            <h2 id="set-storage">"Storage"</h2>
-            <dl class="facts">
-                <div><dt>"Used"</dt><dd data-testid="storage-usage">{move || match estimate.get() {
-                    None => "Checking…".to_string(),
-                    Some(e) => e.usage.map_or("Not reported".to_string(), |u| fmt::bytes(u as u64)),
-                }}</dd></div>
-                <div><dt>"Available to this app"</dt><dd data-testid="storage-quota">{move || match estimate.get() {
-                    None => "Checking…".to_string(),
-                    Some(e) => e.quota.map_or("Not reported".to_string(), |q| fmt::bytes(q as u64)),
-                }}</dd></div>
-                <div><dt>"Persistent storage"</dt><dd data-testid="storage-persisted">{move || match persisted.get() {
-                    None => "Checking…".to_string(),
-                    Some(true) => "Granted. The browser will not clear the library on its own.".to_string(),
-                    Some(false) => "Not granted. The browser may clear the library if the device runs low on space.".to_string(),
-                }}</dd></div>
-            </dl>
-            <Show when=move || persisted.get() == Some(false)>
-                <p>
-                    <button class="btn" type="button" on:click=move |_| {
-                        spawn_local(async move {
-                            let _ = js::storage_persist().await;
-                            refresh_storage();
-                        });
-                    }>"Request persistent storage"</button>
-                </p>
-            </Show>
-        </section>
-
         <section class="settings-section" aria-labelledby="set-install">
             <h2 id="set-install">"Install"</h2>
             {move || if install_ctx.standalone() {
@@ -313,6 +289,35 @@ pub fn Settings() -> impl IntoView {
                     </p>
                 }.into_any()
             }}
+        </section>
+
+        <section class="settings-section" aria-labelledby="set-storage">
+            <h2 id="set-storage">"Storage"</h2>
+            <dl class="facts">
+                <div><dt>"Used"</dt><dd data-testid="storage-usage">{move || match estimate.get() {
+                    None => "Checking…".to_string(),
+                    Some(e) => e.usage.map_or("Not reported".to_string(), |u| fmt::bytes(u as u64)),
+                }}</dd></div>
+                <div><dt>"Available to this app"</dt><dd data-testid="storage-quota">{move || match estimate.get() {
+                    None => "Checking…".to_string(),
+                    Some(e) => e.quota.map_or("Not reported".to_string(), |q| fmt::bytes(q as u64)),
+                }}</dd></div>
+                <div><dt>"Persistent storage"</dt><dd class="reserve-text" data-testid="storage-persisted" data-reserve=PERSISTED_DENIED><span>{move || match persisted.get() {
+                    None => "Checking…".to_string(),
+                    Some(true) => PERSISTED_GRANTED.to_string(),
+                    Some(false) => PERSISTED_DENIED.to_string(),
+                }}</span></dd></div>
+            </dl>
+            <Show when=move || persisted.get() == Some(false)>
+                <p>
+                    <button class="btn" type="button" on:click=move |_| {
+                        spawn_local(async move {
+                            let _ = js::storage_persist().await;
+                            refresh_storage();
+                        });
+                    }>"Request persistent storage"</button>
+                </p>
+            </Show>
         </section>
 
         <section class="settings-section" aria-labelledby="set-help">
