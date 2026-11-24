@@ -66,10 +66,14 @@ pub mod validate;
 /// `trades.json`; the reader then shows printed names only and offers no compatibility filter
 /// (see [`TradeIndex::from_replaces`]).
 ///
+/// 7: haunt kind (#618). [`EntryKind::Haunt`] is a new kind with no typed fields. An older
+/// reader fails on the unknown `haunt` kind value, so the version rises and an older shell
+/// refuses a schema-7 library before it downloads one. Nothing else in the library changes.
+///
 /// [`RuleEntry::sources`] and [`RuleEntry::aon`] are additive and optional: a library without
 /// them omits the key, and an older reader ignores an unknown key, so they do not change this
 /// version.
-pub const SCHEMA_VERSION: u32 = 6;
+pub const SCHEMA_VERSION: u32 = 7;
 
 /// Name of the relation index, relative to the version directory.
 pub const RELATIONS_FILE: &str = "relations.json";
@@ -195,10 +199,14 @@ pub enum EntryKind {
     Archetype,
     /// An option picked in place of a class feature, such as a rage power (schema 4).
     ClassOption,
+    /// A haunt: a lingering spirit hazard, listed on its own (schema 7). Declared last so that
+    /// the derived order of the older kinds does not move; [`EntryKind::ALL`] lists it after
+    /// [`EntryKind::Trap`].
+    Haunt,
 }
 
 impl EntryKind {
-    pub const ALL: [EntryKind; 15] = [
+    pub const ALL: [EntryKind; 16] = [
         EntryKind::Rule,
         EntryKind::Spell,
         EntryKind::Feat,
@@ -210,6 +218,7 @@ impl EntryKind {
         EntryKind::Skill,
         EntryKind::Affliction,
         EntryKind::Trap,
+        EntryKind::Haunt,
         EntryKind::Trait,
         EntryKind::RacialTrait,
         EntryKind::Archetype,
@@ -230,6 +239,7 @@ impl EntryKind {
             EntryKind::Skill => "skill",
             EntryKind::Affliction => "affliction",
             EntryKind::Trap => "trap",
+            EntryKind::Haunt => "haunt",
             EntryKind::Trait => "trait",
             EntryKind::RacialTrait => "racial_trait",
             EntryKind::Archetype => "archetype",
@@ -255,6 +265,7 @@ impl EntryKind {
             EntryKind::Skill => "Skills",
             EntryKind::Affliction => "Afflictions",
             EntryKind::Trap => "Traps",
+            EntryKind::Haunt => "Haunts",
             EntryKind::Trait => "Traits",
             EntryKind::RacialTrait => "Racial traits",
             EntryKind::Archetype => "Archetypes",
@@ -2239,13 +2250,23 @@ mod tests {
             (EntryKind::RacialTrait, "racial_trait"),
             (EntryKind::Archetype, "archetype"),
             (EntryKind::ClassOption, "class_option"),
+            (EntryKind::Haunt, "haunt"),
         ] {
             assert_eq!(kind.slug(), slug);
             assert_eq!(EntryKind::from_slug(slug), Some(kind));
             assert!(!kind.label().is_empty());
         }
         assert_eq!(EntryKind::ClassOption.label(), "Class options");
-        assert_eq!(EntryKind::ALL.len(), 15);
+        assert_eq!(EntryKind::Haunt.label(), "Haunts");
+        assert_eq!(EntryKind::ALL.len(), 16);
+        // Haunts are listed directly after traps, yet declared last: the derived order of the
+        // older kinds does not move.
+        let traps = EntryKind::ALL
+            .iter()
+            .position(|kind| *kind == EntryKind::Trap)
+            .unwrap();
+        assert_eq!(EntryKind::ALL[traps + 1], EntryKind::Haunt);
+        assert!(EntryKind::ClassOption < EntryKind::Haunt);
         for relation in RelationKind::ALL {
             assert!(!relation.slug().is_empty());
         }

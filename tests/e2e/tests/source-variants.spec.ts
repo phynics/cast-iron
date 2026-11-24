@@ -9,7 +9,7 @@ const corpus = loadCorpus();
  * group comes from the compiled catalog rather than a literal name.
  */
 const BROWSABLE = new Set(["spell", "feat", "trait", "item", "creature", "class", "race",
-  "prestige_class", "affliction", "archetype", "skill", "trap", "racial_trait"]);
+  "prestige_class", "affliction", "archetype", "skill", "trap", "haunt", "racial_trait"]);
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 type Stub = (typeof corpus.catalog.entries)[number];
 const stubTitle = (id: string) => corpus.catalog.entries.find((stub: Stub) => stub.id === id)?.title as string;

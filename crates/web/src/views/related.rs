@@ -78,6 +78,7 @@ pub fn needs(kind: EntryKind) -> Needs {
         | EntryKind::Skill
         | EntryKind::Affliction
         | EntryKind::Trap
+        | EntryKind::Haunt
         | EntryKind::Trait
         | EntryKind::RacialTrait => Needs::default(),
         // The metadata line names the class and the facts line the replaced and altered
@@ -1075,6 +1076,7 @@ pub fn Related(library: Library, entry: RuleEntry, indexes: Indexes) -> impl Int
         | EntryKind::Skill
         | EntryKind::Affliction
         | EntryKind::Trap
+        | EntryKind::Haunt
         | EntryKind::Trait
         | EntryKind::RacialTrait
         | EntryKind::Archetype => {}

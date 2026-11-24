@@ -25,12 +25,13 @@ pub const PRIMARY: [EntryKind; 9] = [
 
 /// The remaining kinds. Archetypes and racial traits are reached from their class or race, and
 /// they are categories of their own for readers who want the whole list.
-pub const MORE: [EntryKind; 5] = [
+pub const MORE: [EntryKind; 6] = [
     EntryKind::Archetype,
     EntryKind::RacialTrait,
     EntryKind::Skill,
     EntryKind::Affliction,
     EntryKind::Trap,
+    EntryKind::Haunt,
 ];
 
 /// One line on what a category holds and how it is browsed.
@@ -50,6 +51,7 @@ pub fn blurb(kind: EntryKind) -> &'static str {
         EntryKind::Skill => "What each skill does and how to use it",
         EntryKind::Affliction => "Diseases, poisons, curses, and other lasting effects",
         EntryKind::Trap => "Traps and their mechanics",
+        EntryKind::Haunt => "Haunts and how to destroy them",
         EntryKind::ClassOption => "Options chosen in place of a class feature",
     }
 }
@@ -289,9 +291,11 @@ pub fn lenses(kind: EntryKind) -> Vec<Lens> {
         EntryKind::ClassOption => vec![Lens::Menu(CLASS_OPTION_GROUP_MENU)],
         EntryKind::RacialTrait => vec![Lens::Menu(RACIAL_TRAIT_RACE_MENU)],
         EntryKind::Affliction => vec![Lens::Menu(AFFLICTION_TYPE_MENU)],
-        EntryKind::Rule | EntryKind::PrestigeClass | EntryKind::Skill | EntryKind::Trap => {
-            Vec::new()
-        }
+        EntryKind::Rule
+        | EntryKind::PrestigeClass
+        | EntryKind::Skill
+        | EntryKind::Trap
+        | EntryKind::Haunt => Vec::new(),
     }
 }
 
@@ -357,7 +361,7 @@ mod tests {
                 "Creatures"
             ]
         );
-        assert_eq!(more.len(), 5);
+        assert_eq!(more.len(), 6);
     }
 
     #[test]
