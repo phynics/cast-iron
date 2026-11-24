@@ -1,8 +1,8 @@
 # Top-50 result ids for the 50 queries of tests/e2e/measure-library.mjs.
 # Regenerate with `cargo xtask search-golden` (after `cargo xtask content`) in every corpus-pin PR.
-# corpus d3381782437a217b2caa87db40b93dd41c409170
-# tag v0.1.46
-# content vf0c022f14c3dd4aa
+# corpus dc735165e24d1171db601678b536e0284601cc8c
+# tag v0.1.47
+# content v02e2c9fd95df5e38
 # Format: `query: <text>` starts a block; each other line is a result id.
 query: fire
 ref/subtype/fire
@@ -263,7 +263,7 @@ query: armor class
 ref/rule/armor-class
 ref/carried/bestiary/rules/monster-creation/building-the-monster
 ref/misc/armor-class
-book-section/core-rulebook/1-6
+book-section/core-rulebook/1-7
 ref/rule/classes
 ref/carried/npc-codex/rules/prestige-class-npcs/prestige-classes
 ref/carried/ultimate-equipment/rules/arms-and-armor/armor
@@ -348,8 +348,8 @@ ref/monster/shredskin
 ref/subtype/nightshade
 ref/druiddomain/arctic
 ref/spell/unlock-flesh
-ref/spell/life-current
 ref/arc-slayer/grave-warden
+ref/spell/life-current
 ref/feat/greater-channel-smite
 ref/feat/versatile-channeler
 ref/arc-witch/gravewalker
@@ -441,8 +441,8 @@ ref/eq-misc/wizards-kit
 ref/rule/wizard-spells-and-borrowed-spellbooks
 ref/magic-armor/wizards-mail
 book-section/advanced-players-guide/2-2-14
-book-section/chronicle-of-legends/1-108
-book-section/chronicle-of-legends/1-108-1
+book-section/chronicle-of-legends/1-109
+book-section/chronicle-of-legends/1-109-1
 book-section/monster-codex/21-1-1-11
 book-section/npc-codex/1-12
 book-section/pathfinder-unchained/1-1002-5
@@ -593,7 +593,7 @@ ref/carried/advanced-players-guide/spells/transmute-potion-to-poison/transmuted-
 book-section/core-rulebook/15-12
 book-section/core-rulebook/15-29
 book-section/game-mastery-guide/6-5-3
-book-section/ultimate-equipment/7-1-7
+book-section/ultimate-equipment/7-1-6
 ref/rule/type-d
 ref/magic-wondrous/cauldron-of-fireworks
 ref/magic-wondrous/sipping-jacket
@@ -700,8 +700,8 @@ ref/feat/improved-disarm-partner
 ref/feat/snap-shot
 ref/feat/paired-opportunists
 ref/feat/improved-two-weapon-fighting/stamina
-ref/feat/porcupine-defense/stamina
 ref/arc-fighter/two-weapon-warrior
+ref/feat/porcupine-defense/stamina
 ref/feat/aquatic-advantage
 ref/trait/reckless-contempt
 ref/feat/intrepid-rescuer/stamina
@@ -750,8 +750,8 @@ ref/eq-misc/rangers-kit
 ref/class/ranger/teitr
 ref/rule/class-ranger/ranger/teitr
 book-section/advanced-players-guide/2-2-11
-book-section/chronicle-of-legends/1-91
-book-section/chronicle-of-legends/1-91-1
+book-section/chronicle-of-legends/1-92
+book-section/chronicle-of-legends/1-92-1
 book-section/monster-codex/21-1-1-8
 book-section/npc-codex/1-9
 book-section/pathfinder-unchained/1-1000-5
@@ -784,7 +784,7 @@ ref/ninjatrick/fast-stealth
 ref/talent/fast-stealth
 ref/rule/perception-and-stealth
 ref/magic-staff/staff-of-stealth
-book-section/ultimate-intrigue/1-427
+book-section/ultimate-intrigue/1-428
 ref/subtype/goblinoid
 ref/rule/tactics
 ref/feat/diversion-shot
@@ -806,8 +806,8 @@ ref/race/kasatha
 ref/monster/keulia
 ref/monster/bat-dire-bat
 ref/sorcbloodline/shadow
-ref/rule/avoid-being-noticed
 ref/arc-rogue/river-rat
+ref/rule/avoid-being-noticed
 ref/feat/kobold-ambusher
 ref/npc/aloof-archer
 ref/feat/owl-style
@@ -1133,8 +1133,8 @@ ref/blessing/animal
 ref/rule/creature-type-grafts
 ref/carried/bestiary/rules/creature-types/creature-types
 ref/ability/animal-tricks
-ref/ability/animal-foci
 ref/sidekick/animal-companion
+ref/ability/animal-foci
 ref/rule/animal-words
 ref/arc-familiar/animal-exemplar
 ref/arc-bard/animal-speaker
@@ -1588,8 +1588,8 @@ ref/umr/light-blindness
 query: blood
 ref/ability/bloodrager-bloodlines
 ref/arc-arcanist/blood-arcanist
-ref/umr/blood-drain
 ref/class/bloodrager
+ref/umr/blood-drain
 ref/umr/blood-rage
 ref/arc-bloodrager/blood-conduit
 ref/spell/blood-biography
@@ -1717,8 +1717,8 @@ ref/arc-monk/zen-archer
 ref/eq-weapon/hornbow-orc
 ref/magic-enh/adaptive
 ref/eq-weapon/spear-sling
-ref/trait/toxophilite
 ref/eq-weapon/composite-longbow
+ref/trait/toxophilite
 ref/eq-weapon/composite-shortbow
 ref/carried/mythic-adventures/feats/elven-accuracy/mythic
 ref/feat/stabbing-shot
@@ -1772,8 +1772,8 @@ ref/spell/burning-hands/mythic
 ref/carried/core-rulebook/rules/glossary/special-abilities/poison/burnt-othur-fumes
 ref/eq-poison/burnt-othur-fumes
 ref/rule/burning-buildings-and-crumbling-structures
-book-section/bestiary-5/1-305
-book-section/bestiary-5/1-305-1
+book-section/bestiary-5/1-306
+book-section/bestiary-5/1-306-1
 book-section/bestiary/3-7
 ref/misc/alchemical-burn
 ref/eq-weapon/bone-burn
@@ -1867,8 +1867,8 @@ ref/rule/cleric-oracle-words
 ref/eq-misc/clerics-vestments
 ref/eq-misc/clerics-kit
 book-section/advanced-players-guide/2-2-5
-book-section/chronicle-of-legends/1-74
-book-section/chronicle-of-legends/1-74-1
+book-section/chronicle-of-legends/1-75
+book-section/chronicle-of-legends/1-75-1
 book-section/monster-codex/21-1-1-3
 book-section/npc-codex/1-4
 book-section/pathfinder-unchained/1-292
@@ -2024,9 +2024,9 @@ ref/feat/worst-case-jinx
 ref/rule/curse-templates
 ref/disease/crypt-fever
 ref/carried/core-rulebook/rules/glossary/special-abilities/curses/mummy-rot
+ref/magic-wondrous/restorative-ointment
 ref/disease/fungal-flu
 ref/affliction/ubashki-ubashki-swarm/ubashki-fever
-ref/magic-wondrous/restorative-ointment
 ref/eq-misc/alchemical-glue
 ref/affliction/great-old-one-xhamen-dor/seeded-infestation
 ref/rule/wounds-threshold-feats
@@ -2084,17 +2084,17 @@ ref/magic-fleshcraft/wings-of-darkness
 ref/trait/scourge-of-the-darkness
 book-section/inner-sea-temples/1-3
 book-section/bestiary-2/2-23
-book-section/bestiary-5/1-359
-book-section/bestiary-5/1-359-1
+book-section/bestiary-5/1-360
+book-section/bestiary-5/1-360-1
 ref/npc/vivisectionist-cleric
 ref/npc/priest-of-oblivion
+ref/faith/asmodeus
 ref/monster/nihiloi
 ref/feat/umbral-shift
 ref/magic-wondrous/voidlight-lantern
 ref/magic-weapon/umbral-chain
 ref/spell/flickering-lights
 ref/eq-misc/glowing-ink
-ref/faith/asmodeus
 query: death
 ref/spelldef/death
 ref/patron/death
