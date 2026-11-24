@@ -10,6 +10,8 @@
 //!   `Rust checks`.
 //! * `canonical_top50_ranking_matches_the_golden` compares the rankings whenever a generated
 //!   search index exists (`cargo xtask content`, or `CAST_IRON_SEARCH_INDEX`).
+//! * `CAST_IRON_REQUIRE_CANONICAL=1` turns a missing index into a failure instead of a skip. The
+//!   `Content compiler` job of CI sets it after `cargo xtask content`, so the comparison runs there.
 //!
 //! `synthetic_ranking.rs` pins the ranking rules on a checked-in corpus and needs neither.
 //!
@@ -32,6 +34,23 @@ fn manifest_version(manifest: &str) -> Option<String> {
     let rest = &manifest[start..];
     let value = rest.split('"').nth(3)?;
     Some(value.to_string())
+}
+
+/// The index of the canonical library, or `None` when it is absent and the run does not require it.
+/// A required index that is missing panics, so a CI step that forgot to build the library fails
+/// instead of passing without comparing anything.
+fn canonical_index(test: &str) -> Option<(PathBuf, String)> {
+    if let Some(found) = index_path() {
+        return Some(found);
+    }
+    let required = std::env::var("CAST_IRON_REQUIRE_CANONICAL").is_ok_and(|value| value == "1");
+    assert!(
+        !required,
+        "{test}: CAST_IRON_REQUIRE_CANONICAL=1 but no generated canonical search index exists; \
+         run `cargo xtask content` first"
+    );
+    eprintln!("skipping: no generated canonical search index");
+    None
 }
 
 fn index_path() -> Option<(PathBuf, String)> {
@@ -122,8 +141,8 @@ fn the_golden_is_for_the_pinned_corpus() {
 
 #[test]
 fn canonical_top50_ranking_matches_the_golden() {
-    let Some((path, version)) = index_path() else {
-        eprintln!("skipping: no generated canonical search index");
+    let Some((path, version)) = canonical_index("canonical_top50_ranking_matches_the_golden")
+    else {
         return;
     };
     let recorded = header(GOLDEN, "content").unwrap_or_default();
@@ -152,8 +171,9 @@ fn canonical_top50_ranking_matches_the_golden() {
 /// fixture pair needs replacing with another exact tie across tiers; relevance is not at fault.
 #[test]
 fn the_distracting_pair_ties_exactly_in_the_canonical_index() {
-    let Some((path, _)) = index_path() else {
-        eprintln!("skipping: no generated canonical search index");
+    let Some((path, _)) =
+        canonical_index("the_distracting_pair_ties_exactly_in_the_canonical_index")
+    else {
         return;
     };
     let bytes = std::fs::read(&path).expect("read search index");

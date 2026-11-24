@@ -1,4 +1,4 @@
-//! Spell-row density: Compact or Wide. The choice belongs to the device, sits in IndexedDB
+//! Spell-row density: Compact or Expanded. The choice belongs to the device, sits in IndexedDB
 //! with the other reader preferences (key `spell_density`), and survives a reload and offline
 //! use. The list container carries it as `data-density`, so CSS selects the layout and the
 //! rendering logic does not fork.
@@ -15,16 +15,18 @@ pub enum Density {
     Compact,
     /// The #179 default: three lines on a phone, two from 40 rem.
     #[default]
-    Wide,
+    Expanded,
 }
 
 impl Density {
-    pub const ALL: [Density; 2] = [Density::Compact, Density::Wide];
+    pub const ALL: [Density; 2] = [Density::Compact, Density::Expanded];
 
+    /// The stored and CSS value. `Expanded` keeps the slug `wide` that it had before the rename
+    /// (#651), so a reader's saved choice and the `data-density` selectors stay valid.
     pub fn slug(self) -> &'static str {
         match self {
             Density::Compact => "compact",
-            Density::Wide => "wide",
+            Density::Expanded => "wide",
         }
     }
 
@@ -35,15 +37,15 @@ impl Density {
     pub fn label(self) -> &'static str {
         match self {
             Density::Compact => "Compact",
-            Density::Wide => "Wide",
+            Density::Expanded => "Expanded",
         }
     }
 
     /// The other layout, which a press of the list's toggle switches to.
     pub fn other(self) -> Self {
         match self {
-            Density::Compact => Density::Wide,
-            Density::Wide => Density::Compact,
+            Density::Compact => Density::Expanded,
+            Density::Expanded => Density::Compact,
         }
     }
 
@@ -52,12 +54,12 @@ impl Density {
     pub fn rows_label(self) -> &'static str {
         match self {
             Density::Compact => "Compact rows",
-            Density::Wide => "Wide rows",
+            Density::Expanded => "Expanded rows",
         }
     }
 }
 
-/// Reads the stored choice. `Wide` when none is stored, which is the layout every existing
+/// Reads the stored choice. `Expanded` when none is stored, which is the layout every existing
 /// profile already had.
 pub async fn load() -> Density {
     store::spell_density()
@@ -80,12 +82,12 @@ mod tests {
     use super::*;
 
     #[test]
-    fn slugs_round_trip_and_unknown_values_fall_back_to_wide() {
+    fn slugs_round_trip_and_unknown_values_fall_back_to_expanded() {
         for density in Density::ALL {
             assert_eq!(Density::from_slug(density.slug()), Some(density));
         }
         assert_eq!(Density::from_slug("comfortable"), None);
-        assert_eq!(Density::default(), Density::Wide);
+        assert_eq!(Density::default(), Density::Expanded);
     }
 
     #[test]
@@ -99,7 +101,7 @@ mod tests {
             assert_ne!(density.other(), density);
             assert_eq!(density.other().other(), density);
         }
-        assert_eq!(Density::Wide.other().rows_label(), "Compact rows");
-        assert_eq!(Density::Compact.other().rows_label(), "Wide rows");
+        assert_eq!(Density::Expanded.other().rows_label(), "Compact rows");
+        assert_eq!(Density::Compact.other().rows_label(), "Expanded rows");
     }
 }
