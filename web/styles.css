@@ -129,6 +129,19 @@ html {
   text-size-adjust: 100%;
 }
 
+/* iOS Dynamic Type (#12 L6). Safari scales the root size with the system text size only when
+   the font is a system text style, and only the `font` shorthand takes one. The shorthand also
+   resets the family and line height, so they are restored; every other size is rem and follows.
+   At the default setting `-apple-system-body` is 17 px, not 16 px, so the app is about 6 %
+   larger on an iPhone than elsewhere. */
+@supports (font: -apple-system-body) {
+  html {
+    font: -apple-system-body;
+    font-family: var(--font-text);
+    line-height: var(--leading);
+  }
+}
+
 body {
   margin: 0;
   font-family: var(--font-text);
@@ -144,6 +157,9 @@ h3 {
   line-height: var(--leading-tight);
   margin: var(--space-5) 0 var(--space-3);
   text-wrap: balance;
+  /* A word wider than the screen (`Categories` at 320 px and 200 % text) splits as a last
+     resort instead of widening the page (#12 L6). */
+  overflow-wrap: break-word;
 }
 
 h1 {
@@ -581,21 +597,30 @@ progress {
   gap: var(--space-2);
 }
 
+/* A term and its value share a line while the value keeps at least 11rem; under large text
+   (rem grows, the screen does not) the value wraps below the term, so a word is never split
+   to fit a sliver beside it. `break-word` splits a word only when it alone exceeds the line. */
 .facts > div {
-  display: grid;
-  grid-template-columns: minmax(7rem, 10rem) 1fr;
-  gap: var(--space-3);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--space-3);
   padding-bottom: var(--space-2);
   border-bottom: var(--border);
 }
 
 .facts dt {
+  flex: 0 0 auto;
+  min-width: min(10rem, 100%);
+  max-width: 100%;
   color: var(--ink-muted);
+  overflow-wrap: break-word;
 }
 
 .facts dd {
+  flex: 1 1 11rem;
+  min-width: 0;
   margin: 0;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .settings-section {
@@ -823,12 +848,14 @@ main:has(> .wide, > .search-page, > .entry) {
     display: grid;
     grid-template-columns: none;
     grid-auto-flow: column;
-    grid-auto-columns: 1fr;
+    grid-auto-columns: minmax(0, 1fr);
     gap: 0;
     margin: 0;
     padding: 0 env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
     background: var(--surface);
     border-top: var(--border);
+    /* The bar measures itself (see the labels rule below). */
+    container: primary-nav / inline-size;
   }
 
   /* The phone form: icon above label. */
@@ -841,6 +868,30 @@ main:has(> .wide, > .search-page, > .entry) {
     padding: 0.25rem;
     font-size: var(--step--1);
     line-height: 1.15;
+  }
+
+  /* Large text (#12 L6). Four columns need about 19rem for the word `Settings` at this size. A
+     media query cannot ask: its `rem` is the browser's default size, so it ignores text enlarged
+     through the page's root size or Dynamic Type. A container query's `rem` is the root's real
+     size, so below 20rem of bar width (390 px above about 120 % text, 320 px at any enlargement) the labels become
+     visually hidden. The icon stays, the link keeps its accessible name, its 44 px target
+     and `aria-current`. */
+  @container primary-nav (max-width: 19.99rem) {
+    .nav-link {
+      position: relative;
+    }
+
+    .nav-label {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      margin: -1px;
+      padding: 0;
+      overflow: hidden;
+      clip-path: inset(50%);
+      white-space: nowrap;
+      border: 0;
+    }
   }
 }
 
@@ -2248,9 +2299,9 @@ mark {
 }
 
 .stat-row {
-  display: grid;
-  grid-template-columns: minmax(6.5rem, 9rem) 1fr;
-  gap: var(--space-3);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 var(--space-3);
   padding: 0.2rem 0;
   border-top: 1px solid var(--line);
 }
@@ -2259,22 +2310,35 @@ mark {
   border-top: 0;
 }
 
+/* The term takes a column (9rem, 6.5rem on a phone; a longer word widens it) and the value at
+   least 9rem beside it. When the row is too narrow for both (large text, a 320 px screen) the value drops to its own line under the
+   term. `break-word` splits a word only when it alone is wider than the line; `anywhere` made
+   the value's minimum width one letter and split words beside a wide term (#12 L6). */
 .stat-row dt {
+  flex: 0 0 auto;
+  min-width: min(9rem, 100%);
+  max-width: 100%;
   font-weight: 700;
   letter-spacing: 0.03em;
   color: var(--ink-muted);
+  overflow-wrap: break-word;
 }
 
 .stat-row dd {
+  flex: 1 1 9rem;
+  min-width: 0;
   margin: 0;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
   font-variant-numeric: tabular-nums;
 }
 
 @media (max-width: 30rem) {
   .stat-row {
-    grid-template-columns: minmax(5.25rem, 6.5rem) 1fr;
-    gap: var(--space-2);
+    column-gap: var(--space-2);
+  }
+
+  .stat-row dt {
+    min-width: min(6.5rem, 100%);
   }
 }
 
@@ -4965,6 +5029,27 @@ input::placeholder {
 /* The brand keeps one line; the search box gives way instead. */
 .app-header .brand {
   flex: none;
+}
+
+/* Large text (#12 L6). `--touch` and the wordmark are rem sizes, so at 200 % text the wordmark
+   (289 px) and a search button (88 px) no longer fit a 390 px screen. On a phone the brand takes
+   what the other controls leave, and the wordmark scales down inside it (the mask is `contain`);
+   a control that still does not fit moves to a second row instead of leaving the screen. */
+@media (max-width: 47.99rem) {
+  .app-header {
+    flex-wrap: wrap;
+  }
+
+  .app-header .brand {
+    flex: 1 1 4.5rem;
+    min-width: 0;
+  }
+
+  .app-header .brand-mark {
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 100%;
+  }
 }
 
 /* ---- Header search icon and Quick search --------------------------------------------------- */
