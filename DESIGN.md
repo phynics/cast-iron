@@ -364,6 +364,8 @@ so an unconverted entry and a converted one read the same.
 - A printing whose books are all turned off stays, dimmed with `--ink-dim` and ending in the `Inactive` Label (`.tag`), as an inactive credit does.
 - At 64 rem and wider the line owns the grid row `printings` between `expanded` and `aon`. With an `Archives of Nethys` line after it the line keeps the larger bottom margin that the 44 px AoN target needs.
 
+**`entry-link` rows (#461)** are the cards a page uses to list other entries. After the linked title each row shows the listed entry's book once, in muted Metadata text (`.entry-link-book`, `· {book}`): its first book while that book is active, else the highest-priority active one, the rule of every list row. The book stays outside the link, so the link's name is the entry title. A row never repeats its own page's book, and an entry the catalog does not know shows no book. A row whose books are all turned off is dimmed with `--ink-dim` and ends in the `Inactive` Label (`.tag`). The whole row stays one touch target.
+
 **The base page,** after the body, in this order:
 
 - each mythic version: an `h2` `Mythic`, the add-on's title as an `h3` link, its text expanded, then its own muted `Sources` line;

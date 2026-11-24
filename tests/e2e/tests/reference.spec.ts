@@ -426,6 +426,40 @@ test("Rule entries preserve complex formatting: creature spell lists use readabl
   await expect(page.locator(".rich")).not.toContainText(/\bl[0-9]:/);
 });
 
+test("Rule entries preserve complex formatting: entry-link rows name the listed entry's book (#461)", async ({ page }) => {
+  // A page that lists other entries as `entry-link` rows. Each row shows the listed entry's first
+  // book in muted text after the link, unless that is the page's own book. Fixtures come from the
+  // compiled catalog, so the spec follows the pinned corpus.
+  const stubs = new Map<string, any>(corpus.catalog.entries.map((stub: any) => [stub.id, stub]));
+  const visible = new Set<string>(activeStubs.map((stub: any) => stub.id as string));
+  const bookTitle = (id: string) => corpus.catalog.sources.find((row: any) => row.id === id)!.title as string;
+  const rowsOf = (entry: Entry) => entry.body.filter((block: any) => block.t === "entry_link");
+  const labelled = (entry: Entry) =>
+    rowsOf(entry).filter((block: any) => stubs.get(block.target)?.source !== stubs.get(entry.id)?.source);
+  const hub = entries
+    .filter((entry) => visible.has(entry.id) && rowsOf(entry).every((block: any) => visible.has(block.target)))
+    .filter((entry) => labelled(entry).length > 0)
+    .sort((a, b) => labelled(b).length - labelled(a).length || (a.id < b.id ? -1 : 1))[0];
+  expect(hub, "the corpus keeps a visible entry whose entry-link rows list another book's entries").toBeTruthy();
+  const rows = rowsOf(hub);
+  await page.goto(`#/entry/${hub.id}`);
+  await expect(page.getByRole("heading", { level: 1, name: hub.title })).toBeVisible();
+  const items = page.locator(".rich .entry-links li");
+  await expect(items).toHaveCount(rows.length);
+  for (const [at, row] of rows.entries()) {
+    const item = items.nth(at);
+    const book = stubs.get(row.target)?.source as string;
+    // The link keeps the entry title as its name; the book is not inside it.
+    await expect(item.getByRole("link", { name: row.title, exact: true })).toHaveAttribute("href", `#/entry/${row.target}`);
+    if (book === stubs.get(hub.id)?.source) {
+      await expect(item.getByTestId("entry-link-book")).toHaveCount(0);
+    } else {
+      await expect(item.getByTestId("entry-link-book")).toHaveText(`· ${bookTitle(book)}`);
+      await expect(item.getByRole("link")).not.toContainText(bookTitle(book));
+    }
+  }
+});
+
 test("Rule entries preserve complex formatting: the largest table keeps its cells and spans", async ({ page }) => {
   let best: { id: string; index: number; table: any; cells: number } | null = null;
   for (const entry of corpus.entries.values()) {

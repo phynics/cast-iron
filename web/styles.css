@@ -2125,20 +2125,56 @@ mark {
   grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
 }
 
-.entry-links a {
+.entry-links li {
+  position: relative;
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  column-gap: var(--space-2);
   min-height: var(--touch);
   padding: 0 var(--space-3);
   background: var(--surface);
   border: var(--border);
   border-radius: var(--radius);
-  text-decoration: none;
-  font-weight: 600;
 }
 
-.entry-links a:hover {
+.entry-links a {
+  font-weight: 600;
+  text-decoration: none;
+}
+
+/* The whole row is the link's target, so the book after the title does not shrink it. */
+.entry-links a::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+
+.entry-links li:has(a:hover) {
   border-color: var(--accent);
+}
+
+.entry-links a:focus-visible {
+  outline: none;
+}
+
+.entry-links li:has(a:focus-visible) {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* The book of the listed entry (#461): Metadata role, muted, after the title and outside the
+   link. A row whose books are all off is dimmed with a colour token, never opacity, and the
+   `Inactive` Label says so. */
+.entry-link-book {
+  color: var(--ink-muted);
+  font-size: var(--step--1);
+}
+
+.entry-links li[data-inactive="true"] a,
+.entry-links li[data-inactive="true"] .entry-link-book,
+.entry-links li[data-inactive="true"] .tag {
+  color: var(--ink-dim);
 }
 
 /* Stat block: a compact ledger of labelled rows. */
