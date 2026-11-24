@@ -1227,10 +1227,10 @@ mod tests {
         let dir = temp_dir("generic");
         write_corpus(&dir, &source);
         let message = crate::migrate(&dir).unwrap();
-        // The chain goes on to the book layout step (#425): format 3.
-        assert!(message.contains("from format 1 to 3"), "{message}");
+        // The chain goes on to the book layout step (#425) and the feature-facts step (#540).
+        assert!(message.contains("from format 1 to 4"), "{message}");
         let loaded = Corpus::load(&dir).unwrap();
-        assert_eq!(loaded.config.format, 3);
+        assert_eq!(loaded.config.format, 4);
         let trades = loaded.entries["ref/arc-fighter/a"].entry.fields.trades();
         assert_eq!(trades[0].feature.as_ref().unwrap().anchor, "bravery");
         let _ = fs::remove_dir_all(&dir);

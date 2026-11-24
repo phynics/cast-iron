@@ -116,7 +116,7 @@ pub fn split_books(dir: &Path) -> Result<SplitReport, String> {
 }
 
 /// Rewrites `corpus.toml` to `format`, keeping the defaults.
-fn set_format(dir: &Path, format: u32) -> Result<(), String> {
+pub(crate) fn set_format(dir: &Path, format: u32) -> Result<(), String> {
     let path = dir.join("corpus.toml");
     let text =
         fs::read_to_string(&path).map_err(|e| format!("cannot read {}: {e}", path.display()))?;

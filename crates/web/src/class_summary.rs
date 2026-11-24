@@ -683,6 +683,7 @@ mod tests {
 
     fn class(die: Option<&str>, ranks: Option<&str>) -> TypedFields {
         TypedFields::Class(ClassFields {
+            features: Default::default(),
             class_type: Some("core".into()),
             hit_die: die.map(String::from),
             skill_ranks: ranks.map(String::from),

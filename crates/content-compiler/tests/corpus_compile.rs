@@ -538,6 +538,7 @@ fn archetype_entry(
             ],
         }],
         TypedFields::Archetype(cast_iron_schema::ArchetypeFields {
+            features: Default::default(),
             trades,
             legacy_features: legacy,
         }),
@@ -554,6 +555,7 @@ fn archetype_entry(
 
 fn replaces(printed: &str, anchor: Option<&str>, class: Option<&str>) -> cast_iron_schema::Trade {
     cast_iron_schema::Trade {
+        by: Vec::new(),
         op: cast_iron_schema::TradeOp::Replaces,
         printed: printed.into(),
         feature: anchor.map(|anchor| cast_iron_schema::FeatureRef {
@@ -662,6 +664,63 @@ fn attached_entry_indexes_are_derived_from_the_corpus() {
         assert!(!shard.contains("\"trades\""), "{shard}");
         assert!(!shard.contains("\"printed\""), "{shard}");
     }
+}
+
+#[test]
+fn feature_facts_reach_the_library_and_the_trade_names_its_feature() {
+    let corpus = temp("features");
+    write_corpus_in(&corpus, 4);
+    let fighter = class_entry("ref/class/fighter", &[("bravery", "Bravery (Ex)")]);
+    let archetype = typed_entry(
+        "ref/arc-fighter/two-handed",
+        EntryKind::Archetype,
+        "Two-Handed Fighter",
+        vec![
+            Block::Heading {
+                level: 2,
+                anchor: Some("shattering-strike".into()),
+                content: vec![Inline::text("Shattering Strike (Ex)")],
+            },
+            Block::Paragraph {
+                style: ParagraphStyle::Normal,
+                content: vec![Inline::text(
+                    "At 2nd level, a two-handed fighter gains a bonus. This ability replaces bravery.",
+                )],
+            },
+        ],
+        TypedFields::Archetype(cast_iron_schema::ArchetypeFields {
+            features: vec![cast_iron_schema::FeatureFact {
+                anchor: "shattering-strike".into(),
+                level: Some(2),
+            }],
+            trades: vec![cast_iron_schema::Trade {
+                by: vec!["shattering-strike".into()],
+                ..replaces("Bravery", Some("bravery"), None)
+            }],
+            ..Default::default()
+        }),
+        vec![cast_iron_schema::Relation {
+            kind: cast_iron_schema::RelationKind::Archetype,
+            target: EntryId::parse("ref/class/fighter").unwrap(),
+            label: None,
+        }],
+    );
+    write_entries(&corpus, 4, &[fighter, archetype]);
+    let (trades, shards) = compile_trades(&corpus, "features").unwrap();
+    assert_eq!(
+        trades["entries"],
+        serde_json::json!([
+            {"id": "ref/arc-fighter/two-handed", "trades": [
+                {"op": "replaces", "printed": "Bravery", "feature": {"anchor": "bravery"}, "by": ["shattering-strike"]}
+            ]},
+        ])
+    );
+    // The entry shard keeps the facts; the trades stay out of it.
+    assert!(
+        shards.contains(r#""features":[{"anchor":"shattering-strike","level":2}]"#),
+        "{shards}"
+    );
+    assert!(!shards.contains("\"trades\""), "{shards}");
 }
 
 #[test]

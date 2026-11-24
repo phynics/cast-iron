@@ -4,9 +4,10 @@
 //! step rewrites the files of a corpus at format N into format N + 1 and changes
 //! nothing else, so one mechanical pull request can apply it, followed by `fmt`.
 //! Format 1 to 2 lowers the trades of archetypes and class options (`migrate_trades`). Format 2
-//! to 3 (#425) splits `books.toml` into `books/<publication>.toml`.
+//! to 3 (#425) splits `books.toml` into `books/<publication>.toml`. Format 3 to 4 (#540) adds
+//! the optional `features` and `by` keys and changes no file but `corpus.toml`.
 
-use crate::config::{CORPUS_FORMAT, MIGRATE_COMMAND};
+use crate::config::{CORPUS_FORMAT, FEATURES_FORMAT, MIGRATE_COMMAND, read_config};
 use std::fs;
 use std::path::Path;
 
@@ -17,7 +18,8 @@ pub struct Migration {
     pub apply: fn(&Path) -> Result<(), String>,
 }
 
-/// The registered steps, oldest first: 1 to 2 (trades), then 2 to 3 (book layout).
+/// The registered steps, oldest first: 1 to 2 (trades), 2 to 3 (book layout), then 3 to 4
+/// (feature facts: only the format marker).
 pub const MIGRATIONS: &[Migration] = &[
     Migration {
         from: 1,
@@ -27,7 +29,46 @@ pub const MIGRATIONS: &[Migration] = &[
         from: 2,
         apply: crate::layout::migrate_to_split,
     },
+    Migration {
+        from: 3,
+        apply: declare_features_format,
+    },
 ];
+
+/// Format 3 to 4: `features` and `by` are optional keys that a format-3 file does not write, so
+/// the step changes the format marker and nothing else.
+fn declare_features_format(dir: &Path) -> Result<(), String> {
+    crate::layout::set_format(dir, FEATURES_FORMAT)
+}
+
+/// `cast-iron-corpus migrate-features`: the feature-facts step alone. It declares format 4 only
+/// from format 3, because a corpus at an older format still has its other steps to run. It
+/// changes nothing but `corpus.toml`, and a rerun finds nothing to do.
+pub fn migrate_features(dir: &Path) -> Result<String, String> {
+    let path = dir.join("corpus.toml");
+    let text =
+        fs::read_to_string(&path).map_err(|e| format!("cannot read {}: {e}", path.display()))?;
+    let config = read_config(Path::new("corpus.toml"), &text).map_err(|e| e.to_string())?;
+    if config.format == FEATURES_FORMAT - 1 {
+        declare_features_format(dir)?;
+        Ok(format!(
+            "{} now declares format {FEATURES_FORMAT}; no entry file changed",
+            path.display()
+        ))
+    } else if config.format < FEATURES_FORMAT {
+        Err(format!(
+            "{} is at format {}: run `{MIGRATE_COMMAND}` for the steps before format {FEATURES_FORMAT}",
+            dir.display(),
+            config.format
+        ))
+    } else {
+        Ok(format!(
+            "{} is already at format {}; nothing to migrate",
+            dir.display(),
+            config.format
+        ))
+    }
+}
 
 /// Format 1 to 2: the trades. `cast-iron-corpus migrate-trades` also writes the review queue.
 fn lower_trades(dir: &Path) -> Result<(), String> {
@@ -232,10 +273,10 @@ mod tests {
             "the fixture is format 1"
         );
 
-        // The registered chain: 1 to 2 (trades), then 2 to 3 (layout).
+        // The registered chain: 1 to 2 (trades), 2 to 3 (layout), then 3 to 4 (feature facts).
         let message = migrate(&dir).unwrap();
-        assert!(message.contains("from format 1 to 3"), "{message}");
-        assert_eq!(declared_format(&dir).unwrap(), 3);
+        assert!(message.contains("from format 1 to 4"), "{message}");
+        assert_eq!(declared_format(&dir).unwrap(), 4);
         assert!(!dir.join("books.toml").exists());
         let loaded = crate::load::Corpus::load(&dir).unwrap_or_else(|e| panic!("{e:?}"));
         assert_eq!(loaded.books.books.len(), 1);
@@ -258,5 +299,30 @@ mod tests {
         let again = migrate(&dir).unwrap();
         assert!(again.contains("nothing to migrate"), "{again}");
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn the_features_step_changes_only_the_format_marker() {
+        let dir = temp_corpus("features", 3);
+        fs::write(dir.join("keep.md"), "unchanged\n").unwrap();
+        let message = migrate_features(&dir).unwrap();
+        assert!(message.contains("format 4"), "{message}");
+        assert_eq!(declared_format(&dir).unwrap(), 4);
+        assert_eq!(
+            fs::read_to_string(dir.join("corpus.toml")).unwrap(),
+            "format = 4\n\n[defaults]\nlicense_refs = []\n"
+        );
+        assert_eq!(
+            fs::read_to_string(dir.join("keep.md")).unwrap(),
+            "unchanged\n"
+        );
+        let again = migrate_features(&dir).unwrap();
+        assert!(again.contains("nothing to migrate"), "{again}");
+        let _ = fs::remove_dir_all(&dir);
+        let old = temp_corpus("features-old", 2);
+        let error = migrate_features(&old).unwrap_err();
+        assert!(error.contains("before format 4"), "{error}");
+        assert_eq!(declared_format(&old).unwrap(), 2);
+        let _ = fs::remove_dir_all(&old);
     }
 }
