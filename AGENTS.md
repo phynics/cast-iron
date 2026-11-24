@@ -22,6 +22,7 @@ On Nix hosts, run each command inside the dev shell: `devenv shell -- <command>`
 | Compile the library | `cargo xtask content` (reads the pinned corpus; writes `generated/content/`) |
 | Build the site into `dist/` | `cargo xtask build-site` (`--public-url /` for a root path) |
 | Check the library and WASM sizes against the budget | `cargo xtask size-budget` (after `build-site`; limits in `sources/size-budget.toml`; see `docs/releasing.md`) |
+| Regenerate the canonical top-50 ranking golden (every corpus-pin PR, after `cargo xtask content`) | `cargo xtask search-golden` (rewrites `crates/search/tests/golden/canonical-top50.txt`; read its diff for ranking regressions. `cargo test -p cast-iron-search` fails when the golden names another corpus commit than `sources/corpus.toml`) |
 | Print a tree hash (to bump the corpus pin) | `cargo xtask corpus-tree-hash <dir>` |
 | Add the ids of a published library to the guard | `cargo xtask published-ids` (after `cargo xtask content`; see `docs/releasing.md`) |
 | Give new books their share slot | `cargo xtask published-books` (`cargo xtask content` fails until each book of the pinned corpus has a line in `sources/published-books.txt`; commit the added lines, never edit one) |
@@ -52,7 +53,7 @@ The retired upstream import and the PSRD library build are preserved at the git 
 | `crates/xtask` | Build automation |
 | `web/` | `index.html`, `sw.js`, manifest, CSS, icons |
 | `docs/decisions/`, `docs/status/` | One Markdown file per decision and per status log entry, each with front matter and a static `README.md` (no list of entries). `scripts/split-docs.py` made them from the old single files |
-| `sources/corpus.toml` | Pin of the plain-text corpus (`phynics/cast-iron-data`): tag, commit, tree hash. To bump it: tag the corpus, update `commit` and `tree_sha256` (`cargo xtask corpus-tree-hash <extracted dir>`), run `cargo xtask fetch-sources` and `cargo xtask content` |
+| `sources/corpus.toml` | Pin of the plain-text corpus (`phynics/cast-iron-data`): tag, commit, tree hash. To bump it: tag the corpus, update `commit` and `tree_sha256` (`cargo xtask corpus-tree-hash <extracted dir>`), run `cargo xtask fetch-sources` and `cargo xtask content`, then `cargo xtask search-golden` and commit the golden |
 | `scripts/` | Publication screen and release promotion scripts |
 | `LICENSE`, `LICENSES/` | MIT code license, OGL text, and the licensing of the corpus |
 | `generated/`, `dist/`, `.cache/` | Build output. Never commit these directories |
@@ -105,7 +106,7 @@ Owner rules of 2026-11-17 (decision `docs/decisions/2026-11-17-test-scope-owner-
 | Rust outside `crates/web`: compiler, corpus, schema, search, xtask | `cargo xtask check`. Also `cargo xtask content` when the compiler, the schema, or the corpus pin changed | Only when the change bumps `SCHEMA_VERSION` or `INDEX_FORMAT_VERSION` |
 | UI: `crates/web`, `web/`, `tests/e2e` | `cargo xtask check`, then at most one spec (see Locally): `cargo xtask build-site --public-url /cast-iron/` and `--project=chromium` (add `--project=mobile-chromium` when `playwright.config.ts` lists the spec there) | No |
 | Service worker, installer, storage, offline (`web/sw.js`, `install.rs`, `content_cache.rs`, `store.rs`) | The UI checks, plus `--project=webkit` on that one spec | Yes |
-| Corpus pin (`sources/corpus.toml`) | `cargo xtask check` and `cargo xtask content`. At most one spec, the one the feature map selects for the content that changed | No |
+| Corpus pin (`sources/corpus.toml`) | `cargo xtask check`, `cargo xtask content` and `cargo xtask search-golden`. At most one spec, the one the feature map selects for the content that changed | No |
 
 Start the one full CI run for a row that needs it (`gh workflow run ci.yml --ref <branch>`) after the review fixes are in, not after each push. Run it again only in two cases. First: a later commit changes a file whose row needs a full run. Second: a pull request merged into `main` after the run, and it changed files that this pull request also changes, or specs that test them. Run WebKit locally only on the affected spec; CI runs the full WebKit suite, which is informational.
 
