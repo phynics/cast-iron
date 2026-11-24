@@ -204,9 +204,9 @@ fn is_subject(words: &[&str]) -> bool {
     words.iter().enumerate().all(|(index, word)| {
         is_subject_word(word)
             || (word.eq_ignore_ascii_case("bonus")
-                && words.get(index + 1).is_some_and(|next| {
-                    GRANTED_WORDS.contains(&next.to_lowercase().as_str())
-                }))
+                && words
+                    .get(index + 1)
+                    .is_some_and(|next| GRANTED_WORDS.contains(&next.to_lowercase().as_str())))
     })
 }
 
@@ -1213,9 +1213,8 @@ mod tests {
     #[test]
     fn a_granted_thing_is_a_subject_with_or_without_bonus() {
         // Ultimate Magic pp. 58-59: the six oracle archetypes (owner ruling 22).
-        let sentence = one(
-            "These bonus spells replace the oracle's mystery bonus spells at these levels.",
-        );
+        let sentence =
+            one("These bonus spells replace the oracle's mystery bonus spells at these levels.");
         assert_eq!(sentence.op, TradeOp::Replaces);
         assert!(sentence.bare);
         for stored in [
@@ -1239,7 +1238,10 @@ mod tests {
         assert!(one("This skill replaces Perception.").bare);
         assert!(one("These evolutions replace the eidolon's base evolutions.").bare);
         assert!(!one("This bonus ability alters bravery.").bare);
-        assert_eq!(one("This bonus ability alters bravery.").op, TradeOp::Alters);
+        assert_eq!(
+            one("This bonus ability alters bravery.").op,
+            TradeOp::Alters
+        );
     }
 
     #[test]
