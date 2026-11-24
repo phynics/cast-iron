@@ -98,3 +98,14 @@ did not state yet. The owner ruled on them the same day, and the reader and the 
   `docs/corpus-format.md`.
 - **"replaces both X and Y"** reads as a two-item list. "replaces either X or Y" is not read: no
   printed sentence of the pilot uses it.
+
+## 2026-11-24 addendum: trades under a scaffold heading (#540, owner ruling 13)
+
+A trade sentence printed under a scaffold heading (a heading of the closed list `NOT_FEATURE_HEADINGS`,
+such as "Bonus Feats" or "Weapon and Armor Proficiency") counts as a trade with no `by`, wherever the
+heading sits, also after the first listed feature, unless a listed feature contains it. Arcane Duelist
+and Zen Archer of the Advanced Player's Guide print their trades of versatile performance and of the
+monk's bonus feats there. The check no longer rejects such a sentence, and the drift check reads it
+with the opening text: a trade without `by` may be stated in either place, and every sentence in
+either place must be covered by trades without `by`. The scope is narrow: only scaffold headings, so
+a trade sentence under any other unlisted heading after the opening text still fails.

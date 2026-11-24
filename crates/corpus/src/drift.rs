@@ -1131,9 +1131,11 @@ fn sentence_pairs(
 ///   that prints no trade sentence at all is not drift. Print then only describes the changed
 ///   ability ("A druid archetype's Wild Shape ..."), and `by` names the feature that prints it.
 ///   Coverage is unchanged: every trade sentence that is printed must still be covered by trades.
-/// - A trade without `by` is a trade that the book prints outside any feature, in the opening
-///   text before the first feature. Its name must appear in a trade sentence of the opening text,
-///   and every trade sentence of the opening text is covered by those trades.
+/// - A trade without `by` is a trade that the book prints outside any feature: in the opening
+///   text before the first feature, or (owner ruling 13 of 2026-11-24, #540) under a scaffold
+///   heading such as "Bonus Feats" wherever it sits, unless a listed feature contains it. Its name
+///   must appear in a trade sentence of one of those places, and every trade sentence of those
+///   places is covered by those trades.
 /// - A trade that names a feature that is not listed is its own pair, so it cannot hide from the
 ///   comparison.
 ///
@@ -1141,7 +1143,7 @@ fn sentence_pairs(
 /// (see [`crate::check_features::feature_part`]). The `**Replaces:**` and `**Alters:**` rows are
 /// not read: this form has none.
 fn feature_trade_pairs(entry: &RuleEntry, text: &str) -> Vec<Pair> {
-    use crate::check_features::{feature_part, opening_blocks, sections, sentences_in};
+    use crate::check_features::{feature_part, sections, sentences_in, unbound_sentences};
     use crate::trade_sentences::TradeSentence;
     let found = sections(feature_part(entry), &entry.body);
     let features = entry.fields.features();
@@ -1179,7 +1181,7 @@ fn feature_trade_pairs(entry: &RuleEntry, text: &str) -> Vec<Pair> {
         });
     }
     // Trades that the opening text states.
-    let opening_sentences = sentences_in(opening_blocks(entry), trades);
+    let opening_sentences = unbound_sentences(entry);
     let opening_trades: Vec<_> = trades.iter().filter(|trade| trade.by.is_empty()).collect();
     pairs.extend(sentence_pairs(
         &opening_trades,
@@ -3080,6 +3082,69 @@ mod tests {
             ],
         ));
         assert_eq!(drift.len(), 1, "{drift:?}");
+    }
+
+    /// A listed feature, then a heading with the given text and a trade sentence under it.
+    fn with_heading_after_feature(
+        heading_text: &str,
+        trades: Vec<cast_iron_schema::Trade>,
+    ) -> Stored {
+        let mut entry = printed_archetype(&[("shattering-strike", SHATTERING)], trades);
+        entry
+            .entry
+            .body
+            .push(feature_heading_at(2, "after", heading_text));
+        entry
+            .entry
+            .body
+            .push(text_block("This ability replaces the monk's bonus feats."));
+        entry
+    }
+
+    #[test]
+    fn a_scaffold_heading_after_the_first_feature_prints_trades_without_by() {
+        // Owner ruling 13 of 2026-11-24 (#540): "Bonus Feats" after a listed feature.
+        let both = || {
+            vec![
+                trade_by(TradeOp::Replaces, "Bravery", &["shattering-strike"]),
+                trade_by(TradeOp::Replaces, "Bonus feats", &[]),
+            ]
+        };
+        let drift = find_drift(&with_heading_after_feature("Bonus Feats", both()));
+        assert!(drift.is_empty(), "{drift:?}");
+        // The sentence needs a trade without `by`: with a `by` that names a feature that does
+        // not print it, or with none at all, it is uncovered.
+        let only_by = vec![trade_by(
+            TradeOp::Replaces,
+            "Bravery",
+            &["shattering-strike"],
+        )];
+        assert_eq!(
+            find_drift(&with_heading_after_feature("Bonus Feats", only_by)).len(),
+            1
+        );
+        // A trade without `by` that is stated nowhere is drift.
+        let nowhere = vec![
+            trade_by(TradeOp::Replaces, "Bravery", &["shattering-strike"]),
+            trade_by(TradeOp::Replaces, "Trap sense", &[]),
+            trade_by(TradeOp::Replaces, "Bonus feats", &[]),
+        ];
+        let drift = find_drift(&with_heading_after_feature("Bonus Feats", nowhere));
+        assert_eq!(drift.len(), 1, "{drift:?}");
+        assert_eq!(drift[0].field_value, "replaces: Trap sense");
+    }
+
+    #[test]
+    fn another_unlisted_heading_does_not_state_trades_without_by() {
+        // The sentence under a heading that is no scaffold heading is not an unbound sentence,
+        // so the trade without `by` is not stated (the check reports the heading).
+        let both = vec![
+            trade_by(TradeOp::Replaces, "Bravery", &["shattering-strike"]),
+            trade_by(TradeOp::Replaces, "Bonus feats", &[]),
+        ];
+        let drift = find_drift(&with_heading_after_feature("Monk Training", both));
+        assert_eq!(drift.len(), 1, "{drift:?}");
+        assert_eq!(drift[0].source, "trade sentences of the opening text");
     }
 
     fn single_power(body: Vec<Block>, trades: Vec<cast_iron_schema::Trade>) -> Stored {

@@ -12,7 +12,10 @@
 //!    another listed feature's section;
 //! 4. every section after the opening text of an archetype or class option that prints a trade
 //!    sentence is a listed feature, or sits inside one. The opening text (before the first listed
-//!    feature) may print trades that no feature prints; those trades have no `by`.
+//!    feature) may print trades that no feature prints; those trades have no `by`. So may a
+//!    section under a scaffold heading ([`NOT_FEATURE_HEADINGS`]) wherever it sits, also after the
+//!    first feature (owner ruling 13, 2026-11-24), unless a listed feature contains it. Any other
+//!    unlisted heading with a trade sentence is an error.
 //!
 //! 5. no listed feature has a scaffold heading ([`NOT_FEATURE_HEADINGS`]): those headings
 //!    structure a page and are not class features, so they get no head and no search alias.
@@ -279,7 +282,6 @@ fn check_entry(entry: &RuleEntry, at: &dyn Fn(&str) -> String, report: &mut Repo
             }
         }
     }
-    let listed = |anchor: &str| features.iter().any(|feature| feature.anchor == anchor);
     for trade in entry.fields.trades() {
         let mut previous: Option<usize> = None;
         for by in &trade.by {
@@ -311,6 +313,47 @@ fn check_entry(entry: &RuleEntry, at: &dyn Fn(&str) -> String, report: &mut Repo
     if features.is_empty() || !matches!(entry.kind, EntryKind::Archetype | EntryKind::ClassOption) {
         return;
     }
+    for (block, place) in placements(entry) {
+        let Place::Unlisted { home, needle } = place else {
+            continue;
+        };
+        let Some(sentence) = sentences_in(std::slice::from_ref(block), entry.fields.trades())
+            .into_iter()
+            .next()
+        else {
+            continue;
+        };
+        report.problems.push(format!(
+            "{}: [fields] a trade sentence ({} {}) stands {home}, which is not listed in `features`; list the feature, or the trade has no feature to name",
+            at(&needle),
+            sentence.op.slug(),
+            sentence.phrase
+        ));
+    }
+}
+
+/// Where a block of the feature part of an entry sits, for the trade sentences it prints.
+pub(crate) enum Place {
+    /// Before the first listed feature, or under a scaffold heading that no listed feature
+    /// contains: a trade stated here has no `by`.
+    Unbound,
+    /// In a listed feature's section, or inside one.
+    Feature,
+    /// Under a heading that is neither listed nor a scaffold heading: no trade may be stated
+    /// here. `home` and `needle` describe the place for the error message.
+    Unlisted { home: String, needle: String },
+}
+
+/// The non-heading blocks of [`feature_part`] with their [`Place`].
+///
+/// The opening text (before the first listed feature) may state trades that no feature prints.
+/// Owner ruling 13 of 2026-11-24 (#540): so may a section under a scaffold heading
+/// ([`NOT_FEATURE_HEADINGS`], such as "Bonus Feats") wherever it sits, also after the first
+/// feature, unless a listed feature contains it. Any other unlisted heading stays an error.
+pub(crate) fn placements(entry: &RuleEntry) -> Vec<(&Block, Place)> {
+    let blocks = feature_part(entry);
+    let features = entry.fields.features();
+    let listed = |anchor: &str| features.iter().any(|feature| feature.anchor == anchor);
     let keyed = keyed_headings(&entry.body);
     let key_of = |block: &Block| {
         keyed
@@ -318,46 +361,55 @@ fn check_entry(entry: &RuleEntry, at: &dyn Fn(&str) -> String, report: &mut Repo
             .find(|(candidate, _)| std::ptr::eq(*candidate, block))
             .and_then(|(_, key)| key.clone())
     };
-    let mut stack: Vec<(u8, Option<String>)> = Vec::new();
-    // The opening text (before the first listed feature) may state trades that no feature prints.
+    // Open headings: level, key, whether the heading reads as a scaffold heading.
+    let mut stack: Vec<(u8, Option<String>, bool)> = Vec::new();
     let opening = opening_blocks(entry).len();
+    let mut out = Vec::new();
     for (position, block) in blocks.iter().enumerate() {
-        if let Block::Heading { level, .. } = block {
-            while stack.last().is_some_and(|(open, _)| open >= level) {
+        if let Block::Heading { level, content, .. } = block {
+            while stack.last().is_some_and(|(open, _, _)| open >= level) {
                 stack.pop();
             }
-            stack.push((*level, key_of(block)));
-            continue;
-        }
-        if position < opening {
-            continue;
-        }
-        let Some(sentence) = sentences_in(std::slice::from_ref(block), entry.fields.trades())
-            .into_iter()
-            .next()
-        else {
-            continue;
-        };
-        let covered = stack
-            .iter()
-            .any(|(_, key)| key.as_deref().is_some_and(listed));
-        if !covered {
-            let home = stack.last().and_then(|(_, key)| key.clone()).map_or_else(
-                || "before the first heading".to_string(),
-                |key| format!("under the heading `{key}`"),
-            );
-            let needle = stack
-                .last()
-                .and_then(|(_, key)| key.as_ref())
-                .map_or_else(String::new, |key| format!("{{#{key}}}"));
-            report.problems.push(format!(
-                "{}: [fields] a trade sentence ({} {}) stands {home}, which is not listed in `features`; list the feature, or the trade has no feature to name",
-                at(&needle),
-                sentence.op.slug(),
-                sentence.phrase
+            stack.push((
+                *level,
+                key_of(block),
+                is_scaffold_heading(&plain_text(content)),
             ));
+            continue;
         }
+        let place = if position < opening {
+            Place::Unbound
+        } else if stack
+            .iter()
+            .any(|(_, key, _)| key.as_deref().is_some_and(listed))
+        {
+            Place::Feature
+        } else if stack.iter().any(|(_, _, scaffold)| *scaffold) {
+            Place::Unbound
+        } else {
+            let last = stack.last().and_then(|(_, key, _)| key.clone());
+            Place::Unlisted {
+                home: last.as_ref().map_or_else(
+                    || "before the first heading".to_string(),
+                    |key| format!("under the heading `{key}`"),
+                ),
+                needle: last.map_or_else(String::new, |key| format!("{{#{key}}}")),
+            }
+        };
+        out.push((block, place));
     }
+    out
+}
+
+/// The trade sentences that no feature prints: those of the opening text and of the sections under
+/// a scaffold heading that no listed feature contains (see [`placements`]). The trades that state
+/// them have no `by`.
+pub(crate) fn unbound_sentences(entry: &RuleEntry) -> Vec<TradeSentence> {
+    placements(entry)
+        .into_iter()
+        .filter(|(_, place)| matches!(place, Place::Unbound))
+        .flat_map(|(block, _)| sentences_in(std::slice::from_ref(block), entry.fields.trades()))
+        .collect()
 }
 
 #[cfg(test)]
@@ -638,6 +690,40 @@ mod tests {
             text("This ability replaces bravery."),
         ];
         assert!(problems(archetype(nested, vec![("a", Some(1))], vec![])).is_empty());
+    }
+
+    #[test]
+    fn a_scaffold_heading_after_the_first_feature_may_print_trades() {
+        // Owner ruling 13 of 2026-11-24 (#540): "Bonus Feats" after a listed feature.
+        let after = |name: &str| {
+            let mut body = body();
+            body.push(heading(Some("after"), name));
+            body.push(text("This ability replaces the monk's bonus feats."));
+            body
+        };
+        let features = || vec![("shattering-strike", Some(2))];
+        let trades = || vec![by(TradeOp::Replaces, "Bravery", &["shattering-strike"])];
+        for name in [
+            "Bonus Feats",
+            "weapon and armor proficiency",
+            "Bonus Spells:",
+        ] {
+            let found = problems(archetype(after(name), features(), trades()));
+            assert!(found.is_empty(), "{name}: {found:?}");
+        }
+        // Any other unlisted heading still fails.
+        let found = problems(archetype(after("Monk Training"), features(), trades()));
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert!(found[0].contains("not listed in `features`"), "{found:?}");
+        // A scaffold heading inside a listed feature belongs to the feature, as before.
+        let mut nested = body();
+        nested.push(Block::Heading {
+            level: 3,
+            anchor: Some("inner".into()),
+            content: vec![Inline::text("Bonus Feats")],
+        });
+        nested.push(text("This ability replaces the monk's bonus feats."));
+        assert!(problems(archetype(nested, features(), trades())).is_empty());
     }
 
     #[test]

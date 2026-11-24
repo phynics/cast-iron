@@ -335,7 +335,7 @@ trades = [
 | `features` | `archetype`, `class_option`, `class` | Optional list of inline tables, one per feature, in body order. Written before `trades`; for a `class` entry, after `class_skills`. Empty is not written. |
 | `features[].anchor` | | A string: the **explicit** `{#anchor}` of a heading of the body. A key that the page derives from the heading text does not count, because a feature anchor is a public deep link. Each anchor once. |
 | `features[].level` | | Optional whole number from 1 to 20 (the reader refuses other numbers): the level at which the feature is gained. Leave it out when the feature has no single level (a choice among several, or a feature that the book does not tie to one level); an entry may mix features with and without a level. |
-| `trades[].by` | `archetype`, `class_option` | Optional **list** of strings, even for one feature: the `anchor`s of the same entry's `features` whose printed text states the trade, in body order, each once. One trade names every feature that prints it. A trade with no `by` is a trade that the book prints in the opening text, before the first feature (the code of conduct of a tyrant, say). Written last in the trade's inline table (after `feature`, `class`, `levels`, `power`). |
+| `trades[].by` | `archetype`, `class_option` | Optional **list** of strings, even for one feature: the `anchor`s of the same entry's `features` whose printed text states the trade, in body order, each once. One trade names every feature that prints it. A trade with no `by` is a trade that the book prints outside any feature: in the opening text, before the first feature (the code of conduct of a tyrant, say), or under a scaffold heading such as "Bonus Feats" wherever it sits (see the checks below). Written last in the trade's inline table (after `feature`, `class`, `levels`, `power`). |
 
 A format 3 corpus holds neither key, and its reader refuses them and says that they need format 4.
 Format 4 changes no existing key and no existing default, so the step from format 3
@@ -350,7 +350,7 @@ Format 4 changes no existing key and no existing default, so the step from forma
 | `level`, when written, runs from 1 to 20 and agrees with an "At Nth level" or "Starting at Nth level" lead (also "Beginning at") when the first paragraph under the feature's heading has one. A paragraph without a lead states no level. | Fails. |
 | Every `by` names anchors of the same entry's `features`, in body order. | Fails. |
 | No listed feature's heading sits inside another listed feature's section (feature heads are siblings: give them one heading level; a subsection that is not listed may nest). | Fails. |
-| Every section after the opening text (the blocks before the first listed feature) of an archetype or class option that prints a trade sentence is a listed feature, or sits inside one. | Fails. |
+| Every section after the opening text (the blocks before the first listed feature) of an archetype or class option that prints a trade sentence is a listed feature, or sits inside one. Exception (owner ruling 13 of 2026-11-24): a section under a scaffold heading (a heading in the closed scaffold list: `Bonus Feats`, `Weapon and Armor Proficiency`, ...), wherever it sits and unless a listed feature contains it, may print trades; they have no `by`. Any other unlisted heading with a trade sentence stays an error. | Fails. |
 | The trades agree with the trade sentences of their features (see [Drift](#drift-between-fields-and-body)). | Drift: fails. |
 
 The feature's section runs from its heading to the next heading of the same or a higher level, so
@@ -1206,9 +1206,12 @@ block), and compares them with the trades that name the feature in `by`:
   that prints it. A trade with no `by` and no sentence in the opening text stays drift, and a feature
   that prints some other trade sentence does not state a trade it does not name;
 - every trade sentence of a listed feature is covered by the trades that name that feature;
-- a trade without `by` is a trade printed in the opening text: its name appears in a trade
-  sentence of the opening text (the blocks before the first listed feature), and every trade
-  sentence there is covered by the trades without `by`;
+- a trade without `by` is a trade printed outside any feature: its name appears in a trade
+  sentence of the opening text (the blocks before the first listed feature) or of a section under a
+  scaffold heading that no listed feature contains (owner ruling 13 of 2026-11-24; Arcane Duelist
+  and Zen Archer print trades under "Bonus Feats"), and every trade sentence of those places is
+  covered by the trades without `by`. A trade sentence under any other unlisted heading after the
+  opening text is not read here: the check rejects it;
 - a trade that names a feature that is not listed is drift.
 
 A trade sentence starts with `This`, `These` or `It`, then only subject words, then `replaces` or
