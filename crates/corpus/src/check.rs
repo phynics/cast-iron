@@ -1652,6 +1652,7 @@ pub fn check(corpus: &Corpus) -> Report {
     check_option_groups(corpus, &ids, &mut report);
     check_replaces_features(corpus, &keys, &mut report);
     crate::check_trades::check_trades(corpus, &keys, &mut report);
+    crate::check_features::check_features(corpus, &mut report);
     crate::check_powers::check_class_option_powers(corpus, &mut report);
     crate::check_residue::check_class_option_residue(corpus, &mut report);
     check_publication_suffixes(corpus, &ids, &mut report);
@@ -5395,6 +5396,7 @@ mod tests {
 
     fn trade(op: TradeOp, printed: &str, anchor: Option<&str>) -> Trade {
         Trade {
+            by: Vec::new(),
             op,
             printed: printed.into(),
             feature: anchor.map(|anchor| FeatureRef {
@@ -5416,6 +5418,7 @@ mod tests {
             ),
             EntryKind::Archetype,
             TypedFields::Archetype(cast_iron_schema::ArchetypeFields {
+                features: Default::default(),
                 trades,
                 legacy_features: legacy,
             }),

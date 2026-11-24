@@ -21,6 +21,9 @@ cast-iron-corpus <command>
   migrate-layout [DIR]
         Split books.toml into books/<publication>.toml (the layout step of format 3) and
         nothing else. Safe to repeat. It declares format 3 only from format 2.
+  migrate-features [DIR]
+        Declare corpus format 4 (feature facts, #540) in corpus.toml and change nothing else.
+        It acts only from format 3, and a rerun finds nothing to do.
   migrate-trades [DIR] [--review FILE]
         Lower the trades of archetypes and class options to format 2, resolving each to a
         feature of a base class only where the printed name proves it, and write the trades
@@ -173,6 +176,12 @@ pub fn run_migrate_layout(args: &[String]) -> Result<(), String> {
     Ok(())
 }
 
+pub fn run_migrate_features(args: &[String]) -> Result<(), String> {
+    let args = parse("migrate-features", args, &[], &[])?;
+    println!("{}", crate::migrate_features(&args.dir)?);
+    Ok(())
+}
+
 pub fn run_migrate_trades(args: &[String]) -> Result<(), String> {
     let args = parse("migrate-trades", args, &[], &["--review"])?;
     let review = args
@@ -221,6 +230,7 @@ pub fn run(args: &[String]) -> Result<(), String> {
         Some("fmt") => run_fmt(&args[1..]),
         Some("migrate") => run_migrate(&args[1..]),
         Some("migrate-layout") => run_migrate_layout(&args[1..]),
+        Some("migrate-features") => run_migrate_features(&args[1..]),
         Some("migrate-trades") => run_migrate_trades(&args[1..]),
         Some("help" | "--help" | "-h") | None => {
             print!("{USAGE}");

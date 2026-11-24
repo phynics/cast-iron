@@ -16,11 +16,19 @@ use std::path::Path;
 ///
 /// Format 3 (#425) splits `books.toml`: only the hand-curated books are stored, one file each
 /// under `books/`, and the compiler derives every other book from the `[[sources]]` pages.
-pub const CORPUS_FORMAT: u32 = 3;
+///
+/// Format 4 (#540) adds the optional `features` list of an archetype, class option or base class
+/// and the `by` key of a trade: the facts that the printed prose of a feature states (its level,
+/// and the trade it makes). It changes no existing key, so the step from format 3 rewrites only
+/// the format marker.
+pub const CORPUS_FORMAT: u32 = 4;
 
 /// The format that writes trades as one flat `trades` list (#450): what `migrate-trades` targets.
 /// It is not [`CORPUS_FORMAT`], so the trades step leaves the layout step to run after it.
 pub const TRADES_FORMAT: u32 = 2;
+
+/// The first format that may write `features` and the `by` key of a trade (#540).
+pub const FEATURES_FORMAT: u32 = crate::features::FEATURES_FORMAT;
 
 /// The first format whose book layout is the split one (`books/<publication>.toml`). A corpus
 /// below it stores one `books.toml`. The layout itself is read from the disk (see
@@ -31,7 +39,7 @@ pub const SPLIT_BOOKS_FORMAT: u32 = 3;
 /// The corpus formats this tool reads, oldest first. A reader of format 1 lowers the legacy
 /// `replaces`, `alters`, `replaces_features` and `alters_features` lists to trades; `fmt`
 /// writes each file back in the format its `corpus.toml` declares.
-pub const READABLE_FORMATS: [u32; 3] = [1, 2, CORPUS_FORMAT];
+pub const READABLE_FORMATS: [u32; 4] = [1, 2, 3, CORPUS_FORMAT];
 
 /// The command that converts a corpus from an older format.
 pub const MIGRATE_COMMAND: &str = "cast-iron-corpus migrate";
@@ -131,7 +139,7 @@ mod tests {
         let text = write_config(&config);
         assert_eq!(
             text,
-            "format = 3\n\n[defaults]\nlicense_refs = [\"ogl-1.0a\", \"legal#community-use\"]\n"
+            "format = 4\n\n[defaults]\nlicense_refs = [\"ogl-1.0a\", \"legal#community-use\"]\n"
         );
         assert_eq!(
             read_config(Path::new("corpus.toml"), &text).unwrap(),
@@ -141,7 +149,7 @@ mod tests {
 
     #[test]
     fn an_unknown_format_is_refused_and_names_the_migration_command() {
-        for (format, fragment) in [(0, "to convert the corpus"), (4, "older than the corpus")] {
+        for (format, fragment) in [(0, "to convert the corpus"), (5, "older than the corpus")] {
             let text = format!("format = {format}\n\n[defaults]\nlicense_refs = []\n");
             let error = read_config(Path::new("corpus.toml"), &text).unwrap_err();
             assert_eq!(error.line, 1);

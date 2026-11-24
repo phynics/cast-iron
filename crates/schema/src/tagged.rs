@@ -470,6 +470,24 @@ mod tests {
             TypedFields::Trait(TraitFields::default()),
             TypedFields::RacialTrait(RacialTraitFields::default()),
             TypedFields::Archetype(ArchetypeFields::default()),
+            TypedFields::Archetype(ArchetypeFields {
+                features: vec![crate::FeatureFact {
+                    anchor: "a".into(),
+                    level: Some(2),
+                }],
+                trades: vec![crate::Trade {
+                    by: vec!["a".into()],
+                    ..crate::Trade::unresolved(crate::TradeOp::Replaces, "B")
+                }],
+                ..Default::default()
+            }),
+            TypedFields::Class(ClassFields {
+                features: vec![crate::FeatureFact {
+                    anchor: "a".into(),
+                    level: None,
+                }],
+                ..Default::default()
+            }),
             TypedFields::ClassOption(ClassOptionFields::default()),
             TypedFields::None,
         ];

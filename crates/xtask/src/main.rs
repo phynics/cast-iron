@@ -52,6 +52,9 @@ cargo xtask <command>
   corpus-migrate-layout <dir>
                              Split books.toml into books/<publication>.toml, the layout step of
                              format 3 (#425), and nothing else. Safe to repeat
+  corpus-migrate-features <dir>
+                             Declare corpus format 4 (feature facts, #540) in corpus.toml and
+                             change nothing else. Acts only from format 3. Safe to repeat
   corpus-migrate-trades <dir> [--review <file>]
                              Lower the trades of a corpus to format 2 and write the review queue
                              (TSV, default generated/trade-review.tsv). Idempotent
@@ -87,6 +90,7 @@ fn main() -> ExitCode {
         Some("corpus-fmt") => corpus_fmt(&args[1..]),
         Some("corpus-migrate") => cast_iron_corpus::cli::run_migrate(&args[1..]),
         Some("corpus-migrate-layout") => cast_iron_corpus::cli::run_migrate_layout(&args[1..]),
+        Some("corpus-migrate-features") => cast_iron_corpus::cli::run_migrate_features(&args[1..]),
         Some("corpus-migrate-trades") => corpus_migrate_trades(&args[1..]),
         Some("decisions-index") => docs_index::decisions_index(&root()),
         Some("status-index") => docs_index::status_index(&root()),

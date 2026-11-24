@@ -171,11 +171,11 @@ order:
 | `feat` | `feat_types`, `prerequisites`, `prerequisite_feats`, `benefit`, `normal`, `special` |
 | `creature` | `cr`, `creature_type`, `subtypes`, `size`, `alignment`, `ac`, `hp`, `fortitude`, `reflex`, `will`, `melee`, `ranged`, `special_attacks`, `special_qualities`, `abilities` |
 | `item` | `category`, `price`, `weight`, `slot`, `aura`, `caster_level`, `attributes` |
-| `class` | `class_type`, `hit_die`, `skill_ranks`, `class_skills` |
+| `class` | `class_type`, `hit_die`, `skill_ranks`, `class_skills`, `features` (format 4; see [Feature facts](#feature-facts-format-4)) |
 | `trait` | `category` (required), `detail` |
 | `racial_trait` | `alternate` (required boolean) |
-| `archetype` | `trades` (format 2; see [Trades](#trades)). Format 1: `replaces`, `alters` (printed feature names, in print order), `replaces_features`, `alters_features` (heading anchors of the base class, in print order) |
-| `class_option` | `group` (required slug from `option-groups.toml`), then the same trade keys as `archetype`, with the group's classes as the base classes |
+| `archetype` | `features` (format 4; see [Feature facts](#feature-facts-format-4)), then `trades` (format 2; see [Trades](#trades)). Format 1: `replaces`, `alters` (printed feature names, in print order), `replaces_features`, `alters_features` (heading anchors of the base class, in print order) |
+| `class_option` | `group` (required slug from `option-groups.toml`), then `features` and the same trade keys as `archetype`, with the group's classes as the base classes |
 | `none` | none |
 
 `levels`, `effects`, and `attributes` are arrays of inline tables. `cr` is the
@@ -208,6 +208,7 @@ trades = [
 | `feature` | Optional. A heading anchor of a base class entry. A trade without it is unresolved: it keeps its printed name, and no compatibility filter treats it as compatible with anything. |
 | `class` | Optional, only with `feature`. The base class entry whose anchor it is. Required when more than one base class of the entry holds the anchor (an archetype of several classes, a class option whose group has several classes); otherwise the compiler drops it. |
 | `levels` | Optional, only with `feature`. The class levels at which the trade applies: 1 to 20, ascending, each once. No `levels` means every level of the feature. |
+| `by` | Optional, format 4 only. A list of `anchor`s of the entry's own [feature facts](#feature-facts-format-4) whose printed text states this trade. Independent of `feature`: `by` names features of this entry, `feature` a feature of the base class. |
 | `power` | Optional, only with `feature`. A stable named component inside the feature, such as a bloodline power, a domain power, a bardic performance or a gunslinger deed, written the same in every entry. By corpus convention never a progression step (see below); the reader accepts any text and the check does not validate its meaning. Compared by exact text. |
 
 **Progression steps are grant levels.** This is a corpus authoring convention. `levels` identifies a progression step by the base-class grant levels, read from the class feature table of the base class: `Armor training 2` is `levels = [7]`, `Trap sense +3` is `[9]`, `Judgment 1/day` is `[1]`, and a list of steps names the levels of its steps (`Weapon training 1 and 3` is `[5, 13]`). `power` names a component only when the level alone is not enough, and a step is never a `power`. The adopted component names are:
@@ -302,6 +303,65 @@ order; `corpus-check` rejects such a trade in a format 1 corpus. The command abo
 a corpus (#451). The corpus repository applied it in v0.1.33 (#452); the pinned corpus is
 format 2, and this tool still reads format 1.
 
+### Feature facts (format 4)
+
+An archetype, class option or base class prints its features as headed prose, the way the book
+does. **Format 4** (#540) adds the facts that the prose states, so that the app can show a feature
+head and a jump without rewriting the prose into rows. They are data, not a second copy of the
+text: the check compares them with the prose.
+
+```markdown
+## Shattering Strike (Ex) {#shattering-strike}
+
+At 2nd level, a two-handed fighter gains a +1 bonus on damage rolls with two-handed weapons. …
+This ability replaces bravery.
+```
+
+```toml
+[fields]
+kind = "archetype"
+features = [
+  { anchor = "shattering-strike", level = 2 },
+  { anchor = "overhand-chop" },
+]
+trades = [
+  { replaces = "Bravery", feature = "bravery", by = ["shattering-strike"] },
+  { alters = "Armor training", feature = "armor-training", by = ["shattering-strike", "overhand-chop"] },
+]
+```
+
+| Key | Kinds | Rule |
+|---|---|---|
+| `features` | `archetype`, `class_option`, `class` | Optional list of inline tables, one per feature, in body order. Written before `trades`; for a `class` entry, after `class_skills`. Empty is not written. |
+| `features[].anchor` | | A string: the **explicit** `{#anchor}` of a heading of the body. A key that the page derives from the heading text does not count, because a feature anchor is a public deep link. Each anchor once. |
+| `features[].level` | | Optional whole number from 1 to 20 (the reader refuses other numbers): the level at which the feature is gained. Leave it out when the feature has no single level (a choice among several, or a feature that the book does not tie to one level); an entry may mix features with and without a level. |
+| `trades[].by` | `archetype`, `class_option` | Optional **list** of strings, even for one feature: the `anchor`s of the same entry's `features` whose printed text states the trade, in body order, each once. One trade names every feature that prints it. A trade with no `by` is a trade that the book prints in the opening text, before the first feature (the code of conduct of a tyrant, say). Written last in the trade's inline table (after `feature`, `class`, `levels`, `power`). |
+
+A format 3 corpus holds neither key, and its reader refuses them and says that they need format 4.
+Format 4 changes no existing key and no existing default, so the step from format 3
+(`cargo xtask corpus-migrate-features <dir>`, also part of `corpus-migrate`) rewrites only the
+`format` line of `corpus.toml`, and a rerun finds nothing to do.
+
+`corpus-check` holds these rules:
+
+| Rule | Result |
+|---|---|
+| Every `features` anchor is the explicit `{#anchor}` of a heading of the body, none is listed twice, and the list follows body order. | Fails. |
+| `level`, when written, runs from 1 to 20 and agrees with an "At Nth level" or "Starting at Nth level" lead (also "Beginning at") when the first paragraph under the feature's heading has one. A paragraph without a lead states no level. | Fails. |
+| Every `by` names anchors of the same entry's `features`, in body order. | Fails. |
+| No listed feature's heading sits inside another listed feature's section (feature heads are siblings: give them one heading level; a subsection that is not listed may nest). | Fails. |
+| Every section after the opening text (the blocks before the first listed feature) of an archetype or class option that prints a trade sentence is a listed feature, or sits inside one. | Fails. |
+| The trades agree with the trade sentences of their features (see [Drift](#drift-between-fields-and-body)). | Drift: fails. |
+
+The feature's section runs from its heading to the next heading of the same or a higher level, so
+`###` subsections belong to a `##` feature. An entry with features reads its sections from the
+whole body, cut only at a `**Sources:**` paragraph that is not the first block (and the `###`
+heading directly above it), so feature heads of a multi-publication entry may be `###`. The compiler
+carries `features` in the entry's typed fields and `by` in `trades.json`, both as optional keys that
+are left out when empty. They are additive: `SCHEMA_VERSION` stays 7, and an older reader ignores
+the keys (no reader of these types denies unknown fields; `cargo xtask entries-round-trip` reads every
+entry of a compiled library).
+
 ## `corpus.toml`
 
 ```toml
@@ -311,8 +371,8 @@ format = 1
 license_refs = ["ogl-1.0a", "legal#community-use"]
 ```
 
-`format` is the corpus format version. This tool reads formats 1, 2 and 3. Format 2 changes the trade
-keys (see [Trades](#trades)); format 3 changes the book layout (see [Books](#books-format-3)). A reader refuses a corpus whose format it
+`format` is the corpus format version. This tool reads formats 1, 2, 3 and 4. Format 2 changes the trade
+keys (see [Trades](#trades)); format 3 changes the book layout (see [Books](#books-format-3)); format 4 adds the feature facts (see [Feature facts](#feature-facts-format-4)). A reader refuses a corpus whose format it
 does not know, and the message names the command that converts it
 (`cast-iron-corpus migrate`). `[defaults]` declares, once, the values an entry
 omits. Today that is `license_refs`.
@@ -1130,8 +1190,64 @@ error: the pinned corpus `v0.1.2` has 0 disagreements, and `corpus-check` and
 | creature | `cr`, `creature_type`, `subtypes`, `size`, `alignment`, `ac`, `hp`, `fortitude`, `reflex`, `will`, `melee`, `ranged`, `special_attacks`, `special_qualities`, `abilities` | the `CR` or `Challenge rating`, `Type`, `Subtype`, `Size`, `AC` or `Armor class`, `Touch` and `Flat-footed`, `hp` or `Hit points`, `Fort`, ... rows |
 | item | `price`, `weight`, `slot`, `aura`, `caster_level` | the `Price`, `Weight`, `Slot` (through the closed vocabulary), `Aura`, `CL` rows |
 | feat | `prerequisites`, `benefit`, `normal`, `special` | the bold `**Prerequisites:**`, `**Benefit:**`, `**Normal:**`, `**Special:**` lines |
-| archetype | the `replaces` and `alters` trades | every bold `**Replaces:**` and `**Alters:**` line, in body order |
-| class_option | the `replaces` and `alters` trades | every bold `**Replaces:**` and `**Alters:**` line, in body order |
+| archetype | the `replaces` and `alters` trades | every bold `**Replaces:**` and `**Alters:**` line, in body order; for an entry with `features` (format 4), the trade sentences of its feature sections |
+| class_option | the `replaces` and `alters` trades | every bold `**Replaces:**` and `**Alters:**` line, in body order; for an entry with `features` (format 4), the trade sentences of its feature sections |
+
+**An entry with `features` (format 4).** The printed form has no `**Replaces:**` row: the book
+prints the trade as a sentence at the end of the feature ("This ability replaces bravery."). When
+an entry lists `features`, the drift check does not read those rows. It reads the trade sentences
+of each feature's section instead (the whole body, cut only at another publication's `**Sources:**`
+block), and compares them with the trades that name the feature in `by`:
+
+- every trade's name appears in a trade sentence, with the same op (`replaces` or `alters`), of at
+  least one of the features in its `by`;
+- every trade sentence of a listed feature is covered by the trades that name that feature;
+- a trade without `by` is a trade printed in the opening text: its name appears in a trade
+  sentence of the opening text (the blocks before the first listed feature), and every trade
+  sentence there is covered by the trades without `by`;
+- a trade that names a feature that is not listed is drift.
+
+A trade sentence starts with `This`, `These` or `It`, then only subject words, then `replaces` or
+`alters` (or `replace`, `alter`), and runs to the end of the sentence or a semicolon. The subject
+words are `ability`, `abilities`, `class`, `feature`, `features`, `power`, `powers`, `archetype`,
+`also`, `otherwise`, `acts`, `works`, `functions`, `as`, `like` and `and`. "This ability replaces
+bravery.", "This class feature also replaces bravery." and "This ability otherwise functions like and
+replaces the standard witch familiar." are trade sentences; "This ability replaces bravery and
+alters armor training." gives two trades. These are not: a sentence that only mentions the verb
+("The bonus replaces the usual bonus."), one with another subject ("This bonus replaces ..."), a
+negated one ("This ability does not replace ..."), and a comparison to a spell ("This ability
+functions like alter self, except ..."; `like` or `as` must be followed by `and` before the verb).
+A **bare** sentence is one whose subject names no ability (`ability`, `abilities`, `feature`,
+`features`, `power`, `powers`, `archetype`): "This replaces bravery.", "These replace the normal
+attack roll bonus and AC penalty for charging." A bare sentence is a trade sentence only when it
+names one of the entry's stored trades with the same op, because the pronoun may stand for
+anything.
+
+Names are compared as words, ignoring case, punctuation, hyphens, articles (and `standard`), ability
+tags (`(Ex)`), a plural (`s`, `es`, `ies`: `bombs`/`bomb`, `hexes`/`hex`, `mercies`/`mercy`), a
+possessive word before a name ("the rogue's trapfinding" reads as `Trapfinding`), the words
+`ability` and `feature` anywhere in a name and `class` before `feature` ("the paladin's spells class
+feature" reads as `Spells`, "the nature sense ability" as `Nature sense`), and, on the sentence
+side, a base-class name that leads an item ("the standard alchemist bomb class feature" reads as
+`Bombs`; the name with the class word still matches a trade that holds it, `Witch familiar`). The
+tolerance works on the trade names as stored: trades need no rewrite to match print. A sentence
+that lists several names is covered by one trade per name, or by one trade that states the whole
+phrase. Three shorthands read as one name per item: a hyphen-suspended list ("the 1st-, 2nd- and
+3rd-level bonus feats" is `1st-level bonus feat`, `2nd-level bonus feat`, `3rd-level bonus feat`), a
+shared tail without the trailing hyphen ("the paladin's 3rd-level and 9th-level mercies" is
+`3rd-level mercies`, `9th-level mercies`) and numbered steps after a shared head ("armor training
+1, 2, 3, and 4" is `armor training 1` to `armor training 4`; "weapon training 2 and 3" likewise), so
+the per-step trades `Armor training 2` and `Armor training 3` cover the sentence "armor training 2
+and 3".
+
+An entry without `features` (a single-power class option prints no heading and has none) takes
+either form during the transition: when the normal part holds a `**Replaces:**` or `**Alters:**`
+row, the row comparison above decides; when it holds none, has trades, and prints trade sentences
+anywhere in the normal part, the same coverage rules apply to those sentences (each sentence is
+covered by the trades of its op, and each trade appears in a sentence of its op). An entry with
+trades and neither form is drift, as before, so the pinned format 3 corpus gives the results it
+gave before format 4. A wording that the reader cannot read is fixed by adding the wording to the
+reader with a test, not by an exception list.
 
 The feature of a trade has no second copy in the body. It is checked against the class entry's
 heading anchors, and a trade warns when its printed name resolves confidently to another anchor
