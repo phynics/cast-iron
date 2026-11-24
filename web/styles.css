@@ -3099,7 +3099,7 @@ main,
   display: block;
 }
 
-/* Wide: one line in reading order, casting time · save · gist · book. The gist gives way
+/* Expanded: one line in reading order, casting time · save · gist · book. The gist gives way
    first; the book keeps up to 40% of the line. */
 @media (min-width: 40rem) {
   .spell-row-meta {
@@ -3137,7 +3137,7 @@ main,
   }
 }
 
-/* Compact / Wide is one quiet text button, the last item of the level bar's row. The reader picks
+/* Compact / Expanded is one quiet text button, the last item of the level bar's row. The reader picks
    it once for every spell list. `margin-left: auto` pushes it to the right end of the last row of
    level links; when that row is full it wraps to a line of its own, right-aligned. */
 .lvl-density {

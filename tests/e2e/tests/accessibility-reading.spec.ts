@@ -214,16 +214,16 @@ test("Keyboard focus stays clear of the fixed bars and small links keep a 44 px 
       return { above: hit(-20), below: hit(20) };
     }, [x, cy]);
   };
-  await page.goto("#/diagnostics");
+  await page.goto("#/settings/diagnostics");
   await expect(page.getByRole("link", { name: "Back to Settings" })).toBeVisible();
   expect(await reaches(page.getByRole("link", { name: "Back to Settings" }))).toEqual({ above: true, below: true });
   await page.goto("#/browse/book/core-rulebook");
-  const legal = page.getByRole("link", { name: "Legal and attribution" });
+  const legal = page.locator("footer.colophon").getByRole("link", { name: "Legal and attribution" });
   await expect(legal).toBeVisible();
   expect(await reaches(legal)).toEqual({ above: true, below: true });
 });
 
-test("The original-text disclosure of a revision in force is a 44 px target (#12)", async ({ page }) => {
+test("Keyboard and touch readers get a 44 px original-text disclosure on a revision in force (#12)", async ({ page }) => {
   await installLibrary(page);
   await waitControlled(page);
   await page.setViewportSize({ width: 390, height: 844 });
