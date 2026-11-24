@@ -376,9 +376,11 @@ export function buildLibraryWithExpandedIn(
 /**
  * An overlay of the served library in which one archetype is in corpus format 4 (#540): its body
  * is headed printed prose, `fields.features` lists the headings, and its trades name them
- * through `by`. No pinned corpus has `features` yet, so this is how a spec gets a feature head.
- * `by` maps the printed name of a trade to the anchors that state it. The entry's shard and
- * `trades.json` change; every other file keeps coming from dist.
+ * through `by`. The pinned corpus types 81 archetypes (v0.1.46), so the overlay replaces the whole
+ * `by` of the entry's trades: a spec gets exactly the feature heads and links it describes, whatever
+ * the data prints. `by` maps the printed name of a trade to the anchors that state it; a trade it
+ * does not name has no `by`. The entry's shard and `trades.json` change; every other file keeps
+ * coming from dist.
  */
 export function buildLibraryWithFeatures(
   id: string,
@@ -396,7 +398,10 @@ export function buildLibraryWithFeatures(
     (trades) => {
       const row = trades.entries.find((candidate: any) => candidate.id === id);
       if (!row) throw new Error(`trades.json has no row for ${id}`);
-      for (const trade of row.trades) if (by[trade.printed]) trade.by = by[trade.printed];
+      for (const trade of row.trades) {
+        if (by[trade.printed]) trade.by = by[trade.printed];
+        else delete trade.by;
+      }
     },
   );
 }
