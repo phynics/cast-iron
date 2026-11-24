@@ -338,10 +338,6 @@ ref/carried/game-mastery-guide/rules/hazards/sample-hazards/ear-seekers/ear-seek
 ref/carried/game-mastery-guide/rules/hazards/sample-hazards/poison-oak/poison-oak	affliction	Poison Oak
 ref/carried/game-mastery-guide/rules/hazards/sample-hazards/poison-oak/poison-oak-severe-exposure	affliction	Poison Oak (Severe Exposure)
 ref/carried/game-mastery-guide/rules/hazards/sample-hazards/rot-grubs/rot-grubs	affliction	Rot Grubs
-ref/carried/game-mastery-guide/rules/sanity-and-madness/types-of-insanity/mania-phobia	affliction	Mania/Phobia
-ref/carried/game-mastery-guide/rules/sanity-and-madness/types-of-insanity/multiple-personality-disorder	affliction	Multiple Personality Disorder
-ref/carried/game-mastery-guide/rules/sanity-and-madness/types-of-insanity/paranoia	affliction	Paranoia
-ref/carried/game-mastery-guide/rules/sanity-and-madness/types-of-insanity/psychosis	affliction	Psychosis
 ref/curse/bestow-curse-trap	affliction	Bestow Curse Trap
 ref/curse/blasted-vitality	affliction	Blasted Vitality
 ref/curse/curse-of-bestial-dreams	affliction	Curse of Bestial Dreams
@@ -1425,7 +1421,7 @@ ref/hex/major-ameliorating	class_option	Major Ameliorating
 ref/hex/major-healing	class_option	Major Healing
 ref/hex/minor-prophecy	class_option	Minor Prophecy
 ref/hex/misfortune	class_option	Misfortune
-ref/hex/mothers-eye	class_option	Mother's Eye
+ref/hex/mothers-eye	class_option	Mother's Eyes
 ref/hex/mud-witch	class_option	Mud Witch
 ref/hex/murksight	class_option	Murksight
 ref/hex/nails	class_option	Nails
@@ -1585,7 +1581,7 @@ ref/invtalent/greater-combat-inspiration	class_option	Greater Combat Inspiration
 ref/invtalent/greater-numerical-alchemy	class_option	Greater Numerical Alchemy
 ref/invtalent/greater-numerical-strike	class_option	Greater Numerical Strike
 ref/invtalent/hidden-agendas	class_option	Hidden Agendas
-ref/invtalent/iconclastic-strike	class_option	Iconclastic Strike
+ref/invtalent/iconclastic-strike	class_option	Iconoclastic Strike
 ref/invtalent/innocent-facade	class_option	Innocent Facade
 ref/invtalent/inspirational-expertise	class_option	Inspirational Expertise
 ref/invtalent/inspired-alertness	class_option	Inspired Alertness
@@ -1920,7 +1916,7 @@ ref/kipower/formless-mastery	class_option	Formless Mastery
 ref/kipower/freedom-of-movement	class_option	Freedom of Movement
 ref/kipower/furious-defense	class_option	Furious Defense
 ref/kipower/high-jump	class_option	High Jump
-ref/kipower/improvised-weapon-proficiency	class_option	Improvised Weapon Proficiency
+ref/kipower/improvised-weapon-proficiency	class_option	Improvised Weapon Affinity
 ref/kipower/insightful-wisdom	class_option	Insightful Wisdom
 ref/kipower/ki-blocker	class_option	Ki Blocker
 ref/kipower/ki-guardian	class_option	Ki Guardian
@@ -2152,7 +2148,7 @@ ref/oath/the-wyrm	class_option	Oath against the Wyrm
 ref/oath/undeath	class_option	Oath against Undeath
 ref/oath/vengeance	class_option	Oath of Vengeance
 ref/oraclecurse/aboleth	class_option	Aboleth
-ref/oraclecurse/acursed	class_option	Acursed
+ref/oraclecurse/acursed	class_option	Accursed
 ref/oraclecurse/blackened	class_option	Blackened
 ref/oraclecurse/clouded-vision	class_option	Clouded Vision
 ref/oraclecurse/cold-blooded	class_option	Cold-Blooded
@@ -2305,12 +2301,12 @@ ref/performance/mass-suggestion	class_option	Mass Suggestion
 ref/performance/soothing-performance	class_option	Soothing Performance
 ref/performance/suggestion	class_option	Suggestion
 ref/phrenicamp/biokinetic-healing	class_option	Biokinetic Healing
-ref/phrenicamp/complex-countermeasures	class_option	Complex Countermeasures
+ref/phrenicamp/complex-countermeasures	class_option	Complex Countermeasure
 ref/phrenicamp/conjured-armor	class_option	Conjured Armor
 ref/phrenicamp/defensive-prognostication	class_option	Defensive Prognostication
 ref/phrenicamp/deflection-field	class_option	Deflection Field
 ref/phrenicamp/dispelling-pulse	class_option	Dispelling Pulse
-ref/phrenicamp/dragons-breath	class_option	Dragon's Breath
+ref/phrenicamp/dragons-breath	class_option	Dragon's Breath Focus
 ref/phrenicamp/dual-amplification	class_option	Dual Amplification
 ref/phrenicamp/focused-force	class_option	Focused Force
 ref/phrenicamp/intense-focus	class_option	Intense Focus
@@ -2402,7 +2398,7 @@ ref/ragepower/fierce-fortitude	class_option	Fierce Fortitude
 ref/ragepower/fire-totem	class_option	Fire Totem
 ref/ragepower/fjord-linnorm-death-curse	class_option	Fjord Linnorm Death Curse
 ref/ragepower/flesh-wound	class_option	Flesh Wound
-ref/ragepower/flight-response	class_option	Flight Response
+ref/ragepower/flight-response	class_option	Fight Response
 ref/ragepower/fueled-by-vengeance	class_option	Fueled by Vengeance
 ref/ragepower/furious-barrage	class_option	Furious Barrage
 ref/ragepower/furious-draw	class_option	Furious Draw
@@ -2732,7 +2728,7 @@ ref/soctalent/owls-sight	class_option	Owl's Sight
 ref/soctalent/quick-change	class_option	Quick Change
 ref/soctalent/renown	class_option	Renown
 ref/soctalent/safe-house	class_option	Safe House
-ref/soctalent/seemless-shapechanger	class_option	Seemless Shapechanger
+ref/soctalent/seemless-shapechanger	class_option	Seamless Shapechanger
 ref/soctalent/skill-familiarity	class_option	Skill Familiarity
 ref/soctalent/social-grace	class_option	Social Grace
 ref/soctalent/songbird	class_option	Songbird
@@ -2857,7 +2853,7 @@ ref/stare/timidity	class_option	Timidity
 ref/stare/unaided	class_option	Unaided
 ref/stylestrike/break	class_option	Break
 ref/stylestrike/defensive-spin	class_option	Defensive Spin
-ref/stylestrike/dirty-strikes	class_option	Dirty Strikes
+ref/stylestrike/dirty-strikes	class_option	Dirty Strike
 ref/stylestrike/elbow-smash	class_option	Elbow Smash
 ref/stylestrike/flying-kick	class_option	Flying Kick
 ref/stylestrike/foot-stomp	class_option	Foot Stomp
@@ -2949,7 +2945,7 @@ ref/talent/emboldening-strike	class_option	Emboldening Strike
 ref/talent/entanglement-of-blades	class_option	Entanglement of Blades
 ref/talent/escaping-stunt	class_option	Escaping Stunt
 ref/talent/esoteric-scholar	class_option	Esoteric Scholar
-ref/talent/expert-cypher	class_option	Expert Cypher
+ref/talent/expert-cypher	class_option	Expert Cipher
 ref/talent/expert-leaper	class_option	Expert Leaper
 ref/talent/expert-leaper-unchained-rogue	class_option	Expert Leaper (Unchained Rogue)
 ref/talent/extinguishing-strike	class_option	Extinguishing Strike
@@ -3139,7 +3135,7 @@ ref/trick/free-in-body	class_option	Free in Body
 ref/trick/gift-of-will	class_option	Gift of Will
 ref/trick/greater-mask-misery	class_option	Greater Mask Misery
 ref/trick/levitation-buffer	class_option	Levitation Buffer
-ref/trick/life-revier	class_option	Life Revier
+ref/trick/life-revier	class_option	Life Review
 ref/trick/linked-reaction	class_option	Linked Reaction
 ref/trick/mask-misery	class_option	Mask Misery
 ref/trick/meek-facade	class_option	Meek Facade
@@ -3240,9 +3236,9 @@ ref/vigtalent/combat-skill	class_option	Combat Skill
 ref/vigtalent/concealed-strike	class_option	Concealed Strike
 ref/vigtalent/cunning-feint	class_option	Cunning Feint
 ref/vigtalent/deceitful-trick	class_option	Deceitful Trick
-ref/vigtalent/environmental-weapon	class_option	Environmental Weapon
+ref/vigtalent/environmental-weapon	class_option	Environment Weapon
 ref/vigtalent/evasive	class_option	Evasive
-ref/vigtalent/expose-weaknesses	class_option	Expose Weaknesses
+ref/vigtalent/expose-weaknesses	class_option	Expose Weakness
 ref/vigtalent/fantastic-stride	class_option	Fantastic Stride
 ref/vigtalent/favored-maneuver	class_option	Favored Maneuver
 ref/vigtalent/fist-of-the-avenger	class_option	Fist of the Avenger
@@ -3288,7 +3284,7 @@ ref/vigtalent/stalker-sense	class_option	Stalker Sense
 ref/vigtalent/steel-soldier	class_option	Steel Soldier
 ref/vigtalent/steely-resolve	class_option	Steely Resolve
 ref/vigtalent/strike-the-unseen	class_option	Strike the Unseen
-ref/vigtalent/sucker-punch	class_option	Sucker Punch
+ref/vigtalent/sucker-punch	class_option	Sucker-Punch
 ref/vigtalent/sure-footed	class_option	Sure-Footed
 ref/vigtalent/surprise-strike	class_option	Surprise Strike
 ref/vigtalent/swamp-concoctions	class_option	Swamp Concoctions
@@ -19063,64 +19059,7 @@ ref/skill/stealth	skill	Stealth
 ref/skill/survival	skill	Survival
 ref/skill/swim	skill	Swim
 ref/skill/use-magic-device	skill	Use Magic Device
-ref/carried/advanced-players-guide/rules/new-rules/hero-points/hero-point-spells/heroic-fortune/mass	spell	Heroic Fortune, Mass
 ref/carried/advanced-players-guide/rules/new-rules/hero-points/hero-point-spells/malediction	spell	Malediction
-ref/carried/advanced-players-guide/spells/brand/greater	spell	Brand, Greater
-ref/carried/advanced-players-guide/spells/cacophonous-call/mass	spell	Cacophonous Call, Mass
-ref/carried/advanced-players-guide/spells/castigate/mass	spell	Castigate, Mass
-ref/carried/advanced-players-guide/spells/evolution-surge/greater	spell	Evolution Surge, Greater
-ref/carried/advanced-players-guide/spells/feather-step/mass	spell	Feather Step, Mass
-ref/carried/advanced-players-guide/spells/fester/mass	spell	Fester, Mass
-ref/carried/advanced-players-guide/spells/fly/mass	spell	Fly, Mass
-ref/carried/advanced-players-guide/spells/ghostbane-dirge/mass	spell	Ghostbane Dirge, Mass
-ref/carried/advanced-players-guide/spells/invigorate/mass	spell	Invigorate, Mass
-ref/carried/advanced-players-guide/spells/pain-strike/mass	spell	Pain Strike, Mass
-ref/carried/advanced-players-guide/spells/planar-adaptation/mass	spell	Planar Adaptation, Mass
-ref/carried/advanced-players-guide/spells/rejuvenate-eidolon/greater	spell	Rejuvenate Eidolon, Greater
-ref/carried/advanced-players-guide/spells/suffocation/mass	spell	Suffocation, Mass
-ref/carried/core-rulebook/spells/arcane-sight/greater	spell	Arcane Sight, Greater
-ref/carried/core-rulebook/spells/bears-endurance/mass	spell	Bear's Endurance, Mass
-ref/carried/core-rulebook/spells/bulls-strength/mass	spell	Bull's Strength, Mass
-ref/carried/core-rulebook/spells/cats-grace/mass	spell	Cat's Grace, Mass
-ref/carried/core-rulebook/spells/charm-monster/mass	spell	Charm Monster, Mass
-ref/carried/core-rulebook/spells/command/greater	spell	Command, Greater
-ref/carried/core-rulebook/spells/confusion/lesser	spell	Confusion, Lesser
-ref/carried/core-rulebook/spells/dispel-magic/greater	spell	Dispel Magic, Greater
-ref/carried/core-rulebook/spells/enlarge-person/mass	spell	Enlarge Person, Mass
-ref/carried/core-rulebook/spells/foxs-cunning/mass	spell	Fox's Cunning, Mass
-ref/carried/core-rulebook/spells/globe-of-invulnerability/lesser	spell	Globe Of Invulnerability, Lesser
-ref/carried/core-rulebook/spells/glyph-of-warding/greater	spell	Glyph Of Warding, Greater
-ref/carried/core-rulebook/spells/heal/mass	spell	Heal, Mass
-ref/carried/core-rulebook/spells/heroism/greater	spell	Heroism, Greater
-ref/carried/core-rulebook/spells/hold-monster/mass	spell	Hold Monster, Mass
-ref/carried/core-rulebook/spells/hold-person/mass	spell	Hold Person, Mass
-ref/carried/core-rulebook/spells/inflict-critical-wounds/mass	spell	Inflict Critical Wounds, Mass
-ref/carried/core-rulebook/spells/inflict-light-wounds/mass	spell	Inflict Light Wounds, Mass
-ref/carried/core-rulebook/spells/inflict-moderate-wounds/mass	spell	Inflict Moderate Wounds, Mass
-ref/carried/core-rulebook/spells/inflict-serious-wounds/mass	spell	Inflict Serious Wounds, Mass
-ref/carried/core-rulebook/spells/invisibility/greater	spell	Invisibility, Greater
-ref/carried/core-rulebook/spells/invisibility/mass	spell	Invisibility, Mass
-ref/carried/core-rulebook/spells/magic-fang/greater	spell	Magic Fang, Greater
-ref/carried/core-rulebook/spells/magic-weapon/greater	spell	Magic Weapon, Greater
-ref/carried/core-rulebook/spells/owls-wisdom/mass	spell	Owl's Wisdom, Mass
-ref/carried/core-rulebook/spells/planar-ally/greater	spell	Planar Ally, Greater
-ref/carried/core-rulebook/spells/planar-ally/lesser	spell	Planar Ally, Lesser
-ref/carried/core-rulebook/spells/planar-binding/greater	spell	Planar Binding, Greater
-ref/carried/core-rulebook/spells/planar-binding/lesser	spell	Planar Binding, Lesser
-ref/carried/core-rulebook/spells/reduce-person/mass	spell	Reduce Person, Mass
-ref/carried/core-rulebook/spells/restoration/greater	spell	Restoration, Greater
-ref/carried/core-rulebook/spells/restoration/lesser	spell	Restoration, Lesser
-ref/carried/core-rulebook/spells/scrying/greater	spell	Scrying, Greater
-ref/carried/core-rulebook/spells/shadow-conjuration/greater	spell	Shadow Conjuration, Greater
-ref/carried/core-rulebook/spells/shadow-evocation/greater	spell	Shadow Evocation, Greater
-ref/carried/core-rulebook/spells/shout/greater	spell	Shout, Greater
-ref/carried/core-rulebook/spells/spell-immunity/greater	spell	Spell Immunity, Greater
-ref/carried/core-rulebook/spells/suggestion/mass	spell	Suggestion, Mass
-ref/carried/core-rulebook/spells/teleport/greater	spell	Teleport, Greater
-ref/carried/monster-codex/rules/lizardfolk/new-rules/lizardfolk-spells/scale-spikes/greater	spell	Scale Spikes, Greater
-ref/carried/technology-guide/rules/technology-in-the-world/spells/discharge/greater	spell	Discharge, Greater
-ref/carried/technology-guide/rules/technology-in-the-world/spells/make-whole/greater	spell	Make Whole, Greater
-ref/carried/technology-guide/rules/technology-in-the-world/spells/remove-radioactivity/greater	spell	Remove Radioactivity, Greater
 ref/spell/ablative-sphere	spell	Ablative Sphere
 ref/spell/beast-shape	spell	Beast Shape
 ref/spell/breeze	spell	Breeze
@@ -19161,7 +19100,7 @@ ref/trait/brastlewark-businessman-gog	trait	Brastlewark Businessman (GoG)
 ref/trait/brute-apg	trait	Brute (APG)
 ref/trait/child-of-the-crusades-isp	trait	Child of the Crusades (ISP)
 ref/trait/clamber	trait	Clamber
-ref/trait/demon-hunter	trait	Demon Hunter
+ref/trait/demon-hunter	trait	Asmodean Demon Hunter
 ref/trait/dirty-fighter-apg	trait	Dirty Fighter (APG)
 ref/trait/family-ties-drawback	trait	Family Ties (Drawback)
 ref/trait/favored-son-or-daughter	trait	Favored Son/Daughter
@@ -19169,7 +19108,7 @@ ref/trait/firebug-qac	trait	Firebug (QaC)
 ref/trait/freed-slave-fg	trait	Freed Slave (FG)
 ref/trait/helpful-cop	trait	Helpful (CoP)
 ref/trait/horse-lord	trait	Horse Lord
-ref/trait/mischievous-smile	trait	Mischievous Smile
+ref/trait/mischievous-smile	trait	Mischievous Smite
 ref/trait/natural-born-leader-hr	trait	Natural Born Leader (HR)
 ref/trait/natural-born-leader-social	trait	Natural-Born Leader (Social)
 ref/trait/nauseating-spit	trait	Nauseating Spit

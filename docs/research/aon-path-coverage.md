@@ -6,11 +6,11 @@ Every canonical entry of the pinned corpus that has no verified Archives of Neth
 
 | | |
 |---|---|
-| Corpus | [`phynics/cast-iron-data`](https://github.com/phynics/cast-iron-data/tree/8f142f076fb0c75e04fb024f89a5654e7ce3c0cb) |
-| Tag | `v0.1.43` |
-| Commit | `8f142f076fb0c75e04fb024f89a5654e7ce3c0cb` |
-| Tree hash | `4ffaf121e917818b6fe3d0238ddb363f2ac197539c3e6f7db9ae5cd572248116` |
-| Entries | 31,733 |
+| Corpus | [`phynics/cast-iron-data`](https://github.com/phynics/cast-iron-data/tree/eea332670d1e6cca8d207e70291d74b18adf090e) |
+| Tag | `v0.1.44` |
+| Commit | `eea332670d1e6cca8d207e70291d74b18adf090e` |
+| Tree hash | `b8d059ef2a163a7515026568fda5848eecb87e3e53fb127b1208d96bfd18bcd2` |
+| Entries | 31,672 |
 | Publications | 443 |
 
 ## Totals by kind
@@ -19,7 +19,7 @@ Every canonical entry of the pinned corpus that has no verified Archives of Neth
 
 | Kind | Matched | Missing | Total |
 |---|---:|---:|---:|
-| affliction | 0 | 466 | 466 |
+| affliction | 0 | 462 | 462 |
 | archetype | 1,246 | 53 | 1,299 |
 | class | 49 | 0 | 49 |
 | class_option | 30 | 2,789 | 2,819 |
@@ -32,10 +32,10 @@ Every canonical entry of the pinned corpus that has no verified Archives of Neth
 | racial_trait | 0 | 342 | 342 |
 | rule | 0 | 5,981 | 5,981 |
 | skill | 0 | 44 | 44 |
-| spell | 2,999 | 87 | 3,086 |
+| spell | 2,999 | 30 | 3,029 |
 | trait | 1,896 | 39 | 1,935 |
 | trap | 0 | 60 | 60 |
-| **Total** | **12,483** | **19,250** | **31,733** |
+| **Total** | **12,483** | **19,189** | **31,672** |
 
 ## Publications
 
@@ -69,9 +69,9 @@ Every canonical entry of the pinned corpus that has no verified Archives of Neth
 
 ## The per-entry list
 
-[`aon-path-coverage.tsv`](aon-path-coverage.tsv) holds one row per missing entry, sorted by kind then id: `id`, `kind`, and `title`, with a header row. 19,250 data rows.
+[`aon-path-coverage.tsv`](aon-path-coverage.tsv) holds one row per missing entry, sorted by kind then id: `id`, `kind`, and `title`, with a header row. 19,189 data rows.
 
-SHA-256 of the list: `9b30b42abf9423626d4e7638db202c51623bc5d5bf1907e411f5eafeabee042c`
+SHA-256 of the list: `8410207c4773d9c455dc77d6a04bd97c8c32bc2b999e5423056a6c0c6ec5729a`
 
 ## What a missing row means
 
