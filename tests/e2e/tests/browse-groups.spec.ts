@@ -744,6 +744,12 @@ test("A book-filtered kind list highlights the Books tab, names the book in a pi
   await expect(line).toHaveText(`${count(spells)} spells`);
   await expect(line).not.toContainText(core.title);
   await expect(main.locator(".book-filter")).toHaveCount(1);
+  // The list sits under its book (#571): one crumb, the book page.
+  await expect(main.locator("nav.crumbs li")).toHaveText([core.title]);
+  await expect(main.locator("nav.crumbs").getByRole("link", { name: core.title, exact: true })).toHaveAttribute(
+    "href",
+    `#/browse/book/${core.id}`,
+  );
 
   // The tab is Books, because the library holds the book (#571), and the rows are the book's spells.
   await expect(page.locator('a.nav-link[aria-current="page"]')).toHaveText("Books");

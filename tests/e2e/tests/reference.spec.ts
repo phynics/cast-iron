@@ -1,3 +1,4 @@
+import type { Page } from "@playwright/test";
 import { installedTest as test, expect, loadCorpus, type Entry } from "./fixtures";
 import {
   bodyHeadings,
@@ -25,6 +26,9 @@ import {
   installLibrary,
   openBookGroups,
   waitControlled,
+  waitHomeIdle,
+  waitReady,
+  writeMeta,
   waitResults,
 } from "./helpers";
 
@@ -424,6 +428,101 @@ test("Rule entries preserve complex formatting: creature spell lists use readabl
   await expect(page.getByRole("heading", { level: 1, name: creature.title })).toBeVisible();
   await expect(page.locator(".rich")).toContainText(label);
   await expect(page.locator(".rich")).not.toContainText(/\bl[0-9]:/);
+});
+
+/**
+ * The book a list row names (`Library::row_book`, `membership::preferred_book`): the entry's first
+ * book while it is active, else the active member of the best tier (the first of equals), else the
+ * first book again.
+ */
+function rowBook(stub: any, off: ReadonlySet<string>): string {
+  const sources: any[] = corpus.catalog.sources;
+  const categories: Record<string, number> = {
+    RPG: 0, "Player Companion": 1, "Campaign Setting": 2, "Adventure Path": 3, Module: 3, Society: 3,
+  };
+  const tier = (id: string) => {
+    const source = sources.find((row) => row.id === id);
+    if (!source) return 4;
+    if (source.third_party) return 5;
+    const found = categories[source.category ?? ""] ?? 4;
+    return found === 4 && source.series_kind ? 3 : found;
+  };
+  const first = stub.source as string;
+  if (!off.has(first)) return first;
+  let best: string | undefined;
+  for (const book of memberBooks(stub)) {
+    if (book === first || off.has(book)) continue;
+    if (best === undefined || tier(book) < tier(best)) best = book;
+  }
+  return best ?? first;
+}
+
+test("Rule entries preserve complex formatting: entry-link rows name the listed entry's book (#461)", async ({ page }) => {
+  // A page that lists other entries as `entry-link` rows. Each row shows the listed entry's row
+  // book in muted text after the link, unless that is the page's own row book. Fixtures come from
+  // the compiled catalog, so the spec follows the pinned corpus.
+  test.setTimeout(300_000);
+  const stubs = new Map<string, any>(corpus.catalog.entries.map((stub: any) => [stub.id, stub]));
+  const visible = new Set<string>(activeStubs.map((stub: any) => stub.id as string));
+  const bookTitle = (id: string) => corpus.catalog.sources.find((row: any) => row.id === id)!.title as string;
+  const rowsOf = (entry: Entry) => entry.body.filter((block: any) => block.t === "entry_link");
+  const labelled = (entry: Entry) =>
+    rowsOf(entry).filter((block: any) => stubs.get(block.target)?.source !== stubs.get(entry.id)?.source);
+  const hubs = entries
+    .filter((entry) => visible.has(entry.id) && rowsOf(entry).every((block: any) => visible.has(block.target)))
+    .filter((entry) => labelled(entry).length > 0)
+    .sort((a, b) => labelled(b).length - labelled(a).length || (a.id < b.id ? -1 : 1));
+  const hub = hubs[0];
+  expect(hub, "the corpus keeps a visible entry whose entry-link rows list another book's entries").toBeTruthy();
+
+  const check = async (page: Page, hub: Entry, off: ReadonlySet<string>) => {
+    const rows = rowsOf(hub);
+    await page.goto(`#/entry/${hub.id}`);
+    await expect(page.getByRole("heading", { level: 1, name: hub.title })).toBeVisible();
+    const items = page.locator(".rich .entry-links li");
+    await expect(items).toHaveCount(rows.length);
+    const own = rowBook(stubs.get(hub.id), off);
+    for (const [at, row] of rows.entries()) {
+      const item = items.nth(at);
+      const book = rowBook(stubs.get(row.target), off);
+      // The link keeps the entry title as its name; the book is not inside it.
+      await expect(item.getByRole("link", { name: row.title, exact: true })).toHaveAttribute("href", `#/entry/${row.target}`);
+      if (book === own) {
+        await expect(item.getByTestId("entry-link-book")).toHaveCount(0);
+      } else {
+        await expect(item.getByTestId("entry-link-book")).toHaveText(`· ${bookTitle(book)}`);
+        await expect(item.getByRole("link")).not.toContainText(bookTitle(book));
+      }
+    }
+  };
+
+  // Every book is active: each row names the listed entry's first book.
+  await check(page, hub, new Set());
+
+  // With the listed entry's first book off, the row names its best active book instead. The page's
+  // own first book stays on, so the page stays visible and keeps its own row book.
+  const pick = (() => {
+    for (const candidate of hubs) {
+      const own = stubs.get(candidate.id).source as string;
+      for (const row of rowsOf(candidate)) {
+        const target = stubs.get(row.target);
+        const off = new Set<string>([target.source]);
+        const shown = rowBook(target, off);
+        if (target.source !== own && shown !== target.source && shown !== own) return { candidate, off, row };
+      }
+    }
+    return undefined;
+  })();
+  expect(pick, "an entry-link row lists an entry with a second book other than the page's").toBeTruthy();
+  const { candidate, off, row } = pick!;
+  expect(rowBook(stubs.get(row.target), off)).not.toBe(stubs.get(row.target).source);
+  await page.goto("#/");
+  await waitHomeIdle(page);
+  await writeMeta(page, "disabled_books", [...off]);
+  await page.reload();
+  await waitReady(page);
+  await waitHomeIdle(page);
+  await check(page, candidate, off);
 });
 
 test("Rule entries preserve complex formatting: the largest table keeps its cells and spans", async ({ page }) => {

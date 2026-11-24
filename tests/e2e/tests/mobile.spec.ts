@@ -67,8 +67,8 @@ installedTest("A creature breadcrumb is one line of working links at 390 px", as
   // Printed taxonomy has no page, so it is not rendered as a segment.
   await expect(crumbs.locator("li > span")).toHaveCount(0);
   const labels = await crumbs.getByRole("link").allInnerTexts();
-  expect(labels[0]).toBe("Home");
-  expect(labels).toContain("Creatures");
+  // The trail starts below the Home tab and names only the kind list (#571).
+  expect(labels).toEqual(["Creatures"]);
   // One line: every segment shares the same top edge.
   const tops = await crumbs.locator("li").evaluateAll((items) =>
     items.map((item) => Math.round(item.getBoundingClientRect().top)));

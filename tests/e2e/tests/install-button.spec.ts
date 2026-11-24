@@ -189,6 +189,12 @@ test("The header button lasts five launches, and Settings keeps offering install
     await expect(headerButton(next)).toHaveCount(0);
     await next.goto("#/settings");
     await expect(next.getByText("for full-screen reading and an icon on your device")).toBeVisible();
+    // The Storage section sits above Install. When the persistence check resolves, a row grows and a
+    // "Request persistent storage" button appears, which moves Install down by about 80 px. WebKit
+    // takes close to a second for that check; Chromium answers at once. A click aimed before the
+    // shift lands on other content, and no prompt opens. Wait until the layout is final.
+    await expect(next.getByTestId("storage-persisted")).not.toHaveText("Checking…");
+    await expect(next.getByTestId("storage-usage")).not.toHaveText("Checking…");
     await next.getByRole("button", { name: "Install app" }).click();
     await expect.poll(() => next.evaluate(() => (window as any).__installPrompts)).toBe(1);
   }
