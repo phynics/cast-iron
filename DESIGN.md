@@ -76,7 +76,7 @@ A small control can mean five different things. Each role has one form, so a rea
 Rules that apply to every role:
 
 - Interactive parts keep a 44 px target (`--touch`). A text line that stays compact reaches 44 px through a larger hit area (`.meta-link::after`), not through padding.
-- Keyboard focus uses the global `:focus-visible` ring (3 px `--focus`). Do not remove it.
+- Keyboard focus uses the global `:focus-visible` ring (3 px `--focus`). Do not remove it. Below 48 rem the fixed bottom tab bar must not cover a focused control: `html` sets `scroll-padding-bottom` to `--nav-h` plus the safe-area inset plus `--space-3`, so the browser scrolls a focus target clear of the bar. A sideways scroller that sits beside a control (the scope row beside `Filters`) scrolls a focused item fully into view (`on:focusin`, `scrollIntoView` with `inline: nearest`).
 - Selected state never relies on color alone: filters add a check mark. Navigation may mark the current page with `aria-current`; it never shows filter state.
 - Use `aria-pressed` for a toggle that keeps its place (the star), and `aria-current` for a link to the current page.
 - A selected value appears once, in its control. Filter state is route state. Icons are inline SVG with `aria-hidden="true"`, never text glyphs.

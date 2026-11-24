@@ -364,7 +364,7 @@ fn spell_row(row: SpellRow) -> impl IntoView {
     }
 }
 
-/// The Compact / Wide choice, as one quiet text button: a `.text-btn` named for the layout that a
+/// The Compact / Expanded choice, as one quiet text button: a `.text-btn` named for the layout that a
 /// press switches to. The state lives in the app context, so Settings and every spell list show
 /// the same choice. The button is a plain button with a changing name, not a pressed toggle,
 /// because its name already states the action; `said` is the live line that names the layout

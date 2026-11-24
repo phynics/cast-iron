@@ -371,7 +371,7 @@ pub fn BookView(source: String) -> impl IntoView {
             <footer class="colophon">
                 {notices}
                 {aon_line(aon.as_deref())}
-                <p class="muted"><a href=Route::Legal.href()>"Legal and attribution"</a></p>
+                <p class="muted"><a class="touch-link" href=Route::Legal.href()>"Legal and attribution"</a></p>
             </footer>
         </div>
     }
