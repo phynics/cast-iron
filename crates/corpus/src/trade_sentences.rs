@@ -12,7 +12,9 @@
 //! plural `s` do not matter, and a possessive word before a name ("the rogue's trapfinding") is
 //! dropped. A hyphen-suspended list ("1st-, 2nd- and 3rd-level bonus feats") reads as one name per
 //! level ("1st-level bonus feats", ...), and numbered steps ("armor training 1, 2, 3, and 4") as
-//! one name per step. A trade may name one item of a sentence or the whole phrase.
+//! one name per step. The words `ability` and `class feature` around a name are dropped too
+//! ("the paladin's spells class feature" names `Spells`). A trade may name one item of a sentence
+//! or the whole phrase.
 
 use cast_iron_schema::TradeOp;
 
@@ -170,13 +172,25 @@ const ARTICLES: [&str; 9] = [
 
 /// The words of a printed name or phrase, normalized for comparison.
 pub fn name_words(text: &str) -> Vec<String> {
-    expand_lists(&strip_possessives(&strip_tags(text)))
+    let words: Vec<String> = expand_lists(&strip_possessives(&strip_tags(text)))
         .split(|ch: char| !ch.is_alphanumeric())
         .filter(|word| !word.is_empty())
         .map(str::to_lowercase)
         .filter(|word| !ARTICLES.contains(&word.as_str()))
         .map(|word| singular(&word))
-        .collect()
+        .collect();
+    // "the paladin's spells class feature" and "the nature sense ability" name `Spells` and
+    // `Nature sense`: the words that only say what kind of thing it is are not part of the name.
+    let mut kept = Vec::with_capacity(words.len());
+    for (index, word) in words.iter().enumerate() {
+        let noise = word == "ability"
+            || word == "feature"
+            || (word == "class" && words.get(index + 1).is_some_and(|next| next == "feature"));
+        if !noise {
+            kept.push(word.clone());
+        }
+    }
+    if kept.is_empty() { words } else { kept }
 }
 
 /// Drops a possessive word before a name: "the rogue's trapfinding" reads as "trapfinding", the
@@ -557,5 +571,23 @@ mod tests {
             "the rogue's trapfinding",
             &names(&["Trapfinding"])
         ));
+    }
+
+    #[test]
+    fn extra_words_around_a_name_are_not_part_of_it() {
+        assert_eq!(
+            name_words("the paladin's spells class feature"),
+            name_words("Spells")
+        );
+        assert_eq!(
+            name_words("the nature sense ability"),
+            name_words("Nature sense")
+        );
+        assert!(phrase_is_covered(
+            "the paladin's spells class feature",
+            &names(&["Spells"])
+        ));
+        // A name made only of such words is kept as it is.
+        assert_eq!(name_words("Ability"), ["ability"]);
     }
 }

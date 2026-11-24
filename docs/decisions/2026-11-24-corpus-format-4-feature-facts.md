@@ -39,7 +39,12 @@ carries form B. The renderer and the data rewrite are separate slices of #540.
 - **Drift.** An entry with `features` compares its trades with the trade sentences of its feature
   sections instead of with `**Replaces:**` and `**Alters:**` rows: each trade's name appears in a
   trade sentence of at least one feature in its `by`, and each trade sentence of a listed feature is
-  covered by the trades that name it. The sections come from the whole body, cut only at another
+  covered by the trades that name it. A trade with no `by` is a trade that the book prints in the
+  opening text (before the first feature), and the drift check reads the opening text for it. An
+  entry without `features` (a single-power class option has no heading) takes either today's rows or
+  trade sentences anywhere in the normal part, with the same coverage rules. The reader works on the
+  trade names as stored (owner ruling, 2026-11-24): numbered steps ("armor training 1, 2, 3, and 4"),
+  extra words ("the paladin's spells class feature") and a possessive do not need a data rewrite. The sections come from the whole body, cut only at another
   publication's `**Sources:**` block, so a multi-publication entry with `###` feature heads is read
   in full. The reader takes the printed wordings: one name, a list, replaces and alters in one
   sentence, a possessive before the name, hyphen-suspended level lists and numbered steps; it refuses

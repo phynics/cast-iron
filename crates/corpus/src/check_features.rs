@@ -9,8 +9,9 @@
 //! 2. `level`, when written, agrees with an "At Nth level" or "Starting at Nth level" lead, when
 //!    the first paragraph under the feature's heading has one;
 //! 3. every `by` names anchors of `features`, in body order;
-//! 4. every section of an archetype or class option that prints a trade sentence is a listed
-//!    feature, or sits inside one.
+//! 4. every section after the opening text of an archetype or class option that prints a trade
+//!    sentence is a listed feature, or sits inside one. The opening text (before the first listed
+//!    feature) may print trades that no feature prints; those trades have no `by`.
 //!
 //! The drift check (`drift.rs`) compares each trade with the trade sentence of its feature.
 
@@ -96,6 +97,23 @@ pub(crate) fn feature_part(entry: &RuleEntry) -> &[Block] {
         }
     }
     body
+}
+
+/// The opening text of an entry with `features`: the blocks of [`feature_part`] before the
+/// heading of the first listed feature. A trade that no feature prints (the book states it before
+/// the features begin) is stated here. With no listed feature section in the body, all of it.
+pub(crate) fn opening_blocks(entry: &RuleEntry) -> &[Block] {
+    let blocks = feature_part(entry);
+    let features = entry.fields.features();
+    let first = sections(blocks, &entry.body)
+        .into_iter()
+        .find(|section| features.iter().any(|feature| feature.anchor == section.key))
+        .and_then(|section| {
+            blocks
+                .iter()
+                .position(|block| std::ptr::eq(block, section.heading))
+        });
+    &blocks[..first.unwrap_or(blocks.len())]
 }
 
 pub(crate) fn check_features(corpus: &Corpus, report: &mut Report) {
@@ -219,12 +237,17 @@ fn check_entry(entry: &RuleEntry, at: &dyn Fn(&str) -> String, report: &mut Repo
             .and_then(|(_, key)| key.clone())
     };
     let mut stack: Vec<(u8, Option<String>)> = Vec::new();
-    for block in blocks {
+    // The opening text (before the first listed feature) may state trades that no feature prints.
+    let opening = opening_blocks(entry).len();
+    for (position, block) in blocks.iter().enumerate() {
         if let Block::Heading { level, .. } = block {
             while stack.last().is_some_and(|(open, _)| open >= level) {
                 stack.pop();
             }
             stack.push((*level, key_of(block)));
+            continue;
+        }
+        if position < opening {
             continue;
         }
         let texts = paragraph_texts(std::slice::from_ref(block));
@@ -324,10 +347,8 @@ mod tests {
     #[test]
     fn a_feature_anchor_must_be_a_heading_key() {
         let found = problems(archetype(body(), vec![("shatter", Some(2))], vec![]));
-        // The real heading then prints a trade sentence outside the listed features, too.
-        assert_eq!(found.len(), 2, "{found:?}");
+        assert_eq!(found.len(), 1, "{found:?}");
         assert!(found[0].contains("not a heading key"), "{found:?}");
-        assert!(found[1].contains("not listed in `features`"), "{found:?}");
     }
 
     #[test]
@@ -478,6 +499,19 @@ mod tests {
             vec![("a", Some(1))],
             vec![by(TradeOp::Replaces, "Bravery", &["a"])],
         ));
+        // The opening text, before the first listed feature, may state trades with no `by`.
+        let mut opened = body.clone();
+        opened.insert(0, text("This ability replaces trap sense."));
+        let opened_found = problems(archetype(
+            opened,
+            vec![("a", Some(1)), ("b", Some(2))],
+            vec![
+                by(TradeOp::Replaces, "Trap sense", &[]),
+                by(TradeOp::Replaces, "Bravery", &["a"]),
+                by(TradeOp::Alters, "Armor training", &["b"]),
+            ],
+        ));
+        assert!(opened_found.is_empty(), "{opened_found:?}");
         assert_eq!(found.len(), 1, "{found:?}");
         assert!(found[0].contains("not listed in `features`"), "{found:?}");
         assert!(found[0].contains("`b`"), "{found:?}");
