@@ -17,6 +17,10 @@ const BOOST_ALL_IN_TITLE: f32 = 200.0;
 /// An entry that a class feature of it names (#540): below every entry whose title holds all the
 /// query words (owner ruling, 2026-11-24). Rule aliases keep their own boost.
 const BOOST_FEATURE_ALIAS: f32 = 100.0;
+/// A book-section document is a contents row, not a rule: it takes only this share of the title
+/// boost an entry would get (#691). An exact title still lifts a section above every body match,
+/// but a close-scoring entry (the spell `summon` names, the feat `Burn! Burn! Burn!`) stays ahead.
+const BOOK_SECTION_BOOST_SCALE: f32 = 0.4;
 
 const SNIP_BEFORE: usize = 50;
 const SNIP_LEN: usize = 200;
@@ -800,6 +804,9 @@ impl SearchIndex {
                 boost = BOOST_ALL_IN_TITLE;
             } else if d.aliases.iter().any(|a| normalize(a) == qn) {
                 boost = BOOST_FEATURE_ALIAS;
+            }
+            if d.kind == crate::BOOK_SECTION_KIND {
+                boost *= BOOK_SECTION_BOOST_SCALE;
             }
             scored.push((doc, score + boost));
         }
