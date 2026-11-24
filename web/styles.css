@@ -3767,6 +3767,13 @@ main,
   margin: 0 0 var(--space-2);
 }
 
+/* The legal line's 44 px hit area (`.touch-link::after`) reaches about 10 px above its text, and
+   the AoN line's (`.meta-link::after`) about 11 px below its own. A 1.5rem gap keeps the two
+   targets apart, so a tap near either line opens that line's link. */
+.colophon > p:has(> .touch-link) {
+  margin-top: var(--space-5);
+}
+
 .toc-list {
   list-style: none;
   padding: 0;
