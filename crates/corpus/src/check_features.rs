@@ -25,7 +25,7 @@
 use crate::check::{Report, line_of};
 use crate::drift::is_sources_line;
 use crate::load::Corpus;
-use crate::trade_sentences::{TradeSentence, level_lead, names_a_trade, trade_sentences};
+use crate::trade_sentences::{TradeSentence, level_lead, names_a_trade, trade_sentences_headed};
 use cast_iron_schema::headings::{keyed_headings, plain_text};
 use cast_iron_schema::{Block, EntryKind, RuleEntry};
 
@@ -48,6 +48,10 @@ pub const NOT_FEATURE_HEADINGS: &[&str] = &[
     "Bonus Spells",
     "Bonus Feats",
     "Weapon and Armor Proficiency",
+    // Owner ruling 19 of 2026-11-24 (#540, batch-1 review): Urban Barbarian, Cad and Sohei print
+    // "Skills"; Martial Artist prints "Alignment".
+    "Skills",
+    "Alignment",
 ];
 
 /// Whether `heading` is one of the [`NOT_FEATURE_HEADINGS`].
@@ -117,10 +121,13 @@ pub(crate) fn paragraph_texts(blocks: &[Block]) -> Vec<String> {
 }
 
 /// The trade sentences of the paragraphs in `blocks`. A bare sentence ("These replace the normal
-/// attack roll bonus ...") counts only when it names one of the entry's trades.
+/// attack roll bonus ...") counts only when it names one of the entry's trades. `head` is the
+/// plain text of the heading of the section that `blocks` belong to, when there is one: a sentence
+/// whose subject is that name ("Sermonic performance replaces ...") is not bare.
 pub(crate) fn sentences_in(
     blocks: &[Block],
     trades: &[cast_iron_schema::Trade],
+    head: Option<&str>,
 ) -> Vec<TradeSentence> {
     let stored: Vec<(cast_iron_schema::TradeOp, String)> = trades
         .iter()
@@ -128,7 +135,7 @@ pub(crate) fn sentences_in(
         .collect();
     paragraph_texts(blocks)
         .iter()
-        .flat_map(|paragraph| trade_sentences(paragraph))
+        .flat_map(|paragraph| trade_sentences_headed(paragraph, head))
         .filter(|sentence| !sentence.bare || names_a_trade(sentence, &stored))
         .collect()
 }
@@ -317,7 +324,7 @@ fn check_entry(entry: &RuleEntry, at: &dyn Fn(&str) -> String, report: &mut Repo
         let Place::Unlisted { home, needle } = place else {
             continue;
         };
-        let Some(sentence) = sentences_in(std::slice::from_ref(block), entry.fields.trades())
+        let Some(sentence) = sentences_in(std::slice::from_ref(block), entry.fields.trades(), None)
             .into_iter()
             .next()
         else {
@@ -402,6 +409,58 @@ pub(crate) fn placements(entry: &RuleEntry) -> Vec<(&Block, Place)> {
     out
 }
 
+/// The scaffold heading whose section may carry a proficiency trade that print does not state as
+/// a sentence (owner ruling 23 of 2026-11-24, #540).
+const PROFICIENCY_HEADING: &str = "Weapon and Armor Proficiency";
+
+/// True when the body has a "Weapon and Armor Proficiency" section outside every listed feature
+/// that prints no trade sentence of `op`. Owner ruling 23 of 2026-11-24 (#540): a trade with no
+/// `by` may then rest on that section, like a trade on a feature that only describes the changed
+/// ability; the caller allows it for `alters` only. The section is the heading with everything
+/// under it up to the next heading of the same or a higher level.
+pub(crate) fn proficiency_section_prints_no(
+    entry: &RuleEntry,
+    op: cast_iron_schema::TradeOp,
+) -> bool {
+    let blocks = feature_part(entry);
+    let features = entry.fields.features();
+    let keyed = keyed_headings(&entry.body);
+    let key_of = |block: &Block| {
+        keyed
+            .iter()
+            .find(|(candidate, _)| std::ptr::eq(*candidate, block))
+            .and_then(|(_, key)| key.clone())
+    };
+    // Open headings: level and whether a listed feature has this heading.
+    let mut stack: Vec<(u8, bool)> = Vec::new();
+    for (position, block) in blocks.iter().enumerate() {
+        let Block::Heading { level, content, .. } = block else {
+            continue;
+        };
+        while stack.last().is_some_and(|(open, _)| open >= level) {
+            stack.pop();
+        }
+        let is_feature =
+            key_of(block).is_some_and(|key| features.iter().any(|feature| feature.anchor == key));
+        let inside_feature = stack.iter().any(|(_, listed)| *listed);
+        stack.push((*level, is_feature));
+        let heading = plain_text(content);
+        let heading = heading.trim().trim_end_matches(':').trim();
+        if is_feature || inside_feature || !heading.eq_ignore_ascii_case(PROFICIENCY_HEADING) {
+            continue;
+        }
+        let end = blocks[position + 1..]
+            .iter()
+            .position(|next| matches!(next, Block::Heading { level: next_level, .. } if next_level <= level))
+            .map_or(blocks.len(), |offset| position + 1 + offset);
+        let printed = sentences_in(&blocks[position + 1..end], entry.fields.trades(), None);
+        if printed.iter().all(|sentence| sentence.op != op) {
+            return true;
+        }
+    }
+    false
+}
+
 /// The trade sentences that no feature prints: those of the opening text and of the sections under
 /// a scaffold heading that no listed feature contains (see [`placements`]). The trades that state
 /// them have no `by`.
@@ -409,7 +468,9 @@ pub(crate) fn unbound_sentences(entry: &RuleEntry) -> Vec<TradeSentence> {
     placements(entry)
         .into_iter()
         .filter(|(_, place)| matches!(place, Place::Unbound))
-        .flat_map(|(block, _)| sentences_in(std::slice::from_ref(block), entry.fields.trades()))
+        .flat_map(|(block, _)| {
+            sentences_in(std::slice::from_ref(block), entry.fields.trades(), None)
+        })
         .collect()
 }
 
@@ -495,6 +556,9 @@ mod tests {
             "weapon and armor proficiency",
             "Bonus Spells:",
             "AC",
+            // Owner ruling 19 of 2026-11-24 (#540): Urban Barbarian, Cad, Sohei; Martial Artist.
+            "Skills",
+            "alignment",
         ] {
             let scaffold = vec![
                 heading(Some("scaffold"), name),
@@ -708,6 +772,8 @@ mod tests {
             "Bonus Feats",
             "weapon and armor proficiency",
             "Bonus Spells:",
+            "Skills",
+            "Alignment",
         ] {
             let found = problems(archetype(after(name), features(), trades()));
             assert!(found.is_empty(), "{name}: {found:?}");
