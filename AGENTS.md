@@ -22,7 +22,7 @@ On Nix hosts, run each command inside the dev shell: `devenv shell -- <command>`
 | Compile the library | `cargo xtask content` (reads the pinned corpus; writes `generated/content/`) |
 | Build the site into `dist/` | `cargo xtask build-site` (`--public-url /` for a root path) |
 | Check the library and WASM sizes against the budget | `cargo xtask size-budget` (after `build-site`; limits in `sources/size-budget.toml`; see `docs/releasing.md`) |
-| Regenerate the canonical top-50 ranking golden (every corpus-pin PR, after `cargo xtask content`) | `cargo xtask search-golden` (rewrites `crates/search/tests/golden/canonical-top50.txt`; read its diff for ranking regressions. `cargo test -p cast-iron-search` fails when the golden names another corpus commit than `sources/corpus.toml`) |
+| Regenerate the canonical top-50 ranking golden (every corpus-pin PR, after `cargo xtask content`) | `cargo xtask search-golden` (rewrites `crates/search/tests/golden/canonical-top50.txt`; read its diff for ranking regressions. `cargo test -p cast-iron-search` fails when the golden names another corpus commit than `sources/corpus.toml`; the ranking comparison runs in CI's `Content compiler` job with `CAST_IRON_REQUIRE_CANONICAL=1`, so a missing index fails there) |
 | Print a tree hash (to bump the corpus pin) | `cargo xtask corpus-tree-hash <dir>` |
 | Add the ids of a published library to the guard | `cargo xtask published-ids` (after `cargo xtask content`; see `docs/releasing.md`) |
 | Give new books their share slot | `cargo xtask published-books` (`cargo xtask content` fails until each book of the pinned corpus has a line in `sources/published-books.txt`; commit the added lines, never edit one) |

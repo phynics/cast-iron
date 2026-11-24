@@ -607,7 +607,7 @@ fn ListPage(
                 }
             })
             .collect_view();
-        // `data-density` is the reader's choice of row layout: "wide" keeps three lines on a
+        // `data-density` is the reader's choice of row layout: "wide" (the Expanded rows) keeps three lines on a
         // phone, "compact" always shows two. The CSS under each value selects the layout.
         view! {
             <div class="spell-list" data-density=move || app.density.get().slug()>{sections}</div>
