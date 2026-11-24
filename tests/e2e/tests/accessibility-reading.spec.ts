@@ -4,6 +4,7 @@ import {
   waitControlled,
   bodyHeadings,
   bodyLinks,
+  bookSources,
   bookTrees,
   bookReadingOrder,
   firstEntry,
@@ -11,6 +12,9 @@ import {
   openBookEntry,
   pathToEntry,
   searchIcon,
+  waitHomeIdle,
+  waitReady,
+  writeMeta,
 } from "./helpers";
 
 /**
@@ -138,4 +142,101 @@ test("Keyboard controls expose focus and native disclosure state at phone and de
     await expect(group.locator(".letter-head")).toBeFocused();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   }
+});
+
+test("Keyboard focus stays clear of the fixed bars and small links keep a 44 px target at phone width (#12)", async ({ page, browserName }) => {
+  await installLibrary(page);
+  await waitControlled(page);
+  const tabKey = browserName === "webkit" ? "Alt+Tab" : "Tab";
+  await page.setViewportSize({ width: 390, height: 844 });
+  const settle = () => page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(null)))));
+
+  // H1: walking a book's Contents, a focused control never sits under the bottom tab bar.
+  await page.goto("#/browse/book/core-rulebook");
+  await expect(page.locator("h1")).toBeVisible();
+  await settle();
+  await searchIcon(page).focus();
+  const nav = page.getByRole("navigation", { name: "Primary" });
+  await expect(nav).toBeVisible();
+  let scrolled = 0;
+  for (let step = 0; step < 40; step++) {
+    await page.keyboard.press(tabKey);
+    const state = await page.evaluate(() => {
+      const el = document.activeElement as HTMLElement;
+      const bar = document.querySelector('nav[aria-label="Primary"]')!.getBoundingClientRect();
+      return {
+        inBar: !!el.closest('nav[aria-label="Primary"]'),
+        bottom: el.getBoundingClientRect().bottom,
+        barTop: bar.top,
+        scrollY: window.scrollY,
+        name: (el.textContent ?? "").trim().slice(0, 40),
+      };
+    });
+    if (state.inBar) continue;
+    expect(state.bottom, `focus step ${step} ("${state.name}") ends above the bottom tab bar`).toBeLessThanOrEqual(state.barTop + 0.5);
+    scrolled = Math.max(scrolled, state.scrollY);
+  }
+  // The walk must have reached past the first screen, or it proved nothing.
+  expect(scrolled).toBeGreaterThan(0);
+
+  // M2: a focused scope pill is fully visible, and the Filters button does not cover it.
+  await page.goto("#/search?q=fire");
+  const spells = page.locator(".search-scopes .scope-choice", { hasText: /^Spells$/ });
+  await expect(spells).toBeVisible();
+  await page.locator(".search-scopes .scope-choice").first().focus();
+  for (let step = 0; step < 6; step++) {
+    if (await spells.evaluate((el) => el === document.activeElement)) break;
+    await page.keyboard.press(tabKey);
+  }
+  await expect(spells).toBeFocused();
+  // Scrolling into view runs on the next frame.
+  await settle();
+  await expect.poll(async () => {
+    const pill = (await spells.boundingBox())!;
+    const filters = (await page.locator(".search-controls .filters-toggle").boundingBox())!;
+    const scroller = (await page.locator(".search-scopes").boundingBox())!;
+    return {
+      clearOfFilters: pill.x + pill.width <= filters.x + 0.5,
+      insideScroller: pill.x >= scroller.x - 0.5 && pill.x + pill.width <= scroller.x + scroller.width + 0.5,
+    };
+  }).toEqual({ clearOfFilters: true, insideScroller: true });
+
+  // L7: the diagnostics way back and the book page's legal line keep a 44 px target. The hit
+  // area is the link's box including its ::after, so probe the point 20 px below the text's
+  // centre: it must still land on the link.
+  const reaches = async (link: ReturnType<typeof page.locator>) => {
+    await link.scrollIntoViewIfNeeded();
+    const box = (await link.boundingBox())!;
+    const x = box.x + box.width / 2;
+    const cy = box.y + box.height / 2;
+    return page.evaluate(([px, py]) => {
+      const hit = (dy: number) => !!document.elementFromPoint(px, py + dy)?.closest("a");
+      return { above: hit(-20), below: hit(20) };
+    }, [x, cy]);
+  };
+  await page.goto("#/diagnostics");
+  await expect(page.getByRole("link", { name: "Back to Settings" })).toBeVisible();
+  expect(await reaches(page.getByRole("link", { name: "Back to Settings" }))).toEqual({ above: true, below: true });
+  await page.goto("#/browse/book/core-rulebook");
+  const legal = page.getByRole("link", { name: "Legal and attribution" });
+  await expect(legal).toBeVisible();
+  expect(await reaches(legal)).toEqual({ above: true, below: true });
+});
+
+test("The original-text disclosure of a revision in force is a 44 px target (#12)", async ({ page }) => {
+  await installLibrary(page);
+  await waitControlled(page);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("#/browse/book/core-rulebook");
+  const all = bookSources();
+  await page.goto("#/");
+  await waitHomeIdle(page);
+  await writeMeta(page, "disabled_books", all.filter((id) => id !== "core-rulebook" && id !== "the-elephant-in-the-room-feat-taxes-in-pathfinder"));
+  await page.reload();
+  await waitReady(page);
+  await waitHomeIdle(page);
+  await page.goto("#/entry/ref/feat/dodge");
+  const summary = page.locator("details.rel-original > summary");
+  await expect(summary).toContainText("Original text");
+  expect((await summary.boundingBox())!.height).toBeGreaterThanOrEqual(43.5);
 });

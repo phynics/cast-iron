@@ -145,6 +145,6 @@ pub fn Diagnostics() -> impl IntoView {
                 .collect_view()
                 .into_any(),
         }}
-        <p><a href=Route::Settings.href()>"Back to Settings"</a></p>
+        <p><a class="touch-link" href=Route::Settings.href()>"Back to Settings"</a></p>
     }
 }

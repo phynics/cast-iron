@@ -2407,7 +2407,14 @@ pub fn Search() -> impl IntoView {
             // One compact row: the quick kinds scroll sideways, the Filters button stays at the end.
             // From 56rem the sidebar is always open and the button is hidden.
             <div class="search-controls">
-                <div class="search-scopes" role="group" aria-label="Quick search categories">{quick_scopes}</div>
+                <div
+                    class="search-scopes"
+                    role="group"
+                    aria-label="Quick search categories"
+                    on:focusin=reveal_focused_scope
+                >
+                    {quick_scopes}
+                </div>
                 <button
                     class="filters-toggle"
                     type="button"
@@ -2521,6 +2528,20 @@ fn reveal_pressed_scope() {
                 .ok()
                 .flatten()
         })
+    {
+        let options = web_sys::ScrollIntoViewOptions::new();
+        options.set_block(web_sys::ScrollLogicalPosition::Nearest);
+        options.set_inline(web_sys::ScrollLogicalPosition::Nearest);
+        element.scroll_into_view_with_scroll_into_view_options(&options);
+    }
+}
+
+/// A pill reached by keyboard can sit under the Filters button or past the row's edge, where only
+/// its focus ring's edge shows. Scroll the row the least that shows all of it (#12).
+fn reveal_focused_scope(event: web_sys::FocusEvent) {
+    if let Some(element) = event
+        .target()
+        .and_then(|target| target.dyn_into::<web_sys::Element>().ok())
     {
         let options = web_sys::ScrollIntoViewOptions::new();
         options.set_block(web_sys::ScrollLogicalPosition::Nearest);

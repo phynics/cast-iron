@@ -799,6 +799,12 @@ main:has(> .wide, > .search-page, > .entry) {
     padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom));
   }
 
+  /* The fixed bottom bar must not cover a focused control: keep the bar's height, the safe
+     area and a little room clear when the browser scrolls a focus target into view. */
+  html {
+    scroll-padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom) + var(--space-3));
+  }
+
   .app-header {
     flex-wrap: nowrap;
   }
@@ -1763,6 +1769,19 @@ mark {
 
 /* The text line stays compact; the link keeps a 44px target through this larger hit area. */
 .meta-link::after {
+  content: "";
+  position: absolute;
+  inset: calc((var(--touch) - 1lh) / -2) -0.35rem;
+}
+
+/* A plain text link on its own line (the colophon's legal line, the diagnostics way back) keeps
+   the 44 px target through the same larger hit area. */
+.touch-link {
+  position: relative;
+  display: inline-block;
+}
+
+.touch-link::after {
   content: "";
   position: absolute;
   inset: calc((var(--touch) - 1lh) / -2) -0.35rem;
@@ -3373,6 +3392,11 @@ main,
   margin-bottom: 0;
 }
 
+/* The original-text disclosure of a revision in force: its summary is a full touch target. */
+.rel-disclosure.rel-original > summary {
+  min-height: var(--touch);
+}
+
 /* A Stamina add-on folds under its base as one row: no box, tint or left rule, and the
    summary is a full touch target. */
 .rel-disclosure.rel-stamina > summary {
@@ -4101,6 +4125,8 @@ a.home-row-link:hover .home-row-title {
   /* Room for the focus ring, which the scroll box would clip. */
   padding: 3px;
   margin: -3px;
+  /* A pill scrolled into view keeps its ring clear of the row's edge. */
+  scroll-padding-inline: 3px;
 }
 .search-scopes::-webkit-scrollbar {
   display: none;
