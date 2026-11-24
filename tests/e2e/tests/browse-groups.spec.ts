@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 import { installedTest as test, expect, loadCorpus } from "./fixtures";
-import { corpusEntry, isMember, memberBooks, count, featLeadsTo, groupLetter, installLibrary, letterId, listLetters, num, openBookGroups, openQuickSearch, quickField, waitControlled, waitResults } from "./helpers";
+import { corpusEntry, isMember, memberBooks, count, featLeadsTo, installLibrary, letterId, listLetters, num, openBookGroups, openQuickSearch, quickField, waitControlled, waitResults } from "./helpers";
 
 const corpus = loadCorpus();
 /** The books the corpus marks third party (#189); a settled profile starts without them. */
@@ -501,10 +501,11 @@ test("Feats that lead to more than five feats carry a chain marker, and it stays
   const leads = featLeadsTo(5, activeIds);
   const powerAttack = corpusEntry("feat", "Power Attack");
   const dodge = corpusEntry("feat", "Dodge");
+  const featSection = listLetters(activeStubs.filter((stub: any) => stub.kind === "feat"));
   for (const feat of [powerAttack, dodge]) {
     const n = leads.get(feat.id);
     expect(n, `${feat.title} should lead to more than five feats`).toBeGreaterThan(5);
-    await page.goto(`#/browse/kind/feat?l=${groupLetter(feat.title)}`);
+    await page.goto(`#/browse/kind/feat?l=${featSection.get(feat.id)}`);
     const row = page.locator(`.letter-group a[href="#/entry/${feat.id}"]`).first();
     await expect(row.locator("svg.chain-mark")).toHaveCount(1);
     expect(await row.locator("svg.chain-mark").getAttribute("aria-hidden")).toBe("true");
@@ -813,7 +814,12 @@ test("Removing the book pill keeps the letter and the facet, and moves focus to 
       (entry.fields?.school ?? "").toLowerCase().split(/[[(]/)[0].trim() === "evocation",
   );
   expect(evocation.length).toBeGreaterThan(0);
-  const letter = groupLetter([...evocation].sort((a, b) => a.title.localeCompare(b.title))[0].title);
+  // The list opens on its first letter section. A modifier title sits under its base's letter
+  // (#678), so the sections come from the filtered list, in A to Z order with `#` last.
+  const sections = [...new Set(listLetters(evocation).values())].sort(
+    (a, b) => Number(a === "#") - Number(b === "#") || a.localeCompare(b),
+  );
+  const letter = sections[0];
   const hash = `#/browse/kind/spell?source=${core.id}&facet=school:evocation&l=${encodeURIComponent(letter)}`;
   await page.goto(hash);
 

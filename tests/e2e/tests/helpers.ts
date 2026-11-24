@@ -33,6 +33,9 @@ const mythicBase = (lower: string): string | null => {
  * `Improved`, ...) sits under the letter of the row it follows, which is the row titled with the
  * rest, or the weakest modifier title of its family when two or more share a rest that no row
  * has; a mythic version (`X, Mythic`) follows `X`. Pass the titles of the list as shown.
+ *
+ * `LADDER` in `list_order.rs` is the single source of truth for the modifier words. This mirrors
+ * letters only, not the row order within a letter; keep `MODIFIER_RANK` equal to `LADDER`.
  */
 export function listLetters(stubs: { id: string; title: string }[]): Map<string, string> {
   const lowers = stubs.map((stub) => stub.title.toLowerCase());

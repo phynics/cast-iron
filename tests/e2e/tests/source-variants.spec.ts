@@ -1,6 +1,6 @@
 import type { Locator, Page } from "@playwright/test";
 import { installedTest as test, expect, loadCorpus, goOffline } from "./fixtures";
-import { groupLetter, latestPrintingGroups, listLetters, memberBooks, installLibrary, openBookGroups, waitControlled, waitResults } from "./helpers";
+import { latestPrintingGroups, listLetters, memberBooks, installLibrary, openBookGroups, waitControlled, waitResults } from "./helpers";
 
 const corpus = loadCorpus();
 /**
@@ -119,11 +119,12 @@ test("An alternate racial trait starts its line with Alternate and its fold name
   await expect(fold).toHaveCount(1);
   await expect(fold.locator("summary .row-source")).toHaveText("Alternate · Dwarf");
   // A single alternate trait: the marker, the race, the book.
+  const sectionOf = listLetters((corpus.catalog.entries as Stub[]).filter((stub) => stub.kind === "racial_trait"));
   const single = (corpus.catalog.entries as Stub[]).find(
     (stub) =>
       stub.kind === "racial_trait" &&
       stub.id.includes("/alternate-racial-traits/") &&
-      groupLetter(stub.title) === "A" &&
+      sectionOf.get(stub.id) === "A" &&
       stubsOf("racial_trait", stub.title).filter((other) => parentTitle(other) === parentTitle(stub)).length === 1,
   )!;
   const row = page.locator(".entry-list > li").filter({ has: page.locator(`a[href="#/entry/${single.id}"]`) });
