@@ -13,8 +13,30 @@
 //! dropped. A hyphen-suspended list ("1st-, 2nd- and 3rd-level bonus feats") reads as one name per
 //! level ("1st-level bonus feats", ...), and numbered steps ("armor training 1, 2, 3, and 4") as
 //! one name per step. The words `ability` and `class feature` around a name are dropped too
-//! ("the paladin's spells class feature" names `Spells`). A trade may name one item of a sentence
-//! or the whole phrase.
+//! ("the paladin's spells class feature" names `Spells`; `class ability` likewise, but `Class
+//! skills` keeps both words). A trade may name one item of a sentence or the whole phrase.
+//!
+//! The readings of owner ruling 21 of 2026-11-24 (#540) tolerate the printed variants that do not
+//! change what a name is:
+//!
+//! - `normal` and `normally` are determiners like `standard`; `bonus` never is ("bonus spells"
+//!   are not "spells");
+//! - a spelled ordinal (`first` to `twentieth`) is its numeral ("second favored enemy" is "2nd
+//!   favored enemy"); different ordinals stay different;
+//! - a class name after an `Nth-level` word ("the 10th-level wizard bonus feat") is an
+//!   adjective, an alternative reading beside the one that keeps it; different levels stay
+//!   different;
+//! - "gun training 1 to 4", "gun training 1-4" and the en dash form are the steps 1 to 4: a head,
+//!   a rising range of at most 20 steps;
+//! - "as well as" joins two names like `and`;
+//! - a possessor phrase before a name ("the sacred shield's holy champion ability": an article,
+//!   at most two words and a possessive word) is dropped as an alternative reading, never across
+//!   a comma or a connector.
+//!
+//! The sentence side has four more (see [`trade_sentences_headed`]): the phrase ends at ", but ";
+//! a closing parenthesis of four words or more is an aside; a verb joined by `and` to another
+//! clause is a bare sentence; and the feature's own heading is a subject. `changes` is an `alters`
+//! verb (owner ruling 25), only in the sentence position.
 
 use cast_iron_schema::TradeOp;
 
@@ -55,6 +77,16 @@ fn verb_of(word: &str) -> Option<TradeOp> {
         "replaces" | "replace" => Some(TradeOp::Replaces),
         "alters" | "alter" => Some(TradeOp::Alters),
         _ => None,
+    }
+}
+
+/// The verb of the trade-sentence position, the first verb after the subject. Owner ruling 25 of
+/// 2026-11-24 (#540): "This ability changes the Arcane Pool class feature" is an `alters`
+/// sentence. `changes` is read only here, not as a further verb joined by "and".
+fn lead_verb_of(word: &str) -> Option<TradeOp> {
+    match word.to_lowercase().as_str() {
+        "changes" | "change" => Some(TradeOp::Alters),
+        _ => verb_of(word),
     }
 }
 
@@ -128,44 +160,82 @@ fn is_negation(word: &str) -> bool {
     matches!(word.as_str(), "not" | "never" | "cannot" | "no") || word.ends_with("n't")
 }
 
+/// The trade sentences in `text` (one paragraph or more), with no section heading to read a
+/// subject from (see [`trade_sentences_headed`]).
+#[cfg(test)]
+pub fn trade_sentences(text: &str) -> Vec<TradeSentence> {
+    trade_sentences_headed(text, None)
+}
+
 /// The trade sentences in `text` (one paragraph or more). A trade sentence starts with `This`,
 /// `These` or `It`, then only subject words (`ability`, `class feature`, `also`, ...), then the
-/// verb `replaces` or `alters`. A `both` right after the verb is dropped ("This ability replaces
-/// both diamond body and quivering palm." names two features). A sentence that only mentions the
-/// word ("The bonus replaces the usual bonus."), has another subject ("This bonus replaces ...") or is negated ("This ability
-/// does not replace ...") is not one. A sentence with two verbs ("This ability replaces X and
-/// alters Y.") gives two entries.
-pub fn trade_sentences(text: &str) -> Vec<TradeSentence> {
+/// verb `replaces`, `alters` or `changes` (the last reads as `alters`, and only here). A `both`
+/// right after the verb is dropped ("This ability replaces both diamond body and quivering palm."
+/// names two features). A sentence that only mentions the word ("The bonus replaces the usual
+/// bonus."), has another subject ("This bonus replaces ...") or is negated ("This ability does
+/// not replace ...") is not one. A sentence with two verbs ("This ability replaces X and alters
+/// Y.") gives two entries.
+///
+/// Four more readings, from owner ruling 21 of 2026-11-24 (#540):
+///
+/// - `head`, the plain text of the heading of the section, is a subject too: "Sermonic performance
+///   replaces the 1st-level channel energy." under that heading is a sentence of an ability (not
+///   bare).
+/// - A verb joined by `and` to another clause ("This movement provokes attacks of opportunity as
+///   normal, and replaces deadly performance.") is read as a bare sentence: it counts only when
+///   it names a stored trade.
+/// - The sentence ends at ", but ": what follows is a remark about the trade, not a name.
+/// - A parenthesis of four words or more that ends the phrase is an aside, not part of the name.
+pub fn trade_sentences_headed(text: &str, head: Option<&str>) -> Vec<TradeSentence> {
     let mut found = Vec::new();
     for sentence in sentences(text) {
         let sentence = sentence.trim_end_matches(['.', '!', '?']).trim();
         // A trailing clause after a semicolon is not part of the name list.
         let sentence = sentence.split(';').next().unwrap_or(sentence).trim();
+        // R8: ", but ..." after the names is a remark about the trade, not a name.
+        let sentence = sentence.split(", but ").next().unwrap_or(sentence).trim();
         let words: Vec<&str> = sentence.split_whitespace().collect();
         let Some(first) = words.first().map(|word| word.to_lowercase()) else {
             continue;
         };
-        if !matches!(first.as_str(), "this" | "these" | "it") {
-            continue;
-        }
-        // The verb is the first word that is one; everything before it must be a plain subject.
-        let Some(at) = words.iter().position(|word| verb_of(word).is_some()) else {
+        let Some(at) = words.iter().position(|word| lead_verb_of(word).is_some()) else {
             continue;
         };
-        let plain_subject = words[1..at].iter().all(|word| is_subject_word(word));
+        // R12: the feature's own name as the subject ("Sermonic performance replaces ...").
+        let head_subject = at > 0
+            && head.is_some_and(|head| {
+                let head = name_words(head);
+                !head.is_empty() && name_words(&words[..at].join(" ")) == head
+            });
+        if !head_subject && !matches!(first.as_str(), "this" | "these" | "it") {
+            continue;
+        }
+        let plain_subject = head_subject || words[1..at].iter().all(|word| is_subject_word(word));
+        // R11: "This movement provokes ..., and replaces X": a verb joined by `and` to another
+        // clause. Read as bare: it counts only when it names a stored trade.
+        let coordinated = !plain_subject
+            && at >= 2
+            && words[at - 1]
+                .trim_end_matches(',')
+                .eq_ignore_ascii_case("and");
         // "functions like and replaces X" is a trade; "works like alter self" is the spell.
         let compares = words[1..at]
             .iter()
             .any(|word| matches!(word.to_lowercase().as_str(), "like" | "as"));
         let compares_a_spell = compares && !words[at - 1].eq_ignore_ascii_case("and");
-        if !plain_subject || compares_a_spell || words[..at].iter().any(|word| is_negation(word)) {
+        if (!plain_subject && !coordinated)
+            || compares_a_spell
+            || words[..at].iter().any(|word| is_negation(word))
+        {
             continue;
         }
-        let bare = !words[1..at]
-            .iter()
-            .any(|word| ABILITY_WORDS.contains(&word.to_lowercase().as_str()));
+        let bare = coordinated
+            || (!head_subject
+                && !words[1..at]
+                    .iter()
+                    .any(|word| ABILITY_WORDS.contains(&word.to_lowercase().as_str())));
         // Split the rest at every further verb joined by "and".
-        let mut op = verb_of(words[at]).expect("a verb was found");
+        let mut op = lead_verb_of(words[at]).expect("a verb was found");
         let mut phrase: Vec<&str> = Vec::new();
         let mut index = at + 1;
         while index < words.len() {
@@ -200,8 +270,29 @@ pub fn trade_sentences(text: &str) -> Vec<TradeSentence> {
             phrase: phrase.join(" "),
         });
     }
+    for sentence in &mut found {
+        sentence.phrase = drop_aside(&sentence.phrase);
+    }
     found.retain(|sentence| !sentence.phrase.trim().is_empty());
     found
+}
+
+/// R9: a parenthesis at the end of the phrase that holds a clause (four words or more) is an
+/// aside, not part of a name: "the mutagen class ability (a mindchemist cannot create mutagens
+/// unless he selects mutagen as a discovery)". Tags ("(Ex)") and short qualifiers stay.
+fn drop_aside(phrase: &str) -> String {
+    let trimmed = phrase.trim_end();
+    if !trimmed.ends_with(')') {
+        return phrase.to_string();
+    }
+    let Some(open) = trimmed.rfind('(') else {
+        return phrase.to_string();
+    };
+    let inner = &trimmed[open + 1..trimmed.len() - 1];
+    if inner.contains('(') || inner.split_whitespace().count() < 4 {
+        return phrase.to_string();
+    }
+    trimmed[..open].trim_end().to_string()
 }
 
 /// The level in an "At Nth level" or "Starting at Nth level" lead at the start of `text`.
@@ -226,17 +317,20 @@ pub fn level_lead(text: &str) -> Option<u8> {
 }
 
 const CONNECTORS: [&str; 2] = ["and", "or"];
-const ARTICLES: [&str; 9] = [
-    "the", "a", "an", "its", "his", "her", "their", "all", "standard",
+const ARTICLES: [&str; 11] = [
+    "the", "a", "an", "its", "his", "her", "their", "all", "standard", "normal", "normally",
 ];
 
 /// The words of a printed name or phrase, normalized for comparison.
 pub fn name_words(text: &str) -> Vec<String> {
-    let words: Vec<String> = expand_lists(&strip_possessives(&strip_tags(text)))
+    // R7: "as well as" joins two names like `and`.
+    let text = replace_words(text, "as well as", "and");
+    let words: Vec<String> = expand_lists(&strip_possessives(&strip_tags(&text)))
         .split(|ch: char| !ch.is_alphanumeric())
         .filter(|word| !word.is_empty())
         .map(str::to_lowercase)
         .filter(|word| !ARTICLES.contains(&word.as_str()))
+        .map(|word| ordinal(&word))
         .map(|word| singular(&word))
         .collect();
     // "the paladin's spells class feature" and "the nature sense ability" name `Spells` and
@@ -245,7 +339,10 @@ pub fn name_words(text: &str) -> Vec<String> {
     for (index, word) in words.iter().enumerate() {
         let noise = word == "ability"
             || word == "feature"
-            || (word == "class" && words.get(index + 1).is_some_and(|next| next == "feature"));
+            || (word == "class"
+                && words
+                    .get(index + 1)
+                    .is_some_and(|next| next == "feature" || next == "ability"));
         if !noise {
             kept.push(word.clone());
         }
@@ -330,6 +427,17 @@ fn expand_lists(text: &str) -> String {
     if !current.is_empty() {
         items.push(current.join(" "));
     }
+    let mut ranged = false;
+    let items: Vec<String> = items
+        .into_iter()
+        .flat_map(|item| match expand_range(&item) {
+            Some(steps) => {
+                ranged = true;
+                steps
+            }
+            None => vec![item],
+        })
+        .collect();
     let suspended = items.iter().any(|item| item.ends_with('-'));
     // "the 3rd-level and 9th-level mercies": a bare "3rd-level" shares the tail of a later item.
     let shared_tail = |index: usize| -> Option<String> {
@@ -346,7 +454,7 @@ fn expand_lists(text: &str) -> String {
     let numbered = items.iter().enumerate().any(|(index, item)| {
         step_head(item).is_some() && items.get(index + 1).is_some_and(|next| is_number(next))
     });
-    if !suspended && !numbered && !shared {
+    if !suspended && !numbered && !shared && !ranged {
         return text.to_string();
     }
     let tail = items
@@ -432,7 +540,9 @@ pub fn phrase_is_covered(phrase: &str, names: &[Vec<String>]) -> bool {
         let mut memo = vec![None; words.len() + 1];
         covered_from(&words, 0, names, &mut memo)
     };
-    covers(phrase) || covers(&strip_class_names(&strip_possessives(phrase)))
+    covers(phrase)
+        || covers(&strip_class_names(&strip_possessives(phrase)))
+        || covers(&strip_class_names(&strip_possessor_phrases(phrase)))
 }
 
 fn covered_from(
@@ -528,6 +638,8 @@ fn strip_class_names(phrase: &str) -> String {
                 previous.ends_with(',')
                     || CONNECTORS.contains(&bare.as_str())
                     || ARTICLES.contains(&bare.as_str())
+                    // R5: "the 10th-level wizard bonus feat"
+                    || ordinal_head(&bare).is_some_and(|(word, rest)| word == "level" && rest.is_empty())
             }
         };
         if leads && index + 1 < tokens.len() && CLASS_NAMES.contains(&word.as_str()) {
@@ -549,7 +661,9 @@ pub fn name_in_phrase(name: &[String], phrase: &str) -> bool {
             .windows(name.len())
             .any(|window| window == name)
     };
-    within(phrase) || within(&strip_class_names(&strip_possessives(phrase)))
+    within(phrase)
+        || within(&strip_class_names(&strip_possessives(phrase)))
+        || within(&strip_class_names(&strip_possessor_phrases(phrase)))
 }
 
 /// True when `name_in_phrase` finds a trade name of the same op in the sentence. A bare sentence
@@ -558,6 +672,127 @@ pub fn names_a_trade(sentence: &TradeSentence, trades: &[(TradeOp, String)]) -> 
     trades.iter().any(|(op, printed)| {
         *op == sentence.op && name_in_phrase(&name_words(printed), &sentence.phrase)
     })
+}
+
+/// R7 helper: replaces a run of words, case-insensitively, at word boundaries.
+fn replace_words(text: &str, from: &str, to: &str) -> String {
+    let words: Vec<&str> = text.split_whitespace().collect();
+    let pattern: Vec<&str> = from.split_whitespace().collect();
+    let mut out: Vec<&str> = Vec::new();
+    let mut index = 0;
+    while index < words.len() {
+        let hit = index + pattern.len() <= words.len()
+            && words[index..index + pattern.len()]
+                .iter()
+                .zip(&pattern)
+                .all(|(word, want)| word.eq_ignore_ascii_case(want));
+        if hit {
+            out.push(to);
+            index += pattern.len();
+        } else {
+            out.push(words[index]);
+            index += 1;
+        }
+    }
+    out.join(" ")
+}
+
+/// R3: a spelled ordinal reads as its numeral form: "second" is "2nd".
+fn ordinal(word: &str) -> String {
+    const ORDINALS: [&str; 20] = [
+        "first",
+        "second",
+        "third",
+        "fourth",
+        "fifth",
+        "sixth",
+        "seventh",
+        "eighth",
+        "ninth",
+        "tenth",
+        "eleventh",
+        "twelfth",
+        "thirteenth",
+        "fourteenth",
+        "fifteenth",
+        "sixteenth",
+        "seventeenth",
+        "eighteenth",
+        "nineteenth",
+        "twentieth",
+    ];
+    match ORDINALS.iter().position(|spelled| *spelled == word) {
+        Some(index) => {
+            let n = index + 1;
+            let suffix = match (n % 10, n % 100) {
+                (1, 11) | (2, 12) | (3, 13) => "th",
+                (1, _) => "st",
+                (2, _) => "nd",
+                (3, _) => "rd",
+                _ => "th",
+            };
+            format!("{n}{suffix}")
+        }
+        None => word.to_string(),
+    }
+}
+
+/// R6: "gun training 1 to 4" and "gun training 1-4" are the steps 1, 2, 3 and 4.
+fn expand_range(item: &str) -> Option<Vec<String>> {
+    let normalized = item.replace('\u{2013}', "-");
+    let tokens: Vec<&str> = normalized.split_whitespace().collect();
+    let (head, low, high) =
+        if tokens.len() >= 4 && tokens[tokens.len() - 2].eq_ignore_ascii_case("to") {
+            (
+                tokens[..tokens.len() - 3].join(" "),
+                tokens[tokens.len() - 3],
+                tokens[tokens.len() - 1],
+            )
+        } else if tokens.len() >= 2 {
+            let (low, high) = tokens[tokens.len() - 1].split_once('-')?;
+            (tokens[..tokens.len() - 1].join(" "), low, high)
+        } else {
+            return None;
+        };
+    let low: u32 = is_number(low).then(|| low.parse().ok())??;
+    let high: u32 = is_number(high).then(|| high.parse().ok())??;
+    if head.is_empty() || low >= high || high - low > 20 {
+        return None;
+    }
+    Some((low..=high).map(|step| format!("{head} {step}")).collect())
+}
+
+/// R10: "the sacred shield's holy champion ability": an article, at most two words and a
+/// possessive word before a name are dropped together (sentence side only).
+fn strip_possessor_phrases(phrase: &str) -> String {
+    let tokens: Vec<&str> = phrase.split_whitespace().collect();
+    let mut keep = vec![true; tokens.len()];
+    for (index, token) in tokens.iter().enumerate() {
+        let word =
+            token.trim_matches(|ch: char| !ch.is_alphanumeric() && ch != '\'' && ch != '\u{2019}');
+        if !(word.ends_with("'s") || word.ends_with("\u{2019}s")) {
+            continue;
+        }
+        let from = index.saturating_sub(3);
+        if let Some(article) = (from..index)
+            .rev()
+            .find(|at| matches!(tokens[*at].to_lowercase().as_str(), "the" | "a" | "an"))
+        {
+            let clean = tokens[article..index].iter().all(|token| {
+                !token.ends_with(',') && !CONNECTORS.contains(&token.to_lowercase().as_str())
+            });
+            if clean {
+                keep[article..=index].fill(false);
+            }
+        }
+    }
+    tokens
+        .iter()
+        .zip(keep)
+        .filter(|(_, keep)| *keep)
+        .map(|(token, _)| *token)
+        .collect::<Vec<_>>()
+        .join(" ")
 }
 
 #[cfg(test)]
@@ -966,5 +1201,336 @@ mod tests {
             one("This ability replaces bothersome armor.").phrase,
             "bothersome armor"
         );
+    }
+
+    // ---- #540 batch 1 (Ultimate Magic, Ultimate Combat) descriptor rules ----
+
+    #[test]
+    fn class_ability_is_a_descriptor_like_class_feature() {
+        // Ultimate Magic, Mindchemist; Staff Magus.
+        let sentence = one(
+            "This ability replaces the mutagen class ability (a mindchemist cannot create mutagens unless he selects mutagen as a discovery).",
+        );
+        assert_eq!(sentence.phrase, "the mutagen class ability");
+        assert!(phrase_is_covered(&sentence.phrase, &names(&["Mutagen"])));
+        let sentence =
+            one("This ability replaces the medium armor and heavy armor class abilities.");
+        assert!(phrase_is_covered(
+            &sentence.phrase,
+            &names(&["Medium armor", "heavy armor"])
+        ));
+        assert!(!phrase_is_covered(
+            &sentence.phrase,
+            &names(&["Medium armor"])
+        ));
+        // `class` before another word stays part of the name.
+        assert_eq!(name_words("Class skills"), ["class", "skill"]);
+    }
+
+    #[test]
+    fn a_trailing_aside_in_parentheses_is_not_a_name() {
+        assert_eq!(one("This replaces bravery (Ex).").phrase, "bravery (Ex)");
+        assert_eq!(
+            one("This ability replaces Weapon Focus (longsword).").phrase,
+            "Weapon Focus (longsword)"
+        );
+        assert_eq!(
+            one("This ability replaces bravery (but not armor training 1).").phrase,
+            "bravery"
+        );
+    }
+
+    #[test]
+    fn a_but_clause_after_the_names_is_not_a_name() {
+        // Ultimate Combat, Arcane Bomber, Siege Mage, Spellslinger.
+        let sentence = one(
+            "This ability replaces cantrips, but the siege mage gains the detect magic and read magic cantrips and places them in his spellbook.",
+        );
+        assert_eq!(sentence.phrase, "cantrips");
+        assert!(phrase_is_covered(&sentence.phrase, &names(&["Cantrips"])));
+    }
+
+    #[test]
+    fn normal_and_normally_are_determiners() {
+        // Ultimate Magic, Broodmaster, Master Summoner; Ultimate Combat, Tetori, Kensai.
+        let sentence = one("This ability replaces the summoner's normal eidolon ability.");
+        assert!(phrase_is_covered(&sentence.phrase, &names(&["Eidolon"])));
+        let sentence = one(
+            "This ability replaces the summoner's normal summon monster I ability and shield ally.",
+        );
+        assert!(phrase_is_covered(
+            &sentence.phrase,
+            &names(&["Summon monster I", "shield ally"])
+        ));
+        let sentence = one("These feats replace a monk's normal bonus feats.");
+        assert!(sentence.bare);
+        assert!(names_a_trade(
+            &sentence,
+            &[(TradeOp::Replaces, "Bonus feats".to_string())]
+        ));
+        assert!(phrase_is_covered(
+            &sentence.phrase,
+            &names(&["Bonus feats"])
+        ));
+        assert!(phrase_is_covered(
+            "the magus arcana normally gained at 9th level",
+            &names(&["Magus arcana gained at 9th level"])
+        ));
+        // The bard and magus proficiency sentences: a class name after `normal` is an adjective.
+        assert!(phrase_is_covered(
+            "the normal magus weapon and armor proficiency feature",
+            &names(&["Weapon and armor proficiencies"])
+        ));
+        // `bonus` is not a determiner: bonus spells are not spells.
+        assert!(!phrase_is_covered(
+            "the oracle's mystery bonus spells",
+            &names(&["Spells"])
+        ));
+        assert!(!phrase_is_covered(
+            "the bonus teamwork feat gained at 6th level",
+            &names(&["Teamwork feat gained at 6th level"])
+        ));
+    }
+
+    #[test]
+    fn spelled_ordinals_read_as_numerals() {
+        // Ultimate Combat, Battle Scout, Warden, Wild Stalker.
+        assert_eq!(
+            name_words("second favored enemy"),
+            name_words("2nd favored enemy")
+        );
+        assert!(phrase_is_covered(
+            "the ranger's second favored enemy",
+            &names(&["2nd favored enemy"])
+        ));
+        assert!(phrase_is_covered(
+            "the ranger's first favored enemy ability",
+            &names(&["1st favored enemy"])
+        ));
+        assert!(phrase_is_covered(
+            "the ranger's second, third, and fourth favored enemies",
+            &names(&["2nd, 3rd, and 4th favored enemies"])
+        ));
+        assert!(phrase_is_covered(
+            "the ranger's fifth favored enemy and master hunter",
+            &names(&["5th favored enemy", "master hunter"])
+        ));
+        assert!(!phrase_is_covered(
+            "the ranger's second favored enemy",
+            &names(&["3rd favored enemy"])
+        ));
+        assert_eq!(
+            name_words("eleventh twelfth twentieth"),
+            ["11th", "12th", "20th"]
+        );
+    }
+
+    #[test]
+    fn a_class_name_after_a_level_is_an_adjective() {
+        // Ultimate Magic, Scrollmaster.
+        assert!(phrase_is_covered(
+            "the 10th-level wizard bonus feat",
+            &names(&["10th-level bonus feat"])
+        ));
+        assert!(name_in_phrase(
+            &name_words("10th-level bonus feat"),
+            "the 10th-level wizard bonus feat"
+        ));
+        // The trade may keep the class name too.
+        assert!(phrase_is_covered(
+            "the 10th-level wizard bonus feat",
+            &names(&["10th-level wizard bonus feat"])
+        ));
+        assert!(!phrase_is_covered(
+            "the 10th-level wizard bonus feat",
+            &names(&["12th-level bonus feat"])
+        ));
+    }
+
+    #[test]
+    fn a_step_range_reads_as_its_steps() {
+        // Ultimate Combat, Pistolero.
+        assert_eq!(
+            name_words("gun training 1 to 4"),
+            name_words("Gun training 1-4")
+        );
+        assert_eq!(
+            name_words("gun training 1 to 4"),
+            name_words("gun training 1, 2, 3, and 4")
+        );
+        assert!(phrase_is_covered(
+            "gun training 1 to 4",
+            &names(&["Gun training 1-4"])
+        ));
+        assert!(phrase_is_covered(
+            "gun training 1 to 4",
+            &names(&[
+                "Gun training 1",
+                "Gun training 2",
+                "Gun training 3",
+                "Gun training 4"
+            ])
+        ));
+        assert!(!phrase_is_covered(
+            "gun training 1 to 4",
+            &names(&["Gun training 1"])
+        ));
+        // No head, or a falling range, is not a range of steps.
+        assert_eq!(name_words("1 to 4"), ["1", "to", "4"]);
+        assert_eq!(
+            name_words("gun training 4 to 1"),
+            ["gun", "training", "4", "to", "1"]
+        );
+    }
+
+    #[test]
+    fn as_well_as_joins_two_names() {
+        // Ultimate Combat, Beastmorph.
+        let sentence = one(
+            "This ability replaces poison resistance +2, +4, and +6, as well as poison immunity.",
+        );
+        assert!(phrase_is_covered(
+            &sentence.phrase,
+            &names(&["Poison resistance +2, +4, and +6", "poison immunity"])
+        ));
+        assert!(!phrase_is_covered(
+            &sentence.phrase,
+            &names(&["Poison resistance +2, +4, and +6"])
+        ));
+    }
+
+    #[test]
+    fn a_possessor_phrase_before_a_name_is_dropped() {
+        // Ultimate Combat, Sacred Shield.
+        assert!(phrase_is_covered(
+            "the sacred shield's holy champion ability",
+            &names(&["Holy champion"])
+        ));
+        assert!(phrase_is_covered(
+            "the standard paladin's divine bond",
+            &names(&["Divine bond"])
+        ));
+        assert!(!phrase_is_covered(
+            "the sacred shield's holy champion ability",
+            &names(&["Champion"])
+        ));
+    }
+
+    #[test]
+    fn a_verb_joined_to_another_clause_is_read_as_bare() {
+        // Ultimate Combat, Dervish Dancer, Battle Fury.
+        let sentence = one(
+            "This movement provokes attacks of opportunity as normal, and replaces deadly performance.",
+        );
+        assert!(sentence.bare);
+        assert_eq!(sentence.phrase, "deadly performance");
+        assert!(names_a_trade(
+            &sentence,
+            &[(TradeOp::Replaces, "Deadly performance".to_string())]
+        ));
+        assert!(!names_a_trade(
+            &sentence,
+            &[(TradeOp::Replaces, "Bravery".to_string())]
+        ));
+        // Without `and` before the verb the other subject still is not a trade.
+        assert!(trade_sentences("This bonus replaces the usual bonus.").is_empty());
+        assert!(
+            trade_sentences(
+                "This movement provokes attacks of opportunity and does not replace bravery."
+            )
+            .is_empty()
+        );
+    }
+
+    #[test]
+    fn changes_is_an_alters_verb_in_the_sentence_position() {
+        // Owner ruling 25 of 2026-11-24 (#540), Magus, Bladebound.
+        let found = trade_sentences(
+            "This ability changes the Arcane Pool class feature and replaces the magus arcana gained at 3rd level.",
+        );
+        assert_eq!(found.len(), 2, "{found:?}");
+        assert_eq!(found[0].op, TradeOp::Alters);
+        assert!(!found[0].bare);
+        assert!(phrase_is_covered(
+            &found[0].phrase,
+            &names(&["Arcane Pool"])
+        ));
+        assert_eq!(found[1].op, TradeOp::Replaces);
+        assert!(phrase_is_covered(
+            &found[1].phrase,
+            &names(&["Magus arcana gained at 3rd level"])
+        ));
+        let plural = one("These abilities change the bard's performance class feature.");
+        assert_eq!(plural.op, TradeOp::Alters);
+        // Not in a prose sentence, a negation or another subject.
+        assert!(trade_sentences("A magus changes his weapon.").is_empty());
+        assert!(trade_sentences("This ability does not change arcane pool.").is_empty());
+        assert!(trade_sentences("This bonus changes the usual bonus.").is_empty());
+        // Not as a further verb joined by `and`: "changes" there is prose.
+        let found = trade_sentences("This ability replaces bravery and changes the saving throw.");
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert_eq!(found[0].op, TradeOp::Replaces);
+    }
+
+    #[test]
+    fn bonus_is_never_dropped_from_a_name() {
+        assert_eq!(name_words("bonus spells"), ["bonus", "spell"]);
+        assert!(!phrase_is_covered(
+            "the oracle's mystery bonus spells",
+            &names(&["Spells"])
+        ));
+        assert!(!phrase_is_covered(
+            "bonus teamwork feats",
+            &names(&["Teamwork feats"])
+        ));
+        assert!(!phrase_is_covered(
+            "teamwork feats",
+            &names(&["Bonus teamwork feats"])
+        ));
+    }
+
+    #[test]
+    fn a_comma_and_a_connector_stop_a_possessor_phrase() {
+        // Dropped across a comma or `and`, the phrase would shrink to "divine bond".
+        assert!(!phrase_is_covered(
+            "the shield, sacred knight's divine bond",
+            &names(&["Divine bond"])
+        ));
+        assert!(!phrase_is_covered(
+            "the shield and sacred knight's divine bond",
+            &names(&["Divine bond"])
+        ));
+        assert!(!phrase_is_covered(
+            "the shield or sacred knight's divine bond",
+            &names(&["Divine bond"])
+        ));
+        // An article, two words and the possessive word are dropped; a longer run is not.
+        assert!(phrase_is_covered(
+            "the grand sacred knight's divine bond",
+            &names(&["Divine bond"])
+        ));
+        assert!(!phrase_is_covered(
+            "the very grand sacred knight's divine bond",
+            &names(&["Divine bond"])
+        ));
+        assert!(phrase_is_covered(
+            "the sacred knight's divine bond",
+            &names(&["Divine bond"])
+        ));
+    }
+
+    #[test]
+    fn the_feature_name_as_subject_is_an_ability_subject() {
+        // Ultimate Combat, Evangelist.
+        let text = "Sermonic performance replaces the 1st-, 9th-, and 15th-level channel energy abilities.";
+        assert!(trade_sentences(text).is_empty());
+        let found = trade_sentences_headed(text, Some("Sermonic Performance (Su)"));
+        assert_eq!(found.len(), 1);
+        assert!(!found[0].bare);
+        assert!(phrase_is_covered(
+            &found[0].phrase,
+            &names(&["The 1st-, 9th-, and 15th-level channel energy abilities"])
+        ));
+        assert!(trade_sentences_headed(text, Some("Spontaneous Casting")).is_empty());
     }
 }
