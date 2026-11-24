@@ -5096,8 +5096,45 @@ html:has(.quick-search[open]) {
   list-style: none;
 }
 
-.quick-search-list[hidden] {
+.quick-search-list[hidden],
+.quick-search-removes[hidden] {
   display: none;
+}
+
+/* A group whose rows can be removed puts the listbox and the remove buttons side by side. The
+   buttons are not options, so they live outside the listbox; both columns share the group's
+   rows (subgrid), so a button stays level with its row however tall the row grows. */
+.quick-search-group-body.has-removes {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: repeat(var(--quick-rows), auto);
+}
+
+.has-removes > .quick-search-list,
+.has-removes > .quick-search-removes {
+  display: grid;
+  grid-row: 1 / span var(--quick-rows);
+  grid-template-rows: subgrid;
+}
+
+.has-removes > .quick-search-list {
+  grid-column: 1;
+}
+
+.has-removes > .quick-search-removes {
+  grid-column: 2;
+}
+
+.has-removes > .quick-search-list[hidden],
+.has-removes > .quick-search-removes[hidden] {
+  display: none;
+}
+
+.quick-search-remove-cell {
+  display: flex;
+  align-items: stretch;
+  min-width: var(--touch);
+  border-bottom: var(--border);
 }
 
 .quick-search-item {
