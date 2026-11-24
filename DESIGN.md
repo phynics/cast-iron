@@ -621,8 +621,8 @@ An entry opened from a book or a chapter carries `?book=<id>` and ends with the 
 2. **Appearance.** `Theme` and `Spell row density` as native radios in `.choice` fieldsets.
 3. **Books.** A facts row `Active` with the count line of Books (`28 of 443 books active · Paizo Rulebooks`), then a `.page-link` `Manage books`.
 4. **Library.** Facts rows `Rules library` (`v0.1.37 (v28481793…)`), `Entries`, `Size on this device` and `Installed`; a `.btn` `Verify library`; its result is a `p.status` with `role="status"` (`Verifying…`, `Library verified. …`, or the failure sentence).
-5. **Storage.** Facts rows `Used`, `Available to this app` and `Persistent storage`; `Request persistent storage` is a `.btn` that shows only while storage is not granted. The section holds its size while the browser's answers are pending (#666): the `Persistent storage` value reserves the height of its longest text, and the button's slot keeps its size, invisible and out of the tab order, until the button is offered, so `Install` and the sections below never move when the check resolves.
-6. **Install.** One of three states: a facts row `Installed as an app`, the sentence with `Install app`, or the muted hint that the browser menu may offer it.
+5. **Install.** One of three states: a facts row `Installed as an app`, the sentence with `Install app`, or the muted hint that the browser menu may offer it.
+6. **Storage.** Facts rows `Used`, `Available to this app` and `Persistent storage`; `Request persistent storage` is a `.btn` that shows only while storage is not granted. The section sits below Install, so a late answer from the browser cannot move Install (#666); the `Persistent storage` value reserves the height of its longest text, so only the button, which appears when storage is not granted, moves Help.
 7. **Help.** A facts row `App version` (`Released 7 Nov 2026 (5ec392ee…)`), then `.page-link` rows `Diagnostics`, `Report a problem` (the footer's link, opens a new tab) and `Legal and attribution`.
 
 **The update rows.** What waits sits at the top of Updates, one `div.update-row` each, library first, with a facts row and one control:

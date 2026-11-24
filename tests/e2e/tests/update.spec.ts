@@ -255,7 +255,7 @@ test("Offline, the automatic check asks for nothing and Settings still works", a
 });
 
 /** The `h2` texts of Settings, in page order (#584). */
-const SECTIONS = ["Updates", "Appearance", "Books", "Library", "Storage", "Install", "Help"];
+const SECTIONS = ["Updates", "Appearance", "Books", "Library", "Install", "Storage", "Help"];
 
 async function expectSettingsPage(page: import("@playwright/test").Page) {
   await expect(page.getByRole("heading", { level: 1, name: "Settings", exact: true })).toBeVisible();

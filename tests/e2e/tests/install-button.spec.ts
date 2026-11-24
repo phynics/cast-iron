@@ -189,8 +189,8 @@ test("The header button lasts five launches, and Settings keeps offering install
     await expect(headerButton(next)).toHaveCount(0);
     await next.goto("#/settings");
     await expect(next.getByText("for full-screen reading and an icon on your device")).toBeVisible();
-    // The Storage section sits above Install and holds its space while the persistence check runs
-    // (#666), so a click needs no wait. Keep the wait as a guard: this test is about the prompt.
+    // The Storage section sits below Install (#666), so its late answers cannot move Install and a
+    // click needs no wait. Keep the wait as a guard: this test is about the prompt.
     await expect(next.getByTestId("storage-persisted")).not.toHaveText("Checking…");
     await expect(next.getByTestId("storage-usage")).not.toHaveText("Checking…");
     await next.getByRole("button", { name: "Install app" }).click();
@@ -198,8 +198,10 @@ test("The header button lasts five launches, and Settings keeps offering install
   }
 });
 
-// #666: the persistence check resolves late (close to a second in WebKit). The Storage rows and the
-// "Request persistent storage" button must hold their space, or Install moves under a reader's finger.
+// #666: the persistence check resolves late (close to a second in WebKit), and the Storage rows grow
+// and a "Request persistent storage" button appears. Storage sits below Install so that nothing it
+// shows can move Install under a reader's finger. The test holds the answers, so a later reorder of
+// Settings that puts a late section above Install fails here.
 for (const granted of [false, true]) {
   test(`Install does not move when the persistence check answers ${granted ? "granted" : "not granted"}`, async ({ page, context }) => {
     await firePromptEarly(context);
@@ -228,6 +230,8 @@ for (const granted of [false, true]) {
     await expect(next.getByTestId("storage-usage")).toHaveText("Checking…");
     const checking = await install.boundingBox();
     expect(checking).not.toBeNull();
+    const storageHead = await next.getByRole("heading", { name: "Storage", level: 2 }).boundingBox();
+    expect(storageHead!.y).toBeGreaterThan(checking!.y);
 
     await next.evaluate(() => (window as any).__releaseStorage());
     await expect(next.getByTestId("storage-persisted")).not.toHaveText("Checking…");
@@ -238,6 +242,7 @@ for (const granted of [false, true]) {
     expect(resolved).not.toBeNull();
     expect(resolved!.y).toBeCloseTo(checking!.y, 0);
 
+    // The button is in the page only while storage is not granted.
     const request = next.getByRole("button", { name: "Request persistent storage" });
     await expect(request).toHaveCount(granted ? 0 : 1);
     await next.close();

@@ -260,37 +260,6 @@ pub fn Settings() -> impl IntoView {
             })}
         </section>
 
-        <section class="settings-section" aria-labelledby="set-storage">
-            <h2 id="set-storage">"Storage"</h2>
-            <dl class="facts">
-                <div><dt>"Used"</dt><dd data-testid="storage-usage">{move || match estimate.get() {
-                    None => "Checking…".to_string(),
-                    Some(e) => e.usage.map_or("Not reported".to_string(), |u| fmt::bytes(u as u64)),
-                }}</dd></div>
-                <div><dt>"Available to this app"</dt><dd data-testid="storage-quota">{move || match estimate.get() {
-                    None => "Checking…".to_string(),
-                    Some(e) => e.quota.map_or("Not reported".to_string(), |q| fmt::bytes(q as u64)),
-                }}</dd></div>
-                <div><dt>"Persistent storage"</dt><dd class="reserve-text" data-testid="storage-persisted" data-reserve=PERSISTED_DENIED><span>{move || match persisted.get() {
-                    None => "Checking…".to_string(),
-                    Some(true) => PERSISTED_GRANTED.to_string(),
-                    Some(false) => PERSISTED_DENIED.to_string(),
-                }}</span></dd></div>
-            </dl>
-            // The button's slot is held from the first paint, so the check resolving cannot move
-            // Install and the sections below it (#666). While the button is not offered, the slot
-            // keeps its size but is invisible and out of the tab order and the accessibility tree.
-            <p class="storage-request" class:held=move || persisted.get() != Some(false)
-                aria-hidden=move || (persisted.get() != Some(false)).then_some("true")>
-                <button class="btn" type="button" on:click=move |_| {
-                    spawn_local(async move {
-                        let _ = js::storage_persist().await;
-                        refresh_storage();
-                    });
-                }>"Request persistent storage"</button>
-            </p>
-        </section>
-
         <section class="settings-section" aria-labelledby="set-install">
             <h2 id="set-install">"Install"</h2>
             {move || if install_ctx.standalone() {
@@ -320,6 +289,35 @@ pub fn Settings() -> impl IntoView {
                     </p>
                 }.into_any()
             }}
+        </section>
+
+        <section class="settings-section" aria-labelledby="set-storage">
+            <h2 id="set-storage">"Storage"</h2>
+            <dl class="facts">
+                <div><dt>"Used"</dt><dd data-testid="storage-usage">{move || match estimate.get() {
+                    None => "Checking…".to_string(),
+                    Some(e) => e.usage.map_or("Not reported".to_string(), |u| fmt::bytes(u as u64)),
+                }}</dd></div>
+                <div><dt>"Available to this app"</dt><dd data-testid="storage-quota">{move || match estimate.get() {
+                    None => "Checking…".to_string(),
+                    Some(e) => e.quota.map_or("Not reported".to_string(), |q| fmt::bytes(q as u64)),
+                }}</dd></div>
+                <div><dt>"Persistent storage"</dt><dd class="reserve-text" data-testid="storage-persisted" data-reserve=PERSISTED_DENIED><span>{move || match persisted.get() {
+                    None => "Checking…".to_string(),
+                    Some(true) => PERSISTED_GRANTED.to_string(),
+                    Some(false) => PERSISTED_DENIED.to_string(),
+                }}</span></dd></div>
+            </dl>
+            <Show when=move || persisted.get() == Some(false)>
+                <p>
+                    <button class="btn" type="button" on:click=move |_| {
+                        spawn_local(async move {
+                            let _ = js::storage_persist().await;
+                            refresh_storage();
+                        });
+                    }>"Request persistent storage"</button>
+                </p>
+            </Show>
         </section>
 
         <section class="settings-section" aria-labelledby="set-help">
