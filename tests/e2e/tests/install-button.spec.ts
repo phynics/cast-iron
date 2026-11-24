@@ -264,7 +264,13 @@ test("A first install never offers an app update", async ({ page, context }) => 
   await firePromptEarly(context);
   await installLibrary(page);
   await waitControlled(page);
-  await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 1500)));
+  // Wait until no worker is waiting, so an update that would be offered has already appeared.
+  // A stuck waiting worker fails here after 5 s instead of passing silently.
+  await page.waitForFunction(
+    async () => !(await navigator.serviceWorker.getRegistration())?.waiting,
+    undefined,
+    { timeout: 5_000 },
+  );
   await expect(page.locator("header.app-header").getByRole("button", { name: UPDATE_NAME })).toHaveCount(0);
   await expect(headerButton(page)).toBeVisible();
 });
