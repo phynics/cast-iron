@@ -22,12 +22,12 @@ use crate::views::book_tier::Tier;
 use crate::views::class_card::{SpellListLink, class_card};
 use crate::views::continue_reading;
 use crate::views::crumbs::{Crumb, EntryCrumbs, EntryFacts};
-use crate::views::entry_contents::ArticleContents;
+use crate::views::entry_contents::{ArticleContents, JumpLink, lists_contents, resolve_anchor};
 use crate::views::fresh::IntoFresh as _;
 use crate::views::icons;
 use crate::views::recent;
 use crate::views::related::{Indexes, Related, needs};
-use crate::views::rich::{RELATED_ANCHOR, RichBody, blocks, muted_line, plain_text};
+use crate::views::rich::{RELATED_ANCHOR, RichBody, blocks, muted_line, muted_parts, plain_text};
 use crate::views::search::facet_label;
 use crate::views::section_switcher::SectionSwitcher;
 use crate::views::sources::{aon_line, expanded_line, printings_line, source_line};
@@ -35,6 +35,7 @@ use crate::views::stat_sets::{self, StatSetList};
 use crate::views::util::{
     addon_base_phrase, kind_name, local_resource, recovery_details, set_title,
 };
+use cast_iron_schema::headings::{FeatureHead, feature_heads};
 use cast_iron_schema::{
     Block, EntryId, EntryKind, EntryReference, Inline, RelationKind, RetirementReason, RuleEntry,
     SpellLevel, TradeIndex, TradeOp, TypedFields,
@@ -1030,22 +1031,54 @@ fn EntryView(
         }
         false => (None, rendered_body, None, None),
     };
+    // The class features that the entry lists print under their own heading (corpus format 4,
+    // #540) and render as feature heads. Such an entry is converted: it has no power rows, so
+    // the class-option layout stays out of its way.
+    let features = match hide_body {
+        true => Vec::new(),
+        false => entry.fields.features().to_vec(),
+    };
     // A class option's powers take the layout. On a one-power page the power's facts sit in the
     // entry head, and its name is the title.
-    let (power_title, facts) = match kind == EntryKind::ClassOption && !hide_body {
-        true => {
-            let facts = powers::entry_facts(&entry.title, &rendered_body);
-            let facts = (!facts.is_empty()).then(|| muted_line("entry-facts", &facts));
-            (Some(entry.title.clone()), facts)
-        }
-        false => {
-            let facts = head_facts(&entry, indexes.trades.as_deref());
-            (
-                None,
-                (!facts.is_empty()).then(|| muted_line("entry-facts", &facts)),
-            )
-        }
-    };
+    let (power_title, facts) =
+        match kind == EntryKind::ClassOption && !hide_body && powers::layout_applies(&features) {
+            true => {
+                let facts = powers::entry_facts(&entry.title, &rendered_body);
+                let facts = (!facts.is_empty()).then(|| muted_line("entry-facts", &facts));
+                (Some(entry.title.clone()), facts)
+            }
+            false => {
+                // A name of the trades line links to the feature of this page that states it, on a
+                // page long enough to list its sections: there the jump saves a scroll (#540).
+                let titles: Vec<String> = library
+                    .sources()
+                    .iter()
+                    .map(|source| source.title.clone())
+                    .collect();
+                let heads = match !features.is_empty() && lists_contents(&contents_body, &titles) {
+                    true => feature_heads(&contents_body, &features),
+                    false => Vec::new(),
+                };
+                let row = indexes
+                    .trades
+                    .as_deref()
+                    .and_then(|index| index.row(&entry.id));
+                let linked = match (&entry.fields, row) {
+                    (TypedFields::Archetype(_), Some(row)) if !heads.is_empty() => {
+                        Some(trade_facts(&entry.id, row, &heads, book.clone()))
+                    }
+                    _ => None,
+                };
+                let facts = match linked {
+                    Some(parts) => (!parts.is_empty()).then(|| muted_parts("entry-facts", parts)),
+                    None => {
+                        let facts = head_facts(&entry, indexes.trades.as_deref());
+                        (!facts.is_empty()).then(|| muted_line("entry-facts", &facts))
+                    }
+                };
+                (None, facts)
+            }
+        };
     let switcher = class_sections.as_ref().map(|sections| {
         view! { <SectionSwitcher id=entry.id.clone() book=book.clone() stops=sections.present() /> }
     });
@@ -1060,10 +1093,12 @@ fn EntryView(
         Route::Entry { book, .. } => book.clone(),
         _ => None,
     };
+    // A search result that matched a class feature names it in the anchor (#540).
     let live_anchor = match &live {
         Route::Entry { anchor, .. } => anchor.clone(),
         _ => anchor.clone(),
-    };
+    }
+    .map(|anchor| resolve_anchor(&entry, &anchor));
     if let Some(section) = live.section()
         && live_anchor.is_none()
         && class_sections
@@ -1158,7 +1193,7 @@ fn EntryView(
         {switcher}
         {stat_sets}
         {contents}
-        <RichBody body=rendered_body anchor=live_anchor changed=changed_labels marks=section_marks entry=entry.id.clone() book=live_book power_title archetype_list=archetype_slot />
+        <RichBody body=rendered_body anchor=live_anchor changed=changed_labels marks=section_marks entry=entry.id.clone() book=live_book power_title archetype_list=archetype_slot features />
         {source_line(&body_sources, &library, None)}
         {expanded_line(&entry.expanded_in, &library)}
         {printings_line(&indexes.printings)}
@@ -1243,6 +1278,45 @@ fn head_facts(entry: &RuleEntry, trades: Option<&TradeIndex>) -> Vec<String> {
             .unwrap_or_default(),
         _ => Vec::new(),
     }
+}
+
+/// The trades line of an archetype whose page lists features: `Replaces Bravery, Armor training`
+/// and `Alters …`, each name a link to the feature that states it when the trade names one that
+/// this page has (#540). The link's name keeps the printed name and adds where it goes.
+fn trade_facts(
+    id: &EntryId,
+    row: &cast_iron_schema::TradeRow,
+    heads: &[FeatureHead],
+    book: Option<String>,
+) -> Vec<AnyView> {
+    [TradeOp::Replaces, TradeOp::Alters]
+        .into_iter()
+        .filter_map(|op| {
+            let names = class_options::trade_names_of(row, op, heads);
+            if names.is_empty() {
+                return None;
+            }
+            let items = names
+                .into_iter()
+                .enumerate()
+                .map(|(index, name)| {
+                    let sep = (index > 0).then_some(", ");
+                    let body = match name.stated_in {
+                        Some((anchor, feature)) => view! {
+                            <JumpLink id=id.clone() anchor book=book.clone()>
+                                {name.printed}
+                                <span class="sr-only">{format!(" (stated under {feature})")}</span>
+                            </JumpLink>
+                        }
+                        .into_any(),
+                        None => name.printed.into_any(),
+                    };
+                    view! { {sep}{body} }
+                })
+                .collect_view();
+            Some(view! { {format!("{} ", op.label())}{items} }.into_any())
+        })
+        .collect()
 }
 
 /// The footer's licence sentence for an entry's `license_refs`. Open Game License wins when the

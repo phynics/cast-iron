@@ -107,6 +107,12 @@ pub struct Hit {
     pub score: f32,
     pub title_matches: Vec<(usize, usize)>,
     pub snippet: Snippet,
+    /// The first alias of the document that holds every query word, when no word of the title
+    /// matched.
+    /// Filled by [`SearchIndex::materialize_hit`] and the full search. An alias is a name that
+    /// the compiler added, such as a class feature heading (#540), so the caller can tell that
+    /// the query named a part of the entry and open it there. Not part of the index format.
+    pub alias: Option<String>,
 }
 
 /// Counts behind the filter chips; see [`SearchIndex::filter_counts_eligible`]. Facet keys are

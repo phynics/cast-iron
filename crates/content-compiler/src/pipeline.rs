@@ -7,6 +7,7 @@
 use crate::publish;
 use crate::reachability::{self, Report as ReachabilityReport};
 use crate::text::{blocks_text, inline_text};
+use cast_iron_schema::headings::feature_heads;
 use cast_iron_schema::validate::{ValidationError, validate_derived, validate_library};
 use cast_iron_schema::{
     BACKLINKS_DIR, BACKLINKS_FILE, BOOKS_FILE, Block, BookIndex, Catalog, ContentManifest,
@@ -536,6 +537,16 @@ pub(crate) fn search_aliases(entries: &[RuleEntry]) -> BTreeMap<EntryId, Vec<Str
                     }
                 }
             }
+            // The class features that an archetype, a class option or a base class prints under
+            // their own heading (corpus format 4, #540): a reader who searches for the name of
+            // one finds the entry, and the client opens it at that feature. The alias is the
+            // printed name without its ability tag. No entry has `features` before the data is
+            // converted, so this adds nothing until then.
+            for head in feature_heads(&entry.body, entry.fields.features()) {
+                if head.name != entry.title {
+                    names.insert(head.name);
+                }
+            }
             (entry.id.clone(), names.into_iter().collect())
         })
         .collect()
@@ -808,6 +819,85 @@ mod tests {
             license_refs: vec!["ogl-1.0a".into()],
             relations: vec![],
         }
+    }
+
+    fn head(anchor: Option<&str>, text: &str) -> Block {
+        Block::Heading {
+            level: 2,
+            anchor: anchor.map(str::to_string),
+            content: vec![Inline::text(text)],
+        }
+    }
+
+    fn fact(anchor: &str, level: Option<u8>) -> cast_iron_schema::FeatureFact {
+        cast_iron_schema::FeatureFact {
+            anchor: anchor.into(),
+            level,
+        }
+    }
+
+    #[test]
+    fn listed_features_become_aliases_of_their_archetype_class_option_and_class() {
+        let body = vec![
+            head(Some("shattering-strike"), "Shattering Strike (Ex)"),
+            head(Some("weapon-training"), "Weapon Training"),
+            head(Some("not-listed"), "Piledriver"),
+            // The entry's own title is no alias, and a name that repeats is one alias.
+            head(Some("title"), "Two-Handed Fighter"),
+            head(Some("again"), "Weapon Training (Ex)"),
+        ];
+        let features = vec![
+            fact("shattering-strike", Some(2)),
+            fact("weapon-training", None),
+            fact("title", None),
+            fact("again", Some(5)),
+        ];
+        let mut archetype = entry(
+            "ref/arc-fighter/two-handed-fighter",
+            EntryKind::Archetype,
+            0,
+        );
+        archetype.title = "Two-Handed Fighter".into();
+        archetype.body = body.clone();
+        archetype.fields = TypedFields::Archetype(cast_iron_schema::ArchetypeFields {
+            features: features.clone(),
+            ..Default::default()
+        });
+        let mut option = entry("ref/rage-power/example", EntryKind::ClassOption, 0);
+        option.title = "Two-Handed Fighter".into();
+        option.body = body.clone();
+        option.fields = TypedFields::ClassOption(cast_iron_schema::ClassOptionFields {
+            features: features.clone(),
+            ..Default::default()
+        });
+        let mut class = entry("ref/class/fighter", EntryKind::Class, 0);
+        class.title = "Two-Handed Fighter".into();
+        class.body = body.clone();
+        class.fields = TypedFields::Class(cast_iron_schema::ClassFields {
+            features,
+            ..Default::default()
+        });
+        // No features: an archetype of the format 3 data gains no alias.
+        let mut plain = entry("ref/arc-fighter/plain", EntryKind::Archetype, 0);
+        plain.body = body;
+        plain.fields = TypedFields::Archetype(Default::default());
+
+        let aliases = search_aliases(&[
+            archetype.clone(),
+            option.clone(),
+            class.clone(),
+            plain.clone(),
+        ]);
+        let expected = vec![
+            "Shattering Strike".to_string(),
+            "Weapon Training".to_string(),
+        ];
+        assert_eq!(aliases[&archetype.id], expected);
+        assert_eq!(aliases[&option.id], expected);
+        assert_eq!(aliases[&class.id], expected);
+        assert!(aliases[&plain.id].is_empty());
+        // The title of the entry is not repeated as an alias.
+        assert!(!aliases[&archetype.id].contains(&"Two-Handed Fighter".to_string()));
     }
 
     #[test]

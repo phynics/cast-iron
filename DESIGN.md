@@ -297,6 +297,8 @@ Opening a chain head writes `?open=<feat id>` into the address, replacing the cu
 
 **Book sections on the results page.** Entries come first. The matching book sections fold into one Navigation row above the entries, `Book sections · 37 matches`, a native `<details>` in page flow: 44 px, `--radius`, a 1 px `--line` border, label left and a chevron at the end that turns when it opens (never a pill, never a filter state). Its accessible name carries the count. The `<details>` owns the 1 px border and the radius, so the open list sits in one container and the entries start below it. Opening lists at most eight sections (a note says `Top 8 of 37 book sections. Refine the search to see the rest.` when there are more) and keeps focus on the row; the row folds again with Enter or Space. The open state is `sections=1` in the search URL: a toggle replaces the history entry, Back from a section returns with the row open, and a new query or filter folds it. When a query matches only book sections, they are listed open under a `Book sections · 14 matches` heading, because nothing sits below them. The same fold applies at every width.
 
+**Class features in results (#540).** The name of a class feature that an archetype, a class option or a base class prints under its own heading (`Shattering Strike`) is a search alias of that entry. The result is the entry's row, not a second row for the feature, with no new label. Its link carries the feature's name in the anchor (`#/entry/<id>?a=Shattering%20Strike`); the entry page resolves the name to the feature's anchor from the entry it loads and opens at that head, and the results page reads no entry for it. A hit on the entry's title, or on text, opens the entry at the top as before; so does a name that the entry no longer lists. A feature-name match ranks below every entry whose title holds all the query words: `Evasion` lists the entry titled Evasion, then Improved Evasion, then the archetypes that have the feature. Headings that only structure a page (Size, Speed, Prerequisites, and the others of the closed list in `crates/corpus`) are never features.
+
 ### Quick search
 
 The header search icon opens Quick search. While the reader types, it lists suggestions; with an empty field it lists a Quick reference row, Recent searches (or the starter searches when none) and then Recently viewed. The empty-state groups are the content of the layer, not a popup, so they stay expanded and Escape closes the layer at once.
@@ -505,7 +507,7 @@ Feature` matrix, and the `Archetypes` panel that used to close the page. The int
 
 Approved by the owner on 2026-11-20 (#537; decision
 `docs/decisions/2026-11-20-class-option-power-layout.md`, which also holds the fixtures and the delivery plan). `crates/web/src/powers.rs` plans the layout and `views/rich.rs` renders it.
-Archetypes follow in #540.
+Archetypes, class options in format 4 and base classes take the feature head below (#540).
 
 On a `class_option` entry, a power reads as printed prose. It sits in a plain `div.power`, with no box, no tint and no rule:
 
@@ -541,6 +543,38 @@ printed tag, `Level N` from `Gained`, then the action and the uses
 the name and the facts move. The body starts with the optional `Flavor` paragraph (without its
 label), then the effect, with no power heading and no power meta line. Auspicious Mark keeps its
 `Flavor` paragraph.
+
+#### Feature heads
+
+An archetype, a class option or a base class in corpus format 4 (#540; decision
+`docs/decisions/2026-11-24-feature-heads-and-search-aliases.md`, data fields in
+`docs/decisions/2026-11-24-corpus-format-4-feature-facts.md`) prints each class feature as the book does:
+a heading with its name, then the printed paragraphs, including the printed sentence "This ability
+replaces bravery." The page keeps no rows, no label and no invented upgrade line. The corpus lists the
+headings that are features (`features = [{ anchor, level }]`), and only those render as a head.
+
+1. **The head** is the head of a class-option power: the printed name as a heading (`.power-name`, the
+   same type), a dotted `--line` leader and `Level N` on the right (`.power-level`, with the hidden
+   prefix "Gained at"). It sits in `div.power-head.feature-head` as a direct child of the body, with the
+   spacing of a power. The heading keeps its own element level, its id and its place in the outline, so
+   `#/entry/<id>?a=<anchor>` scrolls to it and the head is a link target. A feature with no `level` (print gives none for some
+   features) has the name alone: no leader, no right side.
+2. **The prose** under the head is the body as printed, in body type, with no label and no meta line.
+   A heading that the corpus does not list as a feature renders as every heading does.
+3. **`On this page`** lists the features with the other headings, in page order, by their printed
+   name (`Shattering Strike (Ex)`). The rule is unchanged: it appears from four headings. The contents
+   list shows no level; the head does.
+4. **The trades line** (`Replaces Bravery, Armor training 1 · Alters …`) keeps its words. A name links to
+   the feature of the same page that states it (the first anchor of the trade's `by` that has a head),
+   when the page lists its sections under `On this page`, because on a longer page the jump saves a
+   scroll. A trade with no `by`, or whose features have no head here, stays plain text. The link is
+   plain text in the muted line, with the visually hidden suffix ` (stated under Shattering Strike)`, so
+   its name says where it goes. A click on the page's own address scrolls without a new history entry.
+5. **A class option in format 4** takes the same head. Its page has no class-option power layout, no
+   power meta line and no one-power folding: those belong to the import rows, which a format 4 entry no
+   longer has. A single-power class option has no `features`, so it keeps the one-power page.
+6. **Search.** A listed feature is a search alias of its entry (see "Class features in results" under Search results page): a query that names
+   a feature finds the entry, and the result opens it at that feature.
 
 ### Books
 

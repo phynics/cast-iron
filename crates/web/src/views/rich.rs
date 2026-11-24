@@ -9,7 +9,7 @@ use crate::powers::{self, Placed, Plan};
 use crate::route::{self, Route};
 use cast_iron_schema::power::{Effect, upgrade_lead};
 use cast_iron_schema::{
-    Block, EntryId, Inline, ParagraphStyle, StatRow, Table, TableCell, TableRow,
+    Block, EntryId, FeatureFact, Inline, ParagraphStyle, StatRow, Table, TableCell, TableRow,
 };
 use leptos::prelude::*;
 use std::collections::{BTreeMap, BTreeSet};
@@ -138,6 +138,9 @@ struct Renderer {
     /// The entry whose body this is. An `entry-link` row names the listed entry's book, unless
     /// that is this entry's own row book (#461).
     hub: Option<EntryId>,
+    /// The listed features (corpus format 4, #540). A heading that `feature_of` finds in them
+    /// renders as a feature head.
+    features: Vec<FeatureFact>,
 }
 
 /// What the renderer knows about the footnotes of the entry it renders: where each note stands,
@@ -205,7 +208,22 @@ impl Renderer {
             slot: None,
             slot_open: false,
             hub: None,
+            features: Vec::new(),
         }
+    }
+
+    /// The level of the feature that a heading with this explicit anchor prints: `None` when the
+    /// heading is no listed feature, `Some(None)` for a feature with no level. The rule is the
+    /// schema's, shared with the search aliases.
+    fn feature_of(&self, anchor: Option<&str>) -> Option<Option<u8>> {
+        cast_iron_schema::headings::feature_of(anchor, &self.features).map(|fact| fact.level)
+    }
+
+    /// The headings of `features` render as feature heads. A fact with no heading in the body is
+    /// ignored, so the data may run ahead of the text or the other way round.
+    fn with_features(mut self, features: &[FeatureFact]) -> Self {
+        self.features = features.to_vec();
+        self
     }
 
     fn with_slot(mut self, slot: Option<(String, Callback<(), AnyView>)>) -> Self {
@@ -337,7 +355,11 @@ impl Renderer {
 
     fn block(&mut self, item: &Block) -> AnyView {
         match item {
-            Block::Heading { level, content, .. } => {
+            Block::Heading {
+                level,
+                content,
+                anchor: explicit,
+            } => {
                 let key = self.keys.get(&std::ptr::from_ref(item)).cloned().flatten();
                 debug_assert!(
                     self.keys.contains_key(&std::ptr::from_ref(item)),
@@ -352,7 +374,10 @@ impl Renderer {
                 {
                     self.slot_open = true;
                 }
-                heading(*level, id, section, None, inlines(content))
+                match self.feature_of(explicit.as_deref()) {
+                    Some(gained) => feature_head(*level, id, section, gained, inlines(content)),
+                    None => heading(*level, id, section, None, inlines(content)),
+                }
             }
             Block::Paragraph { style, content } => {
                 let class = match style {
@@ -515,14 +540,6 @@ impl Renderer {
 /// The head of a power: the name as a heading, a dotted leader, and `Level N` from `Gained`.
 fn power_head(placed: &Placed<'_>) -> AnyView {
     let name = placed.power.name.clone();
-    let level = placed.power.gained.map(|level| {
-        view! {
-            <span class="power-leader" aria-hidden="true"></span>
-            <span class="power-level">
-                <span class="sr-only">"Gained at "</span>{powers::level_text(level)}
-            </span>
-        }
-    });
     let heading = heading(
         placed.heading,
         None,
@@ -530,14 +547,53 @@ fn power_head(placed: &Placed<'_>) -> AnyView {
         Some("power-name"),
         vec![name.into_any()],
     );
-    view! { <div class="power-head">{heading}{level}</div> }.into_any()
+    view! { <div class="power-head">{heading}{level_tail(placed.power.gained)}</div> }.into_any()
+}
+
+/// The head of a class feature that the entry lists (corpus format 4, #540): the printed name as
+/// the body's own heading, so its anchor and its place in `On this page` stay, in the look of a
+/// class-option power head (DESIGN.md, "Class-option powers"). With a level, a dotted leader and
+/// `Level N` follow on the right. Without one there is no leader and no right side.
+fn feature_head(
+    level: u8,
+    id: Option<String>,
+    section: Option<Section>,
+    gained: Option<u8>,
+    content: Vec<AnyView>,
+) -> AnyView {
+    let heading = heading(level, id, section, Some("power-name"), content);
+    view! { <div class="power-head feature-head">{heading}{level_tail(gained)}</div> }.into_any()
+}
+
+/// The leader and `Level N` at the right of a head. Nothing when there is no level.
+fn level_tail(level: Option<u8>) -> Option<AnyView> {
+    level.map(|level| {
+        view! {
+            <span class="power-leader" aria-hidden="true"></span>
+            <span class="power-level">
+                <span class="sr-only">"Gained at "</span>{powers::level_text(level)}
+            </span>
+        }
+        .into_any()
+    })
 }
 
 /// A muted line of facts joined by `·`. The dots are hidden from assistive technology and a
 /// visually hidden comma stands in for them.
 pub fn muted_line(class: &'static str, parts: &[String]) -> AnyView {
+    muted_parts(
+        class,
+        parts
+            .iter()
+            .map(|part| part.clone().into_any())
+            .collect::<Vec<_>>(),
+    )
+}
+
+/// [`muted_line`] for facts that hold links or other markup.
+pub fn muted_parts(class: &'static str, parts: Vec<AnyView>) -> AnyView {
     let items = parts
-        .iter()
+        .into_iter()
         .enumerate()
         .map(|(index, part)| {
             // The dot is decorative; a screen reader gets a comma between the facts.
@@ -547,7 +603,7 @@ pub fn muted_line(class: &'static str, parts: &[String]) -> AnyView {
                     <span class="sr-only">", "</span>
                 }
             });
-            view! { {sep}<span>{part.clone()}</span> }
+            view! { {sep}<span>{part}</span> }
         })
         .collect_view();
     view! { <p class=class>{items}</p> }.into_any()
@@ -898,14 +954,19 @@ pub fn RichBody(
     /// A class page's archetype list and the key of the heading it follows.
     #[prop(optional_no_strip)]
     archetype_list: Option<(String, Callback<(), AnyView>)>,
+    /// The class features the entry lists (corpus format 4, #540). Their headings render as
+    /// feature heads.
+    #[prop(optional)]
+    features: Vec<FeatureFact>,
 ) -> impl IntoView {
     let changed: BTreeSet<_> = cast_iron_sort::set_of(changed);
     let mut renderer = Renderer::new(&body)
         .with_changed(changed)
         .with_marks(marks)
+        .with_features(&features)
         .with_slot(archetype_list);
     let plan = power_title
-        .map(|title| powers::plan(&title, &body))
+        .map(|title| powers::plan_for(&title, &body, &features))
         .unwrap_or_default();
     let content = match entry {
         Some(entry) => renderer.entry_body(&body, entry, book, &plan),
@@ -991,6 +1052,46 @@ mod tests {
             anchor: anchor.map(String::from),
             content: vec![text(title)],
         }
+    }
+
+    #[test]
+    fn only_a_listed_feature_heading_is_a_feature_head_and_it_carries_its_level() {
+        let body = vec![
+            h(Some("class-skills"), "Class Skills"),
+            h(Some("shattering-strike"), "Shattering Strike (Ex)"),
+            h(Some("weapon-training"), "Weapon Training"),
+            h(None, "Piledriver"),
+        ];
+        let fact = |anchor: &str, level| FeatureFact {
+            anchor: anchor.into(),
+            level,
+        };
+        let renderer = Renderer::new(&body).with_features(&[
+            fact("shattering-strike", Some(2)),
+            fact("weapon-training", None),
+            // A fact whose heading is not in the body does nothing.
+            fact("missing", Some(9)),
+        ]);
+        let heads: Vec<Option<Option<u8>>> = keyed_headings(&body)
+            .into_iter()
+            .map(|(block, _)| match block {
+                Block::Heading { anchor, .. } => renderer.feature_of(anchor.as_deref()),
+                _ => None,
+            })
+            .collect();
+        // A heading that is no feature renders as before; a level-less feature has a head but
+        // no level, so no leader and no right side.
+        assert_eq!(heads, [None, Some(Some(2)), Some(None), None]);
+        // An entry with no features renders every heading as before.
+        let plain = Renderer::new(&body);
+        assert!(
+            keyed_headings(&body)
+                .into_iter()
+                .all(|(block, _)| match block {
+                    Block::Heading { anchor, .. } => plain.feature_of(anchor.as_deref()).is_none(),
+                    _ => true,
+                })
+        );
     }
 
     #[test]

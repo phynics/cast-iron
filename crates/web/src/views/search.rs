@@ -865,6 +865,17 @@ fn grouped_hits(hits: Vec<HitSummary>) -> Vec<SearchHit> {
     groups
 }
 
+/// The kinds whose class features are search aliases with a deep link (#540).
+fn feature_alias_kind(kind: &str) -> bool {
+    [
+        EntryKind::Archetype,
+        EntryKind::ClassOption,
+        EntryKind::Class,
+    ]
+    .iter()
+    .any(|candidate| candidate.slug() == kind)
+}
+
 #[derive(Clone)]
 enum Phase {
     Idle,
@@ -1341,7 +1352,9 @@ pub fn Search() -> impl IntoView {
                     facet_data.push((field.to_owned(), values));
                 }
                 // Rule headings come from typed, cached rule entries only. Non-rule results
-                // never cause shard reads.
+                // never cause shard reads. A result that the query matched through a class
+                // feature (#540) carries the feature's name in the anchor of its link; the entry
+                // page resolves the anchor from the entry it loads, so no shard is read here.
                 let query_text = current.q.clone();
                 for result in &mut hits {
                     for (hit, anchor) in std::iter::once((&result.hit, &mut result.anchor)).chain(
@@ -1351,6 +1364,9 @@ pub fn Search() -> impl IntoView {
                             .map(|(hit, anchor)| (&*hit, anchor)),
                     ) {
                         if hit.kind != EntryKind::Rule.slug() {
+                            if feature_alias_kind(&hit.kind) {
+                                *anchor = hit.alias.clone();
+                            }
                             continue;
                         }
                         if let Ok(id) = EntryId::parse(hit.id.clone())

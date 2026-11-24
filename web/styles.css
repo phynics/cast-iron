@@ -1959,6 +1959,18 @@ mark {
   margin-bottom: var(--space-1);
 }
 
+/* A listed class feature of an archetype, class option or class (corpus format 4, #540): the body's
+   own heading in the look of a power head. It stands in the flow of the text, so it takes the
+   measure and the space of a power. */
+.rich > .feature-head {
+  max-width: var(--measure);
+  margin: var(--space-5) 0 var(--space-1);
+}
+
+.rich > .feature-head:first-child {
+  margin-top: 0;
+}
+
 .rich .power-name {
   flex: 0 1 auto;
   min-width: 0;

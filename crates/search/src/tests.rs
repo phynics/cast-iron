@@ -343,6 +343,94 @@ fn alias_match() {
 }
 
 #[test]
+fn a_hit_names_the_alias_that_holds_every_query_word_unless_the_title_matched() {
+    // A class feature heading is an alias of its archetype (#540): the hit says which one the
+    // query named, so the caller can open the entry at that feature.
+    let mut archetype = doc("a", "Two-Handed Fighter", "archetype", "apg", "", &[]);
+    archetype.aliases = vec!["Piledriver".into(), "Shattering Strike".into()];
+    let idx = build(vec![archetype]);
+    let alias_of = |text: &str| {
+        let mut hits = idx.search(&q(text));
+        assert_eq!(hits.len(), 1, "{text}");
+        hits.remove(0).alias
+    };
+    assert_eq!(
+        alias_of("shattering strike").as_deref(),
+        Some("Shattering Strike")
+    );
+    assert_eq!(alias_of("Shattering").as_deref(), Some("Shattering Strike"));
+    // The last word may still be typed.
+    assert_eq!(
+        alias_of("shattering stri").as_deref(),
+        Some("Shattering Strike")
+    );
+    // A word of the title: the hit is a title hit and names no alias.
+    assert_eq!(alias_of("fighter"), None);
+}
+
+#[test]
+fn the_alias_with_exactly_the_query_words_wins_over_a_longer_one_listed_first() {
+    let mut archetype = doc("a", "Two-Handed Fighter", "archetype", "apg", "", &[]);
+    archetype.aliases = vec!["Advanced Weapon Training".into(), "Weapon Training".into()];
+    let idx = build(vec![archetype]);
+    let alias_of = |text: &str| idx.search(&q(text)).remove(0).alias;
+    assert_eq!(
+        alias_of("weapon training").as_deref(),
+        Some("Weapon Training")
+    );
+    assert_eq!(
+        alias_of("Weapon-Training").as_deref(),
+        Some("Weapon Training")
+    );
+    // No alias is exactly the words: the first that holds them all.
+    assert_eq!(
+        alias_of("advanced training").as_deref(),
+        Some("Advanced Weapon Training")
+    );
+}
+
+#[test]
+fn a_feature_name_ranks_below_every_entry_whose_title_holds_all_the_query_words() {
+    // #540: an archetype with an Evasion feature is a weaker hit than an entry named Evasion or
+    // Improved Evasion, whatever the text of the archetype says about it.
+    let mut first = doc(
+        "arc-a",
+        "Acrobat",
+        "archetype",
+        "apg",
+        "evasion evasion evasion",
+        &[],
+    );
+    first.aliases = vec!["Evasion".into()];
+    let mut second = doc(
+        "arc-b",
+        "Skirmisher",
+        "archetype",
+        "apg",
+        "evasion evasion",
+        &[],
+    );
+    second.aliases = vec!["Evasion".into()];
+    let idx = build(vec![
+        first,
+        second,
+        doc(
+            "improved",
+            "Improved Evasion",
+            "class_option",
+            "apg",
+            "",
+            &[],
+        ),
+        doc("evasion", "Evasion", "class_option", "apg", "", &[]),
+    ]);
+    assert_eq!(
+        ids(&idx, &q("Evasion")),
+        vec!["evasion", "improved", "arc-a", "arc-b"]
+    );
+}
+
+#[test]
 fn filters() {
     let idx = build(corpus());
     let f = |kinds: &[&str], sources: &[&str], facets: &[(&str, &str)]| Filters {

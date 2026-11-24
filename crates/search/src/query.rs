@@ -13,8 +13,10 @@ const B: f32 = 0.75;
 
 const BOOST_EXACT_TITLE: f32 = 1000.0;
 const BOOST_TITLE_PREFIX: f32 = 500.0;
-const BOOST_EXACT_ALIAS: f32 = 450.0;
 const BOOST_ALL_IN_TITLE: f32 = 200.0;
+/// An entry that a class feature of it names (#540): below every entry whose title holds all the
+/// query words (owner ruling, 2026-11-24). Rule aliases keep their own boost.
+const BOOST_FEATURE_ALIAS: f32 = 100.0;
 
 const SNIP_BEFORE: usize = 50;
 const SNIP_LEN: usize = 200;
@@ -170,6 +172,7 @@ impl HitSummary {
             score: self.score,
             title_matches: Vec::new(),
             snippet: Snippet::default(),
+            alias: None,
         }
     }
 }
@@ -793,10 +796,10 @@ impl SearchIndex {
                 boost = 600.0;
             } else if nt.starts_with(&qn) {
                 boost = BOOST_TITLE_PREFIX;
-            } else if d.aliases.iter().any(|a| normalize(a) == qn) {
-                boost = BOOST_EXACT_ALIAS;
             } else if all_title {
                 boost = BOOST_ALL_IN_TITLE;
+            } else if d.aliases.iter().any(|a| normalize(a) == qn) {
+                boost = BOOST_FEATURE_ALIAS;
             }
             scored.push((doc, score + boost));
         }
@@ -823,6 +826,7 @@ impl SearchIndex {
             score,
             title_matches: Vec::new(),
             snippet: Snippet::default(),
+            alias: None,
         };
         self.fill_highlight(&mut hit, m, timer);
         hit
@@ -839,9 +843,39 @@ impl SearchIndex {
             .map_or("", |s| cap_text(s));
         let snippet = snippet(body, m);
         timer.exit(Phase::Snippets);
+        hit.alias = if title_matches.is_empty() {
+            matched_alias(&d.aliases, m)
+        } else {
+            None
+        };
         hit.title_matches = title_matches;
         hit.snippet = snippet;
     }
+}
+
+/// The alias the query names: the one whose words are exactly the query's, else the first that
+/// holds every query word (each exact word as a word of the alias, and the last word, when the
+/// reader may still be typing it, as the start of one). So `weapon training` names `Weapon
+/// Training` and not `Advanced Weapon Training`, whatever their order. A query that matched
+/// nothing (an empty matcher) names no alias.
+fn matched_alias(aliases: &[String], m: &Matcher) -> Option<String> {
+    if m.exact.is_empty() {
+        return None;
+    }
+    let words_of =
+        |alias: &String| -> Vec<String> { scan(alias).into_iter().map(|t| t.norm).collect() };
+    let holds_all = |words: &[String]| {
+        m.exact.iter().all(|q| {
+            words
+                .iter()
+                .any(|w| w == q || (m.prefix.contains(q) && w.starts_with(q.as_str())))
+        })
+    };
+    aliases
+        .iter()
+        .find(|alias| words_of(alias) == m.exact)
+        .or_else(|| aliases.iter().find(|alias| holds_all(&words_of(alias))))
+        .cloned()
 }
 
 fn result_limit(query: &Query) -> usize {

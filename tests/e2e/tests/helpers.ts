@@ -373,8 +373,44 @@ export function buildLibraryWithExpandedIn(
   });
 }
 
-/** Rewrites the shards of the named entries with `patch`, and the manifest hashes with them. */
-function buildLibraryWithEntryPatch(label: string, ids: string[], patch: (entry: any) => void) {
+/**
+ * An overlay of the served library in which one archetype is in corpus format 4 (#540): its body
+ * is headed printed prose, `fields.features` lists the headings, and its trades name them
+ * through `by`. No pinned corpus has `features` yet, so this is how a spec gets a feature head.
+ * `by` maps the printed name of a trade to the anchors that state it. The entry's shard and
+ * `trades.json` change; every other file keeps coming from dist.
+ */
+export function buildLibraryWithFeatures(
+  id: string,
+  body: any[],
+  features: { anchor: string; level?: number }[],
+  by: Record<string, string[]>,
+) {
+  return buildLibraryWithEntryPatch(
+    "features",
+    [id],
+    (entry) => {
+      entry.body = body;
+      entry.fields = { ...entry.fields, features };
+    },
+    (trades) => {
+      const row = trades.entries.find((candidate: any) => candidate.id === id);
+      if (!row) throw new Error(`trades.json has no row for ${id}`);
+      for (const trade of row.trades) if (by[trade.printed]) trade.by = by[trade.printed];
+    },
+  );
+}
+
+/**
+ * Rewrites the shards of the named entries with `patch`, and the manifest hashes with them.
+ * With `patchTrades`, `trades.json` is rewritten too.
+ */
+function buildLibraryWithEntryPatch(
+  label: string,
+  ids: string[],
+  patch: (entry: any) => void,
+  patchTrades?: (trades: any) => void,
+) {
   const old = distManifest();
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), `cast-iron-e2e-${label}-`));
   const wanted = new Set(ids);
@@ -393,6 +429,13 @@ function buildLibraryWithEntryPatch(label: string, ids: string[], patch: (entry:
     if (touched) changed.set(file.path, Buffer.from(JSON.stringify(entries)));
   }
   if (left.size) throw new Error(`no entry shard holds: ${[...left].join(", ")}`);
+  const tradesFile = old.files.find((file) => file.path.endsWith("/trades.json"));
+  if (patchTrades) {
+    if (!tradesFile) throw new Error("the library has no trades.json");
+    const trades = JSON.parse(fs.readFileSync(path.join(DIST, "content", tradesFile.path), "utf8"));
+    patchTrades(trades);
+    changed.set(tradesFile.path, Buffer.from(JSON.stringify(trades)));
+  }
   const sha = (b: Buffer) => crypto.createHash("sha256").update(b).digest("hex");
   for (const [relative, bytes] of changed) {
     const target = path.join(dir, "content", relative);
