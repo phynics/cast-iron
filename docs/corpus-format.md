@@ -350,7 +350,7 @@ Format 4 changes no existing key and no existing default, so the step from forma
 | `level`, when written, runs from 1 to 20 and agrees with an "At Nth level" or "Starting at Nth level" lead (also "Beginning at") when the first paragraph under the feature's heading has one. A paragraph without a lead states no level. | Fails. |
 | Every `by` names anchors of the same entry's `features`, in body order. | Fails. |
 | No listed feature's heading sits inside another listed feature's section (feature heads are siblings: give them one heading level; a subsection that is not listed may nest). | Fails. |
-| Every section after the opening text (the blocks before the first listed feature) of an archetype or class option that prints a trade sentence is a listed feature, or sits inside one. Exception (owner ruling 13 of 2026-11-24): a section under a scaffold heading (a heading in the closed scaffold list: `Bonus Feats`, `Weapon and Armor Proficiency`, ...), wherever it sits and unless a listed feature contains it, may print trades; they have no `by`. Any other unlisted heading with a trade sentence stays an error. | Fails. |
+| Every section after the opening text (the blocks before the first listed feature) of an archetype or class option that prints a trade sentence is a listed feature, or sits inside one. Exception (owner ruling 13 of 2026-11-24): a section under a scaffold heading (a heading in the closed scaffold list: `Bonus Feats`, `Weapon and Armor Proficiency`, `Skills`, `Alignment`, ...), wherever it sits and unless a listed feature contains it, may print trades; they have no `by`. Any other unlisted heading with a trade sentence stays an error. | Fails. |
 | The trades agree with the trade sentences of their features (see [Drift](#drift-between-fields-and-body)). | Drift: fails. |
 
 The feature's section runs from its heading to the next heading of the same or a higher level, so
@@ -1201,21 +1201,37 @@ block), and compares them with the trades that name the feature in `by`:
 
 - every trade's name appears in a trade sentence, with the same op (`replaces` or `alters`), of at
   least one of the features in its `by`, **or** at least one of the features in its `by` prints no
-  trade sentence at all (owner ruling of 2026-11-24): print then only describes the changed ability
-  (a druid archetype's Wild Shape, a paladin archetype's Divine Bond), and `by` names the feature
-  that prints it. A trade with no `by` and no sentence in the opening text stays drift, and a feature
-  that prints some other trade sentence does not state a trade it does not name;
+  trade sentence **of the trade's own op** (owner ruling of 2026-11-24, per operation by ruling 24):
+  print then only describes the changed ability (a druid archetype's Wild Shape, a paladin
+  archetype's Divine Bond), and `by` names the feature that prints it. A feature that prints a
+  `replaces` sentence may so carry an `alters` trade (the Preacher), and the other way round; a
+  feature that prints a sentence of the trade's own op does not state a trade it does not name. A
+  trade with no `by` and no sentence in the opening text stays drift;
 - every trade sentence of a listed feature is covered by the trades that name that feature;
 - a trade without `by` is a trade printed outside any feature: its name appears in a trade
   sentence of the opening text (the blocks before the first listed feature) or of a section under a
   scaffold heading that no listed feature contains (owner ruling 13 of 2026-11-24; Arcane Duelist
   and Zen Archer print trades under "Bonus Feats"), and every trade sentence of those places is
   covered by the trades without `by`. A trade sentence under any other unlisted heading after the
-  opening text is not read here: the check rejects it;
+  opening text is not read here: the check rejects it. One more place states an `alters` trade
+  without `by` (owner ruling 23 of 2026-11-24; True Primitive, Gladiator, Tactician): a **Weapon
+  and Armor Proficiency** section outside every listed feature that prints no `alters` sentence.
+  The proficiency change is then stored as `alters`, and print needs no sentence for it. A
+  `replaces` trade does not rest on that section;
 - a trade that names a feature that is not listed is drift.
 
 A trade sentence starts with `This`, `These` or `It`, then only subject words, then `replaces` or
-`alters` (or `replace`, `alter`), and runs to the end of the sentence or a semicolon. The subject
+`alters` (or `replace`, `alter`), and runs to the end of the sentence, a semicolon or a ", but "
+(the rest is a remark about the trade, not a name). `changes` and `change` read as `alters`, in
+this place only (owner ruling 25: "This ability changes the Arcane Pool class feature and replaces
+the magus arcana gained at 3rd level." is an `alters` trade of `Arcane Pool` and a `replaces` trade
+of the arcana); a verb joined later by `and` is read as `replaces` or `alters` only. The feature's own
+heading may stand for the subject: under the feature "Sermonic Performance (Su)" the sentence
+"Sermonic performance replaces the 1st-, 9th-, and 15th-level channel energy abilities." is a
+sentence of an ability (not bare); the heading is compared as a name, so tags and case do not
+matter. A closing parenthesis of four words or more is an aside and not part of the phrase ("the
+mutagen class ability (a mindchemist cannot create mutagens unless he selects mutagen as a
+discovery)" names `Mutagen`); a short one ("(Ex)", "(longsword)") stays. The subject
 words are the **ability nouns** `ability`, `abilities`, `feature`, `features`, `power`, `powers`,
 `archetype`, `performance`, `performances`, `trick`, `tricks`, `talent`, `talents`, `hex`, `hexes`,
 `discovery`, `discoveries`, `revelation`, `revelations`, `mercy`, `mercies`, `deed`, `deeds`,
@@ -1238,15 +1254,26 @@ A **bare** sentence is one whose subject names no ability noun (the list above; 
 are subject words that are not ability nouns): "This replaces bravery.", "These replace the normal
 attack roll bonus and AC penalty for charging." A bare sentence is a trade sentence only when it
 names one of the entry's stored trades with the same op, because the pronoun may stand for
-anything.
+anything. So is a sentence whose verb is joined by `and` to another clause: "This movement provokes
+attacks of opportunity as normal, and replaces deadly performance." counts only when `Deadly
+performance` is a stored `replaces` trade; "This bonus replaces the usual bonus." and a negated
+clause stay prose.
 
-Names are compared as words, ignoring case, punctuation, hyphens, articles (and `standard`), ability
+Names are compared as words, ignoring case, punctuation, hyphens, articles (and `standard`,
+`normal`, `normally`; **never `bonus`**: "bonus spells" are not `Spells`), ability
 tags (`(Ex)`), a plural (`s`, `es`, `ies`: `bombs`/`bomb`, `hexes`/`hex`, `mercies`/`mercy`), a
 possessive word before a name ("the rogue's trapfinding" reads as `Trapfinding`), the words
-`ability` and `feature` anywhere in a name and `class` before `feature` ("the paladin's spells class
-feature" reads as `Spells`, "the nature sense ability" as `Nature sense`), and, on the sentence
-side, a base-class name that leads an item ("the standard alchemist bomb class feature" reads as
-`Bombs`; the name with the class word still matches a trade that holds it, `Witch familiar`). The
+`ability` and `feature` anywhere in a name and `class` before `feature` or `ability` ("the paladin's
+spells class feature" reads as `Spells`, "the mutagen class ability" as `Mutagen`, "the nature sense
+ability" as `Nature sense`; `Class skills` keeps both words), a spelled ordinal (`first` to
+`twentieth` read as `1st` to `20th`: "the ranger's second favored enemy" is `2nd favored enemy`;
+different ordinals stay different), "as well as" (read as `and`), and, on the sentence side, a
+base-class name that leads an item ("the standard alchemist bomb class feature" reads as `Bombs`;
+the name with the class word still matches a trade that holds it, `Witch familiar`; a class name
+after an `Nth-level` word is an adjective too: "the 10th-level wizard bonus feat" matches `10th-level
+bonus feat`, but never `12th-level bonus feat`) and a possessor phrase before a name (an article, at
+most two words and a possessive word: "the sacred shield's holy champion ability" reads as `Holy
+champion`; not across a comma, `and` or `or`). The
 tolerance works on the trade names as stored: trades need no rewrite to match print. A sentence
 that lists several names is covered by one trade per name, or by one trade that states the whole
 phrase. Three shorthands read as one name per item: a hyphen-suspended list ("the 1st-, 2nd- and
@@ -1255,7 +1282,8 @@ shared tail without the trailing hyphen ("the paladin's 3rd-level and 9th-level 
 `3rd-level mercies`, `9th-level mercies`) and numbered steps after a shared head ("armor training
 1, 2, 3, and 4" is `armor training 1` to `armor training 4`; "weapon training 2 and 3" likewise), so
 the per-step trades `Armor training 2` and `Armor training 3` cover the sentence "armor training 2
-and 3".
+and 3". A range of steps reads the same way: "gun training 1 to 4", "gun training 1-4" and the same
+with an en dash are the steps 1, 2, 3 and 4 (a head, a rising range of at most 20 steps).
 
 An entry without `features` (a single-power class option prints no heading and has none) takes
 either form during the transition: when the normal part holds a `**Replaces:**` or `**Alters:**`
