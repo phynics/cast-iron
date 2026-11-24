@@ -4,7 +4,7 @@ date: 2026-11-23
 status: current
 superseded_by: []
 issues: [618]
-prs: []
+prs: [662]
 area: content
 ---
 
@@ -46,8 +46,12 @@ star's id does not change.
 - `INDEX_FORMAT_VERSION` stays. The search index stores the kind of a document as a plain string, so a
   new slug needs no index format change.
 - The corpus format number stays. `kind = "haunt"` is one more value of an existing field: the corpus
-  reader accepts it once this change is in, and `corpus-check` validates it. The contributor kit gets
-  `examples/haunt.md` in this change; the data PR then sets the kind of the 45 entries.
+  reader accepts it once this change is in, and `corpus-check` validates it.
+- The app's contributor kit, `corpus-kit/examples/haunt.md`, lands in this change, because the test in
+  `crates/corpus/tests/kit.rs` asserts one example for every kind. The data repository keeps its own
+  `examples/` folder, with one example per kind and no check against `EntryKind::ALL`. The data change
+  adds `examples/haunt.md` there too, so a contributor of that repository finds one for every kind, and
+  then sets the kind of the 45 entries by script.
 
 ## Release window
 
