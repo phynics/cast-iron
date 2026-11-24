@@ -68,7 +68,10 @@ pub fn FeatChains() -> impl IntoView {
     let body = move || {
         let library = library.clone();
         revisions.with(|state| match state {
-            None => view! { <p class="status" role="status">"Loading feat chains…"</p> }.into_any(),
+            None => view! {
+                <p class="muted list-count" role="status" aria-live="polite">"Loading feat chains…"</p>
+            }
+            .into_any(),
             Some(None) => view! {
                 <p class="notice">
                     "This library has no feat chains. It was installed before they existed. "
@@ -87,14 +90,9 @@ pub fn FeatChains() -> impl IntoView {
         })
     };
     view! {
-        <div class="wide">
+        <div class="wide list-page">
             <Crumbs items=vec![Crumb::new("Feats", Route::browse_kind(EntryKind::Feat))] />
-            <h1>"Feat chains"</h1>
-            <p class="muted measure">
-                "These feats have no feat prerequisite, and other feats build on them. "
-                "Open one to see everything that follows from it. The links come from the "
-                "prerequisite text of each feat; a feat with an either-or list is linked to every feat in it."
-            </p>
+            <h1 tabindex="-1">"Feat chains"</h1>
             {body}
         </div>
     }
@@ -309,12 +307,16 @@ fn HeadList(library: Library, relations: Shared<Relations>) -> impl IntoView {
         })
         .collect_view();
     view! {
-        <p class="muted" role="status">{format!(
+        <p class="muted list-count" role="status" aria-live="polite">{format!(
             "{} {} a chain",
             fmt::pluralize(count, "feat", "feats"),
             if count == 1 { "starts" } else { "start" }
         )}</p>
         <ul class="chain-heads">{rows}</ul>
+        <p class="muted measure chain-note">
+            "A chain starts at a feat with no feat prerequisite. The links come from each feat's "
+            "prerequisite text; a feat with an either-or list links to every feat in it."
+        </p>
     }
 }
 

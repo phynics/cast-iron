@@ -92,6 +92,13 @@ impl Scope {
                 source: None,
                 source_title: None,
             }),
+            // Feat chains search feats.
+            Route::FeatChains { .. } => Some(Self {
+                kind: EntryKind::Feat,
+                facets: Vec::new(),
+                source: None,
+                source_title: None,
+            }),
             // A class's list searches that class's spells, narrowed to the schools chosen. The
             // level is left out on purpose: the index holds the class and the level of a spell
             // as two independent facets, so a Wizard and level 3 pair would also match a spell
@@ -346,7 +353,6 @@ mod tests {
         for route in [
             Route::Home,
             Route::books(),
-            Route::feat_chains(),
             Route::Settings,
             Route::search("fire"),
             Route::browse_kind(EntryKind::Rule),
@@ -397,6 +403,20 @@ mod tests {
         let disease = Scope::of_page(&disease).unwrap();
         assert_eq!(disease.placeholder(), "Search Disease afflictions");
         assert_eq!(disease.show_all_label(), "Show all afflictions");
+    }
+
+    #[test]
+    fn feat_chains_scope_the_search_to_feats() {
+        let feats = scope(EntryKind::Feat, Vec::new());
+        assert_eq!(Scope::of_page(&Route::feat_chains()), Some(feats.clone()));
+        assert_eq!(
+            Scope::of_page(&Route::FeatChains {
+                open: Some(cast_iron_schema::EntryId::parse("ref/feat/power-attack").unwrap())
+            }),
+            Some(feats.clone())
+        );
+        assert_eq!(feats.placeholder(), "Search feats");
+        assert_eq!(feats.remove_label(), "Remove scope: Feats");
     }
 
     #[test]
