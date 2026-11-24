@@ -1200,7 +1200,11 @@ of each feature's section instead (the whole body, cut only at another publicati
 block), and compares them with the trades that name the feature in `by`:
 
 - every trade's name appears in a trade sentence, with the same op (`replaces` or `alters`), of at
-  least one of the features in its `by`;
+  least one of the features in its `by`, **or** at least one of the features in its `by` prints no
+  trade sentence at all (owner ruling of 2026-11-24): print then only describes the changed ability
+  (a druid archetype's Wild Shape, a paladin archetype's Divine Bond), and `by` names the feature
+  that prints it. A trade with no `by` and no sentence in the opening text stays drift, and a feature
+  that prints some other trade sentence does not state a trade it does not name;
 - every trade sentence of a listed feature is covered by the trades that name that feature;
 - a trade without `by` is a trade printed in the opening text: its name appears in a trade
   sentence of the opening text (the blocks before the first listed feature), and every trade
@@ -1209,16 +1213,26 @@ block), and compares them with the trades that name the feature in `by`:
 
 A trade sentence starts with `This`, `These` or `It`, then only subject words, then `replaces` or
 `alters` (or `replace`, `alter`), and runs to the end of the sentence or a semicolon. The subject
-words are `ability`, `abilities`, `class`, `feature`, `features`, `power`, `powers`, `archetype`,
-`also`, `otherwise`, `acts`, `works`, `functions`, `as`, `like` and `and`. "This ability replaces
+words are the **ability nouns** `ability`, `abilities`, `feature`, `features`, `power`, `powers`,
+`archetype`, `performance`, `performances`, `trick`, `tricks`, `talent`, `talents`, `hex`, `hexes`,
+`discovery`, `discoveries`, `revelation`, `revelations`, `mercy`, `mercies`, `deed`, `deeds`,
+`exploit`, `exploits`, `arcana` and `arcanum`, and the other words `class`, `also`, `otherwise`,
+`acts`, `works`, `functions`, `as`, `like`, `and`, `feat` and `feats`. `performance` is printed by the
+Advanced Player's Guide bard archetypes ("This performance replaces inspire courage.", "These
+performances replace ..."), `feats` by its Zen Archer ("These feats replace the monk's normal
+bonus feats."); the other nouns name the choices of the other classes, and no sentence of the
+Advanced Player's Guide pilot uses them (they are added so the next books read). A noun that names no ability ("bonus", "penalty", "effect", "value", "spell")
+stays out: "This bonus replaces the usual bonus." is prose. A `both` right after the verb reads as
+the start of a list of two: "This ability replaces both diamond body and quivering palm." names two
+features (`either ... or` is not read: no printed sentence uses it). "This ability replaces
 bravery.", "This class feature also replaces bravery." and "This ability otherwise functions like and
 replaces the standard witch familiar." are trade sentences; "This ability replaces bravery and
 alters armor training." gives two trades. These are not: a sentence that only mentions the verb
 ("The bonus replaces the usual bonus."), one with another subject ("This bonus replaces ..."), a
 negated one ("This ability does not replace ..."), and a comparison to a spell ("This ability
 functions like alter self, except ..."; `like` or `as` must be followed by `and` before the verb).
-A **bare** sentence is one whose subject names no ability (`ability`, `abilities`, `feature`,
-`features`, `power`, `powers`, `archetype`): "This replaces bravery.", "These replace the normal
+A **bare** sentence is one whose subject names no ability noun (the list above; `feat` and `feats`
+are subject words that are not ability nouns): "This replaces bravery.", "These replace the normal
 attack roll bonus and AC penalty for charging." A bare sentence is a trade sentence only when it
 names one of the entry's stored trades with the same op, because the pronoun may stand for
 anything.

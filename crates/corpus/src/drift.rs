@@ -1127,6 +1127,10 @@ fn sentence_pairs(
 /// - Each trade is one more pair when no section it names prints it: the trade's name must appear
 ///   in a trade sentence, with the same op, of at least one feature that it lists in `by`. A
 ///   trade may list several features, so a trade that two features print is not read twice.
+///   Exception (owner ruling of 2026-11-24, #540): a trade whose `by` names a listed feature
+///   that prints no trade sentence at all is not drift. Print then only describes the changed
+///   ability ("A druid archetype's Wild Shape ..."), and `by` names the feature that prints it.
+///   Coverage is unchanged: every trade sentence that is printed must still be covered by trades.
 /// - A trade without `by` is a trade that the book prints outside any feature, in the opening
 ///   text before the first feature. Its name must appear in a trade sentence of the opening text,
 ///   and every trade sentence of the opening text is covered by those trades.
@@ -1206,7 +1210,8 @@ fn feature_trade_pairs(entry: &RuleEntry, text: &str) -> Vec<Pair> {
             continue;
         }
         let all: Vec<TradeSentence> = named.iter().flat_map(|by| sentences_of(by)).collect();
-        if !trade_stated(trade, &all) {
+        let prints_none = named.iter().any(|by| sentences_of(by).is_empty());
+        if !trade_stated(trade, &all) && !prints_none {
             pairs.push(Pair {
                 field: "trades",
                 field_value: trade_list(&[trade]),
@@ -2877,6 +2882,82 @@ mod tests {
             vec![trade_by(TradeOp::Alters, "Bravery", &["shattering-strike"])],
         );
         assert_eq!(find_drift(&entry).len(), 2);
+    }
+
+    /// A druid archetype's feature describes the changed ability and prints no trade sentence.
+    const WILD_SHAPE: &str = "At 4th level, an aquatic druid can use wild shape to assume the form of a Medium or Small fish. She gains the swim speed of the form.";
+
+    #[test]
+    fn a_trade_that_print_never_states_passes_when_by_names_the_feature() {
+        // Owner ruling of 2026-11-24 (#540): `alters = "Wild shape"` names the feature that
+        // prints the changed ability.
+        let entry = printed_archetype(
+            &[("wild-shape", WILD_SHAPE)],
+            vec![trade_by(TradeOp::Alters, "Wild shape", &["wild-shape"])],
+        );
+        assert!(find_drift(&entry).is_empty());
+        // The same trade without `by` has no sentence to state it: drift.
+        let entry = printed_archetype(
+            &[("wild-shape", WILD_SHAPE)],
+            vec![trade_by(TradeOp::Alters, "Wild shape", &[])],
+        );
+        let drift = find_drift(&entry);
+        assert_eq!(drift.len(), 1, "{drift:?}");
+        assert_eq!(drift[0].source, "trade sentences of the opening text");
+        assert_eq!(drift[0].field_value, "alters: Wild shape");
+    }
+
+    #[test]
+    fn a_silent_feature_does_not_excuse_a_printed_sentence_or_an_unlisted_by() {
+        // A printed sentence stays covered by trades: this one is not.
+        let entry = printed_archetype(
+            &[
+                ("wild-shape", WILD_SHAPE),
+                ("shattering-strike", SHATTERING),
+            ],
+            vec![trade_by(TradeOp::Alters, "Wild shape", &["wild-shape"])],
+        );
+        let drift = find_drift(&entry);
+        assert_eq!(drift.len(), 1, "{drift:?}");
+        assert!(drift[0].source.contains("shattering-strike"), "{drift:?}");
+        // A feature that prints another trade does not state this one.
+        let entry = printed_archetype(
+            &[("shattering-strike", SHATTERING)],
+            vec![
+                trade_by(TradeOp::Replaces, "Bravery", &["shattering-strike"]),
+                trade_by(TradeOp::Alters, "Wild shape", &["shattering-strike"]),
+            ],
+        );
+        assert_eq!(find_drift(&entry).len(), 1);
+        // A `by` that is not a feature is still drift.
+        let entry = printed_archetype(
+            &[("wild-shape", WILD_SHAPE)],
+            vec![trade_by(TradeOp::Alters, "Wild shape", &["missing"])],
+        );
+        assert_eq!(find_drift(&entry).len(), 1);
+    }
+
+    #[test]
+    fn the_pilot_wordings_are_not_drift() {
+        // Advanced Player's Guide: "This performance replaces ...", "replaces both X and Y".
+        let entry = printed_archetype(
+            &[
+                (
+                    "inspire-courage",
+                    "At 1st level, a court bard inspires. This performance replaces inspire courage.",
+                ),
+                (
+                    "ki-sacrifice",
+                    "At 11th level, a monk can bring a person back to life. This ability replaces both diamond body and quivering palm.",
+                ),
+            ],
+            vec![
+                trade_by(TradeOp::Replaces, "Inspire courage", &["inspire-courage"]),
+                trade_by(TradeOp::Replaces, "Diamond body", &["ki-sacrifice"]),
+                trade_by(TradeOp::Replaces, "Quivering palm", &["ki-sacrifice"]),
+            ],
+        );
+        assert!(find_drift(&entry).is_empty(), "{:?}", find_drift(&entry));
     }
 
     #[test]

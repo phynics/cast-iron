@@ -60,9 +60,17 @@ fn verb_of(word: &str) -> Option<TradeOp> {
 
 /// The words that may stand between the opening `This` or `These` and the verb of a trade
 /// sentence: "This ability replaces", "This class feature also replaces", "These abilities
-/// replace". Any other subject ("This bonus replaces the usual bonus") is prose, not a trade.
-/// The first group names an ability; a sentence without one is bare (see [`TradeSentence::bare`]).
-const ABILITY_WORDS: [&str; 7] = [
+/// replace", "This performance replaces". Any other subject ("This bonus replaces the usual
+/// bonus") is prose, not a trade.
+///
+/// The first group names an ability: a noun that a book uses for a class ability or one of its
+/// choices (a bard performance, a witch hex, an alchemist discovery, an oracle revelation, a
+/// paladin mercy, a gunslinger deed, an arcanist exploit, a magus arcana, a rogue trick or
+/// talent). A sentence without one is bare (see [`TradeSentence::bare`]). `performance` is the
+/// printed wording of the Advanced Player's Guide bard archetypes ("This performance replaces
+/// inspire courage."); the others are the same kind of noun for the other classes' choices. A
+/// noun that names no ability ("bonus", "value", "effect") stays out.
+const ABILITY_WORDS: [&str; 27] = [
     "ability",
     "abilities",
     "feature",
@@ -70,16 +78,33 @@ const ABILITY_WORDS: [&str; 7] = [
     "power",
     "powers",
     "archetype",
+    "performance",
+    "performances",
+    "trick",
+    "tricks",
+    "talent",
+    "talents",
+    "hex",
+    "hexes",
+    "discovery",
+    "discoveries",
+    "revelation",
+    "revelations",
+    "mercy",
+    "mercies",
+    "deed",
+    "deeds",
+    "exploit",
+    "exploits",
+    "arcana",
+    "arcanum",
 ];
-const SUBJECT_WORDS: [&str; 16] = [
-    "ability",
-    "abilities",
+
+/// The other words of a subject: a class qualifier, `also`, the verbs of "otherwise functions like
+/// and replaces", and `feat` ("These feats replace the monk's normal bonus feats"), which does not
+/// name an ability, so that sentence is bare.
+const FILLER_WORDS: [&str; 11] = [
     "class",
-    "feature",
-    "features",
-    "power",
-    "powers",
-    "archetype",
     "also",
     // "This ability otherwise functions like and replaces the standard witch familiar."
     "otherwise",
@@ -89,7 +114,14 @@ const SUBJECT_WORDS: [&str; 16] = [
     "as",
     "like",
     "and",
+    "feat",
+    "feats",
 ];
+
+fn is_subject_word(word: &str) -> bool {
+    let word = word.to_lowercase();
+    ABILITY_WORDS.contains(&word.as_str()) || FILLER_WORDS.contains(&word.as_str())
+}
 
 fn is_negation(word: &str) -> bool {
     let word = word.to_lowercase();
@@ -98,8 +130,9 @@ fn is_negation(word: &str) -> bool {
 
 /// The trade sentences in `text` (one paragraph or more). A trade sentence starts with `This`,
 /// `These` or `It`, then only subject words (`ability`, `class feature`, `also`, ...), then the
-/// verb `replaces` or `alters`. A sentence that only mentions the word ("The bonus replaces the
-/// usual bonus."), has another subject ("This bonus replaces ...") or is negated ("This ability
+/// verb `replaces` or `alters`. A `both` right after the verb is dropped ("This ability replaces
+/// both diamond body and quivering palm." names two features). A sentence that only mentions the
+/// word ("The bonus replaces the usual bonus."), has another subject ("This bonus replaces ...") or is negated ("This ability
 /// does not replace ...") is not one. A sentence with two verbs ("This ability replaces X and
 /// alters Y.") gives two entries.
 pub fn trade_sentences(text: &str) -> Vec<TradeSentence> {
@@ -119,9 +152,7 @@ pub fn trade_sentences(text: &str) -> Vec<TradeSentence> {
         let Some(at) = words.iter().position(|word| verb_of(word).is_some()) else {
             continue;
         };
-        let plain_subject = words[1..at]
-            .iter()
-            .all(|word| SUBJECT_WORDS.contains(&word.to_lowercase().as_str()));
+        let plain_subject = words[1..at].iter().all(|word| is_subject_word(word));
         // "functions like and replaces X" is a trade; "works like alter self" is the spell.
         let compares = words[1..at]
             .iter()
@@ -139,6 +170,11 @@ pub fn trade_sentences(text: &str) -> Vec<TradeSentence> {
         let mut index = at + 1;
         while index < words.len() {
             let word = words[index];
+            // "replaces both X and Y": `both` only announces a list of two.
+            if phrase.is_empty() && word.eq_ignore_ascii_case("both") {
+                index += 1;
+                continue;
+            }
             let joined_verb = word.eq_ignore_ascii_case("and")
                 && words
                     .get(index + 1)
@@ -832,5 +868,103 @@ mod tests {
         assert!(names_a_trade(&one("This replaces bravery."), &trades));
         // The op counts.
         assert!(!names_a_trade(&one("This alters bravery."), &trades));
+    }
+
+    #[test]
+    fn a_performance_is_an_ability_subject() {
+        // Advanced Player's Guide bard archetypes.
+        let sentence = one("This performance replaces inspire courage.");
+        assert!(!sentence.bare);
+        assert_eq!(sentence.op, TradeOp::Replaces);
+        assert_eq!(sentence.phrase, "inspire courage");
+        assert!(!one("This performance replaces jack of all trades.").bare);
+        let sentence = one("These performances replace inspire competence and inspire greatness.");
+        assert!(!sentence.bare);
+        assert_eq!(sentence.phrase, "inspire competence and inspire greatness");
+        assert!(phrase_is_covered(
+            &sentence.phrase,
+            &names(&["Inspire competence", "Inspire greatness"])
+        ));
+        assert!(!one("This class performance also replaces suggestion.").bare);
+        // Print italicizes a spell name; the text reaches the reader without the marks.
+        let sentence = one("This performance replaces mass suggestion.");
+        assert!(phrase_is_covered(
+            &sentence.phrase,
+            &names(&["Mass suggestion"])
+        ));
+    }
+
+    #[test]
+    fn the_other_ability_nouns_are_subjects_and_a_bonus_is_not() {
+        for noun in [
+            "trick",
+            "talent",
+            "hex",
+            "discovery",
+            "revelation",
+            "mercy",
+            "deed",
+            "exploit",
+            "arcana",
+        ] {
+            let sentence = one(&format!("This {noun} replaces bravery."));
+            assert!(!sentence.bare, "{noun}");
+        }
+        assert!(!one("These hexes replace the witch's patron spells.").bare);
+        assert!(!one("These mercies replace channel energy.").bare);
+        for noun in ["bonus", "penalty", "effect", "value", "spell"] {
+            assert!(
+                trade_sentences(&format!("This {noun} replaces the usual bonus.")).is_empty(),
+                "{noun}"
+            );
+        }
+    }
+
+    #[test]
+    fn feats_are_a_bare_subject() {
+        // Advanced Player's Guide, Zen Archer.
+        let sentence = one("These feats replace the monk's normal bonus feats.");
+        assert!(sentence.bare);
+        assert_eq!(sentence.op, TradeOp::Replaces);
+        let trades = [(
+            TradeOp::Replaces,
+            "The monk's normal bonus feats".to_string(),
+        )];
+        assert!(names_a_trade(&sentence, &trades));
+        // A bare sentence that names no trade is not one.
+        let other = [(TradeOp::Replaces, "Bravery".to_string())];
+        assert!(!names_a_trade(&sentence, &other));
+    }
+
+    #[test]
+    fn both_announces_a_list_of_two() {
+        // Advanced Player's Guide, Monk of the Healing Hand.
+        let sentence = one("This ability replaces both diamond body and quivering palm.");
+        assert_eq!(sentence.op, TradeOp::Replaces);
+        assert!(!sentence.bare);
+        assert_eq!(sentence.phrase, "diamond body and quivering palm");
+        assert!(phrase_is_covered(
+            &sentence.phrase,
+            &names(&["Diamond body", "Quivering palm"])
+        ));
+        // One trade for the whole phrase reads the same way.
+        assert!(phrase_is_covered(
+            &sentence.phrase,
+            &names(&["Diamond body and quivering palm"])
+        ));
+        assert!(!phrase_is_covered(
+            &sentence.phrase,
+            &names(&["Diamond body"])
+        ));
+        // `both` after a second verb is dropped too; one inside a name is kept.
+        let found = trade_sentences(
+            "This ability replaces bravery and alters both armor training and weapon training.",
+        );
+        assert_eq!(found.len(), 2);
+        assert_eq!(found[1].phrase, "armor training and weapon training");
+        assert_eq!(
+            one("This ability replaces bothersome armor.").phrase,
+            "bothersome armor"
+        );
     }
 }
