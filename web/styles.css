@@ -2848,6 +2848,7 @@ main,
 
 .rel-group > summary,
 .chain-head > details > summary,
+.chain-branch > details > summary,
 .coverage-more > summary {
   display: flex;
   align-items: center;
@@ -3243,6 +3244,30 @@ main,
   margin-bottom: var(--space-1);
 }
 
+/* The `Other printings` line (#650) is the same muted Metadata role, directly under the
+   `Expanded in` line (or the Sources line when there is no credit). An inactive printing is
+   dimmed with the same colour token and the same `Inactive` Label as an inactive credit. */
+.printings-line {
+  margin: 0 0 var(--space-2);
+  color: var(--ink-muted);
+  font-size: var(--step--1);
+}
+
+.printing[data-inactive="true"],
+.printing[data-inactive="true"] a,
+.printing[data-inactive="true"] .tag {
+  color: var(--ink-dim);
+}
+
+.entry > .printings-line:has(+ .aon-line) {
+  margin-bottom: var(--space-3);
+}
+
+.entry > .sources-line:has(+ .printings-line),
+.entry > .expanded-line:has(+ .printings-line) {
+  margin-bottom: var(--space-1);
+}
+
 .aon-line {
   margin: 0 0 var(--space-2);
   color: var(--ink-muted);
@@ -3468,7 +3493,8 @@ main,
   border-bottom: var(--border);
 }
 
-.chain-head > details > summary {
+.chain-head > details > summary,
+.chain-branch > details > summary {
   justify-content: space-between;
   gap: var(--space-3);
 }
@@ -3485,12 +3511,14 @@ main,
   text-align: right;
 }
 
-.chain-open {
+.chain-open,
+.chain-go {
   margin: 0;
 }
 
 /* The chain heading's own link sits outside .chain, so it needs its own 24 px hit area. */
-.chain-open a {
+.chain-open a,
+.chain-go a {
   display: inline-flex;
   align-items: center;
   min-height: 1.5rem;
@@ -3883,6 +3911,7 @@ details[open] > summary > .disclosure-chevron {
 
 .rel-group > summary,
 .chain-head > details > summary,
+.chain-branch > details > summary,
 .coverage-more > summary,
 .rel-disclosure > summary,
 .kind-group > summary,
@@ -3895,6 +3924,7 @@ details[open] > summary > .disclosure-chevron {
 
 .rel-group > summary::-webkit-details-marker,
 .chain-head > details > summary::-webkit-details-marker,
+.chain-branch > details > summary::-webkit-details-marker,
 .coverage-more > summary::-webkit-details-marker,
 .rel-disclosure > summary::-webkit-details-marker,
 .kind-group > summary::-webkit-details-marker,
@@ -3913,11 +3943,13 @@ details[open] > summary > .disclosure-chevron {
   justify-content: flex-start;
 }
 
-.chain-head > details > summary .chain-name {
+.chain-head > details > summary .chain-name,
+.chain-branch > details > summary .chain-name {
   flex: 1;
 }
 
-.chain-head > details > summary {
+.chain-head > details > summary,
+.chain-branch > details > summary {
   justify-content: flex-start;
 }
 
@@ -4553,6 +4585,7 @@ input::placeholder {
       "body refs" auto
       "sources refs" auto
       "expanded refs" auto
+      "printings refs" auto
       "aon refs" auto
       "rel refs" auto
       "book refs" auto
@@ -4586,6 +4619,9 @@ input::placeholder {
   .entry > .expanded-line {
     grid-area: expanded;
   }
+  .entry > .printings-line {
+    grid-area: printings;
+  }
   .entry > .aon-line {
     grid-area: aon;
   }
@@ -4610,6 +4646,7 @@ input::placeholder {
       "body"
       "sources"
       "expanded"
+      "printings"
       "aon"
       "rel"
       "book"

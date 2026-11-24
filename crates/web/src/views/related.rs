@@ -112,6 +112,10 @@ pub struct Indexes {
     /// True when the class page lists its archetypes in its Archetypes section (#170, part D), so
     /// the panel below the text does not list them again.
     pub archetypes_in_page: bool,
+    /// The other printings of the entry, newest first, for the `Other printings:` line (#650).
+    /// Empty for a creature, for an entry no other book prints and for a library without the
+    /// relation index.
+    pub printings: Vec<crate::printings::Printing>,
 }
 
 /// Items grouped under a heading, headings in name order and items in name order. Used to group

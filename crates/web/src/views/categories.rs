@@ -277,7 +277,7 @@ pub fn lenses(kind: EntryKind) -> Vec<Lens> {
             Lens::Menu(FEAT_TYPE_MENU),
             Lens::Link {
                 label: "Feat chains",
-                route: Route::FeatChains,
+                route: Route::feat_chains(),
             },
         ],
         // Classes are listed under headings by `class_type`, see `grouped_by`.
@@ -402,7 +402,7 @@ mod tests {
         assert!(matches!(
             &feat[1],
             Lens::Link {
-                route: Route::FeatChains,
+                route: Route::FeatChains { .. },
                 ..
             }
         ));
