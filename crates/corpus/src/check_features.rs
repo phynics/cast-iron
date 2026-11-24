@@ -349,7 +349,8 @@ pub(crate) enum Place {
 /// The opening text (before the first listed feature) may state trades that no feature prints.
 /// Owner ruling 13 of 2026-11-24 (#540): so may a section under a scaffold heading
 /// ([`NOT_FEATURE_HEADINGS`], such as "Bonus Feats") wherever it sits, also after the first
-/// feature, unless a listed feature contains it. Any other unlisted heading stays an error.
+/// feature, unless a listed feature contains it. The innermost open heading decides: a subsection under
+/// a scaffold heading that is not itself a scaffold heading stays an error.
 pub(crate) fn placements(entry: &RuleEntry) -> Vec<(&Block, Place)> {
     let blocks = feature_part(entry);
     let features = entry.fields.features();
@@ -384,7 +385,7 @@ pub(crate) fn placements(entry: &RuleEntry) -> Vec<(&Block, Place)> {
             .any(|(_, key, _)| key.as_deref().is_some_and(listed))
         {
             Place::Feature
-        } else if stack.iter().any(|(_, _, scaffold)| *scaffold) {
+        } else if stack.last().is_some_and(|(_, _, scaffold)| *scaffold) {
             Place::Unbound
         } else {
             let last = stack.last().and_then(|(_, key, _)| key.clone());
@@ -713,6 +714,17 @@ mod tests {
         }
         // Any other unlisted heading still fails.
         let found = problems(archetype(after("Monk Training"), features(), trades()));
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert!(found[0].contains("not listed in `features`"), "{found:?}");
+        // The innermost heading decides: a plain `###` inside `## Bonus Feats` still fails.
+        let mut deep = after("Bonus Feats");
+        deep.push(Block::Heading {
+            level: 3,
+            anchor: Some("deep".into()),
+            content: vec![Inline::text("Monk Training")],
+        });
+        deep.push(text("This ability replaces the monk's bonus feats."));
+        let found = problems(archetype(deep, features(), trades()));
         assert_eq!(found.len(), 1, "{found:?}");
         assert!(found[0].contains("not listed in `features`"), "{found:?}");
         // A scaffold heading inside a listed feature belongs to the feature, as before.

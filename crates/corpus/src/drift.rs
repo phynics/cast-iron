@@ -1180,13 +1180,13 @@ fn feature_trade_pairs(entry: &RuleEntry, text: &str) -> Vec<Pair> {
             missing: false,
         });
     }
-    // Trades that the opening text states.
-    let opening_sentences = unbound_sentences(entry);
-    let opening_trades: Vec<_> = trades.iter().filter(|trade| trade.by.is_empty()).collect();
+    // Trades that the book prints outside any feature (opening text, scaffold sections).
+    let outside_sentences = unbound_sentences(entry);
+    let outside_trades: Vec<_> = trades.iter().filter(|trade| trade.by.is_empty()).collect();
     pairs.extend(sentence_pairs(
-        &opening_trades,
-        &opening_sentences,
-        "the opening text",
+        &outside_trades,
+        &outside_sentences,
+        "the text outside any feature",
         field_line(text, "trades"),
     ));
     for trade in trades.iter().filter(|trade| !trade.by.is_empty()) {
@@ -2905,7 +2905,10 @@ mod tests {
         );
         let drift = find_drift(&entry);
         assert_eq!(drift.len(), 1, "{drift:?}");
-        assert_eq!(drift[0].source, "trade sentences of the opening text");
+        assert_eq!(
+            drift[0].source,
+            "trade sentences of the text outside any feature"
+        );
         assert_eq!(drift[0].field_value, "alters: Wild shape");
     }
 
@@ -3035,7 +3038,7 @@ mod tests {
         assert!(
             drift
                 .iter()
-                .any(|d| d.source == "trade sentences of the opening text"),
+                .any(|d| d.source == "trade sentences of the text outside any feature"),
             "{drift:?}"
         );
         assert!(
@@ -3135,6 +3138,33 @@ mod tests {
     }
 
     #[test]
+    fn a_scaffold_subsection_of_a_listed_feature_belongs_to_the_feature() {
+        // `### Bonus Feats` inside a listed feature: its sentence is the feature's, so a trade
+        // that names the feature covers it, and a trade without `by` does not.
+        let mut entry = printed_archetype(
+            &[("shattering-strike", SHATTERING)],
+            vec![
+                trade_by(TradeOp::Replaces, "Bravery", &["shattering-strike"]),
+                trade_by(TradeOp::Replaces, "Bonus feats", &["shattering-strike"]),
+            ],
+        );
+        entry
+            .entry
+            .body
+            .push(feature_heading_at(3, "inner", "Bonus Feats"));
+        entry
+            .entry
+            .body
+            .push(text_block("This ability replaces the monk's bonus feats."));
+        let drift = find_drift(&entry);
+        assert!(drift.is_empty(), "{drift:?}");
+        if let TypedFields::Archetype(fields) = &mut entry.entry.fields {
+            fields.trades[1].by.clear();
+        }
+        assert!(!find_drift(&entry).is_empty());
+    }
+
+    #[test]
     fn another_unlisted_heading_does_not_state_trades_without_by() {
         // The sentence under a heading that is no scaffold heading is not an unbound sentence,
         // so the trade without `by` is not stated (the check reports the heading).
@@ -3144,7 +3174,10 @@ mod tests {
         ];
         let drift = find_drift(&with_heading_after_feature("Monk Training", both));
         assert_eq!(drift.len(), 1, "{drift:?}");
-        assert_eq!(drift[0].source, "trade sentences of the opening text");
+        assert_eq!(
+            drift[0].source,
+            "trade sentences of the text outside any feature"
+        );
     }
 
     fn single_power(body: Vec<Block>, trades: Vec<cast_iron_schema::Trade>) -> Stored {
