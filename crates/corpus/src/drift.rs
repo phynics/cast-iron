@@ -1086,6 +1086,7 @@ fn sentence_pairs(
     sentences: &[crate::trade_sentences::TradeSentence],
     place: &str,
     source_line: usize,
+    needs_no_sentence: impl Fn(&cast_iron_schema::Trade) -> bool,
 ) -> Vec<Pair> {
     if trades.is_empty() && sentences.is_empty() {
         return Vec::new();
@@ -1103,7 +1104,7 @@ fn sentence_pairs(
         missing: false,
     }];
     for trade in trades {
-        if !trade_stated(trade, sentences) {
+        if !needs_no_sentence(trade) && !trade_stated(trade, sentences) {
             pairs.push(Pair {
                 field: "trades",
                 field_value: trade_list(&[trade]),
@@ -1143,7 +1144,9 @@ fn sentence_pairs(
 /// (see [`crate::check_features::feature_part`]). The `**Replaces:**` and `**Alters:**` rows are
 /// not read: this form has none.
 fn feature_trade_pairs(entry: &RuleEntry, text: &str) -> Vec<Pair> {
-    use crate::check_features::{feature_part, sections, sentences_in, unbound_sentences};
+    use crate::check_features::{
+        feature_part, proficiency_section_prints_no, sections, sentences_in, unbound_sentences,
+    };
     use crate::trade_sentences::TradeSentence;
     let found = sections(feature_part(entry), &entry.body);
     let features = entry.fields.features();
@@ -1152,7 +1155,12 @@ fn feature_trade_pairs(entry: &RuleEntry, text: &str) -> Vec<Pair> {
         found
             .iter()
             .find(|section| section.key == anchor)
-            .map(|section| sentences_in(section.blocks, trades))
+            .map(|section| match section.heading {
+                Block::Heading { content, .. } => {
+                    sentences_in(section.blocks, trades, Some(&plain_text(content)))
+                }
+                _ => sentences_in(section.blocks, trades, None),
+            })
             .unwrap_or_default()
     };
     let listed = |anchor: &str| features.iter().any(|feature| feature.anchor == anchor);
@@ -1183,11 +1191,16 @@ fn feature_trade_pairs(entry: &RuleEntry, text: &str) -> Vec<Pair> {
     // Trades that the book prints outside any feature (opening text, scaffold sections).
     let outside_sentences = unbound_sentences(entry);
     let outside_trades: Vec<_> = trades.iter().filter(|trade| trade.by.is_empty()).collect();
+    // Owner ruling 23 of 2026-11-24 (#540): an `alters` trade without `by` may rest on a
+    // "Weapon and Armor Proficiency" section that prints no `alters` sentence. It is not drift
+    // that print does not state it; the sentences still must be covered by the trades.
+    let proficiency = proficiency_section_prints_no(entry, TradeOp::Alters);
     pairs.extend(sentence_pairs(
         &outside_trades,
         &outside_sentences,
         "the text outside any feature",
         field_line(text, "trades"),
+        |trade| proficiency && trade.op == TradeOp::Alters,
     ));
     for trade in trades.iter().filter(|trade| !trade.by.is_empty()) {
         let named: Vec<&String> = trade.by.iter().filter(|by| listed(by)).collect();
@@ -1212,7 +1225,13 @@ fn feature_trade_pairs(entry: &RuleEntry, text: &str) -> Vec<Pair> {
             continue;
         }
         let all: Vec<TradeSentence> = named.iter().flat_map(|by| sentences_of(by)).collect();
-        let prints_none = named.iter().any(|by| sentences_of(by).is_empty());
+        // Ruling A, per operation (owner ruling 24 of 2026-11-24): a named feature that prints no
+        // sentence of the trade's own op may carry the trade unstated.
+        let prints_none = named.iter().any(|by| {
+            sentences_of(by)
+                .iter()
+                .all(|sentence| sentence.op != trade.op)
+        });
         if !trade_stated(trade, &all) && !prints_none {
             pairs.push(Pair {
                 field: "trades",
@@ -1251,7 +1270,7 @@ fn printed_sentence_pairs(entry: &RuleEntry, text: &str) -> Option<Vec<Pair>> {
     if !labelled_texts(body, "Replaces").is_empty() || !labelled_texts(body, "Alters").is_empty() {
         return None;
     }
-    let sentences = sentences_in(body, entry.fields.trades());
+    let sentences = sentences_in(body, entry.fields.trades(), None);
     if sentences.is_empty() {
         return None;
     }
@@ -1260,6 +1279,7 @@ fn printed_sentence_pairs(entry: &RuleEntry, text: &str) -> Option<Vec<Pair>> {
         &sentences,
         "the normal part",
         field_line(text, "trades"),
+        |_| false,
     ))
 }
 
@@ -2873,17 +2893,18 @@ mod tests {
             &[("shattering-strike", SHATTERING)],
             vec![
                 trade_by(TradeOp::Replaces, "Bravery", &["shattering-strike"]),
-                trade_by(TradeOp::Alters, "Weapon training", &["shattering-strike"]),
+                trade_by(TradeOp::Replaces, "Weapon training", &["shattering-strike"]),
             ],
         );
         let drift = find_drift(&entry);
         assert_eq!(drift.len(), 1, "{drift:?}");
-        // The op counts: the sentence replaces, the trade alters.
+        // The op counts: the sentence replaces, the trade alters. The sentence stays uncovered;
+        // the alters trade is unstated, which the feature may carry (ruling 24, below).
         let entry = printed_archetype(
             &[("shattering-strike", SHATTERING)],
             vec![trade_by(TradeOp::Alters, "Bravery", &["shattering-strike"])],
         );
-        assert_eq!(find_drift(&entry).len(), 2);
+        assert_eq!(find_drift(&entry).len(), 1);
     }
 
     /// A druid archetype's feature describes the changed ability and prints no trade sentence.
@@ -2925,12 +2946,12 @@ mod tests {
         let drift = find_drift(&entry);
         assert_eq!(drift.len(), 1, "{drift:?}");
         assert!(drift[0].source.contains("shattering-strike"), "{drift:?}");
-        // A feature that prints another trade does not state this one.
+        // A feature that prints another trade of the same op does not state this one.
         let entry = printed_archetype(
             &[("shattering-strike", SHATTERING)],
             vec![
                 trade_by(TradeOp::Replaces, "Bravery", &["shattering-strike"]),
-                trade_by(TradeOp::Alters, "Wild shape", &["shattering-strike"]),
+                trade_by(TradeOp::Replaces, "Trap sense", &["shattering-strike"]),
             ],
         );
         assert_eq!(find_drift(&entry).len(), 1);
@@ -2940,6 +2961,130 @@ mod tests {
             vec![trade_by(TradeOp::Alters, "Wild shape", &["missing"])],
         );
         assert_eq!(find_drift(&entry).len(), 1);
+    }
+
+    #[test]
+    fn an_unstated_trade_passes_per_operation() {
+        // Owner ruling 24 of 2026-11-24 (#540), Preacher: the feature prints a `replaces`
+        // sentence and carries an `alters` trade that print only describes.
+        let entry = printed_archetype(
+            &[("shattering-strike", SHATTERING)],
+            vec![
+                trade_by(TradeOp::Replaces, "Bravery", &["shattering-strike"]),
+                trade_by(TradeOp::Alters, "Weapon training", &["shattering-strike"]),
+            ],
+        );
+        assert!(find_drift(&entry).is_empty(), "{:?}", find_drift(&entry));
+        // The other way: a feature that prints an `alters` sentence carries a `replaces` trade.
+        let entry = printed_archetype(
+            &[(
+                "weapon-focus",
+                "At 1st level, a fighter gains a bonus. This ability alters weapon training.",
+            )],
+            vec![
+                trade_by(TradeOp::Alters, "Weapon training", &["weapon-focus"]),
+                trade_by(TradeOp::Replaces, "Bravery", &["weapon-focus"]),
+            ],
+        );
+        assert!(find_drift(&entry).is_empty(), "{:?}", find_drift(&entry));
+        // Within the same op the guard stays: this `replaces` trade is not printed.
+        let entry = printed_archetype(
+            &[("shattering-strike", SHATTERING)],
+            vec![
+                trade_by(TradeOp::Replaces, "Bravery", &["shattering-strike"]),
+                trade_by(TradeOp::Replaces, "Armor training", &["shattering-strike"]),
+            ],
+        );
+        assert_eq!(find_drift(&entry).len(), 1);
+        // The printed sentence still has to be covered.
+        let entry = printed_archetype(
+            &[("shattering-strike", SHATTERING)],
+            vec![trade_by(
+                TradeOp::Alters,
+                "Weapon training",
+                &["shattering-strike"],
+            )],
+        );
+        assert_eq!(find_drift(&entry).len(), 1);
+    }
+
+    /// A listed feature, then a heading with the given text and the given paragraphs under it.
+    fn with_section_after_feature(
+        heading_text: &str,
+        paragraphs: &[&str],
+        trades: Vec<cast_iron_schema::Trade>,
+    ) -> Stored {
+        let mut entry = printed_archetype(&[("shattering-strike", SHATTERING)], trades);
+        entry
+            .entry
+            .body
+            .push(feature_heading_at(2, "after", heading_text));
+        for paragraph in paragraphs {
+            entry.entry.body.push(text_block(paragraph));
+        }
+        entry
+    }
+
+    #[test]
+    fn an_alters_trade_may_rest_on_a_proficiency_section_that_prints_no_sentence() {
+        // Owner ruling 23 of 2026-11-24 (#540), True Primitive, Gladiator, Tactician.
+        let trades = || {
+            vec![
+                trade_by(TradeOp::Replaces, "Bravery", &["shattering-strike"]),
+                trade_by(TradeOp::Alters, "Weapon and armor proficiency", &[]),
+            ]
+        };
+        let prose = ["A gladiator is proficient with all martial weapons."];
+        for name in [
+            "Weapon and Armor Proficiency",
+            "weapon and armor proficiency:",
+        ] {
+            let drift = find_drift(&with_section_after_feature(name, &prose, trades()));
+            assert!(drift.is_empty(), "{name}: {drift:?}");
+        }
+        // Only for `alters`.
+        let replaces = vec![
+            trade_by(TradeOp::Replaces, "Bravery", &["shattering-strike"]),
+            trade_by(TradeOp::Replaces, "Weapon and armor proficiency", &[]),
+        ];
+        let drift = find_drift(&with_section_after_feature(
+            "Weapon and Armor Proficiency",
+            &prose,
+            replaces,
+        ));
+        assert_eq!(drift.len(), 1, "{drift:?}");
+        // Only under that heading.
+        let drift = find_drift(&with_section_after_feature(
+            "Monk Training",
+            &prose,
+            trades(),
+        ));
+        assert_eq!(drift.len(), 1, "{drift:?}");
+        // Without any such section the trade stays unstated.
+        let drift = find_drift(&with_opening("A tyrant follows a code.", trades()));
+        assert_eq!(drift.len(), 1, "{drift:?}");
+        // A section that prints an `alters` sentence states its own trade: the unstated trade
+        // does not hide behind it.
+        let printed = ["This ability alters the armor proficiency."];
+        let drift = find_drift(&with_section_after_feature(
+            "Weapon and Armor Proficiency",
+            &printed,
+            vec![
+                trade_by(TradeOp::Replaces, "Bravery", &["shattering-strike"]),
+                trade_by(TradeOp::Alters, "Armor proficiency", &[]),
+                trade_by(TradeOp::Alters, "Weapon proficiency", &[]),
+            ],
+        ));
+        assert_eq!(drift.len(), 1, "{drift:?}");
+        // A proficiency subsection of a listed feature belongs to the feature.
+        let mut inner = printed_archetype(&[("shattering-strike", SHATTERING)], trades());
+        inner.entry.body.push(feature_heading_at(
+            3,
+            "inner",
+            "Weapon and Armor Proficiency",
+        ));
+        inner.entry.body.push(text_block(prose[0]));
+        assert_eq!(find_drift(&inner).len(), 1);
     }
 
     #[test]
