@@ -504,7 +504,7 @@ pub async fn set_theme_preference(theme: &str) -> Result<()> {
     set_meta(KEY_THEME, &theme).await
 }
 
-/// The reader's spell-row density: `compact` or `wide`. Absent means `wide`.
+/// The reader's spell-row density: `compact` or `wide` (the slug of the Expanded rows). Absent means `wide`.
 pub async fn spell_density() -> Result<Option<String>> {
     get_meta(KEY_SPELL_DENSITY).await
 }
