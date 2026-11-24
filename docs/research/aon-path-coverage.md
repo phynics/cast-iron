@@ -6,11 +6,11 @@ Every canonical entry of the pinned corpus that has no verified Archives of Neth
 
 | | |
 |---|---|
-| Corpus | [`phynics/cast-iron-data`](https://github.com/phynics/cast-iron-data/tree/8c89e35ed332284412cdd19a61e18d27538b8071) |
-| Tag | `v0.1.42` |
-| Commit | `8c89e35ed332284412cdd19a61e18d27538b8071` |
-| Tree hash | `8ab3d59ff34efd978135ef8ab41934ce93be22ba8229e3426e45eeec598eec32` |
-| Entries | 31,735 |
+| Corpus | [`phynics/cast-iron-data`](https://github.com/phynics/cast-iron-data/tree/8f142f076fb0c75e04fb024f89a5654e7ce3c0cb) |
+| Tag | `v0.1.43` |
+| Commit | `8f142f076fb0c75e04fb024f89a5654e7ce3c0cb` |
+| Tree hash | `4ffaf121e917818b6fe3d0238ddb363f2ac197539c3e6f7db9ae5cd572248116` |
+| Entries | 31,733 |
 | Publications | 443 |
 
 ## Totals by kind
@@ -25,16 +25,17 @@ Every canonical entry of the pinned corpus that has no verified Archives of Neth
 | class_option | 30 | 2,789 | 2,819 |
 | creature | 2,193 | 1,469 | 3,662 |
 | feat | 3,442 | 215 | 3,657 |
+| haunt | 0 | 45 | 45 |
 | item | 439 | 7,658 | 8,097 |
 | prestige_class | 115 | 0 | 115 |
 | race | 74 | 2 | 76 |
 | racial_trait | 0 | 342 | 342 |
-| rule | 0 | 6,026 | 6,026 |
+| rule | 0 | 5,981 | 5,981 |
 | skill | 0 | 44 | 44 |
 | spell | 2,999 | 87 | 3,086 |
-| trait | 1,897 | 40 | 1,937 |
+| trait | 1,896 | 39 | 1,935 |
 | trap | 0 | 60 | 60 |
-| **Total** | **12,484** | **19,251** | **31,735** |
+| **Total** | **12,483** | **19,250** | **31,733** |
 
 ## Publications
 
@@ -68,9 +69,9 @@ Every canonical entry of the pinned corpus that has no verified Archives of Neth
 
 ## The per-entry list
 
-[`aon-path-coverage.tsv`](aon-path-coverage.tsv) holds one row per missing entry, sorted by kind then id: `id`, `kind`, and `title`, with a header row. 19,251 data rows.
+[`aon-path-coverage.tsv`](aon-path-coverage.tsv) holds one row per missing entry, sorted by kind then id: `id`, `kind`, and `title`, with a header row. 19,250 data rows.
 
-SHA-256 of the list: `ffc1de789c816c14ca50b98994e88fd7b8da7cd310ba3bdea69af563e0b5e125`
+SHA-256 of the list: `9b30b42abf9423626d4e7638db202c51623bc5d5bf1907e411f5eafeabee042c`
 
 ## What a missing row means
 

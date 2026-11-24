@@ -264,12 +264,12 @@ installedTest("Filter menus: Kind is one menu, ticking kinds keeps focus, and Al
   expect(groupNames[1]).toBe("Publication");
 
   const panel = await openKindMenu(page);
-  // Fifteen kinds: opening focuses the find field, and the rows keep the order of the kinds.
+  // Sixteen kinds: opening focuses the find field, and the rows keep the order of the kinds.
   await expect(panel.getByRole("searchbox", { name: "Find a kind" })).toBeFocused();
   const names = await panel.getByRole("checkbox").evaluateAll((inputs) => inputs.map((input) => input.getAttribute("aria-label") ?? ""));
   expect(names.map((name) => name.replace(/^Kind /, "").replace(/, [\d,]+ entr(?:y|ies)$/, ""))).toEqual([
     "Rules", "Spells", "Feats", "Creatures", "Items", "Classes", "Prestige classes", "Races", "Skills",
-    "Afflictions", "Traps", "Traits", "Racial traits", "Archetypes", "Class options",
+    "Afflictions", "Traps", "Haunts", "Traits", "Racial traits", "Archetypes", "Class options",
   ]);
   // The menu has no scroll of its own: the sidebar is the scroll area.
   expect(await panel.evaluate((el) => getComputedStyle(el).maxHeight)).toBe("none");
