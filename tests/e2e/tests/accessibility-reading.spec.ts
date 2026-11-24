@@ -1,9 +1,11 @@
+import type { Page } from "@playwright/test";
 import { installedTest as test, expect, goOffline, loadCorpus } from "./fixtures";
 import {
   installLibrary,
   waitControlled,
   bodyHeadings,
   bodyLinks,
+  corpusEntry,
   bookSources,
   bookTrees,
   corpusEntry,
@@ -400,4 +402,65 @@ test("Keyboard users get a fixed star name, 3:1 control edges and an answer to t
   await expect(status).toHaveText(/^(Granted\. The browser will not clear|Not granted\. On iPhone, add Cast Iron to the Home Screen)/);
   if (/^Not granted/.test(await status.innerText())) await expect(request).toBeFocused();
   else await expect(status).toBeFocused();
+});
+
+// The levels of the headings of the page, in document order. The masthead is no part of it.
+const outline = (page: Page) =>
+  page.locator("main").locator("h1, h2, h3, h4, h5, h6").evaluateAll((els) =>
+    els.map((el) => ({ level: Number(el.tagName.slice(1)), text: (el.textContent ?? "").trim().slice(0, 60) })),
+  );
+
+/** The first heading that sits more than one level below the heading before it, or `null`. */
+function firstSkip(headings: { level: number; text: string }[]) {
+  for (let i = 1; i < headings.length; i++) {
+    if (headings[i].level > headings[i - 1].level + 1) return { before: headings[i - 1], at: headings[i] };
+  }
+  return null;
+}
+
+test("Keyboard and screen reader users read entry headings that never skip a level (#12 L3)", async ({ page }) => {
+  test.setTimeout(120_000);
+  await installLibrary(page);
+  await waitControlled(page);
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const corpus = loadCorpus();
+  const pages = [
+    { what: "a class", entry: corpusEntry("class", "Wizard"), minHeadings: 5 },
+    { what: "a creature", entry: corpusEntry("creature", "Goblin"), minHeadings: 2 },
+    { what: "a spell", entry: firstEntry("a spell", (entry) => entry.kind === "spell"), minHeadings: 0 },
+    { what: "a class option with powers", entry: corpus.entries.get("ref/arcaneschool/abjuration")!, minHeadings: 2 },
+  ];
+  for (const { what, entry, minHeadings } of pages) {
+    await page.goto(`#/entry/${entry.id}`);
+    await expect(page.getByTestId("entry-title")).toHaveText(entry.title);
+    await expect(page.locator(".entry-head")).toBeVisible();
+    await expect(page.locator(".rich").first()).toBeVisible();
+    // The page fills in as the related sections load, so check until the outline is complete.
+    await expect.poll(async () => (await outline(page)).length, { message: `${what} has its headings` })
+      .toBeGreaterThan(minHeadings);
+    const headings = await outline(page);
+    expect(headings[0], `${what}: the page opens with its h1`).toMatchObject({ level: 1, text: entry.title });
+    expect(headings.filter((heading) => heading.level === 1), `${what}: one h1`).toHaveLength(1);
+    expect(firstSkip(headings), `${what} (${entry.title}) skips a heading level`).toBeNull();
+    // The body starts at h2 (an entry with a body heading) and keeps its nesting below it.
+    const body = await page.locator(".rich").first().locator("h2, h3, h4, h5, h6").evaluateAll((els) =>
+      els.map((el) => Number(el.tagName.slice(1))),
+    );
+    if (body.length) expect(Math.min(...body), `${what}: the body's shallowest heading is h2`).toBe(2);
+  }
+
+  // A shifted heading keeps the look of the level the corpus stored: Wizard's `Class Features`
+  // sections were h3 and still read at the h3 size, below an h2 of the same page.
+  await page.goto("#/entry/ref/class/wizard");
+  const sized = await page.locator(".rich [data-printed-level]:not(.power-name)").evaluateAll((els) =>
+    els.map((el) => ({
+      printed: el.getAttribute("data-printed-level"),
+      tag: el.tagName,
+      size: getComputedStyle(el).fontSize,
+    })),
+  );
+  expect(sized.length).toBeGreaterThan(0);
+  const sizes = new Map<string, Set<string>>();
+  for (const { printed, size } of sized) sizes.set(printed!, (sizes.get(printed!) ?? new Set()).add(size));
+  for (const [printed, set] of sizes) expect(set.size, `printed level ${printed} has one size`).toBe(1);
 });

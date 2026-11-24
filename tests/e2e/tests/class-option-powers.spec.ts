@@ -65,10 +65,11 @@ test("Abjuration lays its powers out as a head, a meta line, the effect, then on
   // Energy Absorption (Su) is gained at 6th level.
   await expect(power(page, "Energy Absorption (Su)").locator(".power-level")).toContainText("Level 6");
 
-  // A power before the first body heading is h2; after `Banishment School` it is h4.
+  // A power before the first body heading is h2. The body's first heading, `Banishment School`
+  // (stored as h3), is h2 too, so the page skips no level (#12, L3), and the power after it is h3.
   await expect(page.getByRole("heading", { level: 2, name: "Resistance (Ex)", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { level: 4, name: "Aura of Banishment (Su)", exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { level: 3, name: "Banishment School" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 3, name: "Aura of Banishment (Su)", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: "Banishment School" })).toBeVisible();
 
   // A passive row and an action row: the passive text first, then the action as its own line.
   const mastery = power(page, "Counterspell Mastery");

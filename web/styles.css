@@ -1947,28 +1947,37 @@ mark {
   scroll-margin-top: calc(var(--header-h) + var(--space-3));
 }
 
-.rich h2 {
+/* The look of a heading follows the level the corpus stored (`data-printed-level`), not the
+   element: the element is shifted so an entry never skips a level below the page's h1 (#12, L3).
+   The global h2 and h3 rules give the display face to the elements that look like h2 and h3;
+   the stored h4 to h6 look as the browser's own h4 to h6 did, so they restate it. Every selector
+   has the weight of the `.rich h2` rules it replaces plus one class, so `.power-name` below
+   still wins by its place in the file. */
+.rich [data-printed-level="2"] {
   font-size: var(--step-2);
   margin-top: var(--space-6);
   padding-top: var(--space-3);
   border-top: 2px solid var(--line);
 }
 
-.rich h3 {
+.rich [data-printed-level="3"] {
   font-size: var(--step-1);
   margin-top: var(--space-5);
 }
 
-.rich h4,
-.rich h5,
-.rich h6 {
+.rich [data-printed-level="4"],
+.rich [data-printed-level="5"],
+.rich [data-printed-level="6"] {
+  font-family: var(--font-text);
   font-size: var(--step-0);
+  font-weight: bold;
+  line-height: inherit;
+  text-wrap: wrap;
   margin: var(--space-4) 0 var(--space-2);
 }
 
-.rich h5,
-.rich h6 {
-  font-family: var(--font-text);
+.rich [data-printed-level="5"],
+.rich [data-printed-level="6"] {
   font-size: var(--step--1);
   letter-spacing: 0.05em;
   text-transform: uppercase;
