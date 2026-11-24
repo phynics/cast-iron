@@ -23,6 +23,16 @@ The stat block keeps its left accent rule; it is part of the identity.
 
 Body text is `--font-text` at `--step-0` (1rem) with `--leading`. `h1`, `h2` and `h3` use `--font-display`, weight 600 and `--leading-tight`. All sizes are rem, so they scale with Dynamic Type.
 
+### Large text and Dynamic Type (#12 L6)
+
+Text can grow in two ways: the reader raises the browser's text size, or iOS Dynamic Type raises the root size. Every size is rem, so both scale the whole layout, and the layout must hold at a root size of 200 % on a 320 px and a 390 px screen: no sideways page scroll, every control inside the screen and at least 44 px, and no word split to fit a sliver.
+
+- **iOS Dynamic Type.** Safari scales the root size with the system text size only when the font is a system text style, and only the `font` shorthand accepts one. `web/styles.css` sets `font: -apple-system-body` on `html` under `@supports (font: -apple-system-body)`, then restores `font-family` (`--font-text`) and `line-height` (`--leading`), which the shorthand resets. Other browsers do not match the query and keep the 16 px root.
+- **Default size.** At the default iOS text size (Large) `-apple-system-body` is 17 px, not 16 px, so the app is about 6 % larger on an iPhone than elsewhere, and grows or shrinks with Settings › Accessibility › Display & Text Size › Larger Text. No CSS keeps the default at 16 px and still follows the setting: the system text style is a keyword of the `font` shorthand, it cannot be used inside `calc()`, and a `rem` on the root element refers to the browser's initial size, not to the root's own. Do not scale the root by `16/17` or use `zoom`.
+- **Media queries do not see large text.** A media query's `rem` is the browser's default size, so a raised root size (a page that sets `font-size: 200%`, or Dynamic Type) does not move a breakpoint. A rule that must react to large text asks the element's own container (`@container`, whose `rem` is the real root size) or lets the content wrap; the breakpoint table below stays for layout classes.
+- **Value cells wrap between words.** A stat row (`.stat-row`) and a facts row (`.facts > div`) are flex rows that wrap: the term keeps a column (9 rem, 6.5 rem below 30 rem, wider for a longer word) and the value takes at least 9 rem (11 rem for facts) beside it. When both do not fit, the value drops under the term. Values and headings use `overflow-wrap: break-word`, never `anywhere` (it lets a flex item shrink to a letter): a word splits only when it alone is wider than the line.
+- **Masthead.** On a phone the brand takes what the other controls leave and the wordmark scales down inside it; a control that still does not fit wraps to a second row.
+
 | Token | Size | Used for |
 |---|---|---|
 | `--step--2` | 0.75rem | `h2.notes-title`, spell level counts, a book's place line, a step direction |
@@ -141,7 +151,7 @@ A group with more options than fit one row at 320 px is one filter menu (`views/
 
 ### Facts list
 
-`dl.facts` is a list of `dt` and `dd` pairs. Each pair is a `div` with a hairline under it, the term in `--ink-muted` in a column of 7 to 10 rem and the value beside it. It holds facts that a reader scans: the installer's `Download size` and `Entries`, the Settings rows, and an entry's `Provenance` disclosure. It is not a table.
+`dl.facts` is a list of `dt` and `dd` pairs. Each pair is a `div` with a hairline under it, the term in `--ink-muted` in a column of 7 to 10 rem and the value beside it (the value drops under the term when it would get less than 11 rem, as in a stat row; see Large text and Dynamic Type). It holds facts that a reader scans: the installer's `Download size` and `Entries`, the Settings rows, and an entry's `Provenance` disclosure. It is not a table.
 
 ### Sheets
 
@@ -166,7 +176,7 @@ The sticky header holds the brand, the primary nav (from 48rem; below it the nav
 
 ### Primary navigation
 
-Four tabs in one order, **Home, Books, Table, Settings**, each an icon above or beside its label. Below 48rem they are the bottom bar: one equal column per tab, each at least 44 px wide and `--nav-h` tall (at 390 px, about 97 px wide). From 48rem they are the header's top nav, icon beside label, after the brand. The tab that holds the current route carries `aria-current="page"`, and a page inside a section keeps its tab: spell lists belong to Home, a book and its chapters to Books, Legal to Settings. An entry or a kind list that names a book the library holds (`?book=` and `?source=`) belongs to Books; one that names a book the library lacks belongs to Home. Table is the die icon (`views/icons.rs`, the set's 24 px grid and 1.8 px round stroke); its page is Quick reference, and nothing else belongs to it. The header keeps the `--wide` column edge from 48rem, so the header is one row at every width from 48rem: four tabs beside the brand, the search icon, the header action and the Offline mark. Below 64rem the header action and the Offline mark are glyph-only and the column gap is `--space-2`; from 64rem they carry their labels.
+Four tabs in one order, **Home, Books, Table, Settings**, each an icon above or beside its label. Below 48rem they are the bottom bar: one equal column per tab, each at least 44 px wide and `--nav-h` tall (at 390 px, about 97 px wide). From 48rem they are the header's top nav, icon beside label, after the brand. The tab that holds the current route carries `aria-current="page"`, and a page inside a section keeps its tab: spell lists belong to Home, a book and its chapters to Books, Legal to Settings. An entry or a kind list that names a book the library holds (`?book=` and `?source=`) belongs to Books; one that names a book the library lacks belongs to Home. **Large text.** The bar measures itself (`container: primary-nav / inline-size`). When its width is under 20rem (390 px above about 120 % text, 320 px at any enlargement) the labels are visually hidden (the `sr-only` clip, not `display: none`): the icon, the accessible name, the 44 px target and `aria-current` stay. A media query cannot decide this, because its `rem` ignores the root size. The label is the second `span` of each tab, `.nav-label`. Table is the die icon (`views/icons.rs`, the set's 24 px grid and 1.8 px round stroke); its page is Quick reference, and nothing else belongs to it. The header keeps the `--wide` column edge from 48rem, so the header is one row at every width from 48rem: four tabs beside the brand, the search icon, the header action and the Offline mark. Below 64rem the header action and the Offline mark are glyph-only and the column gap is `--space-2`; from 64rem they carry their labels.
 
 Which tab a route highlights (#571, `docs/decisions/2026-11-23-entry-breadcrumbs-and-tabs.md`):
 

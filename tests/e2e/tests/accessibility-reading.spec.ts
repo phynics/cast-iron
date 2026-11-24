@@ -8,7 +8,6 @@ import {
   corpusEntry,
   bookSources,
   bookTrees,
-  corpusEntry,
   bookReadingOrder,
   firstEntry,
   letterId,
@@ -277,7 +276,7 @@ test("Keyboard and touch readers keep the tab bar and stat values usable at 200 
   };
   const labelWidth = () => page.locator('nav[aria-label="Primary"] .nav-label').first().evaluate((el) => el.getBoundingClientRect().width);
 
-  // A word is split only when a client rect of it sits on two lines. Hyphens and slashes are
+  // A word is split when a client rect of it sits on two lines although it would fit a line. Hyphens and slashes are
   // legitimate break points, so a token is the run between whitespace, hyphens and slashes.
   const splitWords = (selector: string) => page.evaluate((sel) => {
     const split: string[] = [];
@@ -290,7 +289,11 @@ test("Keyboard and touch readers keep the tab bar and stat values usable at 200 
           range.setEnd(node, match.index! + match[0].length);
           const lines = new Set(Array.from(range.getClientRects()).filter((r) => r.width > 0).map((r) => Math.round(r.top)));
           // Superscript markers sit a few pixels higher than the line; compare line boxes only.
-          if (lines.size > 1 && !node.parentElement!.closest("sup")) split.push(match[0]);
+          if (lines.size < 2 || node.parentElement!.closest("sup")) continue;
+          // A word wider than its whole line has to split; only a word that would have fit is a failure.
+          const whole = Array.from(range.getClientRects()).reduce((sum, r) => sum + r.width, 0);
+          const line = node.parentElement!.closest("dd, dt, p, li, div")!.getBoundingClientRect().width;
+          if (whole <= line) split.push(match[0]);
         }
       }
     }
@@ -321,7 +324,7 @@ test("Keyboard and touch readers keep the tab bar and stat values usable at 200 
       await expect(page.locator("h1")).toBeVisible();
       await setRoot(200);
       const blocks = page.locator(".stat-block");
-      expect(await blocks.count(), `${name} has a stat block`).toBeGreaterThan(0);
+      await expect(blocks.first(), `${name} has a stat block`).toBeVisible();
       expect(await overflow(), `${viewport.width} px at 200 %: ${name} scrolls sideways: ${await offenders()}`).toBeLessThanOrEqual(0);
       expect(await splitWords(".stat-block"), `${viewport.width} px at 200 %: ${name} splits words`).toEqual([]);
       await tabs();

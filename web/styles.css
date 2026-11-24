@@ -2595,6 +2595,8 @@ mark {
 
 .ref-fold-name {
   flex: 1;
+  min-width: 0;
+  overflow-wrap: break-word;
 }
 
 /* The class summary card is a stat block. Its class-skills row opens in place. */
@@ -2664,6 +2666,8 @@ mark {
 
 .section-switcher ul {
   display: flex;
+  /* Large text (#12 L6): four nowrap links can be wider than the screen; the row wraps. */
+  flex-wrap: wrap;
   gap: var(--space-1);
   margin: 0;
   padding: 0;
@@ -4087,6 +4091,8 @@ details[open] > summary > .disclosure-chevron {
 
 .rel-group > summary .rel-group-name {
   flex: 1;
+  min-width: 0;
+  overflow-wrap: break-word;
 }
 
 .rel-group > summary {
