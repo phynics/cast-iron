@@ -1,6 +1,8 @@
 # Cross-check sources for the corpus
 
-Checked 2026-11-24 against the pinned corpus v0.1.42 (31,735 entries, 443 publications). This page
+Checked 2026-11-24 against the pinned corpus v0.1.42 (31,735 entries, 443 publications). Main has
+since pinned v0.1.45 (format 4); rerun a comparison after a pin that changes a compared kind, as
+[the workflow](../cross-checking.md) says. This page
 records which outside datasets Cast Iron compares the corpus with, what the first comparison found,
 and what comes next. The decision is
 [2026-11-24-outside-datasets-are-witnesses.md](../decisions/2026-11-24-outside-datasets-are-witnesses.md).
