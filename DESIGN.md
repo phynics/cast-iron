@@ -505,6 +505,12 @@ Feature` matrix, and the `Archetypes` panel that used to close the page. The int
   `Not checked` heading with a hint that says what is missing, never among the compatible rows. When the
   chosen archetype cannot be checked, nothing is compatible: every other row stands under `Not checked`.
 
+#### Heading levels in an entry body (#12, L3)
+
+The corpus stores the levels of the printed text, so a body can start at `###` under the page's `h1`. `crates/web/src/outline.rs` maps them when `views/rich.rs` renders a body: the shallowest heading of the body is an `h2`, the other headings keep their distance from it, and no heading sits more than one level below the heading before it (a gap in the corpus closes up, and the deepest element is `h6`). The footnote headings are no part of it, because the notes render as their own `Notes` group. A class-option power name takes its level from the heading before it, so it follows the shift and never sets it. The mapping runs once per body, in the renderer; the corpus keeps its levels, and so do the contents list and the heading anchors.
+
+The look of a heading follows the level the corpus stored, not the element. Every body heading carries `data-printed-level` (2 to 6; a stored 0 or 1 has always rendered as `h2`), and `.rich [data-printed-level="N"]` in `web/styles.css` sets the size, the margin and the rule. Do not style a heading in an entry body by its tag. The page contract is one `h1`, then `h2`s, and the e2e test `Keyboard and screen reader users read entry headings that never skip a level` walks the outline of a class, a creature, a spell and a class option.
+
 #### Class-option powers
 
 Approved by the owner on 2026-11-20 (#537; decision
@@ -514,8 +520,8 @@ Archetypes, class options in format 4 and base classes take the feature head bel
 On a `class_option` entry, a power reads as printed prose. It sits in a plain `div.power`, with no box, no tint and no rule:
 
 1. The head is one baseline-aligned row. On the left is the name, as a heading: `h2` before the first
-   top-level body heading, after it one level below the preceding top-level body heading, capped at
-   `h6` (`.power-name`: display face, 1.125rem, weight 700). On the right is
+   top-level body heading, after it one level below the preceding top-level body heading as the
+   outline renders it (see Heading levels in an entry body), capped at `h6` (`.power-name`: display face, 1.125rem, weight 700). On the right is
    `Level N`, only from `Gained`, in `--step--1` weight 600 `--ink-muted` with tabular figures and no
    wrap. A prerequisite such as `11th-level oracle` stays a `Prereq:` row and never sets the level.
    The level text has a visually hidden prefix ("Gained at"). A dotted `--line` leader takes the

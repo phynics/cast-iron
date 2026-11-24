@@ -205,7 +205,8 @@ test("A hybrid, a prestige class and an NPC class show only the rows they have a
   await expect(rowOf(page, "Good saves").locator("dd")).toHaveText("Fortitude");
   expect(await introLabels(page)).toContain("Alignment:");
   expect(await introLabels(page)).not.toContain("Hit Die:");
-  await expect(page.getByRole("heading", { level: 3, name: "Class Skills" })).toBeVisible();
+  // The body's headings were stored as h3; the shallowest of a body renders as h2 (#12, L3).
+  await expect(page.getByRole("heading", { level: 2, name: "Class Skills" })).toBeVisible();
 
   // Adept (NPC): printed in sections, so the card keeps what the table and the typed fields say.
   await openClass(page, "ref/npcclass/adept", 390);
