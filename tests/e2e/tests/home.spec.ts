@@ -49,7 +49,7 @@ test("Home lists up to six stars above the category directory, and See all expan
   const first = rows.first();
   await expect(first.locator(".home-row-meta")).toHaveText("Spell");
   expect((await first.boundingBox())!.height).toBeGreaterThanOrEqual(44);
-  const star = first.getByRole("button", { name: /^Unstar / });
+  const star = first.getByRole("button", { name: /^Star / });
   const box = (await star.boundingBox())!;
   expect(box.width).toBeGreaterThanOrEqual(44);
   expect(box.height).toBeGreaterThanOrEqual(44);
@@ -64,7 +64,7 @@ test("Home lists up to six stars above the category directory, and See all expan
 
 test("Unstarring from Home is one tap and the last star brings back the teaching line", async ({ page }) => {
   await seedHome(page, { recents: pick(5, 1), stars: pick(0, 1) });
-  await page.getByRole("button", { name: `Unstar ${pick(0, 1)[0].title}` }).click();
+  await page.getByRole("button", { name: `Star ${pick(0, 1)[0].title}`, exact: true }).click();
   await expect(page.locator(".home-bookmarks")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Starred" })).toHaveCount(0);
   await expect(page.locator(".home-hint")).toBeVisible();

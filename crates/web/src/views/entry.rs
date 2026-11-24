@@ -1409,7 +1409,7 @@ fn EntryStar(
     view! {
         <div class="bookmark-control">
             <button class="btn star-btn bookmark-toggle" type="button"
-                aria-label=move || format!("{} {label}", if bookmark.with(|b| b.is_some()) { "Unstar" } else { "Star" })
+                aria-label=format!("Star {label}")
                 aria-pressed=move || bookmark.with(|b| b.is_some()).to_string()
                 aria-disabled=move || (!loaded.get() || writing.get()).then_some("true") on:click=toggle>
                 {icons::star()}

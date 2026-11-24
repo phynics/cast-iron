@@ -58,7 +58,7 @@ test("The star is an icon-only 44 by 44 toggle in the title row", async ({ page 
 
   await star.click();
   await expect(star).toHaveAttribute("aria-pressed", "true");
-  await expect(star).toHaveAccessibleName(`Unstar ${multi.title}`);
+  await expect(star).toHaveAccessibleName(`Star ${multi.title}`);
 });
 
 test("Keyboard focus is visible on the star and on metadata links", async ({ page }) => {

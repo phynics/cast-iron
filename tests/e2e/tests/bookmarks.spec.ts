@@ -62,14 +62,14 @@ test("Home keeps legacy collection members as unique stars across offline restar
   await expect(page.getByRole("link", { name: "Books", exact: true })).toBeVisible();
 
   // The missing item has a usable Unstar control; it must not navigate away from Home.
-  await rows.filter({ hasText: "Remembered Rule" }).getByRole("button", { name: "Unstar Remembered Rule" }).click();
+  await rows.filter({ hasText: "Remembered Rule" }).getByRole("button", { name: "Star Remembered Rule", exact: true }).click();
   await expect(rows).toHaveCount(2);
   await expect(page).toHaveURL(/#\/?$/);
 
   // Star state remains shared with the entry page.
   await page.goto(`#/entry/${distinctSpells[0].id}`);
   await expect(page.locator(".bookmark-toggle")).toHaveAttribute("aria-pressed", "true");
-  await expect(page.locator(".bookmark-toggle")).toHaveAccessibleName(`Unstar ${distinctSpells[0].title}`);
+  await expect(page.locator(".bookmark-toggle")).toHaveAccessibleName(`Star ${distinctSpells[0].title}`);
 });
 
 installedTest("More than six starred entries stay independently openable and removable", async ({ page }) => {
@@ -98,7 +98,7 @@ installedTest("More than six starred entries stay independently openable and rem
   await page.getByRole("button", { name: "See all (7)" }).click();
   await expect(rows).toHaveCount(7);
   const first = rows.filter({ has: page.getByRole("link", { name: distinct[0].title, exact: true }) });
-  await first.getByRole("button", { name: `Unstar ${distinct[0].title}` }).click();
+  await first.getByRole("button", { name: `Star ${distinct[0].title}`, exact: true }).click();
   await expect(rows).toHaveCount(6);
   await expect(page.getByRole("heading", { name: "Your rules reference" })).toBeVisible();
   const last = distinct[6];
