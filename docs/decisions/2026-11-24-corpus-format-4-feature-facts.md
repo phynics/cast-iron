@@ -78,3 +78,23 @@ format 3 corpus stays green. Format 4 starts when the corpus repository runs
 `cargo xtask corpus-migrate-features <corpus>` (or `cast-iron-corpus migrate-features`) and commits the
 one-line change to `corpus.toml`; the rewrite scripts need it before they write `features` or `by`,
 because a format 3 corpus rejects both. The app pins the tag that holds format 4.
+
+## 2026-11-24 addendum: the pilot holds (#540)
+
+The Advanced Player's Guide pilot (cast-iron-data#306) held three groups of trades that the reader
+did not state yet. The owner ruled on them the same day, and the reader and the drift check now follow:
+
+- **A trade that print never states.** A stored trade with no printed trade sentence passes the drift
+  check when its `by` names a listed feature that prints no trade sentence at all (druid archetypes'
+  `alters = "Wild shape"`, paladin archetypes' `alters = "Divine bond"`: the feature describes the
+  changed ability). Coverage still applies the other way: every printed trade sentence must be covered
+  by trades. A trade without `by` and without a sentence in the opening text stays drift, as does a
+  trade whose feature prints another trade sentence but not this one.
+- **More ability nouns as the subject.** "This performance replaces ..." and "These performances
+  replace ..." (the bard archetypes) read as trade sentences; so do the nouns of the other classes'
+  choices (`trick`, `talent`, `hex`, `discovery`, `revelation`, `mercy`, `deed`, `exploit`, `arcana`).
+  "These feats replace ..." is a subject word that names no ability, so that sentence is bare and counts
+  only when it names a stored trade. "This bonus replaces ..." stays prose. The list is in
+  `docs/corpus-format.md`.
+- **"replaces both X and Y"** reads as a two-item list. "replaces either X or Y" is not read: no
+  printed sentence of the pilot uses it.
