@@ -4,6 +4,7 @@
 
 use super::{footnotes, icons, progression};
 use crate::class_sections::Section;
+use crate::library::Library;
 use crate::powers::{self, Placed, Plan};
 use crate::route::{self, Route};
 use cast_iron_schema::power::{Effect, upgrade_lead};
@@ -134,6 +135,9 @@ struct Renderer {
     slot: Option<(String, Callback<(), AnyView>)>,
     /// True when the Archetypes heading has just been rendered and the slot is next.
     slot_open: bool,
+    /// The entry whose body this is. An `entry-link` row names the listed entry's book, unless
+    /// that is this entry's own row book (#461).
+    hub: Option<EntryId>,
 }
 
 /// What the renderer knows about the footnotes of the entry it renders: where each note stands,
@@ -200,6 +204,7 @@ impl Renderer {
             notes: None,
             slot: None,
             slot_open: false,
+            hub: None,
         }
     }
 
@@ -233,6 +238,7 @@ impl Renderer {
         book: Option<String>,
         plan: &Plan<'_>,
     ) -> Vec<AnyView> {
+        self.hub = Some(entry.clone());
         let split = footnotes::split(body);
         if split.notes.is_empty() {
             return self.blocks_of(body.iter(), true, Some(plan));
@@ -305,8 +311,7 @@ impl Renderer {
                 continue;
             }
             if let Block::EntryLink { target, title } = item {
-                let href = Route::entry(target.clone()).href();
-                run.push(view! { <li><a href=href>{title.clone()}</a></li> }.into_any());
+                run.push(self.entry_link_row(target, title));
                 continue;
             }
             if !run.is_empty() {
@@ -377,12 +382,59 @@ impl Renderer {
             }
             Block::StatBlock { title, rows } => self.stat_block(title.as_deref(), rows),
             Block::EntryLink { target, title } => {
-                let href = Route::entry(target.clone()).href();
-                view! { <ul class="entry-links"><li><a href=href>{title.clone()}</a></li></ul> }
-                    .into_any()
+                let row = self.entry_link_row(target, title);
+                view! { <ul class="entry-links">{row}</ul> }.into_any()
             }
         }
     }
+
+    /// One `entry-link` row: the link, then the muted book of the listed entry, then `Inactive`
+    /// when every book of that entry is turned off (#461). The book and the label sit after the
+    /// link and not inside it, so the link's name stays the entry title. Without a library in
+    /// context, or for an entry the catalog does not know, the row is the bare link.
+    fn entry_link_row(&self, target: &EntryId, title: &str) -> AnyView {
+        let href = Route::entry(target.clone()).href();
+        let credit = use_context::<Library>().and_then(|library| {
+            let stub = library.stub(target)?;
+            let listed = library.row_book(stub);
+            let hub = self
+                .hub
+                .as_ref()
+                .and_then(|hub| library.entry_row_book(hub));
+            let name = library
+                .source(listed)
+                .map_or(listed, |source| &source.title);
+            Some((
+                listed_book_label(listed, name, hub),
+                !library.is_entry_active(target),
+            ))
+        });
+        let (book, inactive) = credit.unwrap_or((None, false));
+        let book = book.map(|book| {
+            view! {
+                <span class="entry-link-book" data-testid="entry-link-book">
+                    <span aria-hidden="true">"· "</span>{book}
+                </span>
+            }
+        });
+        let label = inactive.then(|| view! { <span class="tag">"Inactive"</span> });
+        view! {
+            <li data-inactive=inactive.then_some("true")>
+                <a href=href>{title.to_string()}</a>
+                {book}
+                {label}
+            </li>
+        }
+        .into_any()
+    }
+}
+
+/// The book an `entry-link` row names after its link (#461): the listed entry's row book, by its
+/// display title. A row never repeats the book of the page it stands on, so a hub that lists
+/// entries of its own book shows no label there. `hub_book` is the page's own row book, when
+/// known.
+fn listed_book_label(listed: &str, title: &str, hub_book: Option<&str>) -> Option<String> {
+    (hub_book != Some(listed)).then(|| title.to_string())
 }
 
 impl Renderer {
@@ -874,6 +926,34 @@ mod tests {
 
     fn text(s: &str) -> Inline {
         Inline::text(s)
+    }
+
+    #[test]
+    fn an_entry_link_row_names_the_listed_entrys_book() {
+        assert_eq!(
+            listed_book_label(
+                "horror-adventures",
+                "Horror Adventures",
+                Some("aquatic-adventures")
+            ),
+            Some("Horror Adventures".to_string())
+        );
+        assert_eq!(
+            listed_book_label("horror-adventures", "Horror Adventures", None),
+            Some("Horror Adventures".to_string())
+        );
+    }
+
+    #[test]
+    fn an_entry_link_row_never_repeats_the_book_of_its_page() {
+        assert_eq!(
+            listed_book_label(
+                "horror-adventures",
+                "Horror Adventures",
+                Some("horror-adventures")
+            ),
+            None
+        );
     }
 
     #[test]
