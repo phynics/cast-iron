@@ -13,6 +13,7 @@ pub mod categories;
 pub mod chains;
 pub mod class_card;
 pub mod continue_reading;
+pub mod crumbs;
 pub mod diagnostics;
 pub mod entry;
 pub mod entry_contents;

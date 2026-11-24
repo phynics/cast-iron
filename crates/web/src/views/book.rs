@@ -19,6 +19,7 @@ use crate::graph::{BookLookup, node_at};
 use crate::library::{Library, use_library};
 use crate::route::{Route, replace, toc_id, use_route};
 use crate::views::continue_reading;
+use crate::views::crumbs::{Crumb, Crumbs};
 use crate::views::icons;
 use crate::views::sources::aon_line;
 use crate::views::util::{Shared, local_resource, recovery_details, set_title};
@@ -495,11 +496,10 @@ pub fn ChapterView(
                             return ().into_any();
                         };
                         set_title(&row.title);
-                        let book_href = Route::Book {
+                        let book_route = Route::Book {
                             source: source.clone(),
                             chapter: None,
-                        }
-                        .href();
+                        };
                         let own = node
                             .entry
                             .as_ref()
@@ -526,13 +526,7 @@ pub fn ChapterView(
                             })
                             .collect_view();
                         view! {
-                            <nav class="crumbs" aria-label="Breadcrumb">
-                                <ol>
-                                    <li><a href=Route::books().href()>"Books"</a></li>
-                                    <li><a href=book_href>{tree.title.clone()}</a></li>
-                                    <li><span aria-current="page">{row.title.clone()}</span></li>
-                                </ol>
-                            </nav>
+                            <Crumbs items=vec![Crumb::new(tree.title.clone(), book_route)] />
                             <h1 data-testid="chapter-title">{row.title.clone()}</h1>
                             {book_off().then(off_line)}
                             {own.map(|href| view! {
@@ -965,9 +959,9 @@ fn where_line(review: &[String]) -> &'static str {
     }
 }
 
-/// The place of an entry in its book: the chapters above it and its neighbours in book order.
-/// It loads `books.json` after the entry is on screen and shows nothing when the library has no
-/// book order or the entry is in no book.
+/// The place of an entry in its book: its neighbours in book order. The chapters above it are the
+/// entry's breadcrumb (#571), not part of this footer. It loads `books.json` after the entry is on
+/// screen and shows nothing when the library has no book order or the entry is in no book.
 #[component]
 pub fn BookPosition(library: Library, id: EntryId, book: Option<String>) -> impl IntoView {
     let lookup = {
@@ -1000,32 +994,7 @@ pub fn BookPosition(library: Library, id: EntryId, book: Option<String>) -> impl
             let Some(reading) = library.reading(index) else {
                 return ().into_any();
             };
-            let Some(stop) = reading.stop(&id) else {
-                return ().into_any();
-            };
             let source = book.source.clone();
-            let book_href = Route::Book {
-                source: source.clone(),
-                chapter: None,
-            }
-            .href();
-            let hide = hides_from_contents(&library);
-            let mut crumbs =
-                vec![view! { <li><a href=book_href>{book.title.clone()}</a></li> }.into_any()];
-            let trail = &stop.path;
-            for depth in 1..trail.len() {
-                let path = trail[..depth].to_vec();
-                if let Some(node) = node_at(book, &path) {
-                    // The stable form of the row, so a link that is shared or saved from this
-                    // trail survives the next pin. A row the walk does not reach keeps no marker.
-                    let href = Route::Book {
-                        source: source.clone(),
-                        chapter: contents_row(book, &hide, &path),
-                    }
-                    .href();
-                    crumbs.push(view! { <li><a href=href>{crate::views::util::section_label(&node.title)}</a></li> }.into_any());
-                }
-            }
             let (before, after) = reading.neighbors(&id);
             let step = |neighbor: Option<&crate::reading::ReadingNeighbor>, next: bool| {
                 neighbor.map(|neighbor| {
@@ -1060,7 +1029,6 @@ pub fn BookPosition(library: Library, id: EntryId, book: Option<String>) -> impl
             view! {
                 <nav class="book-bar" aria-label="Position in the book" data-testid="book-bar">
                     <p class="book-where">{where_line(&book.review)}</p>
-                    <ol class="book-trail">{crumbs}</ol>
                     <div class="book-steps">
                         {step(before.as_ref(), false)}
                         {step(after.as_ref(), true)}

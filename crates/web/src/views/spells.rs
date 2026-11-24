@@ -9,6 +9,7 @@ use crate::library::{Library, LibraryError, use_library};
 use crate::route::{Route, push, replace, use_route};
 use crate::views::book_tier::Tier;
 use crate::views::categories;
+use crate::views::crumbs::{Crumb, Crumbs};
 use crate::views::filter_menu::{
     FilterMenuButton, MenuState, MultiFilterMenuPanel, MultiOption, multi_trigger_text,
 };
@@ -158,14 +159,9 @@ fn load_failed(error: &LibraryError) -> impl IntoView + use<> {
 }
 
 fn spell_crumbs(last: Option<(&'static str, Route)>) -> impl IntoView {
-    view! {
-        <nav class="crumbs" aria-label="Breadcrumb">
-            <ol>
-                <li><a href=Route::browse_kind(EntryKind::Spell).href()>"Spells"</a></li>
-                {last.map(|(label, route)| view! { <li><a href=route.href()>{label}</a></li> })}
-            </ol>
-        </nav>
-    }
+    let mut items = vec![Crumb::new("Spells", Route::browse_kind(EntryKind::Spell))];
+    items.extend(last.map(|(label, route)| Crumb::new(label, route)));
+    view! { <Crumbs items /> }
 }
 
 fn class_jump(list: &SpellListClass) -> impl IntoView + use<> {

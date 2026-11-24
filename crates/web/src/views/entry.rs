@@ -21,6 +21,7 @@ use crate::views::book::BookPosition;
 use crate::views::book_tier::Tier;
 use crate::views::class_card::{SpellListLink, class_card};
 use crate::views::continue_reading;
+use crate::views::crumbs::{Crumb, EntryCrumbs, EntryFacts};
 use crate::views::entry_contents::ArticleContents;
 use crate::views::fresh::IntoFresh as _;
 use crate::views::icons;
@@ -196,15 +197,6 @@ pub fn parent_chain(library: &Library, id: &EntryId) -> Vec<(EntryId, String)> {
     }
     chain.reverse();
     chain
-}
-
-/// Section names that the parent chain does not already show.
-pub fn extra_sections(section: &[String], chain_titles: &[&str]) -> Vec<String> {
-    section
-        .iter()
-        .filter(|s| !chain_titles.iter().any(|t| t.eq_ignore_ascii_case(s)))
-        .cloned()
-        .collect()
 }
 
 /// One reference per target entry; anchors are kept only when the target appears once.
@@ -574,29 +566,12 @@ fn EntryView(
     // The effective graph already walks a revised feat's prerequisites under the original id,
     // so the chain, Requirements and Leads to panels agree with the revised text.
     let chain = parent_chain(&library, &entry.id);
-    let mut chain_titles: Vec<&str> = chain.iter().map(|(_, t)| t.as_str()).collect();
-    chain_titles.push(entry.kind.label());
-    if entry.kind == EntryKind::PrestigeClass {
-        chain_titles.push("Classes");
-    }
-    // A creature's section is printed taxonomy (Monsters > Dragon > Chromatic > Red), not a
-    // set of pages, so it cannot be a breadcrumb. Other kinds keep their section text until
-    // #193 changes entry crumbs.
-    let sections = if entry.kind == EntryKind::Creature {
-        Vec::new()
-    } else {
-        extra_sections(&entry.section, &chain_titles)
-    };
-    let crumbs_chain = chain
+    // The breadcrumb names pages only: the kind list and the parent entries. A printed section
+    // (a creature's Monsters > Dragon > Chromatic > Red included) is not a page (#571).
+    let parent_crumbs: Vec<Crumb> = chain
         .iter()
-        .map(|(id, title)| {
-            view! { <li><a href=Route::entry(id.clone()).href()>{title.clone()}</a></li> }
-        })
-        .collect_view();
-    let crumbs_sections = sections
-        .into_iter()
-        .map(|s| view! { <li><span>{s}</span></li> })
-        .collect_view();
+        .map(|(id, title)| Crumb::new(title.clone(), Route::entry(id.clone())))
+        .collect();
 
     let has_books = library.has_books();
     // The first book shows in the metadata line; the rest open on demand, so a rule printed in
@@ -758,32 +733,31 @@ fn EntryView(
         .unwrap_or_default();
     // An add-on or variant names its base once, at the end of the metadata line. The base
     // stays linked when its book is inactive, followed by the plain `Inactive` label.
-    let addon_base = entry
-        .relations
-        .iter()
-        .find_map(|relation| {
-            let phrase = match relation.kind {
-                RelationKind::Addon => addon_base_phrase(relation.label?, &addon_book)?,
-                RelationKind::Variant => "Variant of".to_string(),
-                // The revision's own page names the feat it revises. A base page never shows
-                // this: its effective entry drops the revision edge.
-                RelationKind::Revision => "Revision of".to_string(),
-                _ => return None,
-            };
-            Some((phrase, relation.target.clone()))
-        })
-        .map(|(phrase, base)| {
-            let title = library
-                .stub(&base)
-                .map_or_else(|| base.to_string(), |stub| stub.title.clone());
-            let href = Route::entry(base.clone()).href();
-            let inactive = !library.is_entry_active(&base);
-            view! {
-                <span class="meta-sep" aria-hidden="true">"·"</span>
-                <a class="meta-link" href=href>{format!("{phrase} {title}")}</a>
-                {inactive.then(|| view! { <span class="tag">"Inactive"</span> })}
-            }
-        });
+    let addon_of = entry.relations.iter().find_map(|relation| {
+        let phrase = match relation.kind {
+            RelationKind::Addon => addon_base_phrase(relation.label?, &addon_book)?,
+            RelationKind::Variant => "Variant of".to_string(),
+            // The revision's own page names the feat it revises. A base page never shows
+            // this: its effective entry drops the revision edge.
+            RelationKind::Revision => "Revision of".to_string(),
+            _ => return None,
+        };
+        Some((phrase, relation.target.clone()))
+    });
+    // The same test decides the breadcrumb: an add-on has none outside a book.
+    let is_addon = addon_of.is_some();
+    let addon_base = addon_of.map(|(phrase, base)| {
+        let title = library
+            .stub(&base)
+            .map_or_else(|| base.to_string(), |stub| stub.title.clone());
+        let href = Route::entry(base.clone()).href();
+        let inactive = !library.is_entry_active(&base);
+        view! {
+            <span class="meta-sep" aria-hidden="true">"·"</span>
+            <a class="meta-link" href=href>{format!("{phrase} {title}")}</a>
+            {inactive.then(|| view! { <span class="tag">"Inactive"</span> })}
+        }
+    });
     // A class option's metadata line names its group, and links the class when the group has
     // exactly one. A group shared by several classes has no single class to link.
     let class_option_group = indexes
@@ -1149,15 +1123,14 @@ fn EntryView(
     let contents = (class_sections.is_none() || kind == EntryKind::PrestigeClass).then(|| {
         view! { <ArticleContents body=contents_body id=entry.id.clone() /> }
     });
+    let trail_facts = EntryFacts {
+        kind,
+        addon: is_addon,
+        kind_crumb: Crumb::new(kind.label(), Route::browse_kind(kind)),
+        parents: parent_crumbs,
+    };
     view! {
-        <nav class="crumbs" aria-label="Breadcrumb">
-            <ol>
-                <li><a href=if kind == EntryKind::Rule { Route::books().href() } else { Route::Home.href() }>{if kind == EntryKind::Rule { "Books" } else { "Home" }}</a></li>
-                {(kind != EntryKind::Rule).then(|| view! { <li><a href=Route::browse_kind(kind).href()>{kind.label()}</a></li> })}
-                {crumbs_chain}
-                {crumbs_sections}
-            </ol>
-        </nav>
+        <EntryCrumbs library=library.clone() id=entry.id.clone() book=book.clone() facts=trail_facts />
         <header class="entry-head">
             <div class="entry-title-row">
                 <h1 data-testid="entry-title">{entry.title.clone()}</h1>
@@ -1510,16 +1483,6 @@ mod tests {
         assert_eq!(out[0].anchor, None);
         let single = unique_targets(&[r("a/x", Some("one"))]);
         assert_eq!(single[0].anchor.as_deref(), Some("one"));
-    }
-
-    #[test]
-    fn sections_skip_chain_titles() {
-        let section = vec!["Combat".to_string(), "Actions".to_string()];
-        assert_eq!(
-            extra_sections(&section, &["combat"]),
-            vec!["Actions".to_string()]
-        );
-        assert_eq!(extra_sections(&section, &[]).len(), 2);
     }
 
     fn of_kind(kind: EntryKind, fields: TypedFields) -> RuleEntry {

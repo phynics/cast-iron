@@ -17,6 +17,7 @@ use crate::views::book_series::{
 };
 use crate::views::book_tier::{Tier, group_is_open, remember_group};
 use crate::views::categories::{self, Lens, applied_facets};
+use crate::views::crumbs::{Crumb, Crumbs, book_route};
 use crate::views::filter_menu::{
     FilterMenuButton, FilterMenuPanel, MenuOption, MenuSpec, MenuState, current_option,
     take_focus_request, trigger_text,
@@ -2178,9 +2179,10 @@ fn sections_by_group(
 }
 
 /// The list page itself, over the entries that are left after the filter. The list-page
-/// template (DESIGN.md): title, count, the filter row, the letter bar, the rows. No breadcrumb,
-/// lede or search link: the tab bar and the brand lead home, the category cards on Home carry
-/// the blurb, and the header search icon opens Quick search scoped to this list.
+/// template (DESIGN.md): title, count, the filter row, the letter bar, the rows. No lede or
+/// search link, and a breadcrumb only for a list that a held book filters (the book). The tab
+/// bar and the brand lead home, the category cards on Home carry the blurb, and the header
+/// search icon opens Quick search scoped to this list.
 #[component]
 fn BrowseList(
     kind: EntryKind,
@@ -2452,8 +2454,16 @@ fn BrowseList(
             )
         });
 
+    // A list filtered by a book the library holds sits under that book (#571).
+    let crumbs = source
+        .as_deref()
+        .zip(source_title.as_deref())
+        .map(|(id, title)| vec![Crumb::new(title, book_route(&library, id))])
+        .unwrap_or_default();
+
     view! {
         <div class="wide list-page">
+        <Crumbs items=crumbs />
         <h1 tabindex="-1">{kind.label()}</h1>
         {notice}
         {pill}
@@ -2534,9 +2544,6 @@ pub fn BrowseSource(id: String, #[prop(optional)] bare: bool) -> impl IntoView {
     let count = active_count_line(library.discovery().entries_of_source(&id).count());
     view! {
         <div class="wide">
-        <nav class="crumbs" aria-label="Breadcrumb">
-            <ol><li><a href=Route::Home.href()>"Home"</a></li></ol>
-        </nav>
         <h1>{source.title.clone()}</h1>
         <p class="muted" data-testid="source-count">{count}</p>
         {copyright.map(|line| view! { <p class="copyright">{line}</p> })}

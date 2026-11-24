@@ -357,7 +357,7 @@ installedTest("A book page opens with its title, a meta line and the contents, w
   expect(await review.evaluate((el) => getComputedStyle(el).fontWeight)).toBe("400");
 });
 
-installedTest("A Contents chapter opens its own page with a Books › Book › Chapter breadcrumb, and Back restores the position", async ({ page }) => {
+installedTest("A Contents chapter opens its own page under its book, and Back restores the position", async ({ page }) => {
   const core = sources.find((row) => row.id === "core-rulebook")!;
   const book = bookTrees().find((row) => row.source === core.id)!;
   await page.goto(`#/browse/book/${core.id}`);
@@ -383,13 +383,17 @@ installedTest("A Contents chapter opens its own page with a Books › Book › C
   await expect(page).toHaveURL(new RegExp(`${escape(href)}$`));
   const heading = page.getByTestId("chapter-title");
   await expect(heading).toHaveText(last.title);
+  // The trail lists the pages between the Books tab and this page: the book, nothing else. It
+  // never names the Books tab or the chapter the reader is on (#571).
   const crumbs = page.getByRole("navigation", { name: "Breadcrumb" });
-  await expect(crumbs.getByRole("link", { name: "Books", exact: true })).toHaveAttribute("href", "#/books");
+  await expect(crumbs.locator("li")).toHaveText([core.title]);
   await expect(crumbs.getByRole("link", { name: core.title, exact: true })).toHaveAttribute(
     "href",
     `#/browse/book/${core.id}`,
   );
-  await expect(crumbs.locator('[aria-current="page"]')).toHaveText(last.title);
+  await expect(crumbs.getByRole("link", { name: "Books", exact: true })).toHaveCount(0);
+  await expect(crumbs.locator('[aria-current="page"]')).toHaveCount(0);
+  await expect(page.locator('a.nav-link[aria-current="page"]')).toHaveText("Books");
 
   await page.goBack();
   await expect(page).toHaveURL(new RegExp(`${escape(chapterUrl)}$`));
@@ -425,6 +429,19 @@ installedTest("A chapter page opens an entry, and Next continues the book before
   await entryLink.click();
   await expect(page.getByRole("heading", { level: 1, name: entry.title, exact: true })).toBeVisible();
   await expect(page.getByTestId("book-bar")).toBeVisible();
+  // The entry sits under its book and its chapter page (#571). The footer holds no trail, and
+  // the tab is Books.
+  const entryPath = pathOfEntry(book, entryId!)!;
+  const isChapterRow = entryPath.length === first.path.length;
+  const trail = page.getByRole("navigation", { name: "Breadcrumb" });
+  await expect(trail.locator("li")).toHaveText(isChapterRow ? [core.title] : [core.title, first.title]);
+  await expect(trail.getByRole("link", { name: core.title, exact: true })).toHaveAttribute("href", `#/browse/book/${core.id}`);
+  if (!isChapterRow) {
+    await expect(trail.getByRole("link", { name: first.title, exact: true })).toHaveAttribute("href", new RegExp(`^#/browse/book/${escape(core.id)}/[^/]+$`));
+  }
+  await expect(page.locator(".book-trail")).toHaveCount(0);
+  await expect(page.getByTestId("book-bar").getByText("In the book")).toBeVisible();
+  await expect(page.locator('a.nav-link[aria-current="page"]')).toHaveText("Books");
   // Back from the entry returns to the chapter page it came from.
   await page.goBack();
   await expect(page).toHaveURL(new RegExp(`${escape(chapterUrl)}$`));
@@ -443,6 +460,97 @@ installedTest("A chapter page opens an entry, and Next continues the book before
   await page.goBack();
   await expect(page).toHaveURL(new RegExp(`${escape(chapterUrl)}$`));
   await expect(page.getByTestId("chapter-title")).toBeVisible();
+});
+
+/** The breadcrumb of an entry opened from `book` (#571): the book, then the chapter page above the entry, unless the entry is that chapter's own row. */
+function bookTrail(book: ReturnType<typeof bookTrees>[number], id: string): string[] {
+  const path = pathOfEntry(book, id)!;
+  const chapter = listedChapters(book).find((row) => row.path.every((part, depth) => path[depth] === part));
+  return !chapter || path.length === chapter.path.length ? [book.title] : [book.title, chapter.title];
+}
+
+installedTest("An entry opened without a book lists its kind list, never Home, a tab or a printed section", async ({ page }) => {
+  const crumbs = page.locator("main nav.crumbs");
+  for (const [id, kind, label] of [
+    ["ref/spell/fireball", "spell", "Spells"],
+    ["ref/feat/power-attack", "feat", "Feats"],
+  ]) {
+    await page.goto(`#/entry/${id}`);
+    await expect(page.getByTestId("entry-title")).toBeVisible();
+    await expect(crumbs.locator("li")).toHaveText([label]);
+    await expect(crumbs.locator("li > span")).toHaveCount(0);
+    await expect(crumbs.getByRole("link", { name: label, exact: true })).toHaveAttribute("href", `#/browse/kind/${kind}`);
+    await expect(page.locator('a.nav-link[aria-current="page"]')).toHaveText("Home");
+  }
+});
+
+installedTest("An add-on, and a rule without a parent, open with no breadcrumb", async ({ page }) => {
+  for (const id of [
+    "ref/carried/mythic-adventures/feats/power-attack/mythic",
+    "ref/ability/advanced-weapon-training",
+  ]) {
+    await page.goto(`#/entry/${id}`);
+    await expect(page.getByTestId("entry-title")).toBeVisible();
+    await expect(page.locator("main nav.crumbs")).toHaveCount(0);
+    await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toHaveCount(0);
+  }
+});
+
+installedTest("A rule with a parent entry lists its parent chain and nothing else", async ({ page }) => {
+  // The Barbarian class rule sits under the Barbarian class page.
+  await page.goto("#/entry/ref/rule/class-barbarian/barbarian");
+  await expect(page.getByTestId("entry-title")).toBeVisible();
+  const crumbs = page.locator("main nav.crumbs");
+  await expect(crumbs.locator("li")).toHaveText(["Barbarian"]);
+  await expect(crumbs.getByRole("link", { name: "Barbarian", exact: true })).toHaveAttribute("href", "#/entry/ref/class/barbarian");
+});
+
+installedTest("An entry opened from a chapter lists its book and its chapter page, and the footer holds no trail", async ({ page }) => {
+  const core = sources.find((row) => row.id === "core-rulebook")!;
+  const book = bookTrees().find((row) => row.source === core.id)!;
+  const skills = listedChapters(book).find((row) => row.title === "Skills")!;
+  expect(skills, "Core Rulebook has a Skills chapter").toBeTruthy();
+  const id = bookReadingOrder(book).find((candidate) => {
+    const path = pathOfEntry(book, candidate);
+    return path !== null && path.length > skills.path.length && skills.path.every((part, depth) => path[depth] === part);
+  })!;
+  expect(id, "the Skills chapter has an entry below its row").toBeTruthy();
+  await page.goto(`#/entry/${id}?book=${core.id}`);
+  await expect(page.getByTestId("entry-title")).toBeVisible();
+  const crumbs = page.getByRole("navigation", { name: "Breadcrumb" });
+  await expect(crumbs.locator("li")).toHaveText(["Core Rulebook", "Skills"]);
+  await expect(crumbs.getByRole("link", { name: "Core Rulebook", exact: true })).toHaveAttribute("href", `#/browse/book/${core.id}`);
+  await expect(crumbs.getByRole("link", { name: "Skills", exact: true })).toHaveAttribute("href", /^#\/browse\/book\/core-rulebook\/skills/);
+  await expect(page.getByTestId("book-bar")).toBeVisible();
+  await expect(page.locator(".book-trail, [data-testid=book-bar] ol")).toHaveCount(0);
+  await expect(page.locator('a.nav-link[aria-current="page"]')).toHaveText("Books");
+  // Following the chapter crumb opens the chapter page, which lists the book alone.
+  await crumbs.getByRole("link", { name: "Skills", exact: true }).click();
+  await expect(page.getByTestId("chapter-title")).toHaveText("Skills");
+  await expect(page.getByRole("navigation", { name: "Breadcrumb" }).locator("li")).toHaveText(["Core Rulebook"]);
+});
+
+installedTest("An add-on that a book places keeps the book trail, so it stays steady while the reader steps with Next", async ({ page }) => {
+  const placed = bookPlacements();
+  const hit = [...corpus.entries.values()].find((entry: any) => {
+    const source = placed.get(entry.id);
+    const book = bookTrees().find((row) => row.source === source);
+    return (
+      book !== undefined
+      && !sources.find((row) => row.id === source)?.third_party
+      && (entry.relations ?? []).some((relation: any) => relation.kind === "variant" || (relation.kind === "addon" && ["mythic", "stamina", "changes"].includes(relation.label)))
+      && bookReadingOrder(book).includes(entry.id)
+    );
+  }) as any;
+  expect(hit, "a book of the corpus places an add-on in its Contents").toBeTruthy();
+  const book = bookTrees().find((row) => row.source === placed.get(hit.id))!;
+  await page.goto(`#/entry/${hit.id}?book=${book.source}`);
+  await expect(page.getByTestId("entry-title")).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Breadcrumb" }).locator("li")).toHaveText(bookTrail(book, hit.id));
+  // The same add-on opened without the book has none.
+  await page.goto(`#/entry/${hit.id}`);
+  await expect(page.getByTestId("entry-title")).toBeVisible();
+  await expect(page.locator("main nav.crumbs")).toHaveCount(0);
 });
 
 installedTest("An entry opened from search outside the first active book shows no previous or next", async ({ page }) => {

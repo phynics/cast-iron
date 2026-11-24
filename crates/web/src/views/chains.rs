@@ -5,6 +5,7 @@ use crate::fmt;
 use crate::graph::{ChainHead, ChainNode, Relations};
 use crate::library::{Library, use_library};
 use crate::route::{self, Route, use_route};
+use crate::views::crumbs::{Crumb, Crumbs};
 use crate::views::icons;
 use crate::views::util::{Shared, local_resource, set_title, sort_key};
 use cast_iron_schema::{EntryId, EntryKind};
@@ -87,11 +88,7 @@ pub fn FeatChains() -> impl IntoView {
     };
     view! {
         <div class="wide">
-            <nav class="crumbs" aria-label="Breadcrumb">
-                <ol>
-                    <li><a href=Route::browse_kind(EntryKind::Feat).href()>"Feats"</a></li>
-                </ol>
-            </nav>
+            <Crumbs items=vec![Crumb::new("Feats", Route::browse_kind(EntryKind::Feat))] />
             <h1>"Feat chains"</h1>
             <p class="muted measure">
                 "These feats have no feat prerequisite, and other feats build on them. "
