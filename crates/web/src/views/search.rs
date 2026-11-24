@@ -865,6 +865,17 @@ fn grouped_hits(hits: Vec<HitSummary>) -> Vec<SearchHit> {
     groups
 }
 
+/// The kinds whose class features are search aliases with a deep link (#540).
+fn feature_alias_kind(kind: &str) -> bool {
+    [
+        EntryKind::Archetype,
+        EntryKind::ClassOption,
+        EntryKind::Class,
+    ]
+    .iter()
+    .any(|candidate| candidate.slug() == kind)
+}
+
 #[derive(Clone)]
 enum Phase {
     Idle,
@@ -1340,8 +1351,10 @@ pub fn Search() -> impl IntoView {
                     };
                     facet_data.push((field.to_owned(), values));
                 }
-                // Rule headings come from typed, cached rule entries only. Non-rule results
-                // never cause shard reads.
+                // Rule headings come from typed, cached rule entries only. The other results
+                // cause a shard read only when the query named a class feature of the entry
+                // (#540): the engine says which alias matched, and only an archetype, a class
+                // option or a class has features, so a title or text hit never reads a shard.
                 let query_text = current.q.clone();
                 for result in &mut hits {
                     for (hit, anchor) in std::iter::once((&result.hit, &mut result.anchor)).chain(
@@ -1350,16 +1363,24 @@ pub fn Search() -> impl IntoView {
                             .iter_mut()
                             .map(|(hit, anchor)| (&*hit, anchor)),
                     ) {
-                        if hit.kind != EntryKind::Rule.slug() {
+                        let named_feature = feature_alias_kind(&hit.kind)
+                            .then_some(hit.alias.as_deref())
+                            .flatten();
+                        if hit.kind != EntryKind::Rule.slug() && named_feature.is_none() {
                             continue;
                         }
                         if let Ok(id) = EntryId::parse(hit.id.clone())
                             && let Ok(entry) = library.entry(&id).await
                         {
-                            *anchor = crate::views::entry_contents::matching_heading(
-                                &entry.body,
-                                &query_text,
-                            );
+                            *anchor = match named_feature {
+                                Some(alias) => {
+                                    crate::views::entry_contents::feature_anchor(&entry, alias)
+                                }
+                                None => crate::views::entry_contents::matching_heading(
+                                    &entry.body,
+                                    &query_text,
+                                ),
+                            };
                         }
                     }
                 }

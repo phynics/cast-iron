@@ -343,6 +343,32 @@ fn alias_match() {
 }
 
 #[test]
+fn a_hit_names_the_alias_that_holds_every_query_word_unless_the_title_matched() {
+    // A class feature heading is an alias of its archetype (#540): the hit says which one the
+    // query named, so the caller can open the entry at that feature.
+    let mut archetype = doc("a", "Two-Handed Fighter", "archetype", "apg", "", &[]);
+    archetype.aliases = vec!["Piledriver".into(), "Shattering Strike".into()];
+    let idx = build(vec![archetype]);
+    let alias_of = |text: &str| {
+        let mut hits = idx.search(&q(text));
+        assert_eq!(hits.len(), 1, "{text}");
+        hits.remove(0).alias
+    };
+    assert_eq!(
+        alias_of("shattering strike").as_deref(),
+        Some("Shattering Strike")
+    );
+    assert_eq!(alias_of("Shattering").as_deref(), Some("Shattering Strike"));
+    // The last word may still be typed.
+    assert_eq!(
+        alias_of("shattering stri").as_deref(),
+        Some("Shattering Strike")
+    );
+    // A word of the title: the hit is a title hit and names no alias.
+    assert_eq!(alias_of("fighter"), None);
+}
+
+#[test]
 fn filters() {
     let idx = build(corpus());
     let f = |kinds: &[&str], sources: &[&str], facets: &[(&str, &str)]| Filters {

@@ -140,6 +140,55 @@ pub fn heading_keys(body: &[Block]) -> Vec<Option<String>> {
         .collect()
 }
 
+/// A listed feature of an entry and the heading that prints it (corpus format 4, #540).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FeatureHead {
+    /// The explicit anchor of the heading, which is also its URL key.
+    pub anchor: String,
+    /// The level the feature is gained at, when the data gives one.
+    pub level: Option<u8>,
+    /// The heading text as printed, ability tag included (`Shattering Strike (Ex)`).
+    pub printed: String,
+    /// The printed name without its ability tag (`Shattering Strike`), which is what a reader
+    /// searches for and what the search alias holds.
+    pub name: String,
+}
+
+/// The `features` of an entry that have a heading in `body`, in body order. A feature matches the
+/// heading whose explicit anchor is its anchor; a derived key never matches, because the format
+/// requires the anchor to be written. A feature with no such heading is left out, and so is one
+/// whose heading has no text, so a reader never meets a head with nothing in it.
+pub fn feature_heads(body: &[Block], features: &[crate::FeatureFact]) -> Vec<FeatureHead> {
+    if features.is_empty() {
+        return Vec::new();
+    }
+    headings_in_order(body)
+        .into_iter()
+        .filter_map(|block| {
+            let Block::Heading {
+                anchor: Some(anchor),
+                content,
+                ..
+            } = block
+            else {
+                return None;
+            };
+            let fact = features.iter().find(|fact| fact.anchor == *anchor)?;
+            let printed = plain_text(content).trim().to_string();
+            let name = crate::power::split_ability_tag(&printed)
+                .0
+                .trim()
+                .to_string();
+            (!name.is_empty()).then_some(FeatureHead {
+                anchor: anchor.clone(),
+                level: fact.level,
+                printed,
+                name,
+            })
+        })
+        .collect()
+}
+
 // ---- Explicit anchors on linked headings -------------------------------------------------
 //
 // A heading without an anchor gets a URL key from its text (`sec-<slug>`), so editing the
@@ -268,6 +317,49 @@ mod tests {
             anchor: anchor.map(str::to_string),
             content: vec![Inline::text(text)],
         }
+    }
+
+    fn fact(anchor: &str, level: Option<u8>) -> crate::FeatureFact {
+        crate::FeatureFact {
+            anchor: anchor.into(),
+            level,
+        }
+    }
+
+    #[test]
+    fn a_feature_matches_the_heading_with_its_explicit_anchor_and_loses_its_tag_in_the_name() {
+        let body = vec![
+            h(Some("opening"), "Class Skills"),
+            h(Some("shattering-strike"), "Shattering Strike (Ex)"),
+            h(None, "Shattering Strike"),
+            h(Some("weapon-training"), "Weapon Training"),
+            h(Some("sense"), "Keen Senses (Ex or Su)"),
+        ];
+        let found = feature_heads(
+            &body,
+            &[
+                fact("weapon-training", None),
+                fact("shattering-strike", Some(2)),
+                fact("missing", Some(9)),
+                fact("sec-shattering-strike", Some(3)),
+                fact("sense", Some(7)),
+            ],
+        );
+        let names: Vec<_> = found
+            .iter()
+            .map(|head| (head.anchor.as_str(), head.name.as_str(), head.level))
+            .collect();
+        // Body order; a missing heading and a derived key are left out.
+        assert_eq!(
+            names,
+            [
+                ("shattering-strike", "Shattering Strike", Some(2)),
+                ("weapon-training", "Weapon Training", None),
+                ("sense", "Keen Senses", Some(7)),
+            ]
+        );
+        assert_eq!(found[0].printed, "Shattering Strike (Ex)");
+        assert!(feature_heads(&body, &[]).is_empty());
     }
 
     #[test]

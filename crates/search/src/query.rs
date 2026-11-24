@@ -170,6 +170,7 @@ impl HitSummary {
             score: self.score,
             title_matches: Vec::new(),
             snippet: Snippet::default(),
+            alias: None,
         }
     }
 }
@@ -823,6 +824,7 @@ impl SearchIndex {
             score,
             title_matches: Vec::new(),
             snippet: Snippet::default(),
+            alias: None,
         };
         self.fill_highlight(&mut hit, m, timer);
         hit
@@ -839,9 +841,34 @@ impl SearchIndex {
             .map_or("", |s| cap_text(s));
         let snippet = snippet(body, m);
         timer.exit(Phase::Snippets);
+        hit.alias = if title_matches.is_empty() {
+            matched_alias(&d.aliases, m)
+        } else {
+            None
+        };
         hit.title_matches = title_matches;
         hit.snippet = snippet;
     }
+}
+
+/// The first alias that holds every query word: each exact word as a word of the alias, and the
+/// last word, when the reader may still be typing it, as the start of one. A query that matched
+/// nothing (an empty matcher) names no alias.
+fn matched_alias(aliases: &[String], m: &Matcher) -> Option<String> {
+    if m.exact.is_empty() {
+        return None;
+    }
+    aliases
+        .iter()
+        .find(|alias| {
+            let words: Vec<String> = scan(alias).into_iter().map(|t| t.norm).collect();
+            m.exact.iter().all(|q| {
+                words
+                    .iter()
+                    .any(|w| w == q || (m.prefix.contains(q) && w.starts_with(q.as_str())))
+            })
+        })
+        .cloned()
 }
 
 fn result_limit(query: &Query) -> usize {

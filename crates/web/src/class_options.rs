@@ -4,6 +4,7 @@
 //! group an option belongs to, which groups a class takes, and how many of a group's options the
 //! active books keep. They live here so the rules are tested without a browser.
 
+use cast_iron_schema::headings::FeatureHead;
 use cast_iron_schema::{EntryId, OptionGroup, OptionGroupIndex, TradeIndex, TradeOp, TradeRow};
 use std::collections::HashSet;
 
@@ -69,6 +70,33 @@ pub fn replaces_line_of(row: &TradeRow) -> Option<String> {
 pub fn trade_line_of(row: &TradeRow, op: TradeOp) -> Option<String> {
     let names = row.printed(op);
     (!names.is_empty()).then(|| format!("{} {}", op.label(), names.join(", ")))
+}
+
+/// One printed name of a trade line, and the feature of the same page that states it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TradeName {
+    pub printed: String,
+    /// The anchor and the printed name of the first feature in the trade's `by` that has a head
+    /// on this page. `None` when no head qualifies, and then the name is plain text.
+    pub stated_in: Option<(String, String)>,
+}
+
+/// The names of the trades with `op`, each with the feature of `heads` that states it. `heads`
+/// is empty when the page offers no jump, and then no name links (#540).
+pub fn trade_names_of(row: &TradeRow, op: TradeOp, heads: &[FeatureHead]) -> Vec<TradeName> {
+    row.trades
+        .iter()
+        .filter(|trade| trade.op == op)
+        .map(|trade| TradeName {
+            printed: trade.printed.clone(),
+            stated_in: trade.by.iter().find_map(|anchor| {
+                heads
+                    .iter()
+                    .find(|head| head.anchor == *anchor)
+                    .map(|head| (head.anchor.clone(), head.name.clone()))
+            }),
+        })
+        .collect()
 }
 
 /// The muted archetype line for the entry `id`. `None` when the library has no trades for it.
@@ -198,6 +226,70 @@ mod tests {
         );
         assert_eq!(
             replaces_line(None, &id("ref/arc-wizard/scrollmaster")),
+            None
+        );
+    }
+
+    #[test]
+    fn a_trade_name_links_to_the_first_feature_of_its_by_that_the_page_has() {
+        let trade = |op, printed: &str, by: &[&str]| Trade {
+            by: by.iter().map(|anchor| anchor.to_string()).collect(),
+            ..Trade::unresolved(op, printed)
+        };
+        let row = TradeRow {
+            id: id("ref/arc-fighter/two-handed-fighter"),
+            trades: vec![
+                trade(TradeOp::Replaces, "Bravery", &["shattering-strike"]),
+                trade(
+                    TradeOp::Replaces,
+                    "Bombs",
+                    &["gone", "spore-bomb", "blights"],
+                ),
+                trade(TradeOp::Replaces, "Code of conduct", &[]),
+                trade(TradeOp::Alters, "Weapon training", &["weapon-training"]),
+            ],
+        };
+        let head = |anchor: &str, name: &str| FeatureHead {
+            anchor: anchor.into(),
+            level: None,
+            printed: name.into(),
+            name: name.into(),
+        };
+        let heads = [
+            head("shattering-strike", "Shattering Strike"),
+            head("blights", "Blights"),
+            head("spore-bomb", "Spore Bomb"),
+        ];
+        let linked: Vec<_> = trade_names_of(&row, TradeOp::Replaces, &heads)
+            .into_iter()
+            .map(|name| (name.printed, name.stated_in))
+            .collect();
+        assert_eq!(
+            linked,
+            [
+                (
+                    "Bravery".to_string(),
+                    Some((
+                        "shattering-strike".to_string(),
+                        "Shattering Strike".to_string()
+                    ))
+                ),
+                // The first `by` anchor that has a head on the page: `gone` has none.
+                (
+                    "Bombs".to_string(),
+                    Some(("spore-bomb".to_string(), "Spore Bomb".to_string()))
+                ),
+                // No `by`: the sentence is in the opening text, so there is nothing to jump to.
+                ("Code of conduct".to_string(), None),
+            ]
+        );
+        // The alters line reads its own trades, and a page without heads links nothing.
+        assert_eq!(
+            trade_names_of(&row, TradeOp::Alters, &[])[0].stated_in,
+            None
+        );
+        assert_eq!(
+            trade_names_of(&row, TradeOp::Alters, &heads)[0].stated_in,
             None
         );
     }

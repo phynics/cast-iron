@@ -5,7 +5,8 @@ use crate::route::Route;
 use crate::views::footnotes;
 use crate::views::icons;
 use crate::views::rich::{keyed_headings, plain_text};
-use cast_iron_schema::{Block, EntryId};
+use cast_iron_schema::headings::feature_heads;
+use cast_iron_schema::{Block, EntryId, RuleEntry};
 use leptos::prelude::*;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -94,6 +95,52 @@ pub fn matching_heading(body: &[Block], query: &str) -> Option<String> {
         .map(|heading| heading.anchor.clone())
 }
 
+/// The anchor of the class feature that a search alias names (#540): the feature of `entry`
+/// whose printed name, without its ability tag, is `alias`. `None` when the entry lists no such
+/// feature, so the result opens the entry at the top.
+pub fn feature_anchor(entry: &RuleEntry, alias: &str) -> Option<String> {
+    feature_heads(&entry.body, entry.fields.features())
+        .into_iter()
+        .find(|head| head.name == alias)
+        .map(|head| head.anchor)
+}
+
+/// The article lists its sections from this many headings on. A listed feature is a heading of
+/// the body, so it counts like any other (#540).
+const CONTENTS_MIN: usize = 4;
+
+/// Whether the page lists its sections under `On this page`: enough headings after the
+/// publication names. A link that jumps within the page adds value on such a page only.
+pub fn lists_contents(body: &[Block], publication_titles: &[String]) -> bool {
+    contents(body, publication_titles).len() >= CONTENTS_MIN
+}
+
+/// A link to an anchor of the entry that is open. A plain click on the page's own address scrolls
+/// without navigating; any other click, and a click with a modifier, follows the link.
+#[component]
+pub fn JumpLink(
+    id: EntryId,
+    anchor: String,
+    book: Option<String>,
+    children: Children,
+) -> impl IntoView {
+    let current = crate::route::use_route();
+    let target = Route::Entry {
+        id,
+        anchor: Some(anchor.clone()),
+        book,
+        section: None,
+        arch: Default::default(),
+    };
+    let href = target.href();
+    view! { <a href=href on:click=move |event: leptos::ev::MouseEvent| {
+        if event.button() == 0 && !event.ctrl_key() && !event.meta_key() && !event.shift_key() && !event.alt_key() && current.get_untracked() == target {
+            event.prevent_default();
+            crate::route::scroll_to_anchor(&anchor);
+        }
+    }>{children()}</a> }
+}
+
 /// Show a compact disclosure only when the article has enough sections to benefit from it.
 #[component]
 pub fn ArticleContents(body: Vec<Block>, id: EntryId) -> impl IntoView {
@@ -104,7 +151,7 @@ pub fn ArticleContents(body: Vec<Block>, id: EntryId) -> impl IntoView {
         .map(|source| source.title.clone())
         .collect();
     let items = contents(&body, &publication_titles);
-    if items.len() < 4 {
+    if items.len() < CONTENTS_MIN {
         return ().into_any();
     }
     let current = crate::route::use_route();
@@ -116,21 +163,7 @@ pub fn ArticleContents(body: Vec<Block>, id: EntryId) -> impl IntoView {
         .into_iter()
         .map(|heading| {
             let class = format!("contents-level-{}", heading.level.clamp(2, 6));
-            let anchor = heading.anchor.clone();
-            let target = Route::Entry {
-                id: id.clone(),
-                anchor: Some(heading.anchor),
-                book: book.clone(),
-                section: None,
-                arch: Default::default(),
-            };
-            let href = target.href();
-            view! { <li class=class><a href=href on:click=move |event: leptos::ev::MouseEvent| {
-                if event.button() == 0 && !event.ctrl_key() && !event.meta_key() && !event.shift_key() && !event.alt_key() && current.get_untracked() == target {
-                    event.prevent_default();
-                    crate::route::scroll_to_anchor(&anchor);
-                }
-            }>{heading.title}</a></li> }
+            view! { <li class=class><JumpLink id=id.clone() anchor=heading.anchor book=book.clone()>{heading.title}</JumpLink></li> }
         })
         .collect_view();
     view! {
@@ -218,6 +251,66 @@ mod tests {
         assert!(contents(&[h(2, "  blood of shadows ", "b")], &titles).is_empty());
         // With no publication list the outline is unchanged.
         assert_eq!(contents(&body, &[]).len(), 4);
+    }
+
+    #[test]
+    fn listed_features_count_as_headings_of_the_contents_list() {
+        // Two sections and two features: four headings list the page, and a feature keeps its
+        // anchor, its printed name and its place (#540).
+        let body = vec![
+            h(2, "Class Skills", "skills"),
+            h(3, "Shattering Strike (Ex)", "shattering-strike"),
+            h(3, "Piledriver (Ex)", "piledriver"),
+            h(2, "Alternate Racial Traits", "traits"),
+        ];
+        assert!(lists_contents(&body, &[]));
+        let found = contents(&body, &[]);
+        assert_eq!(found[1].anchor, "shattering-strike");
+        assert_eq!(found[1].title, "Shattering Strike (Ex)");
+        // Three headings stay below the rule: the list appears at four or more.
+        assert!(!lists_contents(&body[..3], &[]));
+    }
+
+    #[test]
+    fn a_feature_alias_opens_the_entry_at_the_feature_that_prints_the_name() {
+        use cast_iron_schema::{ArchetypeFields, EntryKind, FeatureFact, Provenance, TypedFields};
+        let entry = RuleEntry {
+            id: EntryId::parse("ref/arc-fighter/two-handed-fighter").unwrap(),
+            kind: EntryKind::Archetype,
+            title: "Two-Handed Fighter".into(),
+            aon: None,
+            source_ids: vec![],
+            sources: vec![],
+            expanded_in: vec![],
+            stat_sets: vec![],
+            section: vec![],
+            parent: None,
+            body: vec![
+                h(2, "Shattering Strike (Ex)", "shattering-strike"),
+                h(2, "Piledriver (Ex)", "piledriver"),
+            ],
+            fields: TypedFields::Archetype(ArchetypeFields {
+                features: vec![FeatureFact {
+                    anchor: "shattering-strike".into(),
+                    level: Some(2),
+                }],
+                ..Default::default()
+            }),
+            tags: vec![],
+            race_group: None,
+            links: vec![],
+            provenance: Vec::<Provenance>::new(),
+            license_refs: vec![],
+            relations: vec![],
+        };
+        assert_eq!(
+            feature_anchor(&entry, "Shattering Strike").as_deref(),
+            Some("shattering-strike")
+        );
+        // A heading that the data does not list is not a feature, and a printed name with its tag
+        // is not the alias.
+        assert_eq!(feature_anchor(&entry, "Piledriver"), None);
+        assert_eq!(feature_anchor(&entry, "Shattering Strike (Ex)"), None);
     }
 
     #[test]
