@@ -101,7 +101,8 @@ search aliases read `features` only, so they need no change.
 
 ## Consequences
 
-- Corpus check on the pinned corpus stays at 0 problems; the pull request records the check on
-  the head of data pull request 312.
+- Corpus check on the pinned corpus stays at 0 problems. On the head of data pull request 312 the
+  only change is the scaffold rule: the four entries that list `Skills` (Urban Barbarian, Cad,
+  Sohei) or `Alignment` (Martial Artist) as a feature now fail until the data drops them.
 - The reader grew by a few word lists and no per-entry exceptions. A wording that the reader
   cannot read is still fixed by adding the wording to the reader with a test.
