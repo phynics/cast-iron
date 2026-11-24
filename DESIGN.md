@@ -279,6 +279,12 @@ A short kind whose few groups are better seen than chosen is one list under head
 
 A feat row carries a quiet marker when its feat leads to more than 5 other feats down its chain (the transitive "leads to" relation, each feat counted once). The marker is a small muted inline SVG (a root joined to two feats, `aria-hidden`, with a hover title) after the title, inside the row's link. A visually hidden suffix gives the row its accessible name: `Power Attack, leads to 92 feats`. The threshold is `CHAIN_MARK_MIN` in `views/browse.rs`; with it, 70 of 3,583 feats (2.0 %) are marked. The numbers come from the relations graph, read once when the page opens (`Relations::long_chains`); the rows do not wait for them. Add-ons are not chain followers and never count toward the marker or its number. No other row tag exists.
 
+### Feat chains
+
+A chain on the Feat chains page folds when its head has more than 20 feats below it, each counted once (the number of the head summary and of the chain marker). A shorter chain stays fully open. In a folding chain every feat that has dependents is a native nested `<details>`, closed by default, like the head rows: the summary is the 44 px row with the shared chevron, the title, and `N feats build on it`, with N the distinct feats below that feat; the body is the `Open the feat` link and the feat's own rows, in title order. A feat with no dependents is a plain link. A feat that two routes reach keeps a row on each, and its branch folds at each. The rows of a branch are built when it first opens. There is no `role="tree"` and no roving tabindex: Tab, Enter and Space on the native summaries are the whole keyboard story. The chain on a feat's own page (`Prerequisite chain`) does not fold.
+
+Opening a chain head writes `?open=<feat id>` into the address, replacing the current history entry, so Back from one of its feats returns to the open chain; closing it clears the address again. `#/feats/chains?open=<feat id>` opens that head and scrolls to it. Nested folds are not in the address.
+
 ### Search results page
 
 **Results page controls.** Below the field is one scope row, `.search-controls`: the quick kinds (`All entries`, `Rules text`, `Spells`, `Feats`) are Filter pills in a row that scrolls sideways and never wraps, and the compact `Filters` button stays at its end. The button is the Filter-menu shape (44 px, card radius, 1 px `--line`; an `--accent` border while filters are on) and reads `Filters · N` when N filters are active. Below 56 rem it opens the filter panel in the page flow under the row (at most `50dvh` with its own scroll, no backdrop, no trap, no dialog); opening moves focus into the panel, and Escape or the button closes it and returns focus to the button. From 56 rem the panel is the sidebar and the button is hidden. The breakpoint stays at 56 rem, not the 48 rem of the filter menu's column flow, because a 16 rem sidebar next to the results needs that width; do not move it to 48 rem. There is no Search button, because results are live. The status area follows the row: a small count line and, when an inactive book holds more matches, the one-sentence hint with a `Turn on` action.
@@ -322,7 +328,7 @@ Focusing a field never navigates. The scope control is never a second field in t
 4. The original-text disclosure of a revised entry.
 5. On a class page, the summary card and the section switcher, and `On this page` where the page keeps it. On a creature that prints several stat sets, the `Stat sets` list (see Stat sets).
 6. The body, ending in the footnotes group.
-7. The `Sources:` line, the `Expanded in:` line and the Archives of Nethys line.
+7. The `Sources:` line, the `Expanded in:` line, the `Other printings:` line and the Archives of Nethys line.
 8. The relation panels (see Attached entries for the add-ons, and the related panels for the rest).
 9. The reading footer, when the entry was opened from a book (see Books, Reading footer).
 10. `References` and `Referenced by`.
@@ -353,6 +359,12 @@ so an unconverted entry and a converted one read the same.
 - A credit from a book the reader turned off is dimmed (`data-inactive="true"`) with the `--ink-dim` colour token for its text and both links, never with opacity (an accent link under opacity measured 4.2:1 in the light theme). `--ink-dim` measures 4.76:1 in the light theme and 5.64:1 in the dark one against the page ground. The credit ends with the `Inactive` Label (`.tag`), so the state never rests on dimming alone. The title still links to the book page, as a book row on Books does.
 - A revision in force does not replace the credits like it replaces citations: the base's credits stay, then the revision's own, each once.
 - At 64 rem and wider the line owns the grid row `expanded` between `sources` and `aon`. With an `Archives of Nethys` line after it the line keeps the larger bottom margin that the 44 px AoN target needs.
+
+**The `Other printings:` line (#650)** sits directly under the `Expanded in:` line (under `Sources:` when there is no credit), in the same muted Metadata role (`.printings-line`), and only when another entry is a printing of the same rule: `Other printings: Ultimate Equipment; Core Rulebook`.
+- A printing is an entry with the same kind, normalized title and parent, the set that the browse folds join. Each link is the printing's book and opens that entry. The links run newest first, in the order of the folds and of search; there is no `Latest` label and no year. Two links that read alike take a last `(n)`.
+- Never listed: creatures (one name, different stat blocks), a pair that a revision joins (its notice links it), and a pair whose primary book is the same.
+- A printing whose books are all turned off stays, dimmed with `--ink-dim` and ending in the `Inactive` Label (`.tag`), as an inactive credit does.
+- At 64 rem and wider the line owns the grid row `printings` between `expanded` and `aon`. With an `Archives of Nethys` line after it the line keeps the larger bottom margin that the 44 px AoN target needs.
 
 **The base page,** after the body, in this order:
 

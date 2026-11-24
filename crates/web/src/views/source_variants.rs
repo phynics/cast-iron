@@ -51,6 +51,55 @@ pub fn normalized_title(title: &str) -> String {
         .to_lowercase()
 }
 
+/// The order in which the printings of one rule are listed: the order search gives equal
+/// results, then book title, then id. A fold and the `Other printings` line both sort by it.
+pub fn printing_cmp(a: &SourceVariant, b: &SourceVariant) -> std::cmp::Ordering {
+    a.order
+        .cmp(&b.order)
+        .then_with(|| a.source.to_lowercase().cmp(&b.source.to_lowercase()))
+        .then_with(|| a.id.cmp(&b.id))
+}
+
+/// What makes two entries printings of one rule: the same kind, the same parent and the same
+/// normalized title. The browse folds and the `Other printings` line of an entry page both
+/// decide with this key, so they cannot disagree. The kind and the parent are one string, so the
+/// key keeps the shape it always had.
+pub fn fold_key(kind: EntryKind, parent: Option<&Parent>, title: &str) -> (String, String) {
+    (
+        format!(
+            "{}\u{0}{}",
+            kind.slug(),
+            parent.map_or("", |parent| parent.key.as_str())
+        ),
+        normalized_title(title),
+    )
+}
+
+/// True when two titles have the same [`normalized_title`], decided without building either.
+/// An entry page asks it about every entry of a kind (about 8,000), so the common case, ASCII
+/// titles, allocates nothing. A title with other characters falls back to the exact text, so
+/// the answer never differs from comparing the normalized strings.
+pub fn same_normalized_title(a: &str, b: &str) -> bool {
+    let mut left = a.split_whitespace();
+    let mut right = b.split_whitespace();
+    loop {
+        match (left.next(), right.next()) {
+            (None, None) => return true,
+            (Some(x), Some(y)) => {
+                let same = if x.is_ascii() && y.is_ascii() {
+                    x.eq_ignore_ascii_case(y)
+                } else {
+                    x.to_lowercase() == y.to_lowercase()
+                };
+                if !same {
+                    return false;
+                }
+            }
+            _ => return false,
+        }
+    }
+}
+
 /// Groups identical normalized titles only within the same kind and parent: a fold joins the
 /// printings of one rule, never two rules that share a name. Input should already be filtered
 /// to active publications; the IDs and source labels are never collapsed.
@@ -62,18 +111,7 @@ pub fn group_variants(entries: Vec<SourceVariant>) -> Vec<SourceGroup> {
     let mut groups: Vec<SourceGroup> = Vec::new();
     let mut positions = std::collections::BTreeMap::<(String, String), usize>::new();
     for entry in entries {
-        // The kind and the parent are one string, so the key keeps the shape it always had.
-        let key = (
-            format!(
-                "{}\u{0}{}",
-                entry.kind.slug(),
-                entry
-                    .parent
-                    .as_ref()
-                    .map_or("", |parent| parent.key.as_str())
-            ),
-            normalized_title(&entry.title),
-        );
+        let key = fold_key(entry.kind, entry.parent.as_ref(), &entry.title);
         if let Some(&position) = positions.get(&key) {
             groups[position].variants.push(entry);
         } else {
@@ -86,12 +124,7 @@ pub fn group_variants(entries: Vec<SourceVariant>) -> Vec<SourceGroup> {
         }
     }
     for group in &mut groups {
-        cast_iron_sort::sort_by(&mut group.variants, |a, b| {
-            a.order
-                .cmp(&b.order)
-                .then_with(|| a.source.to_lowercase().cmp(&b.source.to_lowercase()))
-                .then_with(|| a.id.cmp(&b.id))
-        });
+        cast_iron_sort::sort_by(&mut group.variants, printing_cmp);
         if let Some(first) = group.variants.first() {
             group.title = first.title.clone();
         }
@@ -371,6 +404,57 @@ mod tests {
                 "ref/item/u",
                 "ref/item/z"
             ]
+        );
+    }
+
+    #[test]
+    fn the_title_scan_agrees_with_the_normalized_titles() {
+        let titles = [
+            "Tent",
+            " tent ",
+            "TENT",
+            "Tents",
+            "Fire  Bolt",
+            "fire bolt",
+            "Fire",
+            "",
+            "   ",
+            "Ünïcode Étude",
+            "ünïcode étude",
+            "ÜNÏCODE ÉTUDE",
+            "Odysseus",
+            "ODYSSEUΣ",
+            "odysseuς",
+        ];
+        for a in titles {
+            for b in titles {
+                assert_eq!(
+                    same_normalized_title(a, b),
+                    normalized_title(a) == normalized_title(b),
+                    "{a:?} against {b:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn the_fold_key_separates_kind_parent_and_title() {
+        let dwarf = Parent {
+            key: "ref/race/dwarf".into(),
+            title: "Dwarf".into(),
+        };
+        let key = |kind, parent: Option<&Parent>, title| fold_key(kind, parent, title);
+        assert_eq!(
+            key(EntryKind::Item, None, " Tent "),
+            key(EntryKind::Item, None, "tent")
+        );
+        assert_ne!(
+            key(EntryKind::Item, None, "Tent"),
+            key(EntryKind::Feat, None, "Tent")
+        );
+        assert_ne!(
+            key(EntryKind::RacialTrait, Some(&dwarf), "Hardy"),
+            key(EntryKind::RacialTrait, None, "Hardy")
         );
     }
 }

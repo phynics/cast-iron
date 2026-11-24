@@ -346,7 +346,7 @@ mod tests {
         for route in [
             Route::Home,
             Route::books(),
-            Route::FeatChains,
+            Route::feat_chains(),
             Route::Settings,
             Route::search("fire"),
             Route::browse_kind(EntryKind::Rule),

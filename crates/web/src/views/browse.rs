@@ -295,7 +295,7 @@ pub fn CategoryDirectory(#[prop(optional)] note: bool) -> impl IntoView {
                     <h2 id="shortcuts" class="sub-head">"Shortcuts"</h2>
                     <ul class="jump-list">
                         <li><a class="jump" href=Route::Spells.href()>"Spell lists by class and level"</a></li>
-                        <li><a class="jump" href=Route::FeatChains.href()>"Feat chains"</a></li>
+                        <li><a class="jump" href=Route::feat_chains().href()>"Feat chains"</a></li>
                     </ul>
                 </section>
             }
@@ -1379,7 +1379,7 @@ fn Lenses(
                 // The spell and feat pages need the schema-3 files; an old library has none.
                 let usable = match route {
                     Route::Spells => library.has_spell_lists(),
-                    Route::FeatChains => library.has_relations(),
+                    Route::FeatChains { .. } => library.has_relations(),
                     _ => true,
                 };
                 if usable {
