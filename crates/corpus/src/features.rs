@@ -6,10 +6,11 @@
 //! ]
 //! ```
 //!
-//! `anchor` is the key of a heading of the body (`## Shattering Strike (Ex) {#shattering-strike}`)
-//! and `level` is the level at which the feature is gained. The list holds facts that the printed
+//! `anchor` is the explicit anchor of a heading of the body
+//! (`## Shattering Strike (Ex) {#shattering-strike}`) and `level`, optional, is the level at
+//! which the feature is gained; a feature without one level writes `{ anchor = "x" }`. The list holds facts that the printed
 //! text states in prose, so that the app can show a head and a jump without rewriting the prose
-//! into rows. A trade names the feature that states it with `by` (see `trades`).
+//! into rows. A trade names the features that state it with `by`, a list (see `trades`).
 
 use crate::error::{Error, Result};
 use crate::tomlutil;
@@ -48,7 +49,7 @@ pub fn read_features(path: &Path, table: &toml::Table, line: usize) -> Result<Ve
                     path,
                     line,
                     format!(
-                        "unexpected key `{key}` in a feature; a feature has `anchor` and `level`"
+                        "unexpected key `{key}` in a feature; a feature has `anchor` and optionally `level`"
                     ),
                 ));
             }
@@ -63,18 +64,24 @@ pub fn read_features(path: &Path, table: &toml::Table, line: usize) -> Result<Ve
                 ));
             }
         };
-        let level = row
-            .get("level")
-            .and_then(toml::Value::as_integer)
-            .and_then(|level| u8::try_from(level).ok())
-            .filter(|level| *level >= 1)
-            .ok_or_else(|| {
-                Error::new(
-                    path,
-                    line,
-                    format!("the feature `{anchor}` needs `level`, a whole number from 1 to 255"),
-                )
-            })?;
+        let level = match row.get("level") {
+            None => None,
+            Some(value) => Some(
+                value
+                    .as_integer()
+                    .and_then(|level| u8::try_from(level).ok())
+                    .filter(|level| *level >= 1)
+                    .ok_or_else(|| {
+                        Error::new(
+                            path,
+                            line,
+                            format!(
+                                "the level of the feature `{anchor}` must be a whole number from 1 to 255; leave `level` out when the feature has none"
+                            ),
+                        )
+                    })?,
+            ),
+        };
         out.push(FeatureFact { anchor, level });
     }
     Ok(out)
@@ -89,8 +96,10 @@ pub fn write_features(out: &mut String, features: &[FeatureFact]) {
     for feature in features {
         out.push_str("  { anchor = ");
         out.push_str(&tomlutil::string(&feature.anchor));
-        out.push_str(", level = ");
-        out.push_str(&feature.level.to_string());
+        if let Some(level) = feature.level {
+            out.push_str(", level = ");
+            out.push_str(&level.to_string());
+        }
         out.push_str(" },\n");
     }
     out.push_str("]\n");
@@ -109,18 +118,22 @@ mod tests {
         let features = vec![
             FeatureFact {
                 anchor: "shattering-strike".into(),
-                level: 2,
+                level: Some(2),
             },
             FeatureFact {
                 anchor: "overhand-chop".into(),
-                level: 3,
+                level: Some(3),
+            },
+            FeatureFact {
+                anchor: "choice".into(),
+                level: None,
             },
         ];
         let mut out = String::new();
         write_features(&mut out, &features);
         assert_eq!(
             out,
-            "features = [\n  { anchor = \"shattering-strike\", level = 2 },\n  { anchor = \"overhand-chop\", level = 3 },\n]\n"
+            "features = [\n  { anchor = \"shattering-strike\", level = 2 },\n  { anchor = \"overhand-chop\", level = 3 },\n  { anchor = \"choice\" },\n]\n"
         );
         let back = read_features(Path::new("x.md"), &table(&out), 1).unwrap();
         assert_eq!(back, features);
@@ -133,7 +146,7 @@ mod tests {
     fn a_feature_needs_an_anchor_and_a_level_and_nothing_else() {
         let read = |text: &str| read_features(Path::new("x.md"), &table(text), 1);
         assert!(read("features = [{ level = 2 }]").is_err());
-        assert!(read("features = [{ anchor = \"a\" }]").is_err());
+        assert!(read("features = [{ anchor = \"a\" }]").is_ok());
         assert!(read("features = [{ anchor = \"a\", level = 0 }]").is_err());
         assert!(read("features = [{ anchor = \"a\", level = 300 }]").is_err());
         let error = read("features = [{ anchor = \"a\", level = 1, name = \"A\" }]").unwrap_err();

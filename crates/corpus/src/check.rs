@@ -5396,7 +5396,7 @@ mod tests {
 
     fn trade(op: TradeOp, printed: &str, anchor: Option<&str>) -> Trade {
         Trade {
-            by: None,
+            by: Vec::new(),
             op,
             printed: printed.into(),
             feature: anchor.map(|anchor| FeatureRef {

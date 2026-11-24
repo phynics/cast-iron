@@ -212,7 +212,7 @@ mod tests {
 
     fn featured(anchor: &str, class: Option<&str>) -> Trade {
         Trade {
-            by: None,
+            by: Vec::new(),
             op: TradeOp::Replaces,
             printed: anchor.to_string(),
             feature: Some(FeatureRef {

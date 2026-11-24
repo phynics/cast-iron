@@ -1337,7 +1337,7 @@ mod tests {
 
     fn trade(op: TradeOp, printed: &str, anchor: Option<&str>) -> Trade {
         Trade {
-            by: None,
+            by: Vec::new(),
             op,
             printed: printed.into(),
             feature: anchor.map(|anchor| FeatureRef {
@@ -1368,7 +1368,7 @@ mod tests {
             trades: vec![
                 trade(TradeOp::Replaces, "Trap sense (Ex)", Some("trap-sense")),
                 Trade {
-                    by: None,
+                    by: Vec::new(),
                     op: TradeOp::Alters,
                     printed: "Bonus feats".into(),
                     feature: Some(FeatureRef {
@@ -1379,7 +1379,7 @@ mod tests {
                     }),
                 },
                 Trade {
-                    by: None,
+                    by: Vec::new(),
                     op: TradeOp::Replaces,
                     printed: "Acidic ray".into(),
                     feature: Some(FeatureRef {
@@ -1533,18 +1533,22 @@ mod tests {
     #[test]
     fn format_4_features_and_by_round_trip_in_their_canonical_order() {
         let mut shattering = trade(TradeOp::Replaces, "Bravery", None);
-        shattering.by = Some("shattering-strike".into());
+        shattering.by = vec!["shattering-strike".into()];
         let mut chop = trade(TradeOp::Alters, "Armor training", Some("armor-training"));
-        chop.by = Some("overhand-chop".into());
+        chop.by = vec!["overhand-chop".into(), "second".into()];
         let entry = archetype_entry(cast_iron_schema::ArchetypeFields {
             features: vec![
                 cast_iron_schema::FeatureFact {
                     anchor: "shattering-strike".into(),
-                    level: 2,
+                    level: Some(2),
                 },
                 cast_iron_schema::FeatureFact {
                     anchor: "overhand-chop".into(),
-                    level: 3,
+                    level: Some(3),
+                },
+                cast_iron_schema::FeatureFact {
+                    anchor: "second".into(),
+                    level: None,
                 },
             ],
             trades: vec![shattering, chop],
@@ -1553,7 +1557,7 @@ mod tests {
         let text = round_trip_with(&entry, &format(4));
         assert!(
             text.contains(
-                "kind = \"archetype\"\nfeatures = [\n  { anchor = \"shattering-strike\", level = 2 },\n  { anchor = \"overhand-chop\", level = 3 },\n]\ntrades = [\n  { replaces = \"Bravery\", by = \"shattering-strike\" },\n  { alters = \"Armor training\", feature = \"armor-training\", by = \"overhand-chop\" },\n]\n"
+                "kind = \"archetype\"\nfeatures = [\n  { anchor = \"shattering-strike\", level = 2 },\n  { anchor = \"overhand-chop\", level = 3 },\n  { anchor = \"second\" },\n]\ntrades = [\n  { replaces = \"Bravery\", by = [\"shattering-strike\"] },\n  { alters = \"Armor training\", feature = \"armor-training\", by = [\"overhand-chop\", \"second\"] },\n]\n"
             ),
             "{text}"
         );
@@ -1563,7 +1567,7 @@ mod tests {
     fn features_belong_to_archetypes_class_options_and_base_classes() {
         let features = vec![cast_iron_schema::FeatureFact {
             anchor: "a".into(),
-            level: 1,
+            level: None,
         }];
         let mut option = archetype_entry(Default::default());
         option.kind = EntryKind::ClassOption;
@@ -1581,7 +1585,7 @@ mod tests {
         });
         let text = round_trip_with(&class, &format(4));
         assert!(
-            text.contains("features = [\n  { anchor = \"a\", level = 1 },\n]\n"),
+            text.contains("features = [\n  { anchor = \"a\" },\n]\n"),
             "{text}"
         );
     }
@@ -1602,7 +1606,7 @@ mod tests {
             "{error}"
         );
         assert!(read_entry(path, &body(features), &format(4)).is_ok());
-        let by = "trades = [{ replaces = \"A\", by = \"a\" }]\n";
+        let by = "trades = [{ replaces = \"A\", by = [\"a\"] }]\n";
         let error = read_entry(path, &body(by), &format(3)).unwrap_err();
         assert!(
             error
@@ -1613,14 +1617,11 @@ mod tests {
         assert!(read_entry(path, &body(by), &format(4)).is_ok());
         let error = read_entry(
             path,
-            &body("trades = [{ replaces = \"A\", by = \" \" }]\n"),
+            &body("trades = [{ replaces = \"A\", by = [\" \"] }]\n"),
             &format(4),
         )
         .unwrap_err();
-        assert!(
-            error.message.contains("must name a feature anchor"),
-            "{error}"
-        );
+        assert!(error.message.contains("non-blank strings"), "{error}");
         let error = read_entry(
             path,
             &body("features = [{ anchor = \"a\", level = 1, extra = 1 }]\n"),
@@ -1628,6 +1629,20 @@ mod tests {
         )
         .unwrap_err();
         assert!(error.message.contains("unexpected key `extra`"), "{error}");
+        // `by` is a list, even for one feature, and names each feature once.
+        for (by, fragment) in [
+            ("\"a\"", "must be an array"),
+            ("[]", "is empty"),
+            ("[\"a\", \"a\"]", "names `a` twice"),
+        ] {
+            let error = read_entry(
+                path,
+                &body(&format!("trades = [{{ replaces = \"A\", by = {by} }}]\n")),
+                &format(4),
+            )
+            .unwrap_err();
+            assert!(error.message.contains(fragment), "{by}: {error}");
+        }
     }
 
     #[test]

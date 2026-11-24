@@ -555,7 +555,7 @@ fn archetype_entry(
 
 fn replaces(printed: &str, anchor: Option<&str>, class: Option<&str>) -> cast_iron_schema::Trade {
     cast_iron_schema::Trade {
-        by: None,
+        by: Vec::new(),
         op: cast_iron_schema::TradeOp::Replaces,
         printed: printed.into(),
         feature: anchor.map(|anchor| cast_iron_schema::FeatureRef {
@@ -691,10 +691,10 @@ fn feature_facts_reach_the_library_and_the_trade_names_its_feature() {
         TypedFields::Archetype(cast_iron_schema::ArchetypeFields {
             features: vec![cast_iron_schema::FeatureFact {
                 anchor: "shattering-strike".into(),
-                level: 2,
+                level: Some(2),
             }],
             trades: vec![cast_iron_schema::Trade {
-                by: Some("shattering-strike".into()),
+                by: vec!["shattering-strike".into()],
                 ..replaces("Bravery", Some("bravery"), None)
             }],
             ..Default::default()
@@ -711,7 +711,7 @@ fn feature_facts_reach_the_library_and_the_trade_names_its_feature() {
         trades["entries"],
         serde_json::json!([
             {"id": "ref/arc-fighter/two-handed", "trades": [
-                {"op": "replaces", "printed": "Bravery", "feature": {"anchor": "bravery"}, "by": "shattering-strike"}
+                {"op": "replaces", "printed": "Bravery", "feature": {"anchor": "bravery"}, "by": ["shattering-strike"]}
             ]},
         ])
     );

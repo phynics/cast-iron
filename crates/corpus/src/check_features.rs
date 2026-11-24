@@ -1,21 +1,25 @@
 //! The corpus-check rules for feature facts (corpus format 4, #540).
 //!
 //! An archetype, class option or base class may list `features = [{ anchor, level }]` and an
-//! archetype or class option may name, in `trades[].by`, the feature whose printed text states
+//! archetype or class option may name, in `trades[].by`, the features whose printed text states
 //! the trade. The rules:
 //!
-//! 1. every `features` anchor is a heading key of the body, and no anchor is listed twice;
-//! 2. `level` agrees with an "At Nth level" or "Starting at Nth level" lead, when the first
-//!    paragraph under the feature's heading has one;
-//! 3. every `by` names an anchor of `features`.
+//! 1. every `features` anchor is the explicit `{#anchor}` of a heading of the body, no anchor is
+//!    listed twice, and the list follows body order;
+//! 2. `level`, when written, agrees with an "At Nth level" or "Starting at Nth level" lead, when
+//!    the first paragraph under the feature's heading has one;
+//! 3. every `by` names anchors of `features`, in body order;
+//! 4. every section of an archetype or class option that prints a trade sentence is a listed
+//!    feature, or sits inside one.
 //!
 //! The drift check (`drift.rs`) compares each trade with the trade sentence of its feature.
 
 use crate::check::{Report, line_of};
+use crate::drift::is_sources_line;
 use crate::load::Corpus;
-use crate::trade_sentences::level_lead;
+use crate::trade_sentences::{level_lead, trade_sentences};
 use cast_iron_schema::headings::{keyed_headings, plain_text};
-use cast_iron_schema::{Block, RuleEntry};
+use cast_iron_schema::{Block, EntryKind, RuleEntry};
 
 /// One feature section of a body: the heading with its key, and the blocks under it up to the
 /// next heading of the same or a higher level.
@@ -75,12 +79,31 @@ pub(crate) fn paragraph_texts(blocks: &[Block]) -> Vec<String> {
     out
 }
 
+/// The part of the body that an entry with `features` reads: the whole body, cut only at a
+/// block that starts another publication's version, a `**Sources:**` paragraph that is not the
+/// first block (and the `###` heading directly above it). A `###` that only `source_ids` marks
+/// does not cut it, because the feature heads of a multi-publication entry may be `###`.
+pub(crate) fn feature_part(entry: &RuleEntry) -> &[Block] {
+    let body = &entry.body;
+    for (index, block) in body.iter().enumerate() {
+        if index > 0 && is_sources_line(block) {
+            let at = if matches!(body[index - 1], Block::Heading { level: 3, .. }) {
+                index - 1
+            } else {
+                index
+            };
+            return &body[..at];
+        }
+    }
+    body
+}
+
 pub(crate) fn check_features(corpus: &Corpus, report: &mut Report) {
     for stored in corpus.entries.values() {
         let entry = &stored.entry;
         let features = entry.fields.features();
         let trades = entry.fields.trades();
-        if features.is_empty() && trades.iter().all(|trade| trade.by.is_none()) {
+        if features.is_empty() && trades.iter().all(|trade| trade.by.is_empty()) {
             continue;
         }
         let path = stored.path.display();
@@ -91,7 +114,9 @@ pub(crate) fn check_features(corpus: &Corpus, report: &mut Report) {
 
 fn check_entry(entry: &RuleEntry, at: &dyn Fn(&str) -> String, report: &mut Report) {
     let features = entry.fields.features();
-    let body_sections = sections(&entry.body, &entry.body);
+    let blocks = feature_part(entry);
+    let body_sections = sections(blocks, &entry.body);
+    let mut last_position: Option<usize> = None;
     for (index, feature) in features.iter().enumerate() {
         let place = at(&format!("anchor = \"{}\"", feature.anchor));
         if features[..index]
@@ -104,15 +129,18 @@ fn check_entry(entry: &RuleEntry, at: &dyn Fn(&str) -> String, report: &mut Repo
             ));
             continue;
         }
-        if !(1..=20).contains(&feature.level) {
+        if let Some(level) = feature.level
+            && !(1..=20).contains(&level)
+        {
             report.problems.push(format!(
-                "{place}: [fields] the feature `{}` has level {}, outside 1 to 20",
-                feature.anchor, feature.level
+                "{place}: [fields] the feature `{}` has level {level}, outside 1 to 20",
+                feature.anchor
             ));
         }
-        let Some(section) = body_sections
+        let Some((position, section)) = body_sections
             .iter()
-            .find(|section| section.key == feature.anchor)
+            .enumerate()
+            .find(|(_, section)| section.key == feature.anchor)
         else {
             report.problems.push(format!(
                 "{place}: [fields] the feature `{}` is not a heading key of the body; write the heading `## Name {{#{}}}`",
@@ -120,32 +148,106 @@ fn check_entry(entry: &RuleEntry, at: &dyn Fn(&str) -> String, report: &mut Repo
             ));
             continue;
         };
-        let _ = section.heading;
-        let first = paragraph_texts(section.blocks).into_iter().next();
-        if let Some(stated) = first.as_deref().and_then(level_lead)
-            && stated != feature.level
-        {
+        // A feature anchor becomes a public deep link, so the heading states it: a key that
+        // the page derives from the heading text would change with the text.
+        let explicit = matches!(
+            section.heading,
+            Block::Heading { anchor: Some(anchor), .. } if *anchor == feature.anchor
+        );
+        if !explicit {
             report.problems.push(format!(
-                "{place}: [fields] the feature `{}` has level {}, but its first paragraph begins at level {stated}",
-                feature.anchor, feature.level
+                "{place}: [fields] the heading of the feature `{}` needs an explicit `{{#{}}}` anchor; a derived key changes with the heading text",
+                feature.anchor, feature.anchor
             ));
         }
+        if last_position.is_some_and(|last| position < last) {
+            report.problems.push(format!(
+                "{place}: [fields] the feature `{}` comes before an earlier one in the body; list `features` in body order",
+                feature.anchor
+            ));
+        }
+        last_position = Some(position);
+        if let Some(level) = feature.level {
+            let first = paragraph_texts(section.blocks).into_iter().next();
+            if let Some(stated) = first.as_deref().and_then(level_lead)
+                && stated != level
+            {
+                report.problems.push(format!(
+                    "{place}: [fields] the feature `{}` has level {level}, but its first paragraph begins at level {stated}",
+                    feature.anchor
+                ));
+            }
+        }
     }
+    let listed = |anchor: &str| features.iter().any(|feature| feature.anchor == anchor);
     for trade in entry.fields.trades() {
-        let Some(by) = &trade.by else {
+        let mut previous: Option<usize> = None;
+        for by in &trade.by {
+            let place = at(&format!("\"{}\"", trade.printed));
+            let Some(index) = features.iter().position(|feature| &feature.anchor == by) else {
+                let reason = if features.is_empty() {
+                    "the entry has no `features`"
+                } else {
+                    "it is not an anchor of `features`"
+                };
+                report.problems.push(format!(
+                    "{place}: [fields] the {} trade `{}` has `by` = `{by}`, but {reason}",
+                    trade.op.slug(),
+                    trade.printed
+                ));
+                continue;
+            };
+            if previous.is_some_and(|last| index < last) {
+                report.problems.push(format!(
+                    "{place}: [fields] the `by` list of the {} trade `{}` is not in body order (`{by}` comes before an earlier one)",
+                    trade.op.slug(),
+                    trade.printed
+                ));
+            }
+            previous = Some(index);
+        }
+    }
+    // Every section that prints a trade sentence must be a listed feature, or sit inside one.
+    if features.is_empty() || !matches!(entry.kind, EntryKind::Archetype | EntryKind::ClassOption) {
+        return;
+    }
+    let keyed = keyed_headings(&entry.body);
+    let key_of = |block: &Block| {
+        keyed
+            .iter()
+            .find(|(candidate, _)| std::ptr::eq(*candidate, block))
+            .and_then(|(_, key)| key.clone())
+    };
+    let mut stack: Vec<(u8, Option<String>)> = Vec::new();
+    for block in blocks {
+        if let Block::Heading { level, .. } = block {
+            while stack.last().is_some_and(|(open, _)| open >= level) {
+                stack.pop();
+            }
+            stack.push((*level, key_of(block)));
+            continue;
+        }
+        let texts = paragraph_texts(std::slice::from_ref(block));
+        let Some(sentence) = texts.iter().flat_map(|text| trade_sentences(text)).next() else {
             continue;
         };
-        if !features.iter().any(|feature| &feature.anchor == by) {
-            let reason = if features.is_empty() {
-                "the entry has no `features`".to_string()
-            } else {
-                "it is not an anchor of `features`".to_string()
-            };
+        let covered = stack
+            .iter()
+            .any(|(_, key)| key.as_deref().is_some_and(listed));
+        if !covered {
+            let home = stack.last().and_then(|(_, key)| key.clone()).map_or_else(
+                || "before the first heading".to_string(),
+                |key| format!("under the heading `{key}`"),
+            );
+            let needle = stack
+                .last()
+                .and_then(|(_, key)| key.as_ref())
+                .map_or_else(String::new, |key| format!("{{#{key}}}"));
             report.problems.push(format!(
-                "{}: [fields] the {} trade `{}` has `by = \"{by}\"`, but {reason}",
-                at(&format!("\"{}\"", trade.printed)),
-                trade.op.slug(),
-                trade.printed
+                "{}: [fields] a trade sentence ({} {}) stands {home}, which is not listed in `features`; list the feature, or the trade has no feature to name",
+                at(&needle),
+                sentence.op.slug(),
+                sentence.phrase
             ));
         }
     }
@@ -165,7 +267,7 @@ mod tests {
 
     fn archetype(
         body: Vec<Block>,
-        features: Vec<(&str, u8)>,
+        features: Vec<(&str, Option<u8>)>,
         trades: Vec<Trade>,
     ) -> cast_iron_schema::RuleEntry {
         let mut entry = rule("ref/archetype/two-handed-fighter", body);
@@ -184,9 +286,9 @@ mod tests {
         entry
     }
 
-    fn by(op: TradeOp, printed: &str, by: &str) -> Trade {
+    fn by(op: TradeOp, printed: &str, by: &[&str]) -> Trade {
         Trade {
-            by: Some(by.into()),
+            by: by.iter().map(|anchor| anchor.to_string()).collect(),
             ..Trade::unresolved(op, printed)
         }
     }
@@ -212,8 +314,8 @@ mod tests {
         assert!(
             problems(archetype(
                 body(),
-                vec![("shattering-strike", 2)],
-                vec![by(TradeOp::Replaces, "Bravery", "shattering-strike")]
+                vec![("shattering-strike", Some(2))],
+                vec![by(TradeOp::Replaces, "Bravery", &["shattering-strike"])]
             ))
             .is_empty()
         );
@@ -221,16 +323,21 @@ mod tests {
 
     #[test]
     fn a_feature_anchor_must_be_a_heading_key() {
-        let found = problems(archetype(body(), vec![("shatter", 2)], vec![]));
-        assert_eq!(found.len(), 1, "{found:?}");
+        let found = problems(archetype(body(), vec![("shatter", Some(2))], vec![]));
+        // The real heading then prints a trade sentence outside the listed features, too.
+        assert_eq!(found.len(), 2, "{found:?}");
         assert!(found[0].contains("not a heading key"), "{found:?}");
+        assert!(found[1].contains("not listed in `features`"), "{found:?}");
     }
 
     #[test]
     fn a_feature_is_listed_once() {
         let found = problems(archetype(
             body(),
-            vec![("shattering-strike", 2), ("shattering-strike", 2)],
+            vec![
+                ("shattering-strike", Some(2)),
+                ("shattering-strike", Some(2)),
+            ],
             vec![],
         ));
         assert_eq!(found.len(), 1, "{found:?}");
@@ -238,29 +345,89 @@ mod tests {
     }
 
     #[test]
-    fn the_level_must_agree_with_the_lead() {
-        let found = problems(archetype(body(), vec![("shattering-strike", 3)], vec![]));
+    fn a_feature_heading_states_its_anchor() {
+        // The key `sec-shattering-strike` is derived from the text, so it is no deep link.
+        let derived = vec![
+            heading(None, "Shattering Strike"),
+            text("At 2nd level, the fighter gains a bonus."),
+        ];
+        let found = problems(archetype(
+            derived,
+            vec![("sec-shattering-strike", Some(2))],
+            vec![],
+        ));
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert!(
+            found[0].contains("explicit `{#sec-shattering-strike}`"),
+            "{found:?}"
+        );
+    }
+
+    #[test]
+    fn the_level_must_agree_with_the_lead_when_it_is_written() {
+        let found = problems(archetype(
+            body(),
+            vec![("shattering-strike", Some(3))],
+            vec![],
+        ));
         assert_eq!(found.len(), 1, "{found:?}");
         assert!(found[0].contains("begins at level 2"), "{found:?}");
+        // No level written: nothing to compare.
+        assert!(problems(archetype(body(), vec![("shattering-strike", None)], vec![])).is_empty());
         // A paragraph without a lead states no level, so any level agrees.
         let quiet = vec![
             heading(Some("shattering-strike"), "Shattering Strike"),
             text("The fighter gains a bonus."),
         ];
-        assert!(problems(archetype(quiet, vec![("shattering-strike", 5)], vec![])).is_empty());
+        assert!(
+            problems(archetype(
+                quiet,
+                vec![("shattering-strike", Some(5))],
+                vec![]
+            ))
+            .is_empty()
+        );
         let starting = vec![
             heading(Some("shattering-strike"), "Shattering Strike"),
             text("Starting at 4th level, the fighter gains a bonus."),
         ];
-        assert!(problems(archetype(starting, vec![("shattering-strike", 4)], vec![])).is_empty());
+        assert!(
+            problems(archetype(
+                starting,
+                vec![("shattering-strike", Some(4))],
+                vec![]
+            ))
+            .is_empty()
+        );
     }
 
     #[test]
-    fn by_must_name_a_listed_feature() {
+    fn features_may_mix_leveled_and_unleveled_and_must_follow_body_order() {
+        let body = vec![
+            heading(Some("a"), "A"),
+            text("At 1st level, a."),
+            heading(Some("b"), "B"),
+            text("Choose one."),
+        ];
+        assert!(
+            problems(archetype(
+                body.clone(),
+                vec![("a", Some(1)), ("b", None)],
+                vec![]
+            ))
+            .is_empty()
+        );
+        let found = problems(archetype(body, vec![("b", None), ("a", Some(1))], vec![]));
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert!(found[0].contains("body order"), "{found:?}");
+    }
+
+    #[test]
+    fn by_must_name_listed_features_in_body_order() {
         let found = problems(archetype(
             body(),
-            vec![("shattering-strike", 2)],
-            vec![by(TradeOp::Replaces, "Bravery", "other")],
+            vec![("shattering-strike", Some(2))],
+            vec![by(TradeOp::Replaces, "Bravery", &["other"])],
         ));
         assert_eq!(found.len(), 1, "{found:?}");
         assert!(
@@ -270,10 +437,84 @@ mod tests {
         let none = problems(archetype(
             body(),
             vec![],
-            vec![by(TradeOp::Replaces, "Bravery", "shattering-strike")],
+            vec![by(TradeOp::Replaces, "Bravery", &["shattering-strike"])],
         ));
         assert_eq!(none.len(), 1, "{none:?}");
         assert!(none[0].contains("no `features`"), "{none:?}");
+        let two = vec![
+            heading(Some("a"), "A"),
+            text("At 1st level, a. This ability replaces bravery."),
+            heading(Some("b"), "B"),
+            text("At 2nd level, b. This ability replaces bravery."),
+        ];
+        let features = vec![("a", Some(1)), ("b", Some(2))];
+        assert!(
+            problems(archetype(
+                two.clone(),
+                features.clone(),
+                vec![by(TradeOp::Replaces, "Bravery", &["a", "b"])]
+            ))
+            .is_empty()
+        );
+        let found = problems(archetype(
+            two,
+            features,
+            vec![by(TradeOp::Replaces, "Bravery", &["b", "a"])],
+        ));
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert!(found[0].contains("not in body order"), "{found:?}");
+    }
+
+    #[test]
+    fn a_section_with_a_trade_sentence_must_be_a_listed_feature() {
+        let body = vec![
+            heading(Some("a"), "A"),
+            text("At 1st level, a. This ability replaces bravery."),
+            heading(Some("b"), "B"),
+            text("At 2nd level, b. This ability alters armor training."),
+        ];
+        let found = problems(archetype(
+            body.clone(),
+            vec![("a", Some(1))],
+            vec![by(TradeOp::Replaces, "Bravery", &["a"])],
+        ));
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert!(found[0].contains("not listed in `features`"), "{found:?}");
+        assert!(found[0].contains("`b`"), "{found:?}");
+        // A subsection of a listed feature belongs to it.
+        let nested = vec![
+            heading(Some("a"), "A"),
+            text("At 1st level, a."),
+            Block::Heading {
+                level: 3,
+                anchor: Some("inner".into()),
+                content: vec![Inline::text("Inner")],
+            },
+            text("This ability replaces bravery."),
+        ];
+        assert!(problems(archetype(nested, vec![("a", Some(1))], vec![])).is_empty());
+    }
+
+    #[test]
+    fn a_feature_after_a_heading_that_only_source_ids_marks_is_still_read() {
+        // Two publications: the old normal part would stop at the first `###`.
+        let body = vec![
+            Block::Heading {
+                level: 3,
+                anchor: Some("a".into()),
+                content: vec![Inline::text("A")],
+            },
+            text("At 1st level, a."),
+            Block::Heading {
+                level: 3,
+                anchor: Some("b".into()),
+                content: vec![Inline::text("B")],
+            },
+            text("At 2nd level, b."),
+        ];
+        let mut entry = archetype(body, vec![("a", Some(1)), ("b", Some(2))], vec![]);
+        entry.source_ids = vec!["core-rulebook".into(), "other-book".into()];
+        assert!(problems(entry).is_empty());
     }
 
     #[test]
@@ -311,7 +552,7 @@ mod tests {
         class.fields = TypedFields::Class(ClassFields {
             features: vec![FeatureFact {
                 anchor: "bravery".into(),
-                level: 3,
+                level: Some(3),
             }],
             ..Default::default()
         });

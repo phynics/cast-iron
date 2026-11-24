@@ -889,13 +889,15 @@ pub struct RacialTraitFields {
 }
 
 /// A feature that an entry prints under its own heading, and the level it is gained at (corpus
-/// format 4, #540). `anchor` is a heading key in the body. The entries that carry features are
-/// archetypes, class options and base classes; a [`Trade`] names the feature that states it
-/// through `by`.
+/// format 4, #540). `anchor` is the explicit anchor of a heading of the body. `level` is absent
+/// for a feature that has no single level (a choice among several, or a feature that the book
+/// does not tie to one). The entries that carry features are archetypes, class options and base
+/// classes; a [`Trade`] names the features that state it through `by`.
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct FeatureFact {
     pub anchor: String,
-    pub level: u8,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub level: Option<u8>,
 }
 
 /// What an archetype or class option does to one feature of its base class.
@@ -956,10 +958,11 @@ pub struct Trade {
     pub printed: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub feature: Option<FeatureRef>,
-    /// The anchor of the [`FeatureFact`] of the trading entry that states this trade in its
-    /// printed text (corpus format 4, #540). `None` when the entry has no features.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub by: Option<String>,
+    /// The anchors of the [`FeatureFact`]s of the trading entry whose printed text states this
+    /// trade (corpus format 4, #540), in body order. One trade names every feature that prints
+    /// it. Empty when the entry has no features.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub by: Vec<String>,
 }
 
 impl Trade {
@@ -969,7 +972,7 @@ impl Trade {
             op,
             printed: printed.into(),
             feature: None,
-            by: None,
+            by: Vec::new(),
         }
     }
 }
@@ -2330,7 +2333,7 @@ mod tests {
             group: "arcane-discovery".into(),
             trades: vec![
                 Trade {
-                    by: None,
+                    by: Vec::new(),
                     op: TradeOp::Replaces,
                     printed: "Arcane bond".into(),
                     feature: Some(FeatureRef {
@@ -2379,7 +2382,7 @@ mod tests {
         );
         let fact = |anchor: &str, level: u8| FeatureFact {
             anchor: anchor.into(),
-            level,
+            level: Some(level),
         };
         let stated = TypedFields::Archetype(ArchetypeFields {
             features: vec![fact("shattering-strike", 2)],
@@ -2399,18 +2402,35 @@ mod tests {
         let json = serde_json::to_string(&class).unwrap();
         assert_eq!(serde_json::from_str::<TypedFields>(&json).unwrap(), class);
         let trade = Trade {
-            by: Some("shattering-strike".into()),
+            by: vec!["shattering-strike".into()],
             ..Trade::unresolved(TradeOp::Replaces, "Bravery")
         };
         let json = serde_json::to_string(&trade).unwrap();
         assert_eq!(
             json,
-            r#"{"op":"replaces","printed":"Bravery","by":"shattering-strike"}"#
+            r#"{"op":"replaces","printed":"Bravery","by":["shattering-strike"]}"#
         );
         assert_eq!(serde_json::from_str::<Trade>(&json).unwrap(), trade);
+        // A feature without a level writes no `level`.
+        let unleveled = TypedFields::Archetype(ArchetypeFields {
+            features: vec![FeatureFact {
+                anchor: "choice".into(),
+                level: None,
+            }],
+            ..Default::default()
+        });
+        let json = serde_json::to_string(&unleveled).unwrap();
+        assert_eq!(
+            json,
+            r#"{"kind":"archetype","features":[{"anchor":"choice"}]}"#
+        );
+        assert_eq!(
+            serde_json::from_str::<TypedFields>(&json).unwrap(),
+            unleveled
+        );
         // A `trades.json` row of an older library has no `by`.
         let old = r#"{"op":"replaces","printed":"Bravery"}"#;
-        assert_eq!(serde_json::from_str::<Trade>(old).unwrap().by, None);
+        assert!(serde_json::from_str::<Trade>(old).unwrap().by.is_empty());
     }
 
     #[test]

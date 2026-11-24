@@ -473,10 +473,10 @@ mod tests {
             TypedFields::Archetype(ArchetypeFields {
                 features: vec![crate::FeatureFact {
                     anchor: "a".into(),
-                    level: 2,
+                    level: Some(2),
                 }],
                 trades: vec![crate::Trade {
-                    by: Some("a".into()),
+                    by: vec!["a".into()],
                     ..crate::Trade::unresolved(crate::TradeOp::Replaces, "B")
                 }],
                 ..Default::default()
@@ -484,7 +484,7 @@ mod tests {
             TypedFields::Class(ClassFields {
                 features: vec![crate::FeatureFact {
                     anchor: "a".into(),
-                    level: 1,
+                    level: None,
                 }],
                 ..Default::default()
             }),

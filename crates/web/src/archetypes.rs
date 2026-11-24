@@ -362,7 +362,7 @@ mod tests {
 
     fn trade(op: TradeOp, printed: &str, feature: Option<FeatureRef>) -> Trade {
         Trade {
-            by: None,
+            by: Vec::new(),
             op,
             printed: printed.into(),
             feature,

@@ -21,8 +21,9 @@ carries form B. The renderer and the data rewrite are separate slices of #540.
 
 - **Form B.** A feature is a headed section of printed prose (`## Name (Ex) {#anchor}`, the
   printed paragraphs, the printed trade sentence). The facts that the prose states stay in
-  `[fields]`: `features = [{ anchor, level }]`, and `trades[].by`, the anchor of the feature
-  whose sentence states the trade.
+  `[fields]`: `features = [{ anchor, level }]` (`level` optional: a feature that has no single
+  level writes none), and `trades[].by`, a list of the anchors of the features whose sentence
+  states the trade (one trade names every feature that prints it).
 - **Format 4.** The new keys are optional and change no existing key, so the step from format 3
   rewrites only the `format` line (`cargo xtask corpus-migrate-features`, and the generic
   `migrate`). The corpus repository applies it as one mechanical change, as for earlier formats.
@@ -30,12 +31,19 @@ carries form B. The renderer and the data rewrite are separate slices of #540.
   trades of archetypes and class options, the two kinds that have trades. A rule entry has no typed
   fields (`kind = "none"`), so it carries neither key; the 33 feature-shaped rule entries are rewritten
   as printed prose and get no facts until a later decision gives them a place.
-- **Checks.** Each `features` anchor is a heading key; `level` agrees with an "At Nth level" or
-  "Starting at Nth level" lead when the feature's first paragraph has one; each `by` names a
-  `features` anchor.
+- **Checks.** Each `features` anchor is the explicit `{#anchor}` of a heading (a derived key would
+  change with the heading text, and the anchors become public deep links); the list follows body
+  order; `level`, when written, agrees with an "At Nth level" or "Starting at Nth level" lead when
+  the feature's first paragraph has one; each `by` names anchors of `features`, in body order; every
+  section that prints a trade sentence is a listed feature or inside one.
 - **Drift.** An entry with `features` compares its trades with the trade sentences of its feature
-  sections instead of with `**Replaces:**` and `**Alters:**` rows: each trade appears in a trade
-  sentence of its `by` section and each trade sentence is covered by a trade. An entry without
+  sections instead of with `**Replaces:**` and `**Alters:**` rows: each trade's name appears in a
+  trade sentence of at least one feature in its `by`, and each trade sentence of a listed feature is
+  covered by the trades that name it. The sections come from the whole body, cut only at another
+  publication's `**Sources:**` block, so a multi-publication entry with `###` feature heads is read
+  in full. The reader takes the printed wordings: one name, a list, replaces and alters in one
+  sentence, a possessive before the name, hyphen-suspended level lists and numbered steps; it refuses
+  negated sentences and subjects that are not an ability. An entry without
   `features` keeps the row comparison, so the pinned format 3 corpus gives the same drift results, and
   the corpus can move entry by entry during the rewrite. Final state: a later change makes the
   import rows an error for these kinds (#540, last step).
@@ -46,9 +54,9 @@ carries form B. The renderer and the data rewrite are separate slices of #540.
 
 ## Why not the alternatives
 
-- Putting `by` on the feature (`features[].replaces`) would hide a trade's printed name from
+- Putting the trade on the feature (`features[].replaces`) would hide a trade's printed name from
   `trades` and from `trades.json`, which the compatibility filter reads. `by` keeps `trades` as
-  it is.
+  it is, and a list lets one trade name each feature that prints it.
 - Reading the trade sentence with a free-text match is too loose to guard the data. The reader
   accepts the printed wordings (one name, a list, replaces and alters in one sentence, a
   hyphen-suspended level list) and nothing else, so a new wording fails loudly and is added to the
