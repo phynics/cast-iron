@@ -12,6 +12,54 @@ export function groupLetter(title: string): string {
   return first && /^[A-Z]$/.test(first) ? first : "#";
 }
 
+const MODIFIER_RANK = new Map<string, number>([
+  ["lesser", 1], ["minor", 1], ["improved", 2], ["advanced", 2], ["greater", 3], ["major", 3],
+  ["mass", 4], ["communal", 4], ["superior", 5], ["grand", 6], ["masterful", 7], ["supreme", 8],
+  ["elite", 8], ["true", 9], ["legendary", 9],
+]);
+const splitModifier = (lower: string): [number, string] | null => {
+  const match = /^(\S+)\s+(\S.*)$/s.exec(lower);
+  const rank = match && MODIFIER_RANK.get(match[1]);
+  return match && rank ? [rank, match[2]] : null;
+};
+const mythicBase = (lower: string): string | null => {
+  const base = lower.endsWith(", mythic") ? lower.slice(0, -", mythic".length) : "";
+  return base.trim() ? base : null;
+};
+
+/**
+ * The letter section of every row of one list, by id (#678). Mirrors `list_order` in
+ * `crates/web/src/views/list_order.rs`: a title that begins with a modifier word (`Greater`,
+ * `Improved`, ...) sits under the letter of the row it follows, which is the row titled with the
+ * rest, or the weakest modifier title of its family when two or more share a rest that no row
+ * has; a mythic version (`X, Mythic`) follows `X`. Pass the titles of the list as shown.
+ */
+export function listLetters(stubs: { id: string; title: string }[]): Map<string, string> {
+  const lowers = stubs.map((stub) => stub.title.toLowerCase());
+  const present = new Set(lowers);
+  const groups = new Map<string, { members: number; head: [number, string] }>();
+  for (const title of present) {
+    const split = mythicBase(title) === null ? splitModifier(title) : null;
+    if (!split || present.has(split[1])) continue;
+    const known = groups.get(split[1]);
+    const mine: [number, string] = [split[0], title];
+    const lighter = (a: [number, string], b: [number, string]) => a[0] - b[0] || (a[1] < b[1] ? -1 : a[1] > b[1] ? 1 : 0);
+    if (!known) groups.set(split[1], { members: 1, head: mine });
+    else {
+      known.members += 1;
+      if (lighter(mine, known.head) < 0) known.head = mine;
+    }
+  }
+  const anchor = (title: string): string => {
+    const split = splitModifier(title);
+    if (!split) return title;
+    if (present.has(split[1])) return anchor(split[1]);
+    const family = groups.get(split[1]);
+    return family && family.members >= 2 ? family.head[1] : title;
+  };
+  return new Map(stubs.map((stub, i) => [stub.id, groupLetter(anchor(mythicBase(lowers[i]) ?? lowers[i]))]));
+}
+
 /** Mirrors `letter_id` in `crates/web/src/views/browse.rs`. */
 export function letterId(letter: string): string {
   return letter === "#" ? "letter-other" : `letter-${letter}`;

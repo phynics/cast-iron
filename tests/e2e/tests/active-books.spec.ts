@@ -11,6 +11,7 @@ import {
   visibleWithout,
   groupLetter,
   installLibrary,
+  listLetters,
   isMember,
   memberBooks,
   openBookGroups,
@@ -102,12 +103,16 @@ test("Book visibility persists offline and filters discovery while keeping stars
   await openBookGroups(page);
   const restored = page.locator(`.book-directory-item[data-book-id="${book.source}"]`);
   await expect(restored.getByRole("checkbox", { name: `Active ${source.title}`, exact: true })).not.toBeChecked();
-  await page.goto(`#/browse/kind/spell?l=${encodeURIComponent(groupLetter(entry.title))}`);
+  // A modifier title sits under the letter of its base (#678), so the letter of a row and the
+  // rows of a group come from the list as it is shown.
+  const spells = corpus.catalog.entries.filter((stub) => stub.kind === "spell");
+  const shown = spells.filter((stub) => visibleWithout(stub, [book.source]));
+  const letterOf = listLetters(spells).get(entry.id)!;
+  const shownLetters = listLetters(shown);
+  await page.goto(`#/browse/kind/spell?l=${encodeURIComponent(letterOf)}`);
   // An entry that a second book also prints stays; one that only this book prints disappears.
   // Only the selected letter group is in the document.
-  const expected = corpus.catalog.entries.filter((stub) =>
-    stub.kind === "spell" && groupLetter(stub.title) === groupLetter(entry.title) &&
-    visibleWithout(stub, [book.source])).length;
+  const expected = shown.filter((stub) => shownLetters.get(stub.id) === letterOf).length;
   await expect(page.locator('.entry-list a[href^="#/entry/"]')).toHaveCount(expected);
   await expect(page.getByRole("link", { name: entry.title, exact: true })).toHaveCount(0);
 
@@ -208,7 +213,8 @@ installedTest("An entry printed in two books stays with one on, is named by the 
   await expect(hit().first()).toBeVisible();
   // The row names the book that is on.
   await expect(hit().first().locator(".hit-meta")).toContainText(titleOf(second));
-  await page.goto(`#/browse/kind/spell?l=${encodeURIComponent(groupLetter(stub.title))}`);
+  const shownSpells = corpus.catalog.entries.filter((s) => s.kind === "spell" && visibleWithout(s, [first]));
+  await page.goto(`#/browse/kind/spell?l=${encodeURIComponent(listLetters(shownSpells).get(stub.id)!)}`);
   await expect(page.locator(".entry-list").getByRole("link", { name: stub.title, exact: true })).toBeVisible();
   // The browse row names the book that is on, not the primary book that is off.
   const browseRow = page

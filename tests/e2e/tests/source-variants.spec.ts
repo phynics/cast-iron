@@ -1,6 +1,6 @@
 import type { Locator, Page } from "@playwright/test";
 import { installedTest as test, expect, loadCorpus, goOffline } from "./fixtures";
-import { groupLetter, latestPrintingGroups, memberBooks, installLibrary, openBookGroups, waitControlled, waitResults } from "./helpers";
+import { groupLetter, latestPrintingGroups, listLetters, memberBooks, installLibrary, openBookGroups, waitControlled, waitResults } from "./helpers";
 
 const corpus = loadCorpus();
 /**
@@ -48,7 +48,7 @@ const kind = variants[0].kind;
 test("Source variants retain distinct entries in browse and search after book filtering", async ({ page, context, server }) => {
   expect(variants.length).toBeGreaterThan(1);
   await installLibrary(page); await waitControlled(page); await goOffline(context, server);
-  await page.goto(`#/browse/kind/${kind}?l=${encodeURIComponent(groupLetter(title))}`);
+  await page.goto(`#/browse/kind/${kind}?l=${encodeURIComponent(listLetters(corpus.catalog.entries.filter((stub: Stub) => stub.kind === kind)).get(variants[0].id)!)}`);
   // Other folds may share the title under another parent; the fold is the one that holds these links.
   const group = page.locator(".entry-list .source-variants").filter({ has: page.locator(`a[href="#/entry/${variants[0].id}"]`) });
   await expect(group).toHaveCount(1);
@@ -210,7 +210,7 @@ test("An item fold lists the newest printing first and names itself by it", asyn
   const { stubs, newest } = group!;
   const bookOf = (stub: Stub) => corpus.catalog.sources.find((source) => source.id === stub.source)!.title as string;
   await installLibrary(page);
-  await page.goto(`#/browse/kind/item?l=${encodeURIComponent(groupLetter(newest.title))}`);
+  await page.goto(`#/browse/kind/item?l=${encodeURIComponent(listLetters(corpus.catalog.entries.filter((stub: Stub) => stub.kind === "item")).get(newest.id)!)}`);
   const fold = page.locator(".entry-list .source-variants").filter({ has: page.locator(`a[href="#/entry/${newest.id}"]`) });
   await expect(fold).toHaveCount(1);
   await expect(fold.locator("summary")).toContainText(new RegExp(`^${escape(newest.title)} `));
