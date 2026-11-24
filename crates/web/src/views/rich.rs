@@ -5,6 +5,7 @@
 use super::{footnotes, icons, progression};
 use crate::class_sections::Section;
 use crate::library::Library;
+use crate::outline::{self, Level};
 use crate::powers::{self, Placed, Plan};
 use crate::route::{self, Route};
 use cast_iron_schema::power::{Effect, upgrade_lead};
@@ -124,6 +125,9 @@ pub fn blocks(items: &[Block]) -> Vec<AnyView> {
 /// built from the same slice, so the ids cannot drift from the keys whatever order it renders in.
 struct Renderer {
     keys: BTreeMap<*const Block, Option<String>>,
+    /// The element each heading renders as, and the level whose look it keeps (#12, L3). A power
+    /// name is keyed by the block that it starts at.
+    levels: BTreeMap<*const Block, Level>,
     /// Lowercase labels of the stat rows that a revision changed.
     changed: BTreeSet<String>,
     /// The headings where a class page's sections start, by heading key.
@@ -195,6 +199,12 @@ struct NoteInfo {
 
 impl Renderer {
     fn new(body: &[Block]) -> Self {
+        Self::planned(body, &Plan::default())
+    }
+
+    /// A renderer for a body whose class-option powers are laid out by `plan`: the power names
+    /// are headings too, so they take part in the outline.
+    fn planned(body: &[Block], plan: &Plan<'_>) -> Self {
         let keys = cast_iron_sort::map_of(
             keyed_headings(body)
                 .into_iter()
@@ -202,6 +212,7 @@ impl Renderer {
         );
         Self {
             keys,
+            levels: outline_of(body, plan),
             changed: BTreeSet::new(),
             marks: BTreeMap::new(),
             notes: None,
@@ -217,6 +228,18 @@ impl Renderer {
     /// schema's, shared with the search aliases.
     fn feature_of(&self, anchor: Option<&str>) -> Option<Option<u8>> {
         cast_iron_schema::headings::feature_of(anchor, &self.features).map(|fact| fact.level)
+    }
+
+    /// How the heading or power that starts at `block` renders. A block the outline does not know
+    /// (a heading that the body split off) keeps the level it was stored with.
+    fn level_of(&self, block: &Block, stored: u8) -> Level {
+        self.levels
+            .get(&std::ptr::from_ref(block))
+            .copied()
+            .unwrap_or_else(|| Level {
+                element: outline::printed(stored),
+                printed: outline::printed(stored),
+            })
     }
 
     /// The headings of `features` render as feature heads. A fact with no heading in the body is
@@ -325,7 +348,7 @@ impl Renderer {
                     out.push(view! { <ul class="entry-links">{list}</ul> }.into_any());
                 }
                 covered = placed.len - 1;
-                out.push(self.power(placed));
+                out.push(self.power(placed, self.level_of(item, placed.heading)));
                 continue;
             }
             if let Block::EntryLink { target, title } = item {
@@ -374,9 +397,10 @@ impl Renderer {
                 {
                     self.slot_open = true;
                 }
+                let level = self.level_of(item, *level);
                 match self.feature_of(explicit.as_deref()) {
-                    Some(gained) => feature_head(*level, id, section, gained, inlines(content)),
-                    None => heading(*level, id, section, None, inlines(content)),
+                    Some(gained) => feature_head(level, id, section, gained, inlines(content)),
+                    None => heading(level, id, section, None, inlines(content)),
                 }
             }
             Block::Paragraph { style, content } => {
@@ -467,11 +491,11 @@ impl Renderer {
     /// the meta line, then the rows in the order the corpus wrote them. The renderer never
     /// reorders and never changes the case of the corpus text. A folded power (a one-power page)
     /// has no head and no meta line: the entry head carries the name and the facts.
-    fn power(&mut self, placed: &Placed<'_>) -> AnyView {
+    fn power(&mut self, placed: &Placed<'_>, level: Level) -> AnyView {
         let power = &placed.power;
         let mut parts: Vec<AnyView> = Vec::new();
         if !placed.folded {
-            parts.push(power_head(placed));
+            parts.push(power_head(placed, level));
             let meta = powers::meta_parts(power);
             if !meta.is_empty() {
                 parts.push(muted_line("power-meta", &meta));
@@ -538,15 +562,9 @@ impl Renderer {
 }
 
 /// The head of a power: the name as a heading, a dotted leader, and `Level N` from `Gained`.
-fn power_head(placed: &Placed<'_>) -> AnyView {
+fn power_head(placed: &Placed<'_>, level: Level) -> AnyView {
     let name = placed.power.name.clone();
-    let heading = heading(
-        placed.heading,
-        None,
-        None,
-        Some("power-name"),
-        vec![name.into_any()],
-    );
+    let heading = heading(level, None, None, Some("power-name"), vec![name.into_any()]);
     view! { <div class="power-head">{heading}{level_tail(placed.power.gained)}</div> }.into_any()
 }
 
@@ -555,7 +573,7 @@ fn power_head(placed: &Placed<'_>) -> AnyView {
 /// class-option power head (DESIGN.md, "Class-option powers"). With a level, a dotted leader and
 /// `Level N` follow on the right. Without one there is no leader and no right side.
 fn feature_head(
-    level: u8,
+    level: Level,
     id: Option<String>,
     section: Option<Section>,
     gained: Option<u8>,
@@ -731,8 +749,12 @@ impl Renderer {
 
 /// A heading where a class page section starts is the target of the switcher's link: it carries
 /// `data-class-section` and can take focus (`tabindex="-1"`), and no other heading does.
+///
+/// The element is the outline's (`level.element`), so an entry never skips a level below the
+/// page's `h1`. `data-printed-level` carries the level the corpus stored, which is what the
+/// styles key on, so a shifted heading looks as it always did (#12, L3).
 fn heading(
-    level: u8,
+    level: Level,
     id: Option<String>,
     section: Option<Section>,
     class: Option<&'static str>,
@@ -740,28 +762,69 @@ fn heading(
 ) -> AnyView {
     let slug = section.map(Section::slug);
     let tabindex = section.map(|_| "-1");
-    match level {
-        0..=2 => {
-            view! { <h2 id=id class=class data-class-section=slug tabindex=tabindex>{content}</h2> }
-                .into_any()
+    let printed = level.printed.to_string();
+    match level.element {
+        0..=2 => view! {
+            <h2 id=id class=class data-class-section=slug data-printed-level=printed tabindex=tabindex>{content}</h2>
         }
-        3 => {
-            view! { <h3 id=id class=class data-class-section=slug tabindex=tabindex>{content}</h3> }
-                .into_any()
+        .into_any(),
+        3 => view! {
+            <h3 id=id class=class data-class-section=slug data-printed-level=printed tabindex=tabindex>{content}</h3>
         }
-        4 => {
-            view! { <h4 id=id class=class data-class-section=slug tabindex=tabindex>{content}</h4> }
-                .into_any()
+        .into_any(),
+        4 => view! {
+            <h4 id=id class=class data-class-section=slug data-printed-level=printed tabindex=tabindex>{content}</h4>
         }
-        5 => {
-            view! { <h5 id=id class=class data-class-section=slug tabindex=tabindex>{content}</h5> }
-                .into_any()
+        .into_any(),
+        5 => view! {
+            <h5 id=id class=class data-class-section=slug data-printed-level=printed tabindex=tabindex>{content}</h5>
         }
-        _ => {
-            view! { <h6 id=id class=class data-class-section=slug tabindex=tabindex>{content}</h6> }
-                .into_any()
+        .into_any(),
+        _ => view! {
+            <h6 id=id class=class data-class-section=slug data-printed-level=printed tabindex=tabindex>{content}</h6>
+        }
+        .into_any(),
+    }
+}
+
+/// The outline of a body: the level of each heading, and of each power name that `plan` lays
+/// out, in document order. A footnote heading is no part of it, because the notes render as
+/// their own group. A folded power has no head, so it is no part of it either.
+fn outline_of(body: &[Block], plan: &Plan<'_>) -> BTreeMap<*const Block, Level> {
+    fn walk(blocks: &[Block], top: bool, plan: &Plan<'_>, out: &mut Vec<(*const Block, u8, bool)>) {
+        for block in blocks {
+            match block {
+                Block::Heading { .. } if footnotes::is_note_heading(block) => {}
+                Block::Heading { level, .. } => out.push((std::ptr::from_ref(block), *level, true)),
+                Block::List { items, .. } => {
+                    for item in items {
+                        walk(item, false, plan, out);
+                    }
+                }
+                Block::Quote { content } => walk(content, false, plan, out),
+                _ => {
+                    if top
+                        && let Some(placed) = plan.at(block)
+                        && !placed.folded
+                    {
+                        out.push((std::ptr::from_ref(block), placed.heading, false));
+                    }
+                }
+            }
         }
     }
+    let mut found = Vec::new();
+    walk(body, true, plan, &mut found);
+    let stored: Vec<(u8, bool)> = found
+        .iter()
+        .map(|(_, level, sets)| (*level, *sets))
+        .collect();
+    cast_iron_sort::map_of(
+        found
+            .iter()
+            .map(|(block, _, _)| *block)
+            .zip(outline::levels_among(&stored)),
+    )
 }
 
 static UNIQUE: AtomicU32 = AtomicU32::new(0);
@@ -960,14 +1023,14 @@ pub fn RichBody(
     features: Vec<FeatureFact>,
 ) -> impl IntoView {
     let changed: BTreeSet<_> = cast_iron_sort::set_of(changed);
-    let mut renderer = Renderer::new(&body)
+    let plan = power_title
+        .map(|title| powers::plan_for(&title, &body, &features))
+        .unwrap_or_default();
+    let mut renderer = Renderer::planned(&body, &plan)
         .with_changed(changed)
         .with_marks(marks)
         .with_features(&features)
         .with_slot(archetype_list);
-    let plan = power_title
-        .map(|title| powers::plan_for(&title, &body, &features))
-        .unwrap_or_default();
     let content = match entry {
         Some(entry) => renderer.entry_body(&body, entry, book, &plan),
         None => renderer.blocks(&body),
@@ -1330,6 +1393,46 @@ mod tests {
         }];
         assert_eq!(state.cite(None, &other), None);
         assert!(state.cited_by[0].is_empty());
+    }
+
+    fn heading_block(level: u8, anchor: &str) -> Block {
+        Block::Heading {
+            level,
+            anchor: Some(anchor.to_string()),
+            content: vec![text(anchor)],
+        }
+    }
+
+    #[test]
+    fn the_outline_of_a_body_starts_at_h2_and_leaves_the_notes_out() {
+        let body = vec![
+            heading_block(3, "defense"),
+            heading_block(4, "hp"),
+            // A list holds a heading too: it is part of the outline.
+            Block::List {
+                ordered: false,
+                items: vec![vec![heading_block(4, "nested")]],
+            },
+            heading_block(3, "offense"),
+            // The footnote heading is level six with a `footnote-` anchor and no part of it.
+            heading_block(6, "footnote-1"),
+        ];
+        let renderer = Renderer::new(&body);
+        let outline = outline_of(&body, &Plan::default());
+        let elements = |block: &Block| outline.get(&std::ptr::from_ref(block)).map(|l| l.element);
+        assert_eq!(elements(&body[0]), Some(2));
+        assert_eq!(elements(&body[1]), Some(3));
+        assert_eq!(elements(&body[3]), Some(2));
+        assert_eq!(elements(&body[4]), None);
+        let Block::List { items, .. } = &body[2] else {
+            unreachable!()
+        };
+        assert_eq!(elements(&items[0][0]), Some(3));
+        // The look stays the stored level.
+        assert_eq!(renderer.level_of(&body[1], 4).printed, 4);
+        assert_eq!(renderer.level_of(&body[1], 4).element, 3);
+        // A heading the outline does not know keeps its stored level.
+        assert_eq!(renderer.level_of(&body[4], 6).element, 6);
     }
 
     fn paragraph(items: Vec<Inline>) -> Block {
