@@ -111,10 +111,26 @@ pub fn rows(
         .collect()
 }
 
-/// `Title p. 221`, or `Title` when the citation has no page.
+/// The printed page as the line shows it, after the book title: `p. 221` for a page that starts
+/// with a digit, and the value as written otherwise (`, inside cover`). A blank page is `None`,
+/// so the title stands alone. Every Sources and Expanded in line calls this one rule.
+pub fn page_lead(page: &str) -> &'static str {
+    if page.starts_with(|c: char| c.is_ascii_digit()) {
+        " p. "
+    } else {
+        ", "
+    }
+}
+
+/// The page number as printed, `None` for a blank or missing page.
+fn printed_page(page: Option<&str>) -> Option<&str> {
+    page.map(str::trim).filter(|page| !page.is_empty())
+}
+
+/// `Title p. 221`, `Title, inside cover`, or `Title` when the citation has no page.
 pub fn citation_text(row: &SourceRow) -> String {
-    match row.page.as_deref().map(str::trim).filter(|p| !p.is_empty()) {
-        Some(page) => format!("{} p. {page}", row.title),
+    match printed_page(row.page.as_deref()) {
+        Some(page) => format!("{}{}{page}", row.title, page_lead(page)),
         None => row.title.clone(),
     }
 }
@@ -171,12 +187,11 @@ pub fn source_line(citations: &[Citation], library: &Library, fallback: Option<&
                 Some(href) => view! { <a href=href.clone()>{row.title.clone()}</a> }.into_any(),
                 None => view! { {row.title.clone()} }.into_any(),
             };
-            let page = row
-                .page
-                .as_deref()
-                .map(str::trim)
-                .filter(|page| !page.is_empty())
-                .map(|page| view! { " p. "{page.to_string()} });
+            let page = printed_page(row.page.as_deref()).map(|page| {
+                let lead = page_lead(page);
+                let page = page.to_string();
+                view! { {lead}{page} }
+            });
             view! { {separator}{title}{page} }.into_any()
         })
         .collect_view();
@@ -224,11 +239,6 @@ pub fn expansion_rows(
         .collect()
 }
 
-/// The page number as printed, `None` for a blank or missing page.
-fn printed_page(page: Option<&str>) -> Option<&str> {
-    page.map(str::trim).filter(|page| !page.is_empty())
-}
-
 /// The whole line, for tests: `Expanded in: Monster Summoner's Handbook p. 18`. An inactive
 /// book's credit ends with the same `Inactive` label the screen shows.
 pub fn expansion_text(rows: &[ExpansionRow]) -> String {
@@ -239,7 +249,7 @@ pub fn expansion_text(rows: &[ExpansionRow]) -> String {
         .iter()
         .map(|row| {
             let page = printed_page(row.page.as_deref())
-                .map(|page| format!(" p. {page}"))
+                .map(|page| format!("{}{page}", page_lead(page)))
                 .unwrap_or_default();
             let label = if row.inactive { " · Inactive" } else { "" };
             format!("{}{page}{label}", row.title)
@@ -283,6 +293,7 @@ pub fn expanded_line(expanded: &[Expansion], library: &Library) -> AnyView {
                 None => view! { {row.title.clone()} }.into_any(),
             };
             let page = printed_page(row.page.as_deref()).map(|page| {
+                let lead = page_lead(page);
                 let page = page.to_string();
                 let number = match &row.via_href {
                     Some(href) => {
@@ -291,7 +302,7 @@ pub fn expanded_line(expanded: &[Expansion], library: &Library) -> AnyView {
                     }
                     None => view! { {page} }.into_any(),
                 };
-                view! { " p. "{number} }
+                view! { {lead}{number} }
             });
             let label = row
                 .inactive
@@ -401,6 +412,70 @@ mod tests {
         assert_eq!(rows[0].title, "unknown-book");
         assert_eq!(rows[0].href, None);
         assert_eq!(line_text(&rows), "Sources: unknown-book; Ultimate Combat");
+    }
+
+    #[test]
+    fn a_numeric_page_keeps_the_p_prefix() {
+        for (page, expected) in [
+            ("12", "Advanced Player's Guide p. 12"),
+            ("12-13", "Advanced Player's Guide p. 12-13"),
+            ("12, 14", "Advanced Player's Guide p. 12, 14"),
+            ("126-127", "Advanced Player's Guide p. 126-127"),
+        ] {
+            let row = rows(&[citation("advanced-players-guide", Some(page))], lookup);
+            assert_eq!(line_text(&row), format!("Sources: {expected}"));
+        }
+    }
+
+    #[test]
+    fn a_non_numeric_page_is_printed_as_written_without_p() {
+        let row = rows(
+            &[citation("advanced-players-guide", Some("inside cover"))],
+            lookup,
+        );
+        assert_eq!(
+            line_text(&row),
+            "Sources: Advanced Player's Guide, inside cover"
+        );
+        assert_eq!(
+            citation_text(&row[0]),
+            "Advanced Player's Guide, inside cover"
+        );
+    }
+
+    #[test]
+    fn an_empty_page_prints_the_book_alone() {
+        let row = rows(&[citation("advanced-players-guide", Some(" "))], lookup);
+        assert_eq!(line_text(&row), "Sources: Advanced Player's Guide");
+    }
+
+    #[test]
+    fn a_non_numeric_page_separates_the_way_a_numeric_one_does() {
+        let row = rows(
+            &[
+                citation("ultimate-combat", Some("inside cover")),
+                citation("advanced-players-guide", Some("12")),
+            ],
+            lookup,
+        );
+        assert_eq!(
+            line_text(&row),
+            "Sources: Ultimate Combat, inside cover; Advanced Player's Guide p. 12"
+        );
+    }
+
+    #[test]
+    fn the_expanded_in_line_uses_the_same_rule() {
+        let credits = [expansion(
+            "monster-summoners-handbook",
+            Some("inside cover"),
+            None,
+        )];
+        let rows = expansion_rows(&credits, handbook_lookup, |_| true, |_| None);
+        assert_eq!(
+            expansion_text(&rows),
+            "Expanded in: Monster Summoner's Handbook, inside cover"
+        );
     }
 
     #[test]
