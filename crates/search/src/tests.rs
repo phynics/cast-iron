@@ -1486,6 +1486,109 @@ fn book_sections_carry_their_source_chapter_and_anchor() {
 }
 
 #[test]
+fn a_book_section_ranks_below_an_entry_with_a_close_score() {
+    // The section title is an exact match for the query. The entry title only starts with it.
+    // The section's title boost is scaled down, so the entry stays first (#691).
+    let idx = build(vec![
+        section(
+            "book-section/bestiary/3-47",
+            "Summon",
+            "bestiary",
+            "monsters",
+            "toc-3-47",
+        ),
+        doc(
+            "ref/spell/summon-monster",
+            "Summon Monster",
+            "spell",
+            "core",
+            "Calls a creature.",
+            &[],
+        ),
+    ]);
+    assert_eq!(
+        ids(&idx, &q("summon")),
+        ["ref/spell/summon-monster", "book-section/bestiary/3-47"]
+    );
+    // An entry that holds the query only in its text does not outrank the exact section title.
+    let idx = build(vec![
+        section(
+            "book-section/bestiary/3-47",
+            "Summon",
+            "bestiary",
+            "monsters",
+            "toc-3-47",
+        ),
+        doc(
+            "ref/rule/calling",
+            "Calling",
+            "rule",
+            "core",
+            "You can summon a creature.",
+            &[],
+        ),
+    ]);
+    assert_eq!(
+        ids(&idx, &q("summon")),
+        ["book-section/bestiary/3-47", "ref/rule/calling"]
+    );
+}
+
+#[test]
+fn an_exact_chapter_title_still_ranks_first() {
+    // A reader who types a chapter name finds that section ahead of entries that mention it and
+    // ahead of entries whose title holds the words without starting with them.
+    let idx = build(vec![
+        section(
+            "book-section/core/9",
+            "Magic Items",
+            "core",
+            "magic-items",
+            "",
+        ),
+        doc(
+            "ref/rule/crafting",
+            "Crafting Magic Items",
+            "rule",
+            "core",
+            "How to make them.",
+            &[],
+        ),
+        doc(
+            "ref/rule/gear",
+            "Gear",
+            "rule",
+            "core",
+            "See magic items for more.",
+            &[],
+        ),
+    ]);
+    assert_eq!(
+        ids(&idx, &q("magic items")),
+        ["book-section/core/9", "ref/rule/crafting", "ref/rule/gear"]
+    );
+    // An exact entry title still beats an exact section title.
+    let idx = build(vec![
+        section(
+            "book-section/core/9",
+            "Magic Items",
+            "core",
+            "magic-items",
+            "",
+        ),
+        doc(
+            "ref/rule/magic-items",
+            "Magic Items",
+            "rule",
+            "core",
+            "Rules.",
+            &[],
+        ),
+    ]);
+    assert_eq!(ids(&idx, &q("magic items"))[0], "ref/rule/magic-items");
+}
+
+#[test]
 fn an_inactive_book_contributes_no_section_results() {
     let idx = build(vec![
         section("book-section/core/1", "Combat", "core", "combat", ""),
