@@ -1,8 +1,8 @@
 # Top-50 result ids for the 50 queries of tests/e2e/measure-library.mjs.
 # Regenerate with `cargo xtask search-golden` (after `cargo xtask content`) in every corpus-pin PR.
-# corpus 4aa07208a30471d3eefa41c4ce61538df30b47e7
-# tag v0.1.45
-# content vacb96ee735abf747
+# corpus d3381782437a217b2caa87db40b93dd41c409170
+# tag v0.1.46
+# content vf0c022f14c3dd4aa
 # Format: `query: <text>` starts a block; each other line is a result id.
 query: fire
 ref/subtype/fire
@@ -139,6 +139,7 @@ ref/feat/rapid-grappler/stamina
 book-section/pathfinder-unchained/1-520
 book-section/pathfinder-unchained/1-561
 book-section/pathfinder-unchained/1-689
+ref/arc-barbarian/brutal-pugilist
 ref/carried/bestiary/rules/universal-monster-rules/rake
 ref/umr/rake
 ref/spell/wall-of-thorns/mythic
@@ -150,13 +151,12 @@ ref/feat/kudzu-invasion
 ref/feat/greater-whip-mastery
 ref/feat/tatzlwyrm-claw-style
 ref/spell/hungry-earth
-ref/ragepower/suffocating-grip
 ref/arc-monk/tetori
 ref/magic-wondrous/quicksand-cloak
+ref/ragepower/suffocating-grip
 ref/feat/unfair-grip
 ref/spell/incorporeal-chains
 ref/rule/umr-attach/attach
-ref/feat/kraken-throttle
 query: dragon
 ref/type/dragon
 ref/mystery/dragon
@@ -205,8 +205,8 @@ ref/family/dragon-planar-edict
 ref/family/dragon-planar-bliss
 ref/ragepower/dragon-totem
 ref/arc-skald/dragon-skald
-ref/arc-bard/dragon-yapper
 ref/family/dragon-planar-paradise
+ref/arc-bard/dragon-yapper
 ref/family/dragon-planar-tumult
 query: sword
 ref/rule/aff-swordmasters
@@ -381,8 +381,8 @@ ref/arcaneschool/evocation
 ref/magic-wondrous/mask-of-destruction-and-creation-nethys
 ref/monster/witchwyrd
 ref/eq-spellbook/calamaes-fragment
-ref/carried/ultimate-magic/rules/mastering-magic/building-and-modifying-constructs/construct-modifications/rune-carved/rune-of-shielding
 ref/feat/sacred-geometry
+ref/carried/ultimate-magic/rules/mastering-magic/building-and-modifying-constructs/construct-modifications/rune-carved/rune-of-shielding
 ref/magic-enh/veering
 ref/magic-armor/spined-shield
 ref/npc/whiteclaw-sorcerer
@@ -441,28 +441,28 @@ ref/eq-misc/wizards-kit
 ref/rule/wizard-spells-and-borrowed-spellbooks
 ref/magic-armor/wizards-mail
 book-section/advanced-players-guide/2-2-14
-book-section/blood-of-shadows/2-26
-book-section/blood-of-shadows/2-26-1
-book-section/blood-of-the-beast/2-39
-book-section/blood-of-the-beast/2-39-1
-book-section/blood-of-the-sea/2-18
-book-section/blood-of-the-sea/2-18-1
-book-section/chronicle-of-legends/2-42
-book-section/chronicle-of-legends/2-42-1
-book-section/heroes-of-golarion/2-10
-book-section/heroes-of-golarion/2-10-1
-book-section/horror-adventures/2-21
-book-section/horror-adventures/2-21-1
-book-section/kobolds-of-golarion/2-4
-book-section/kobolds-of-golarion/2-4-1
+book-section/chronicle-of-legends/1-108
+book-section/chronicle-of-legends/1-108-1
 book-section/monster-codex/21-1-1-11
 book-section/npc-codex/1-12
 book-section/pathfinder-unchained/1-1002-5
 book-section/pathfinder-unchained/1-308
-book-section/plane-hoppers-handbook/2-27
-book-section/plane-hoppers-handbook/2-27-1
 book-section/ultimate-campaign/1-6-2-1-14
 book-section/ultimate-combat/1-5-16
+book-section/ultimate-magic/1-2-15
+ref/arc-wizard/exploiter-wizard
+ref/arc-wizard/pact-wizard-ff
+ref/rule/mad-wizard
+ref/arc-wizard/bonded-wizard
+ref/carried/game-mastery-guide/monsters/scholars/hedge-wizard
+ref/feat/improved-flexible-wizardry
+ref/arc-wizard/pact-wizard-hhh
+ref/npc/investigator-wizard
+ref/npc/thunder-wizard
+ref/rule/preparing-wizard-spells
+ref/npc/jungle-wizard
+ref/npc/cave-wizard
+ref/npc/scholar-hedge-wizard
 query: bless
 ref/spell/bless
 ref/feat/bless-equipment
@@ -549,6 +549,7 @@ ref/magic-wondrous/dust-of-disappearance
 ref/rule/swi-cloak
 ref/patron/deception
 ref/monster/duergar-duergar-high-priest
+ref/arc-ranger/urban-ranger
 ref/magic-wondrous/cloak-of-the-hunt
 ref/magic-wondrous/lantern-of-revealing
 ref/ragepower/celestial-totem
@@ -564,7 +565,6 @@ ref/npc/toothy-transmuter
 ref/npc/demonologist
 ref/magic-wondrous/mariners-eye-patch
 ref/magic-wondrous/clandestine-horseshoes
-ref/magic-staff/staff-of-vision
 query: potion
 ref/rule/potions
 ref/eq-misc/potion-sponge
@@ -641,8 +641,8 @@ ref/monster/goblin-goblin-vulture-pilot
 ref/magic-wondrous/goblin-skull-bomb
 ref/eq-misc/goblinvine
 ref/carried/ultimate-equipment/rules/wondrous-items/slotless/slotless-wondrous-items/goblin-fire-drum
-ref/carried/monster-codex/rules/goblins
 ref/carried/monster-codex/rules/goblins/goblins
+ref/carried/monster-codex/rules/goblins
 ref/feat/goblin-cleaver
 ref/trait/goblin-watcher
 ref/eq-misc/goblin-fishing-lure
@@ -680,8 +680,8 @@ ref/feat/spring-attack
 ref/carried/mythic-adventures/feats/spring-attack/mythic
 ref/trait/splash-attack
 ref/feat/improved-spring-attack
-ref/feat/ride-by-attack
 ref/rule/standard-actions
+ref/feat/ride-by-attack
 ref/rule/free-actions
 ref/feat/greater-spring-attack
 ref/rule/miscellaneous-actions
@@ -701,6 +701,7 @@ ref/feat/snap-shot
 ref/feat/paired-opportunists
 ref/feat/improved-two-weapon-fighting/stamina
 ref/feat/porcupine-defense/stamina
+ref/arc-fighter/two-weapon-warrior
 ref/feat/aquatic-advantage
 ref/trait/reckless-contempt
 ref/feat/intrepid-rescuer/stamina
@@ -708,16 +709,15 @@ ref/feat/snake-fang/stamina
 ref/spell/aspect-of-the-stag
 ref/talent/got-your-back
 ref/rule/reactions
-ref/spell/symbol-of-striking
 ref/feat/stand-still
+ref/spell/symbol-of-striking
 ref/magic-enh/fortuitous
+ref/aspect/snake
 ref/magic-wondrous/balm-of-impish-grace
 ref/order/order-of-vengeance
-ref/aspect/snake
 ref/feat/panther-style
 ref/vigtalent/leave-an-opening
 ref/spell/expeditious-retreat/mythic
-ref/feat/combat-reflexes
 query: ranger
 ref/carried/ultimate-magic/rules/spellcasting-class-options/ranger
 ref/carried/ultimate-combat/rules/class-archetypes/ranger
@@ -750,25 +750,25 @@ ref/eq-misc/rangers-kit
 ref/class/ranger/teitr
 ref/rule/class-ranger/ranger/teitr
 book-section/advanced-players-guide/2-2-11
-book-section/blood-of-shadows/2-18
-book-section/blood-of-shadows/2-18-1
-book-section/blood-of-the-beast/2-25
-book-section/blood-of-the-beast/2-25-1
-book-section/blood-of-the-sea/2-12
-book-section/blood-of-the-sea/2-12-1
-book-section/chronicle-of-legends/2-25
-book-section/chronicle-of-legends/2-25-1
-book-section/goblins-of-golarion/2-7
-book-section/goblins-of-golarion/2-7-1
-book-section/horror-adventures/2-16
-book-section/horror-adventures/2-16-1
+book-section/chronicle-of-legends/1-91
+book-section/chronicle-of-legends/1-91-1
 book-section/monster-codex/21-1-1-8
 book-section/npc-codex/1-9
 book-section/pathfinder-unchained/1-1000-5
 book-section/pathfinder-unchained/1-299
-book-section/plane-hoppers-handbook/2-18
-book-section/plane-hoppers-handbook/2-18-1
 book-section/the-elephant-in-the-room-feat-taxes-in-pathfinder/1-113
+book-section/ultimate-campaign/1-6-2-1-11
+book-section/ultimate-combat/1-5-14
+book-section/ultimate-magic/1-2-11
+ref/arc-ranger/spirit-ranger
+ref/arc-ranger/urban-ranger
+ref/feat/learn-ranger-trap
+ref/feat/extra-ranger-trap
+ref/feat/advanced-ranger-trap
+ref/feat/improved-learn-ranger-trap
+book-section/ultimate-magic/4-14-8
+book-section/the-elephant-in-the-room-feat-taxes-in-pathfinder/1-114
+book-section/the-elephant-in-the-room-feat-taxes-in-pathfinder/1-115
 query: stealth
 ref/rule/stealth-dex
 ref/skill/stealth
@@ -807,16 +807,16 @@ ref/monster/keulia
 ref/monster/bat-dire-bat
 ref/sorcbloodline/shadow
 ref/rule/avoid-being-noticed
-ref/feat/kobold-ambusher
 ref/arc-rogue/river-rat
+ref/feat/kobold-ambusher
 ref/npc/aloof-archer
 ref/feat/owl-style
-ref/carried/advanced-race-guide/races/halflings/alternate-racial-rules/alternate-racial-traits/swift-as-shadows
 ref/npc/adventurer-tomb-raider
 ref/carried/game-mastery-guide/monsters/adventurers/tomb-raider
+ref/carried/advanced-race-guide/races/halflings/alternate-racial-rules/alternate-racial-traits/swift-as-shadows
+ref/monster/gargoyle-gargoyle-guardian
 ref/feat/expert-sniper
 ref/carried/advanced-players-guide/rules/races/halflings/alternate-racial-traits/swift-as-shadows
-ref/monster/gargoyle-gargoyle-guardian
 ref/npc/chernasardo-sniper
 ref/arc-rogue/chameleon
 ref/feat/exquisite-sneak
@@ -900,21 +900,21 @@ ref/vigtalent/weapon-familiarity
 ref/magic-enh/ki-focus
 ref/magic-rod/backbiters-focus
 ref/magic-wondrous/headband-of-ki-focus
+ref/arc-monk/weapon-adept
 ref/feat/ancestral-weapon-mastery
 ref/feat/modified-weapon-proficiency
 ref/carried/advanced-race-guide/races/elves/alternate-racial-rules/alternate-racial-traits/arcane-focus
 ref/feat/greater-weapon-specialization
 ref/feat/creature-focus
 ref/feat/two-weapon-drunkard
-ref/arc-monk/weapon-adept
 ref/spell/warding-weapon
 ref/feat/greater-weapon-specialization/teitr
 ref/feat/elven-battle-focus
 ref/feat/weapon-trick-weapon-and-shield
 ref/feat/weapon-style-mastery
 ref/feat/furious-focus/stamina
-ref/feat/weapon-trick-polearm
 ref/feat/focused-discipline
+ref/feat/weapon-trick-polearm
 ref/phrenicamp/dragons-breath
 ref/feat/weapon-of-the-chosen
 ref/ability/advanced-weapon-training
@@ -1186,8 +1186,8 @@ ref/spell/widen-auras
 ref/arc-antipaladin/insinuator
 ref/spell/draconic-malice
 ref/feat/champion-of-malevolence
-ref/carried/monster-codex/rules/bugbears/new-rules
 ref/faith/hei-feng
+ref/carried/monster-codex/rules/bugbears/new-rules
 ref/spell/shared-suffering
 ref/ability/channel-energy
 ref/arc-antipaladin/knight-of-the-sepulcher
@@ -1233,14 +1233,15 @@ ref/blrgbloodline/arcane
 ref/sorcbloodline/arcane
 ref/carried/npc-codex/rules/prestige-class-npcs/arcane-trickster
 ref/carried/npc-codex/rules/prestige-class-npcs/arcane-archer
+ref/arc-bard/arcane-duelist
 ref/ability/arcane-schools
 ref/pclass/arcane-archer
 ref/rule/pclass-arcane-archer/arcane-archer
 ref/exploit/arcane-discovery
 ref/feat/arcane-insight
 ref/arcana/arcane-dealer
-ref/trait/arcane-revitalization
 ref/arc-wizard/arcane-physician
+ref/trait/arcane-revitalization
 ref/arc-wizard/arcane-warden
 ref/arc-arcanist/arcane-tinkerer
 ref/spell/arcane-disruption
@@ -1254,7 +1255,6 @@ ref/exploit/arcane-barrier
 ref/arcana/arcane-accuracy
 ref/arcana/arcane-redoubt
 ref/arcana/arcane-cloak
-ref/arc-bard/arcane-duelist
 ref/arc-familiar/arcane-amplifier
 ref/arcana/arcane-edge
 ref/arcana/arcane-deed
@@ -1417,21 +1417,21 @@ ref/carried/core-rulebook/rules/equipment/goods-and-services/mounts-and-related-
 ref/rule/bardic-college-events
 ref/eq-misc/bards-kit
 book-section/advanced-players-guide/2-2-4
-book-section/blood-of-shadows/2-4
-book-section/blood-of-shadows/2-4-1
-book-section/blood-of-the-beast/2-5
-book-section/blood-of-the-beast/2-5-1
-book-section/blood-of-the-sea/2-2
-book-section/blood-of-the-sea/2-2-1
-book-section/chronicle-of-legends/2-5
-book-section/chronicle-of-legends/2-5-1
-book-section/goblins-of-golarion/2-2
-book-section/goblins-of-golarion/2-2-1
-book-section/horror-adventures/2-3
-book-section/horror-adventures/2-3-1
-book-section/legacy-of-the-first-world/2-2
-book-section/legacy-of-the-first-world/2-2-1
+book-section/chronicle-of-legends/1-71
+book-section/chronicle-of-legends/1-71-1
 book-section/monster-codex/21-1-1-2
+book-section/npc-codex/1-3
+book-section/pathfinder-unchained/1-291
+book-section/pathfinder-unchained/1-997-3
+book-section/ultimate-campaign/1-6-2-1-3
+book-section/ultimate-combat/1-5-4
+book-section/ultimate-magic/1-2-3
+ref/arc-bard/court-bard
+ref/arc-bard/dirge-bard
+ref/carried/game-mastery-guide/monsters/entertainers/celebrity-bard
+ref/npc/entertainer-celebrity-bard
+ref/trait/aspiring-bard
+ref/rule/sorcerers-and-bards
 query: bear
 ref/companion/bear
 ref/aspect/bear
@@ -1457,8 +1457,8 @@ ref/eq-misc/dire-bear
 ref/magic-wondrous/insidious-bear-trap
 ref/eq-misc/bag-bear
 ref/companion/dire-polar-bear
-ref/spell/aspect-of-the-bear
 ref/monster/taxidermic-grizzly-bear
+ref/spell/aspect-of-the-bear
 ref/monster/bear-dire-polar-bear
 ref/magic-wondrous/claws-of-the-ice-bear
 ref/spell/bears-endurance-mass
@@ -1605,8 +1605,8 @@ ref/monster/blood-lily
 ref/spell/blood-scent
 ref/arc-kineticist/blood-kineticist
 ref/feat/blood-salvage
-ref/eq-misc/blood-neutralizer
 ref/arc-summoner/blood-summoner
+ref/eq-misc/blood-neutralizer
 ref/spell/blood-money
 ref/arc-alchemist/blood-alchemist
 ref/monster/golem-blood-golem
@@ -1660,8 +1660,8 @@ ref/spell/deafening-song-bolt
 ref/eq-siegeengine/entangling-bolt
 ref/eq-misc/portable-bolt-trap
 ref/npc/azure-bolt-sorcerer
-ref/spell/gloomblind-bolts
 ref/trap/lightning-bolt-gallery-trap
+ref/spell/gloomblind-bolts
 ref/spell/web-bolt
 ref/eq-weapon/bolas-bolts
 ref/eq-weapon/crossbow-bolts
@@ -1713,13 +1713,13 @@ ref/magic-wondrous/tuned-bowstring
 ref/magic-weapon/shade-bow
 ref/magic-weapon/windreaders-bow
 ref/trait/deadeye-bowman
+ref/arc-monk/zen-archer
 ref/eq-weapon/hornbow-orc
 ref/magic-enh/adaptive
 ref/eq-weapon/spear-sling
 ref/trait/toxophilite
 ref/eq-weapon/composite-longbow
 ref/eq-weapon/composite-shortbow
-ref/arc-monk/zen-archer
 ref/carried/mythic-adventures/feats/elven-accuracy/mythic
 ref/feat/stabbing-shot
 ref/feat/empty-quiver-style
@@ -1731,8 +1731,8 @@ ref/eq-weapon/shortbow
 ref/monster/giant-jungle-giant
 ref/magic-weapon/oathbow
 ref/magic-weapon/felhart
-ref/feat/erastils-blessing
 ref/rule/dexterity
+ref/feat/erastils-blessing
 ref/magic-enh/endless-ammunition
 ref/monster/wild-hunt-wild-hunt-archer
 ref/vigtalent/signature-arrows
@@ -1867,22 +1867,12 @@ ref/rule/cleric-oracle-words
 ref/eq-misc/clerics-vestments
 ref/eq-misc/clerics-kit
 book-section/advanced-players-guide/2-2-5
-book-section/blood-of-shadows/2-6
-book-section/blood-of-shadows/2-6-1
-book-section/blood-of-the-beast/2-9
-book-section/blood-of-the-beast/2-9-1
-book-section/chronicle-of-legends/2-8
-book-section/chronicle-of-legends/2-8-1
-book-section/heroes-of-golarion/2-3
-book-section/heroes-of-golarion/2-3-1
-book-section/horror-adventures/2-5
-book-section/horror-adventures/2-5-1
+book-section/chronicle-of-legends/1-74
+book-section/chronicle-of-legends/1-74-1
 book-section/monster-codex/21-1-1-3
 book-section/npc-codex/1-4
 book-section/pathfinder-unchained/1-292
 book-section/pathfinder-unchained/1-999-1
-book-section/plane-hoppers-handbook/2-6
-book-section/plane-hoppers-handbook/2-6-1
 book-section/ultimate-campaign/1-6-2-1-4
 book-section/ultimate-combat/1-5-6
 book-section/ultimate-magic/1-2-4
@@ -1891,6 +1881,16 @@ ref/npc/river-cleric
 ref/rule/me-vampire-cleric
 ref/carried/monster-codex/rules/gnolls/example-gnolls/gnoll-devotees/gnoll-cleric
 ref/npc/shadow-cleric
+ref/npc/shoreline-cleric
+ref/npc/fire-cleric
+ref/npc/vivisectionist-cleric
+book-section/ultimate-magic/4-14-3
+book-section/pathfinder-unchained/1-999
+book-section/pathfinder-unchained/1-1052
+ref/feat/versatile-channeler
+ref/feat/adept-channel
+ref/eq-weaponenh/consecrated-weapon
+ref/arc-cleric/varisian-pilgrim
 query: cold
 ref/spelldef/cold
 ref/subtype/cold
@@ -2114,8 +2114,8 @@ ref/pclass/death-slayer
 ref/npc/death-whisperer
 ref/magic-weapon/death-bill
 ref/monster/deathweb
-ref/rule/death-attacks
 ref/monster/death-dog
+ref/rule/death-attacks
 ref/npc/death-priest
 ref/tech-weapon/death-ray
 ref/monster/death-worm
@@ -2249,6 +2249,7 @@ book-section/mythic-adventures/5-2-70
 book-section/ultimate-magic/4-12-14
 ref/eq-misc/light-detector
 query: divine
+ref/arc-paladin/divine-defender
 ref/rule/divine-spells
 ref/pclass/divine-scion
 ref/arc-paladin/divine-guardian
@@ -2267,7 +2268,6 @@ ref/arc-warpriest/divine-champion
 ref/rule/divine-intervention
 ref/arc-hunter/divine-hunter
 ref/feat/divine-denouncer
-ref/arc-paladin/divine-defender
 ref/feat/divine-dignity
 ref/trait/divine-denier
 ref/feat/divine-defiance
@@ -2426,8 +2426,8 @@ ref/kinetic/earth-tongue
 ref/kinetic/earth-child
 ref/spell/earth-glide
 ref/rule/rule-special-abilities-ucp/earth-glide
-ref/blessing/earthquake
 ref/monster/oni-earth-yai
+ref/blessing/earthquake
 ref/eq-weapon/earth-breaker
 ref/magic-weapon/earthenflail
 ref/magic-weapon/earthcracker
@@ -2459,6 +2459,7 @@ ref/sorcbloodline/elemental
 ref/eidolon/elemental
 ref/mystery/elemental
 ref/blrgbloodline/elemental
+ref/arc-barbarian/elemental-kin
 ref/spell/elemental-bombardment
 ref/arc-druid/elemental-ally
 ref/spell/elemental-swarm
@@ -2470,7 +2471,6 @@ ref/carried/bestiary/monsters/elemental/earth/elder
 ref/arc-magus/elemental-knight
 ref/carried/bestiary/monsters/elemental/fire/elder
 ref/magic-wondrous/elemental-gem
-ref/arc-barbarian/elemental-kin
 ref/arc-arcanist/elemental-master
 ref/arc-monk/elemental-monk
 ref/arc-ranger/elemental-envoy

@@ -5,8 +5,9 @@ import { buildLibraryWithFeatures, installLibrary, waitControlled } from "./help
 // The feature heads of an archetype in corpus format 4 (#540; decision
 // `2026-11-24-feature-heads-and-search-aliases`): a listed feature renders as the head of a
 // class-option power (name, dotted leader, `Level N`), keeps its anchor and its place in
-// `On this page`, and a trade of the Replaces line links to the feature that states it. No
-// pinned corpus has `features` yet, so an overlay makes Two-Handed Fighter a format 4 entry.
+// `On this page`, and a trade of the Replaces line links to the feature that states it. The pinned
+// corpus types 81 archetypes of the Advanced Player's Guide, Two-Handed Fighter among them (v0.1.46);
+// an overlay still replaces its body and `features`, so the spec does not depend on the printed prose.
 // The head rule, the aliases and the link choice are the native tests' business.
 
 const corpus = loadCorpus();
