@@ -3073,7 +3073,7 @@ main,
   max-width: 100%;
 }
 
-/* Density "wide" (the only one for now, issue #182 adds a compact one): on a phone the gist
+/* Density "wide" (shown as Expanded; the only one for now, issue #182 adds a compact one): on a phone the gist
    stands alone under the facts, so a row is three lines. Another density sets its own rules
    under its own value of data-density. */
 .spell-list[data-density="wide"] .spell-row-meta .spell-gist {

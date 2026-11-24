@@ -655,7 +655,7 @@ installedTest("Spell list density at 390 px: Compact is two lines, toggles witho
   await installLibrary(page);
   await page.goto(`#/spells/${encodeURIComponent(listClass)}/${listLevel}`);
   const list = page.locator(".spell-list");
-  // Wide is the default: the gist sits under the facts on a phone, so the fact line has two rows.
+  // Expanded is the default: the gist sits under the facts on a phone, so the fact line has two rows.
   await expect(list).toHaveAttribute("data-density", "wide");
   const row = page.locator(".spell-row:has(.spell-gist)").first();
   const meta = row.locator(".spell-row-meta");
@@ -666,7 +666,7 @@ installedTest("Spell list density at 390 px: Compact is two lines, toggles witho
   // The choice is one quiet text button at the end of the level bar's row (#595): no Filter pills
   // and no radio group on the list, and the button is a 44 px target.
   await expect(page.locator(".density-toggle .chip")).toHaveCount(0);
-  await expect(page.getByRole("radio", { name: /Compact|Wide/ })).toHaveCount(0);
+  await expect(page.getByRole("radio", { name: /Compact|Expanded/ })).toHaveCount(0);
   const toggle = page.locator(".level-nav").getByRole("button", { name: "Compact rows" });
   await expect(toggle).toBeVisible();
   await expect(toggle).toHaveClass(/text-btn/);
@@ -678,10 +678,10 @@ installedTest("Spell list density at 390 px: Compact is two lines, toggles witho
   await expect(page.locator(".level-nav").getByRole("button", { name: "Compact rows" })).toBeVisible();
   await page.goto("#/spells");
   await expect(page.getByRole("heading", { level: 1, name: "Spell lists" })).toBeVisible();
-  await expect(page.getByRole("button", { name: /^(Compact|Wide) rows$/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^(Compact|Expanded) rows$/ })).toHaveCount(0);
   await page.goto(`#/spells/${encodeURIComponent(listClass)}/${listLevel}`);
   await expect(list).toBeVisible();
-  // With Wide rows, two rows fit in the first screen.
+  // With Expanded rows, two rows fit in the first screen.
   const fullyInside = await page.locator(".spell-list .spell-row").evaluateAll((nodes, viewport) =>
     nodes.filter((n) => n.getBoundingClientRect().bottom <= viewport).length, page.viewportSize()!.height);
   expect(fullyInside).toBeGreaterThanOrEqual(2);
@@ -691,7 +691,7 @@ installedTest("Spell list density at 390 px: Compact is two lines, toggles witho
 
   await toggle.click();
   await expect(list).toHaveAttribute("data-density", "compact");
-  await expect(page.locator(".level-nav").getByRole("button", { name: "Wide rows" })).toBeFocused();
+  await expect(page.locator(".level-nav").getByRole("button", { name: "Expanded rows" })).toBeFocused();
   await expect(page.getByRole("status").filter({ hasText: /^Compact rows$/ })).toHaveCount(1);
   expect(page.url()).toBe(address);
   expect((await meta.boundingBox())!.height).toBeLessThan(lineHeight * 1.5);
