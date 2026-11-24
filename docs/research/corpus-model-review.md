@@ -136,15 +136,19 @@ rules). Outside the carry-over, 693 groups share a kind and title; most are legi
 
 ## Proposals, in order of value for effort
 
-| # | Change | Format change | Why now or later |
-|---|---|---|---|
-| 1 | Normalise the six fields of finding 1 and add a closed-vocabulary check | None | Small; fixes split filters. Ticketed (data #287) |
-| 2 | Fill creature fields for the 487 NPCs and 27 carry-over creatures | None | Makes NPCs filterable by CR and type like monsters; the stat-block work in phynics/cast-iron-data#166 touches the same entries |
-| 3 | Typed fields for afflictions and traps | Additive keys | 526 entries; opens both kinds to filters and to cross-checks |
-| 4 | Fixed keys for weapon and armor statistics, replacing those `attributes` rows | Additive keys, then a migration of 43 entries | 733 entries; the equipment tables are what readers look up most |
-| 5 | Optional numeric price | Additive key | Enables sort and filter; derive it by script, review the remainder |
-| 6 | Kinds or groups for deities, templates and universal monster rules | Schema version | After the haunt kind shows the cost |
-| 7 | Structured `hp`, one owner for field and body | Format and schema version | Already post-v1 in #134; batch with 6 |
+The owner approved all seven on 2026-11-24, with 6 and 7 as a direction only
+([decision](../decisions/2026-11-24-corpus-model-proposals-approved.md)).
 
-Proposals 2 to 7 are not ticketed. Each changes the schema or a large slice of entries, so each
-needs the owner's decision first; 6 and 7 belong in one format bump.
+| # | Change | Format change | Ticket |
+|---|---|---|---|
+| 1 | Normalise the six fields of finding 1 and add a closed-vocabulary check | None | [phynics/cast-iron-data#287](https://github.com/phynics/cast-iron-data/issues/287) |
+| 2 | Fill creature fields for the 487 NPCs and 27 carry-over creatures | None | [phynics/cast-iron-data#289](https://github.com/phynics/cast-iron-data/issues/289), with the stat-block work in phynics/cast-iron-data#166 |
+| 3 | Typed fields for afflictions and traps | Additive keys | [#670](https://github.com/phynics/cast-iron/issues/670) |
+| 4 | Fixed keys for weapon and armor statistics, replacing those `attributes` rows | Additive keys, then a migration of 43 entries | [#671](https://github.com/phynics/cast-iron/issues/671), after 3 |
+| 5 | Optional numeric price | Additive key | [#672](https://github.com/phynics/cast-iron/issues/672) |
+| 6 | State the family of deities, templates and universal monster rules in the data | Schema version | [#673](https://github.com/phynics/cast-iron/issues/673): direction only, shape open |
+| 7 | Structured `hp`, one owner for field and body | Format and schema version | [#134](https://github.com/phynics/cast-iron/issues/134): direction only |
+
+Proposals 3 to 6 are in the `post-v1` milestone. Proposals 6 and 7 have no fixed design, order or
+date; they go in one format batch when that work is planned, after the haunt kind
+([#618](https://github.com/phynics/cast-iron/issues/618)) shows what a new kind costs.
