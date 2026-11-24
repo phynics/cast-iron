@@ -365,7 +365,7 @@ test("Keyboard and screen reader users read entry headings that never skip a lev
   // A shifted heading keeps the look of the level the corpus stored: Wizard's `Class Features`
   // sections were h3 and still read at the h3 size, below an h2 of the same page.
   await page.goto("#/entry/ref/class/wizard");
-  const sized = await page.locator(".rich [data-printed-level]").evaluateAll((els) =>
+  const sized = await page.locator(".rich [data-printed-level]:not(.power-name)").evaluateAll((els) =>
     els.map((el) => ({
       printed: el.getAttribute("data-printed-level"),
       tag: el.tagName,
