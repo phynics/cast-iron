@@ -72,7 +72,9 @@ pub mod validate;
 ///
 /// [`RuleEntry::sources`] and [`RuleEntry::aon`] are additive and optional: a library without
 /// them omits the key, and an older reader ignores an unknown key, so they do not change this
-/// version.
+/// version. So are `features` of [`ArchetypeFields`], [`ClassOptionFields`] and [`ClassFields`]
+/// and `by` of [`Trade`] (corpus format 4, #540): both are omitted when empty, and no reader of
+/// these types denies unknown fields.
 pub const SCHEMA_VERSION: u32 = 7;
 
 /// Name of the relation index, relative to the version directory.
@@ -862,6 +864,10 @@ pub struct ClassFields {
     pub skill_ranks: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub class_skills: Option<String>,
+    /// The class features that the body prints under their own heading, with the level each
+    /// is gained at (corpus format 4, #540). Empty is omitted.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub features: Vec<FeatureFact>,
 }
 
 /// Fields of a character trait or drawback.
@@ -880,6 +886,16 @@ pub struct TraitFields {
 pub struct RacialTraitFields {
     /// True for an alternate racial trait, which replaces a standard trait of the race.
     pub alternate: bool,
+}
+
+/// A feature that an entry prints under its own heading, and the level it is gained at (corpus
+/// format 4, #540). `anchor` is a heading key in the body. The entries that carry features are
+/// archetypes, class options and base classes; a [`Trade`] names the feature that states it
+/// through `by`.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+pub struct FeatureFact {
+    pub anchor: String,
+    pub level: u8,
 }
 
 /// What an archetype or class option does to one feature of its base class.
@@ -940,6 +956,10 @@ pub struct Trade {
     pub printed: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub feature: Option<FeatureRef>,
+    /// The anchor of the [`FeatureFact`] of the trading entry that states this trade in its
+    /// printed text (corpus format 4, #540). `None` when the entry has no features.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub by: Option<String>,
 }
 
 impl Trade {
@@ -949,6 +969,7 @@ impl Trade {
             op,
             printed: printed.into(),
             feature: None,
+            by: None,
         }
     }
 }
@@ -989,6 +1010,9 @@ impl LegacyFeatureLists {
 pub struct ArchetypeFields {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub trades: Vec<Trade>,
+    /// The features the body prints under their own heading (corpus format 4, #540).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub features: Vec<FeatureFact>,
     /// Corpus format 1 only; see [`LegacyFeatureLists`].
     #[serde(skip)]
     pub legacy_features: LegacyFeatureLists,
@@ -1003,6 +1027,9 @@ pub struct ClassOptionFields {
     pub group: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub trades: Vec<Trade>,
+    /// The features the body prints under their own heading (corpus format 4, #540).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub features: Vec<FeatureFact>,
     /// Corpus format 1 only; see [`LegacyFeatureLists`].
     #[serde(skip)]
     pub legacy_features: LegacyFeatureLists,
@@ -1014,6 +1041,16 @@ impl TypedFields {
         match self {
             TypedFields::Archetype(fields) => &fields.trades,
             TypedFields::ClassOption(fields) => &fields.trades,
+            _ => &[],
+        }
+    }
+
+    /// The features of an archetype, class option or base class; empty for every other kind.
+    pub fn features(&self) -> &[FeatureFact] {
+        match self {
+            TypedFields::Archetype(fields) => &fields.features,
+            TypedFields::ClassOption(fields) => &fields.features,
+            TypedFields::Class(fields) => &fields.features,
             _ => &[],
         }
     }
@@ -2289,9 +2326,11 @@ mod tests {
             r#"{"kind":"class_option","group":"arcane-discovery"}"#
         );
         let option = TypedFields::ClassOption(ClassOptionFields {
+            features: Default::default(),
             group: "arcane-discovery".into(),
             trades: vec![
                 Trade {
+                    by: None,
                     op: TradeOp::Replaces,
                     printed: "Arcane bond".into(),
                     feature: Some(FeatureRef {
@@ -2321,6 +2360,57 @@ mod tests {
         let old = r#"{"kind":"archetype","replaces":["Bravery"],"replaces_features":["bravery"]}"#;
         let old: TypedFields = serde_json::from_str(old).unwrap();
         assert!(old.trades().is_empty());
+    }
+
+    #[test]
+    fn feature_facts_and_by_are_additive_optional_keys() {
+        // Corpus format 4 (#540): empty features and an absent `by` write nothing, so a library
+        // without them is byte-identical to a schema-7 one, and an older reader that does not
+        // know the keys ignores them (no struct here denies unknown fields).
+        let plain = TypedFields::Archetype(ArchetypeFields::default());
+        assert_eq!(
+            serde_json::to_string(&plain).unwrap(),
+            r#"{"kind":"archetype"}"#
+        );
+        let class = TypedFields::Class(ClassFields::default());
+        assert_eq!(
+            serde_json::to_string(&class).unwrap(),
+            r#"{"kind":"class"}"#
+        );
+        let fact = |anchor: &str, level: u8| FeatureFact {
+            anchor: anchor.into(),
+            level,
+        };
+        let stated = TypedFields::Archetype(ArchetypeFields {
+            features: vec![fact("shattering-strike", 2)],
+            ..Default::default()
+        });
+        let json = serde_json::to_string(&stated).unwrap();
+        assert_eq!(
+            json,
+            r#"{"kind":"archetype","features":[{"anchor":"shattering-strike","level":2}]}"#
+        );
+        assert_eq!(serde_json::from_str::<TypedFields>(&json).unwrap(), stated);
+        assert_eq!(stated.features().len(), 1);
+        let class = TypedFields::Class(ClassFields {
+            features: vec![fact("bravery", 2)],
+            ..Default::default()
+        });
+        let json = serde_json::to_string(&class).unwrap();
+        assert_eq!(serde_json::from_str::<TypedFields>(&json).unwrap(), class);
+        let trade = Trade {
+            by: Some("shattering-strike".into()),
+            ..Trade::unresolved(TradeOp::Replaces, "Bravery")
+        };
+        let json = serde_json::to_string(&trade).unwrap();
+        assert_eq!(
+            json,
+            r#"{"op":"replaces","printed":"Bravery","by":"shattering-strike"}"#
+        );
+        assert_eq!(serde_json::from_str::<Trade>(&json).unwrap(), trade);
+        // A `trades.json` row of an older library has no `by`.
+        let old = r#"{"op":"replaces","printed":"Bravery"}"#;
+        assert_eq!(serde_json::from_str::<Trade>(old).unwrap().by, None);
     }
 
     #[test]

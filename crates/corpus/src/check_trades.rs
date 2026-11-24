@@ -241,6 +241,7 @@ mod tests {
 
     fn feature_trade(op: TradeOp, printed: &str, anchor: &str) -> Trade {
         Trade {
+            by: None,
             op,
             printed: printed.into(),
             feature: Some(FeatureRef {
@@ -252,6 +253,7 @@ mod tests {
 
     fn narrowed(printed: &str, anchor: &str, levels: &[u8], power: Option<&str>) -> Trade {
         Trade {
+            by: None,
             op: TradeOp::Replaces,
             printed: printed.into(),
             feature: Some(FeatureRef {
@@ -398,6 +400,7 @@ mod tests {
                     vec![
                         narrowed("Bonus feat gained at 6th level", "bonus-feats", &[6], None),
                         Trade {
+                            by: None,
                             op: TradeOp::Alters,
                             printed: "Bonus feats".into(),
                             feature: Some(FeatureRef {

@@ -70,7 +70,7 @@ pub fn read_trades(
         read_format_1(path, table, line)
     } else {
         Ok((
-            read_format_2(path, table, line("trades"))?,
+            read_format_2(path, table, format, line("trades"))?,
             Default::default(),
         ))
     }
@@ -104,6 +104,7 @@ fn read_format_1(
                 }
             });
             trades.push(Trade {
+                by: None,
                 op,
                 printed,
                 feature,
@@ -121,7 +122,7 @@ fn read_format_1(
     Ok((trades, legacy))
 }
 
-fn read_format_2(path: &Path, table: &toml::Table, line: usize) -> Result<Vec<Trade>> {
+fn read_format_2(path: &Path, table: &toml::Table, format: u32, line: usize) -> Result<Vec<Trade>> {
     let Some(value) = table.get("trades") else {
         return Ok(Vec::new());
     };
@@ -137,20 +138,32 @@ fn read_format_2(path: &Path, table: &toml::Table, line: usize) -> Result<Vec<Tr
         let row = row
             .as_table()
             .ok_or_else(|| Error::new(path, line, "`trades` must hold tables"))?;
-        out.push(read_trade(path, row, line)?);
+        out.push(read_trade(path, row, format, line)?);
     }
     Ok(out)
 }
 
-fn read_trade(path: &Path, row: &toml::Table, line: usize) -> Result<Trade> {
-    const KEYS: [&str; 6] = ["replaces", "alters", "feature", "class", "levels", "power"];
+fn read_trade(path: &Path, row: &toml::Table, format: u32, line: usize) -> Result<Trade> {
+    const KEYS: [&str; 7] = [
+        "replaces", "alters", "feature", "class", "levels", "power", "by",
+    ];
     for key in row.keys() {
         if !KEYS.contains(&key.as_str()) {
             return Err(Error::new(
                 path,
                 line,
                 format!(
-                    "unexpected key `{key}` in a trade; a trade has `replaces` or `alters`, and optionally `feature`, `class`, `levels` and `power`"
+                    "unexpected key `{key}` in a trade; a trade has `replaces` or `alters`, and optionally `feature`, `class`, `levels`, `power` and `by`"
+                ),
+            ));
+        }
+        if key == "by" && format < crate::features::FEATURES_FORMAT {
+            return Err(Error::new(
+                path,
+                line,
+                format!(
+                    "`by` in a trade needs corpus format {}; the corpus is format {format}",
+                    crate::features::FEATURES_FORMAT
                 ),
             ));
         }
@@ -183,6 +196,14 @@ fn read_trade(path: &Path, row: &toml::Table, line: usize) -> Result<Trade> {
     let anchor = string("feature")?;
     let class = string("class")?;
     let power = string("power")?;
+    let by = string("by")?;
+    if by.as_deref().is_some_and(|by| by.trim().is_empty()) {
+        return Err(Error::new(
+            path,
+            line,
+            format!("`by` in the trade `{printed}` must name a feature anchor"),
+        ));
+    }
     let levels = match row.get("levels") {
         None => Vec::new(),
         Some(toml::Value::Array(values)) => values
@@ -219,12 +240,16 @@ fn read_trade(path: &Path, row: &toml::Table, line: usize) -> Result<Trade> {
                 ),
             ));
         }
-        return Ok(Trade::unresolved(op, printed));
+        return Ok(Trade {
+            by,
+            ..Trade::unresolved(op, printed)
+        });
     };
     let class = class
         .map(|value| EntryId::parse(value).map_err(|e| Error::new(path, line, e.to_string())))
         .transpose()?;
     Ok(Trade {
+        by,
         op,
         printed,
         feature: Some(FeatureRef {
@@ -312,6 +337,10 @@ fn write_format_2(out: &mut String, trades: &[Trade]) {
                 out.push_str(&tomlutil::string(power));
             }
         }
+        if let Some(by) = &trade.by {
+            out.push_str(", by = ");
+            out.push_str(&tomlutil::string(by));
+        }
         out.push_str(" },\n");
     }
     out.push_str("]\n");
@@ -338,5 +367,6 @@ pub fn needs_format_2(trades: &[Trade]) -> bool {
             .as_ref()
             .is_some_and(|feature| feature.anchor != crate::check::feature_key(&trade.printed))
     });
-    narrowed || interleaved || renamed
+    let stated = trades.iter().any(|trade| trade.by.is_some());
+    narrowed || interleaved || renamed || stated
 }

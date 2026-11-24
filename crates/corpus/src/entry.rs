@@ -333,6 +333,7 @@ fn write_fields(out: &mut String, fields: &TypedFields, format: u32) {
             write_optional_string(out, "hit_die", &fields.hit_die);
             write_optional_string(out, "skill_ranks", &fields.skill_ranks);
             write_optional_string(out, "class_skills", &fields.class_skills);
+            crate::features::write_features(out, &fields.features);
         }
         TypedFields::Trait(fields) => {
             out.push_str("kind = \"trait\"\n");
@@ -349,6 +350,7 @@ fn write_fields(out: &mut String, fields: &TypedFields, format: u32) {
         }
         TypedFields::Archetype(fields) => {
             out.push_str("kind = \"archetype\"\n");
+            crate::features::write_features(out, &fields.features);
             write_trades(out, &fields.trades, &fields.legacy_features, format);
         }
         TypedFields::ClassOption(fields) => {
@@ -356,6 +358,7 @@ fn write_fields(out: &mut String, fields: &TypedFields, format: u32) {
             out.push_str("group = ");
             out.push_str(&tomlutil::string(&fields.group));
             out.push('\n');
+            crate::features::write_features(out, &fields.features);
             write_trades(out, &fields.trades, &fields.legacy_features, format);
         }
         TypedFields::None => out.push_str("kind = \"none\"\n"),
@@ -659,9 +662,23 @@ fn parse_fields(path: &Path, front: &str, table: &toml::Table, format: u32) -> R
     } else {
         &[]
     };
+    let feature_keys: &[&str] =
+        if crate::features::kind_has_features(kind) && format >= crate::features::FEATURES_FORMAT {
+            &["features"]
+        } else {
+            &[]
+        };
     for key in table.keys() {
-        if !allowed.contains(&key.as_str()) && !trade_keys.contains(&key.as_str()) {
-            let hint = if matches!(kind, "archetype" | "class_option")
+        if !allowed.contains(&key.as_str())
+            && !trade_keys.contains(&key.as_str())
+            && !feature_keys.contains(&key.as_str())
+        {
+            let hint = if key == "features" && crate::features::kind_has_features(kind) {
+                format!(
+                    "; `features` needs corpus format {}, and the corpus is format {format}",
+                    crate::features::FEATURES_FORMAT
+                )
+            } else if matches!(kind, "archetype" | "class_option")
                 && crate::trades::field_keys(if format == 1 { 2 } else { 1 })
                     .contains(&key.as_str())
             {
@@ -750,6 +767,7 @@ fn parse_fields(path: &Path, front: &str, table: &toml::Table, format: u32) -> R
             attributes: parse_pairs(path, table, "attributes", line("attributes"))?,
         }),
         "class" => TypedFields::Class(cast_iron_schema::ClassFields {
+            features: crate::features::read_features(path, table, line("features"))?,
             class_type: optional("class_type")?,
             hit_die: optional("hit_die")?,
             skill_ranks: optional("skill_ranks")?,
@@ -774,6 +792,7 @@ fn parse_fields(path: &Path, front: &str, table: &toml::Table, format: u32) -> R
         "archetype" => {
             let (trades, legacy_features) = read_trades(path, table, format, &line)?;
             TypedFields::Archetype(cast_iron_schema::ArchetypeFields {
+                features: crate::features::read_features(path, table, line("features"))?,
                 trades,
                 legacy_features,
             })
@@ -781,6 +800,7 @@ fn parse_fields(path: &Path, front: &str, table: &toml::Table, format: u32) -> R
         "class_option" => {
             let (trades, legacy_features) = read_trades(path, table, format, &line)?;
             TypedFields::ClassOption(cast_iron_schema::ClassOptionFields {
+                features: crate::features::read_features(path, table, line("features"))?,
                 group: string("group")?,
                 trades,
                 legacy_features,
@@ -1271,6 +1291,7 @@ mod tests {
                 attributes: vec![("Special".into(), "value".into())],
             }),
             TypedFields::Class(cast_iron_schema::ClassFields {
+                features: Default::default(),
                 class_type: Some("core".into()),
                 hit_die: Some("d10".into()),
                 skill_ranks: Some("4".into()),
@@ -1316,6 +1337,7 @@ mod tests {
 
     fn trade(op: TradeOp, printed: &str, anchor: Option<&str>) -> Trade {
         Trade {
+            by: None,
             op,
             printed: printed.into(),
             feature: anchor.map(|anchor| FeatureRef {
@@ -1346,6 +1368,7 @@ mod tests {
             trades: vec![
                 trade(TradeOp::Replaces, "Trap sense (Ex)", Some("trap-sense")),
                 Trade {
+                    by: None,
                     op: TradeOp::Alters,
                     printed: "Bonus feats".into(),
                     feature: Some(FeatureRef {
@@ -1356,6 +1379,7 @@ mod tests {
                     }),
                 },
                 Trade {
+                    by: None,
                     op: TradeOp::Replaces,
                     printed: "Acidic ray".into(),
                     feature: Some(FeatureRef {
@@ -1504,6 +1528,106 @@ mod tests {
         let fields = format_1_archetype("alters_features = [\"missing-anchor\"]\n");
         assert!(fields.trades.is_empty());
         assert_eq!(fields.legacy_features.alters, ["missing-anchor"]);
+    }
+
+    #[test]
+    fn format_4_features_and_by_round_trip_in_their_canonical_order() {
+        let mut shattering = trade(TradeOp::Replaces, "Bravery", None);
+        shattering.by = Some("shattering-strike".into());
+        let mut chop = trade(TradeOp::Alters, "Armor training", Some("armor-training"));
+        chop.by = Some("overhand-chop".into());
+        let entry = archetype_entry(cast_iron_schema::ArchetypeFields {
+            features: vec![
+                cast_iron_schema::FeatureFact {
+                    anchor: "shattering-strike".into(),
+                    level: 2,
+                },
+                cast_iron_schema::FeatureFact {
+                    anchor: "overhand-chop".into(),
+                    level: 3,
+                },
+            ],
+            trades: vec![shattering, chop],
+            ..Default::default()
+        });
+        let text = round_trip_with(&entry, &format(4));
+        assert!(
+            text.contains(
+                "kind = \"archetype\"\nfeatures = [\n  { anchor = \"shattering-strike\", level = 2 },\n  { anchor = \"overhand-chop\", level = 3 },\n]\ntrades = [\n  { replaces = \"Bravery\", by = \"shattering-strike\" },\n  { alters = \"Armor training\", feature = \"armor-training\", by = \"overhand-chop\" },\n]\n"
+            ),
+            "{text}"
+        );
+    }
+
+    #[test]
+    fn features_belong_to_archetypes_class_options_and_base_classes() {
+        let features = vec![cast_iron_schema::FeatureFact {
+            anchor: "a".into(),
+            level: 1,
+        }];
+        let mut option = archetype_entry(Default::default());
+        option.kind = EntryKind::ClassOption;
+        option.fields = TypedFields::ClassOption(cast_iron_schema::ClassOptionFields {
+            group: "g".into(),
+            features: features.clone(),
+            ..Default::default()
+        });
+        round_trip_with(&option, &format(4));
+        let mut class = archetype_entry(Default::default());
+        class.kind = EntryKind::Class;
+        class.fields = TypedFields::Class(cast_iron_schema::ClassFields {
+            features,
+            ..Default::default()
+        });
+        let text = round_trip_with(&class, &format(4));
+        assert!(
+            text.contains("features = [\n  { anchor = \"a\", level = 1 },\n]\n"),
+            "{text}"
+        );
+    }
+
+    #[test]
+    fn an_older_format_refuses_features_and_by() {
+        let body = |fields: &str| {
+            format!(
+                "+++\nid = \"ref/archetype/scout\"\nkind = \"archetype\"\ntitle = \"Scout\"\nsource_ids = [\"core-rulebook\"]\n\n[fields]\nkind = \"archetype\"\n{fields}+++\n"
+            )
+        };
+        let path = Path::new("entries/archetype/scout.md");
+        let features = "features = [{ anchor = \"a\", level = 1 }]\n";
+        let error = read_entry(path, &body(features), &format(3)).unwrap_err();
+        assert!(
+            error.message.contains("unexpected field `features`")
+                && error.message.contains("needs corpus format 4"),
+            "{error}"
+        );
+        assert!(read_entry(path, &body(features), &format(4)).is_ok());
+        let by = "trades = [{ replaces = \"A\", by = \"a\" }]\n";
+        let error = read_entry(path, &body(by), &format(3)).unwrap_err();
+        assert!(
+            error
+                .message
+                .contains("`by` in a trade needs corpus format 4"),
+            "{error}"
+        );
+        assert!(read_entry(path, &body(by), &format(4)).is_ok());
+        let error = read_entry(
+            path,
+            &body("trades = [{ replaces = \"A\", by = \" \" }]\n"),
+            &format(4),
+        )
+        .unwrap_err();
+        assert!(
+            error.message.contains("must name a feature anchor"),
+            "{error}"
+        );
+        let error = read_entry(
+            path,
+            &body("features = [{ anchor = \"a\", level = 1, extra = 1 }]\n"),
+            &format(4),
+        )
+        .unwrap_err();
+        assert!(error.message.contains("unexpected key `extra`"), "{error}");
     }
 
     #[test]

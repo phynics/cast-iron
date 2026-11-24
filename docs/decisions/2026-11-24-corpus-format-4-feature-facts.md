@@ -1,0 +1,63 @@
+---
+title: "Corpus format 4: feature facts beside printed prose"
+date: 2026-11-24
+status: current
+superseded_by: []
+issues: [540]
+prs: []
+area: corpus
+---
+
+# Corpus format 4: feature facts beside printed prose, 2026-11-24
+
+The survey of #540 found that the import rewrote the text of 1,179 of 1,299 archetype entries: it
+dropped printed levels, replaced "This ability replaces bravery." by a `**Replaces:**` row and
+invented upgrade rows. The owner decided on 2026-11-23 to keep class features as the book prints them
+("I dislike the over-partitioning of class features; align to printed prose with extensions to help
+app feel"), and on 2026-11-24 chose form B for the data. This entry records the corpus format that
+carries form B. The renderer and the data rewrite are separate slices of #540.
+
+## Decision
+
+- **Form B.** A feature is a headed section of printed prose (`## Name (Ex) {#anchor}`, the
+  printed paragraphs, the printed trade sentence). The facts that the prose states stay in
+  `[fields]`: `features = [{ anchor, level }]`, and `trades[].by`, the anchor of the feature
+  whose sentence states the trade.
+- **Format 4.** The new keys are optional and change no existing key, so the step from format 3
+  rewrites only the `format` line (`cargo xtask corpus-migrate-features`, and the generic
+  `migrate`). The corpus repository applies it as one mechanical change, as for earlier formats.
+- **Kinds.** `features` on `archetype`, `class_option` and `class` (base class). `by` on the
+  trades of archetypes and class options, the two kinds that have trades. A rule entry has no typed
+  fields (`kind = "none"`), so it carries neither key; the 33 feature-shaped rule entries are rewritten
+  as printed prose and get no facts until a later decision gives them a place.
+- **Checks.** Each `features` anchor is a heading key; `level` agrees with an "At Nth level" or
+  "Starting at Nth level" lead when the feature's first paragraph has one; each `by` names a
+  `features` anchor.
+- **Drift.** An entry with `features` compares its trades with the trade sentences of its feature
+  sections instead of with `**Replaces:**` and `**Alters:**` rows: each trade appears in a trade
+  sentence of its `by` section and each trade sentence is covered by a trade. An entry without
+  `features` keeps the row comparison, so the pinned format 3 corpus gives the same drift results, and
+  the corpus can move entry by entry during the rewrite. Final state: a later change makes the
+  import rows an error for these kinds (#540, last step).
+- **Schema.** `features` (archetype, class option, class fields) and `by` (a trade) are additive
+  optional keys, left out when empty. No reader of these types denies unknown fields and the tag-first
+  reader of `TypedFields` gives the rest of the map to the variant, so an older client ignores them:
+  `SCHEMA_VERSION` stays 7 and `INDEX_FORMAT_VERSION` is unchanged.
+
+## Why not the alternatives
+
+- Putting `by` on the feature (`features[].replaces`) would hide a trade's printed name from
+  `trades` and from `trades.json`, which the compatibility filter reads. `by` keeps `trades` as
+  it is.
+- Reading the trade sentence with a free-text match is too loose to guard the data. The reader
+  accepts the printed wordings (one name, a list, replaces and alters in one sentence, a
+  hyphen-suspended level list) and nothing else, so a new wording fails loudly and is added to the
+  reader with a test.
+
+## What the corpus repository does after this merges
+
+Its CI builds the checker from the app's `main`, so the checker now reads formats 1 to 4 and a
+format 3 corpus stays green. Format 4 starts when the corpus repository runs
+`cargo xtask corpus-migrate-features <corpus>` (or `cast-iron-corpus migrate-features`) and commits the
+one-line change to `corpus.toml`; the rewrite scripts need it before they write `features` or `by`,
+because a format 3 corpus rejects both. The app pins the tag that holds format 4.
