@@ -77,14 +77,26 @@ let registration = null;
 export async function registerServiceWorker(url, scope, onWaiting) {
   if (!("serviceWorker" in navigator)) return false;
   registration = await navigator.serviceWorker.register(url, { scope });
+  // The first worker of a profile takes over by itself (`skipWaiting`, then `clients.claim()`), so
+  // it is never an update. WebKit can deliver its `installed` event after the page already has a
+  // controller, while `registration.waiting` still names it: the first install then looks like an
+  // update and the header shows "update ready" (#683). Remember that worker and skip it.
+  const firstWorker =
+    !registration.active && !navigator.serviceWorker.controller
+      ? registration.installing || registration.waiting
+      : null;
   const announce = () => {
-    // On the first install there is no controller yet, and nothing is "waiting" for the user.
-    if (registration.waiting && navigator.serviceWorker.controller) onWaiting();
+    const waiting = registration.waiting;
+    // A waiting worker is an update only when it is installed, is not the first one, and a
+    // controller exists for it to replace.
+    if (waiting && waiting !== firstWorker && waiting.state === "installed" && navigator.serviceWorker.controller) {
+      onWaiting();
+    }
   };
   announce();
   registration.addEventListener("updatefound", () => {
     const worker = registration.installing;
-    if (worker) worker.addEventListener("statechange", () => worker.state === "installed" && announce());
+    if (worker && worker !== firstWorker) worker.addEventListener("statechange", () => worker.state === "installed" && announce());
   });
   return true;
 }

@@ -257,6 +257,18 @@ test("A browser without an install option gets only a hint in Settings", async (
   await expect(page.getByRole("button", { name: "Install app" })).toHaveCount(0);
 });
 
+// #683: the first worker of a profile takes over by itself, so it is never an update. WebKit can
+// report its `installed` step after the page has a controller, which once latched "update ready"
+// and hid Install. The window below covers that late step.
+test("A first install never offers an app update", async ({ page, context }) => {
+  await firePromptEarly(context);
+  await installLibrary(page);
+  await waitControlled(page);
+  await page.evaluate(() => new Promise((resolve) => setTimeout(resolve, 1500)));
+  await expect(page.locator("header.app-header").getByRole("button", { name: UPDATE_NAME })).toHaveCount(0);
+  await expect(headerButton(page)).toBeVisible();
+});
+
 test("When an app update is ready, only the Update button shows", async ({ page, context, server }) => {
   await firePromptEarly(context);
   await installLibrary(page);
