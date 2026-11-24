@@ -334,7 +334,7 @@ trades = [
 |---|---|---|
 | `features` | `archetype`, `class_option`, `class` | Optional list of inline tables, one per feature, in body order. Written before `trades`; for a `class` entry, after `class_skills`. Empty is not written. |
 | `features[].anchor` | | A string: the **explicit** `{#anchor}` of a heading of the body. A key that the page derives from the heading text does not count, because a feature anchor is a public deep link. Each anchor once. |
-| `features[].level` | | Optional whole number from 1 to 20: the level at which the feature is gained. Leave it out when the feature has no single level (a choice among several, or a feature that the book does not tie to one level); an entry may mix features with and without a level. |
+| `features[].level` | | Optional whole number from 1 to 20 (the reader refuses other numbers): the level at which the feature is gained. Leave it out when the feature has no single level (a choice among several, or a feature that the book does not tie to one level); an entry may mix features with and without a level. |
 | `trades[].by` | `archetype`, `class_option` | Optional **list** of strings, even for one feature: the `anchor`s of the same entry's `features` whose printed text states the trade, in body order, each once. One trade names every feature that prints it. A trade with no `by` is a trade that the book prints in the opening text, before the first feature (the code of conduct of a tyrant, say). Written last in the trade's inline table (after `feature`, `class`, `levels`, `power`). |
 
 A format 3 corpus holds neither key, and its reader refuses them and says that they need format 4.
@@ -349,6 +349,7 @@ Format 4 changes no existing key and no existing default, so the step from forma
 | Every `features` anchor is the explicit `{#anchor}` of a heading of the body, none is listed twice, and the list follows body order. | Fails. |
 | `level`, when written, runs from 1 to 20 and agrees with an "At Nth level" or "Starting at Nth level" lead (also "Beginning at") when the first paragraph under the feature's heading has one. A paragraph without a lead states no level. | Fails. |
 | Every `by` names anchors of the same entry's `features`, in body order. | Fails. |
+| No listed feature's heading sits inside another listed feature's section (feature heads are siblings: give them one heading level; a subsection that is not listed may nest). | Fails. |
 | Every section after the opening text (the blocks before the first listed feature) of an archetype or class option that prints a trade sentence is a listed feature, or sits inside one. | Fails. |
 | The trades agree with the trade sentences of their features (see [Drift](#drift-between-fields-and-body)). | Drift: fails. |
 
@@ -1206,32 +1207,47 @@ block), and compares them with the trades that name the feature in `by`:
   sentence there is covered by the trades without `by`;
 - a trade that names a feature that is not listed is drift.
 
-A trade sentence starts with `This`, `These` or `It`, then only subject words (`ability`,
-`abilities`, `class feature`, `power`, `also`, `otherwise functions like and`, ...), then `replaces`
-or `alters` (or `replace`, `alter`), and runs to the end of the sentence or a semicolon: "This
-ability replaces bravery.", "This replaces armor training and bravery.", "This ability replaces
-bravery and alters armor training." (two trades). A sentence that only mentions the verb ("The
-bonus replaces the usual bonus."), has another subject ("This bonus replaces ...") or is negated
-("This ability does not replace ...") is not a trade sentence. Names are compared as words,
-ignoring case, punctuation, hyphens, articles (and `standard`), ability tags (`(Ex)`), a plural `s`,
-a possessive word before a name ("the rogue's trapfinding" reads as `Trapfinding`) and the words
-`ability` and `class feature` around it ("the paladin's spells class feature" reads as `Spells`,
-"the nature sense ability" as `Nature sense`). The tolerance works on the trade names as stored:
-trades need no rewrite to match print. A sentence
+A trade sentence starts with `This`, `These` or `It`, then only subject words, then `replaces` or
+`alters` (or `replace`, `alter`), and runs to the end of the sentence or a semicolon. The subject
+words are `ability`, `abilities`, `class`, `feature`, `features`, `power`, `powers`, `archetype`,
+`also`, `otherwise`, `acts`, `works`, `functions`, `as`, `like` and `and`. "This ability replaces
+bravery.", "This class feature also replaces bravery." and "This ability otherwise functions like and
+replaces the standard witch familiar." are trade sentences; "This ability replaces bravery and
+alters armor training." gives two trades. These are not: a sentence that only mentions the verb
+("The bonus replaces the usual bonus."), one with another subject ("This bonus replaces ..."), a
+negated one ("This ability does not replace ..."), and a comparison to a spell ("This ability
+functions like alter self, except ..."; `like` or `as` must be followed by `and` before the verb).
+A **bare** sentence is one whose subject names no ability (`ability`, `abilities`, `feature`,
+`features`, `power`, `powers`, `archetype`): "This replaces bravery.", "These replace the normal
+attack roll bonus and AC penalty for charging." A bare sentence is a trade sentence only when it
+names one of the entry's stored trades with the same op, because the pronoun may stand for
+anything.
+
+Names are compared as words, ignoring case, punctuation, hyphens, articles (and `standard`), ability
+tags (`(Ex)`), a plural (`s`, `es`, `ies`: `bombs`/`bomb`, `hexes`/`hex`, `mercies`/`mercy`), a
+possessive word before a name ("the rogue's trapfinding" reads as `Trapfinding`), the words
+`ability` and `feature` anywhere in a name and `class` before `feature` ("the paladin's spells class
+feature" reads as `Spells`, "the nature sense ability" as `Nature sense`), and, on the sentence
+side, a base-class name that leads an item ("the standard alchemist bomb class feature" reads as
+`Bombs`; the name with the class word still matches a trade that holds it, `Witch familiar`). The
+tolerance works on the trade names as stored: trades need no rewrite to match print. A sentence
 that lists several names is covered by one trade per name, or by one trade that states the whole
-phrase. Two shorthands read as one name per item: a hyphen-suspended list ("the 1st-, 2nd- and
-3rd-level bonus feats" is `1st-level bonus feat`, `2nd-level bonus feat`, `3rd-level bonus feat`) and
-numbered steps after a shared head ("armor training 1, 2, 3, and 4" is `armor training 1` to
-`armor training 4`; "weapon training 2 and 3" likewise), so the per-step trades `Armor training 2`
-and `Armor training 3` cover the sentence "armor training 2 and 3". An entry without `features` (a single-power class option prints no heading and has none) takes
+phrase. Three shorthands read as one name per item: a hyphen-suspended list ("the 1st-, 2nd- and
+3rd-level bonus feats" is `1st-level bonus feat`, `2nd-level bonus feat`, `3rd-level bonus feat`), a
+shared tail without the trailing hyphen ("the paladin's 3rd-level and 9th-level mercies" is
+`3rd-level mercies`, `9th-level mercies`) and numbered steps after a shared head ("armor training
+1, 2, 3, and 4" is `armor training 1` to `armor training 4`; "weapon training 2 and 3" likewise), so
+the per-step trades `Armor training 2` and `Armor training 3` cover the sentence "armor training 2
+and 3".
+
+An entry without `features` (a single-power class option prints no heading and has none) takes
 either form during the transition: when the normal part holds a `**Replaces:**` or `**Alters:**`
 row, the row comparison above decides; when it holds none, has trades, and prints trade sentences
 anywhere in the normal part, the same coverage rules apply to those sentences (each sentence is
 covered by the trades of its op, and each trade appears in a sentence of its op). An entry with
 trades and neither form is drift, as before, so the pinned format 3 corpus gives the results it
-gave before format 4. A wording
-that the reader cannot read is fixed by adding the wording to the reader with a test, not by an
-exception list.
+gave before format 4. A wording that the reader cannot read is fixed by adding the wording to the
+reader with a test, not by an exception list.
 
 The feature of a trade has no second copy in the body. It is checked against the class entry's
 heading anchors, and a trade warns when its printed name resolves confidently to another anchor

@@ -4,7 +4,7 @@ date: 2026-11-24
 status: current
 superseded_by: []
 issues: [540]
-prs: []
+prs: [677]
 area: corpus
 ---
 
@@ -34,8 +34,9 @@ carries form B. The renderer and the data rewrite are separate slices of #540.
 - **Checks.** Each `features` anchor is the explicit `{#anchor}` of a heading (a derived key would
   change with the heading text, and the anchors become public deep links); the list follows body
   order; `level`, when written, agrees with an "At Nth level" or "Starting at Nth level" lead when
-  the feature's first paragraph has one; each `by` names anchors of `features`, in body order; every
-  section that prints a trade sentence is a listed feature or inside one.
+  the feature's first paragraph has one; each `by` names anchors of `features`, in body order; no
+  listed feature sits inside another's section; every section after the opening text (before the
+  first listed feature) that prints a trade sentence is a listed feature or inside one.
 - **Drift.** An entry with `features` compares its trades with the trade sentences of its feature
   sections instead of with `**Replaces:**` and `**Alters:**` rows: each trade's name appears in a
   trade sentence of at least one feature in its `by`, and each trade sentence of a listed feature is
@@ -64,8 +65,11 @@ carries form B. The renderer and the data rewrite are separate slices of #540.
   it is, and a list lets one trade name each feature that prints it.
 - Reading the trade sentence with a free-text match is too loose to guard the data. The reader
   accepts the printed wordings (one name, a list, replaces and alters in one sentence, a
-  hyphen-suspended level list) and nothing else, so a new wording fails loudly and is added to the
-  reader with a test.
+  hyphen-suspended level list, a shared tail without the hyphen, numbered steps, a possessive or a
+  base-class name before the feature, extra `ability` or `class feature` words) and nothing else, so
+  a new wording fails loudly and is added to the reader with a test. A pronoun subject alone ("These
+  replace the normal attack roll bonus ...") counts only when it names a stored trade, and a
+  comparison to a spell ("functions like alter self") is not a trade.
 
 ## What the corpus repository does after this merges
 

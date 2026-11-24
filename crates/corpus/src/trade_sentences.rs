@@ -22,6 +22,10 @@ use cast_iron_schema::TradeOp;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TradeSentence {
     pub op: TradeOp,
+    /// True when the subject names no ability ("This replaces ...", "These replace ..."). A bare
+    /// sentence is a trade sentence only when it names a stored trade ([`names_a_trade`]): the
+    /// pronoun may stand for anything ("These replace the normal attack roll bonus ...").
+    pub bare: bool,
     /// What follows the verb, as printed, without the final period.
     pub phrase: String,
 }
@@ -57,6 +61,16 @@ fn verb_of(word: &str) -> Option<TradeOp> {
 /// The words that may stand between the opening `This` or `These` and the verb of a trade
 /// sentence: "This ability replaces", "This class feature also replaces", "These abilities
 /// replace". Any other subject ("This bonus replaces the usual bonus") is prose, not a trade.
+/// The first group names an ability; a sentence without one is bare (see [`TradeSentence::bare`]).
+const ABILITY_WORDS: [&str; 7] = [
+    "ability",
+    "abilities",
+    "feature",
+    "features",
+    "power",
+    "powers",
+    "archetype",
+];
 const SUBJECT_WORDS: [&str; 16] = [
     "ability",
     "abilities",
@@ -108,9 +122,17 @@ pub fn trade_sentences(text: &str) -> Vec<TradeSentence> {
         let plain_subject = words[1..at]
             .iter()
             .all(|word| SUBJECT_WORDS.contains(&word.to_lowercase().as_str()));
-        if !plain_subject || words[..at].iter().any(|word| is_negation(word)) {
+        // "functions like and replaces X" is a trade; "works like alter self" is the spell.
+        let compares = words[1..at]
+            .iter()
+            .any(|word| matches!(word.to_lowercase().as_str(), "like" | "as"));
+        let compares_a_spell = compares && !words[at - 1].eq_ignore_ascii_case("and");
+        if !plain_subject || compares_a_spell || words[..at].iter().any(|word| is_negation(word)) {
             continue;
         }
+        let bare = !words[1..at]
+            .iter()
+            .any(|word| ABILITY_WORDS.contains(&word.to_lowercase().as_str()));
         // Split the rest at every further verb joined by "and".
         let mut op = verb_of(words[at]).expect("a verb was found");
         let mut phrase: Vec<&str> = Vec::new();
@@ -125,6 +147,7 @@ pub fn trade_sentences(text: &str) -> Vec<TradeSentence> {
             if joined_verb {
                 found.push(TradeSentence {
                     op,
+                    bare,
                     phrase: phrase.join(" "),
                 });
                 op = verb_of(words[index + 1]).expect("a verb was found");
@@ -137,6 +160,7 @@ pub fn trade_sentences(text: &str) -> Vec<TradeSentence> {
         }
         found.push(TradeSentence {
             op,
+            bare,
             phrase: phrase.join(" "),
         });
     }
@@ -271,10 +295,22 @@ fn expand_lists(text: &str) -> String {
         items.push(current.join(" "));
     }
     let suspended = items.iter().any(|item| item.ends_with('-'));
+    // "the 3rd-level and 9th-level mercies": a bare "3rd-level" shares the tail of a later item.
+    let shared_tail = |index: usize| -> Option<String> {
+        let (word, rest) = ordinal_head(&items[index])?;
+        if !rest.is_empty() {
+            return None;
+        }
+        items[index + 1..].iter().find_map(|later| {
+            let (later_word, later_rest) = ordinal_head(later)?;
+            (later_word == word && !later_rest.is_empty()).then_some(later_rest)
+        })
+    };
+    let shared = (0..items.len()).any(|index| shared_tail(index).is_some());
     let numbered = items.iter().enumerate().any(|(index, item)| {
         step_head(item).is_some() && items.get(index + 1).is_some_and(|next| is_number(next))
     });
-    if !suspended && !numbered {
+    if !suspended && !numbered && !shared {
         return text.to_string();
     }
     let tail = items
@@ -283,7 +319,11 @@ fn expand_lists(text: &str) -> String {
         .and_then(|item| item.split_once('-').map(|(_, tail)| tail.to_string()));
     let mut head: Option<String> = None;
     let mut out = Vec::new();
-    for item in &items {
+    for (index, item) in items.iter().enumerate() {
+        if let Some(rest) = shared_tail(index) {
+            out.push(format!("{item} {rest}"));
+            continue;
+        }
         if suspended
             && item.ends_with('-')
             && let Some(tail) = &tail
@@ -303,6 +343,23 @@ fn expand_lists(text: &str) -> String {
     out.join(", ")
 }
 
+/// `("level", "mercies")` of `3rd-level mercies`: the word that follows the ordinal's hyphen, and
+/// the rest of the item. A leading article does not count.
+fn ordinal_head(item: &str) -> Option<(String, String)> {
+    let mut tokens = item
+        .split_whitespace()
+        .skip_while(|token| ARTICLES.contains(&token.to_lowercase().as_str()));
+    let first = tokens.next()?;
+    let (ordinal, word) = first.split_once('-')?;
+    let digits = ordinal.trim_end_matches(|ch: char| ch.is_alphabetic());
+    let suffix = &ordinal[digits.len()..];
+    let is_ordinal = !digits.is_empty()
+        && digits.bytes().all(|byte| byte.is_ascii_digit())
+        && matches!(suffix, "st" | "nd" | "rd" | "th");
+    (is_ordinal && !word.is_empty())
+        .then(|| (word.to_lowercase(), tokens.collect::<Vec<_>>().join(" ")))
+}
+
 fn is_number(item: &str) -> bool {
     !item.is_empty() && item.bytes().all(|byte| byte.is_ascii_digit())
 }
@@ -317,6 +374,14 @@ fn singular(word: &str) -> String {
     if word.len() > 4 && word.ends_with("ies") {
         return format!("{}y", &word[..word.len() - 3]);
     }
+    // `hexes`, `witches`, `classes`, `bonuses`: the plural adds `es`.
+    if ["xes", "ches", "shes", "sses", "zes"]
+        .iter()
+        .any(|end| word.ends_with(end))
+        || (word.len() > 5 && word.ends_with("uses"))
+    {
+        return word[..word.len() - 2].to_string();
+    }
     if word.len() > 3 && word.ends_with('s') && !word.ends_with("ss") && !word.ends_with("us") {
         return word[..word.len() - 1].to_string();
     }
@@ -326,9 +391,12 @@ fn singular(word: &str) -> String {
 /// True when `phrase` is exactly a run of the names in `names`, each used any number of times,
 /// with `and`, `or` and commas between them. `names` are word lists from [`name_words`].
 pub fn phrase_is_covered(phrase: &str, names: &[Vec<String>]) -> bool {
-    let words = name_words(phrase);
-    let mut memo = vec![None; words.len() + 1];
-    covered_from(&words, 0, names, &mut memo)
+    let covers = |text: &str| {
+        let words = name_words(text);
+        let mut memo = vec![None; words.len() + 1];
+        covered_from(&words, 0, names, &mut memo)
+    };
+    covers(phrase) || covers(&strip_class_names(&strip_possessives(phrase)))
 }
 
 fn covered_from(
@@ -357,14 +425,103 @@ fn covered_from(
     result
 }
 
+/// The base-class names (core, base, hybrid, occult, unchained and NPC classes). A class name
+/// that leads a name in a trade sentence is an adjective, not part of the feature's name:
+/// "the standard alchemist bomb class feature" names `Bombs`.
+const CLASS_NAMES: [&str; 45] = [
+    "adept",
+    "alchemist",
+    "antipaladin",
+    "arcanist",
+    "aristocrat",
+    "barbarian",
+    "bard",
+    "bloodrager",
+    "brawler",
+    "cavalier",
+    "cleric",
+    "commoner",
+    "druid",
+    "expert",
+    "fighter",
+    "gunslinger",
+    "hunter",
+    "inquisitor",
+    "investigator",
+    "kineticist",
+    "magus",
+    "medium",
+    "mesmerist",
+    "monk",
+    "ninja",
+    "occultist",
+    "oracle",
+    "paladin",
+    "psychic",
+    "ranger",
+    "rogue",
+    "samurai",
+    "shaman",
+    "shifter",
+    "skald",
+    "slayer",
+    "sorcerer",
+    "spiritualist",
+    "summoner",
+    "swashbuckler",
+    "vigilante",
+    "warpriest",
+    "warrior",
+    "witch",
+    "wizard",
+];
+
+/// The phrase without a base-class name that leads an item: at the start, or after a comma, `and`,
+/// `or`, an article or `standard`, and followed by another word. Possessives are already gone.
+fn strip_class_names(phrase: &str) -> String {
+    let tokens: Vec<&str> = phrase.split_whitespace().collect();
+    let mut out: Vec<&str> = Vec::with_capacity(tokens.len());
+    for (index, token) in tokens.iter().enumerate() {
+        let word = token
+            .trim_matches(|ch: char| !ch.is_alphanumeric())
+            .to_lowercase();
+        let leads = match index.checked_sub(1).map(|previous| tokens[previous]) {
+            None => true,
+            Some(previous) => {
+                let bare = previous.trim_end_matches(',').to_lowercase();
+                previous.ends_with(',')
+                    || CONNECTORS.contains(&bare.as_str())
+                    || ARTICLES.contains(&bare.as_str())
+            }
+        };
+        if leads && index + 1 < tokens.len() && CLASS_NAMES.contains(&word.as_str()) {
+            continue;
+        }
+        out.push(token);
+    }
+    out.join(" ")
+}
+
 /// True when `name` occurs as a run of words in `phrase`, as a whole name or as one of the names
-/// of a list.
+/// of a list. A base-class name that leads an item of the phrase is read through.
 pub fn name_in_phrase(name: &[String], phrase: &str) -> bool {
     if name.is_empty() {
         return false;
     }
-    let words = name_words(phrase);
-    words.windows(name.len()).any(|window| window == name)
+    let within = |text: &str| {
+        name_words(text)
+            .windows(name.len())
+            .any(|window| window == name)
+    };
+    within(phrase) || within(&strip_class_names(&strip_possessives(phrase)))
+}
+
+/// True when `name_in_phrase` finds a trade name of the same op in the sentence. A bare sentence
+/// ("These replace the normal attack roll bonus ...") counts as a trade sentence only if it does.
+pub fn names_a_trade(sentence: &TradeSentence, trades: &[(TradeOp, String)]) -> bool {
+    trades.iter().any(|(op, printed)| {
+        *op == sentence.op && name_in_phrase(&name_words(printed), &sentence.phrase)
+    })
 }
 
 #[cfg(test)]
@@ -410,10 +567,12 @@ mod tests {
             vec![
                 TradeSentence {
                     op: TradeOp::Replaces,
+                    bare: false,
                     phrase: "bravery".into()
                 },
                 TradeSentence {
                     op: TradeOp::Alters,
+                    bare: false,
                     phrase: "armor training".into()
                 }
             ]
@@ -515,6 +674,19 @@ mod tests {
     }
 
     #[test]
+    fn a_comparison_to_a_spell_is_not_a_trade() {
+        assert!(
+            trade_sentences("This ability functions like alter self, except as noted here.")
+                .is_empty()
+        );
+        assert!(trade_sentences("This works as alter self, except it lasts longer.").is_empty());
+        assert_eq!(
+            trade_sentences("This ability works like and replaces wild shape.").len(),
+            1
+        );
+    }
+
+    #[test]
     fn a_negated_sentence_or_another_subject_is_not_a_trade() {
         assert!(trade_sentences("This ability does not replace bravery.").is_empty());
         assert!(trade_sentences("This ability can't replace bravery.").is_empty());
@@ -589,5 +761,76 @@ mod tests {
         ));
         // A name made only of such words is kept as it is.
         assert_eq!(name_words("Ability"), ["ability"]);
+    }
+
+    #[test]
+    fn a_shared_tail_without_a_trailing_hyphen_expands_per_level() {
+        assert_eq!(
+            name_words("the paladin's 3rd-level and 9th-level mercies"),
+            name_words("3rd-level mercies, 9th-level mercies")
+        );
+        let per_level = names(&["3rd-level mercy", "9th-level mercy"]);
+        assert!(phrase_is_covered(
+            "the paladin's 3rd-level and 9th-level mercies",
+            &per_level
+        ));
+        // One trade for the whole phrase reads the same way.
+        assert!(phrase_is_covered(
+            "3rd-level and 9th-level mercies",
+            &names(&["3rd-level and 9th-level mercies"])
+        ));
+        assert!(!phrase_is_covered(
+            "3rd-level and 9th-level mercies",
+            &names(&["3rd-level mercy"])
+        ));
+    }
+
+    #[test]
+    fn plurals_in_es_read_as_their_singular() {
+        assert_eq!(name_words("hexes"), name_words("hex"));
+        assert_eq!(name_words("witches"), name_words("witch"));
+        assert_eq!(name_words("classes"), name_words("class"));
+        assert_eq!(name_words("Bombs"), name_words("bomb"));
+        assert_eq!(name_words("mercies"), name_words("mercy"));
+        assert_eq!(name_words("bonuses"), name_words("bonus"));
+    }
+
+    #[test]
+    fn a_leading_class_name_is_an_adjective_on_the_sentence_side() {
+        let sentence = one(
+            "This ability otherwise functions as and replaces the standard alchemist bomb class feature.",
+        );
+        assert!(!sentence.bare);
+        assert!(phrase_is_covered(&sentence.phrase, &names(&["Bombs"])));
+        assert!(name_in_phrase(&name_words("Bombs"), &sentence.phrase));
+        // The class name stays part of the name too, so a trade that holds it still matches.
+        assert!(phrase_is_covered(
+            "the standard witch familiar",
+            &names(&["Witch familiar"])
+        ));
+        assert!(phrase_is_covered(
+            "the standard witch familiar",
+            &names(&["Familiar"])
+        ));
+        // Only a class name that leads an item is read through.
+        assert!(!phrase_is_covered(
+            "the alchemist bomb and discovery",
+            &names(&["Bombs"])
+        ));
+    }
+
+    #[test]
+    fn a_bare_subject_is_marked_and_an_ability_subject_is_not() {
+        let bare = one("These replace the normal attack roll bonus and AC penalty for charging.");
+        assert!(bare.bare);
+        assert!(!one("This ability replaces bravery.").bare);
+        assert!(!one("This class feature also replaces bravery.").bare);
+        assert!(one("This replaces bravery.").bare);
+        assert!(one("It alters bravery.").bare);
+        let trades = [(TradeOp::Replaces, "Bravery".to_string())];
+        assert!(!names_a_trade(&bare, &trades));
+        assert!(names_a_trade(&one("This replaces bravery."), &trades));
+        // The op counts.
+        assert!(!names_a_trade(&one("This alters bravery."), &trades));
     }
 }

@@ -8,7 +8,8 @@
 //!    listed twice, and the list follows body order;
 //! 2. `level`, when written, agrees with an "At Nth level" or "Starting at Nth level" lead, when
 //!    the first paragraph under the feature's heading has one;
-//! 3. every `by` names anchors of `features`, in body order;
+//! 3. every `by` names anchors of `features`, in body order, and no listed feature sits inside
+//!    another listed feature's section;
 //! 4. every section after the opening text of an archetype or class option that prints a trade
 //!    sentence is a listed feature, or sits inside one. The opening text (before the first listed
 //!    feature) may print trades that no feature prints; those trades have no `by`.
@@ -18,7 +19,7 @@
 use crate::check::{Report, line_of};
 use crate::drift::is_sources_line;
 use crate::load::Corpus;
-use crate::trade_sentences::{level_lead, trade_sentences};
+use crate::trade_sentences::{TradeSentence, level_lead, names_a_trade, trade_sentences};
 use cast_iron_schema::headings::{keyed_headings, plain_text};
 use cast_iron_schema::{Block, EntryKind, RuleEntry};
 
@@ -78,6 +79,23 @@ pub(crate) fn paragraph_texts(blocks: &[Block]) -> Vec<String> {
         }
     }
     out
+}
+
+/// The trade sentences of the paragraphs in `blocks`. A bare sentence ("These replace the normal
+/// attack roll bonus ...") counts only when it names one of the entry's trades.
+pub(crate) fn sentences_in(
+    blocks: &[Block],
+    trades: &[cast_iron_schema::Trade],
+) -> Vec<TradeSentence> {
+    let stored: Vec<(cast_iron_schema::TradeOp, String)> = trades
+        .iter()
+        .map(|trade| (trade.op, trade.printed.clone()))
+        .collect();
+    paragraph_texts(blocks)
+        .iter()
+        .flat_map(|paragraph| trade_sentences(paragraph))
+        .filter(|sentence| !sentence.bare || names_a_trade(sentence, &stored))
+        .collect()
 }
 
 /// The part of the body that an entry with `features` reads: the whole body, cut only at a
@@ -197,6 +215,29 @@ fn check_entry(entry: &RuleEntry, at: &dyn Fn(&str) -> String, report: &mut Repo
             }
         }
     }
+    // Feature heads are siblings: a listed feature whose heading sits inside another listed
+    // feature's section would be part of that feature's text and trade sentences.
+    for outer in &body_sections {
+        if !features.iter().any(|feature| feature.anchor == outer.key) {
+            continue;
+        }
+        for inner in &body_sections {
+            let nested = inner.key != outer.key
+                && features.iter().any(|feature| feature.anchor == inner.key)
+                && outer
+                    .blocks
+                    .iter()
+                    .any(|block| std::ptr::eq(block, inner.heading));
+            if nested {
+                report.problems.push(format!(
+                    "{}: [fields] the feature `{}` sits inside the section of the feature `{}`; feature heads are siblings, so give both the same heading level",
+                    at(&format!("anchor = \"{}\"", inner.key)),
+                    inner.key,
+                    outer.key
+                ));
+            }
+        }
+    }
     let listed = |anchor: &str| features.iter().any(|feature| feature.anchor == anchor);
     for trade in entry.fields.trades() {
         let mut previous: Option<usize> = None;
@@ -250,8 +291,10 @@ fn check_entry(entry: &RuleEntry, at: &dyn Fn(&str) -> String, report: &mut Repo
         if position < opening {
             continue;
         }
-        let texts = paragraph_texts(std::slice::from_ref(block));
-        let Some(sentence) = texts.iter().flat_map(|text| trade_sentences(text)).next() else {
+        let Some(sentence) = sentences_in(std::slice::from_ref(block), entry.fields.trades())
+            .into_iter()
+            .next()
+        else {
             continue;
         };
         let covered = stack
@@ -549,6 +592,29 @@ mod tests {
         let mut entry = archetype(body, vec![("a", Some(1)), ("b", Some(2))], vec![]);
         entry.source_ids = vec!["core-rulebook".into(), "other-book".into()];
         assert!(problems(entry).is_empty());
+    }
+
+    #[test]
+    fn a_listed_feature_may_not_sit_inside_another_listed_feature() {
+        let body = vec![
+            heading(Some("outer"), "Outer"),
+            text("At 1st level, outer."),
+            Block::Heading {
+                level: 3,
+                anchor: Some("inner".into()),
+                content: vec![Inline::text("Inner")],
+            },
+            text("At 2nd level, inner."),
+        ];
+        let found = problems(archetype(
+            body.clone(),
+            vec![("outer", Some(1)), ("inner", Some(2))],
+            vec![],
+        ));
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert!(found[0].contains("sits inside the section"), "{found:?}");
+        // The subsection of a listed feature that is not itself listed is fine.
+        assert!(problems(archetype(body, vec![("outer", Some(1))], vec![])).is_empty());
     }
 
     #[test]

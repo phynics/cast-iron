@@ -70,13 +70,13 @@ pub fn read_features(path: &Path, table: &toml::Table, line: usize) -> Result<Ve
                 value
                     .as_integer()
                     .and_then(|level| u8::try_from(level).ok())
-                    .filter(|level| *level >= 1)
+                    .filter(|level| (1..=20).contains(level))
                     .ok_or_else(|| {
                         Error::new(
                             path,
                             line,
                             format!(
-                                "the level of the feature `{anchor}` must be a whole number from 1 to 255; leave `level` out when the feature has none"
+                                "the level of the feature `{anchor}` must be a whole number from 1 to 20; leave `level` out when the feature has none"
                             ),
                         )
                     })?,
@@ -148,7 +148,8 @@ mod tests {
         assert!(read("features = [{ level = 2 }]").is_err());
         assert!(read("features = [{ anchor = \"a\" }]").is_ok());
         assert!(read("features = [{ anchor = \"a\", level = 0 }]").is_err());
-        assert!(read("features = [{ anchor = \"a\", level = 300 }]").is_err());
+        assert!(read("features = [{ anchor = \"a\", level = 21 }]").is_err());
+        assert!(read("features = [{ anchor = \"a\", level = 20 }]").is_ok());
         let error = read("features = [{ anchor = \"a\", level = 1, name = \"A\" }]").unwrap_err();
         assert!(error.message.contains("unexpected key `name`"), "{error:?}");
         assert!(read("features = \"a\"").is_err());

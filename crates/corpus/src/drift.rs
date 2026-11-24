@@ -1078,14 +1078,6 @@ fn trade_list(trades: &[&cast_iron_schema::Trade]) -> String {
     )
 }
 
-/// The trade sentences of the paragraphs in `blocks`.
-fn sentences_in(blocks: &[Block]) -> Vec<crate::trade_sentences::TradeSentence> {
-    crate::check_features::paragraph_texts(blocks)
-        .iter()
-        .flat_map(|paragraph| crate::trade_sentences::trade_sentences(paragraph))
-        .collect()
-}
-
 /// The trades against the trade sentences of one place (`blocks`): every sentence is covered by
 /// `trades`, and every trade is stated by a sentence. `place` names the place for the report.
 /// One pair says whether the sentences are covered; each unstated trade is a pair of its own.
@@ -1145,7 +1137,7 @@ fn sentence_pairs(
 /// (see [`crate::check_features::feature_part`]). The `**Replaces:**` and `**Alters:**` rows are
 /// not read: this form has none.
 fn feature_trade_pairs(entry: &RuleEntry, text: &str) -> Vec<Pair> {
-    use crate::check_features::{feature_part, opening_blocks, sections};
+    use crate::check_features::{feature_part, opening_blocks, sections, sentences_in};
     use crate::trade_sentences::TradeSentence;
     let found = sections(feature_part(entry), &entry.body);
     let features = entry.fields.features();
@@ -1154,7 +1146,7 @@ fn feature_trade_pairs(entry: &RuleEntry, text: &str) -> Vec<Pair> {
         found
             .iter()
             .find(|section| section.key == anchor)
-            .map(|section| sentences_in(section.blocks))
+            .map(|section| sentences_in(section.blocks, trades))
             .unwrap_or_default()
     };
     let listed = |anchor: &str| features.iter().any(|feature| feature.anchor == anchor);
@@ -1183,7 +1175,7 @@ fn feature_trade_pairs(entry: &RuleEntry, text: &str) -> Vec<Pair> {
         });
     }
     // Trades that the opening text states.
-    let opening_sentences = sentences_in(opening_blocks(entry));
+    let opening_sentences = sentences_in(opening_blocks(entry), trades);
     let opening_trades: Vec<_> = trades.iter().filter(|trade| trade.by.is_empty()).collect();
     pairs.extend(sentence_pairs(
         &opening_trades,
@@ -1243,6 +1235,7 @@ fn feature_trade_pairs(entry: &RuleEntry, text: &str) -> Vec<Pair> {
 /// caller uses the row comparison whenever a row is printed, or when no sentence is. The same
 /// coverage rules as for features apply, to the sentences anywhere in the normal part.
 fn printed_sentence_pairs(entry: &RuleEntry, text: &str) -> Option<Vec<Pair>> {
+    use crate::check_features::sentences_in;
     let trades: Vec<_> = entry.fields.trades().iter().collect();
     if trades.is_empty() {
         return None;
@@ -1251,7 +1244,7 @@ fn printed_sentence_pairs(entry: &RuleEntry, text: &str) -> Option<Vec<Pair>> {
     if !labelled_texts(body, "Replaces").is_empty() || !labelled_texts(body, "Alters").is_empty() {
         return None;
     }
-    let sentences = sentences_in(body);
+    let sentences = sentences_in(body, entry.fields.trades());
     if sentences.is_empty() {
         return None;
     }
@@ -3239,6 +3232,55 @@ mod tests {
                 "At 1st level, x. This ability replaces the rogue's trapfinding.",
             )],
             vec![trade_by(TradeOp::Replaces, "Trapfinding", &["f"])],
+        );
+        assert!(find_drift(&entry).is_empty());
+    }
+
+    #[test]
+    fn a_bare_pronoun_sentence_counts_only_when_it_names_a_stored_trade() {
+        // Savage Warrior: "These replace the normal attack roll bonus and AC penalty for
+        // charging." is prose about charging, not a trade sentence.
+        let prose = "At 1st level, x. These replace the normal attack roll bonus and AC penalty for charging.";
+        let entry = printed_archetype(&[("f", prose)], vec![]);
+        assert!(find_drift(&entry).is_empty());
+        // A stored trade that the pronoun sentence names makes it a trade sentence.
+        let named = "At 1st level, x. This replaces bravery.";
+        let covered = printed_archetype(
+            &[("f", named)],
+            vec![trade_by(TradeOp::Replaces, "Bravery", &["f"])],
+        );
+        assert!(find_drift(&covered).is_empty());
+        // ... and then it must be covered like any other.
+        let wider = "At 1st level, x. This replaces bravery and armor training.";
+        let short = printed_archetype(
+            &[("f", wider)],
+            vec![trade_by(TradeOp::Replaces, "Bravery", &["f"])],
+        );
+        assert_eq!(find_drift(&short).len(), 1);
+    }
+
+    #[test]
+    fn a_class_name_before_the_feature_and_a_shared_tail_read_against_stored_trades() {
+        let alchemist = "At 1st level, x. This ability otherwise functions as and replaces the standard alchemist bomb class feature.";
+        let entry = printed_archetype(
+            &[("f", alchemist)],
+            vec![trade_by(TradeOp::Replaces, "Bombs", &["f"])],
+        );
+        assert!(find_drift(&entry).is_empty());
+        let mercies =
+            "At 3rd level, x. This ability replaces the paladin's 3rd-level and 9th-level mercies.";
+        let entry = printed_archetype(
+            &[("f", mercies)],
+            vec![
+                trade_by(TradeOp::Replaces, "3rd-level mercy", &["f"]),
+                trade_by(TradeOp::Replaces, "9th-level mercy", &["f"]),
+            ],
+        );
+        assert!(find_drift(&entry).is_empty());
+        let hexes = "At 1st level, x. This ability replaces hexes.";
+        let entry = printed_archetype(
+            &[("f", hexes)],
+            vec![trade_by(TradeOp::Replaces, "Hex", &["f"])],
         );
         assert!(find_drift(&entry).is_empty());
     }
