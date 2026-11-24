@@ -56,6 +56,46 @@ async function renderedEntries(page: Page) {
   return page.locator(".results li.hit:not(.hit-group)").count();
 }
 
+installedTest("Desktop results page: Enter in the field puts focus on the count, so the first result is a few Tabs away; result links and chips keep short names (#12)", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/search");
+  const field = page.locator("#search-input");
+  await field.fill("fire");
+  await waitResults(page, "fire");
+  // Typing never moves focus out of the field.
+  await expect(field).toBeFocused();
+
+  // Enter ends the typing: the count line takes focus, and the filters before the results are
+  // not on the way. Without it the first result sat behind two dozen filter stops (WCAG 2.4.1).
+  await page.keyboard.press("Enter");
+  await expect(page.locator(".result-count")).toBeFocused();
+  let tabs = 0;
+  while (tabs < 4 && !(await page.evaluate(() => !!document.activeElement?.closest(".results")))) {
+    await page.keyboard.press("Tab");
+    tabs += 1;
+  }
+  expect(tabs, "Tab presses from the count to the first result").toBeLessThanOrEqual(3);
+  await expect(page.locator(".results").locator(":focus")).toHaveCount(1);
+
+  // A result link is named by its title and the Kind and book line. The excerpt is its description.
+  const link = page.locator(".results .hit-link:has(.hit-snippet)").first();
+  const title = (await link.locator(".hit-title").innerText()).trim();
+  const snippet = (await link.locator(".hit-snippet").textContent())!.replace(/\s+/g, " ").trim();
+  expect(snippet.length).toBeGreaterThan(10);
+  await expect(link).not.toHaveAttribute("aria-label");
+  await expect(link).toHaveAccessibleName(new RegExp(`^${escape(title)}`));
+  await expect(link).not.toHaveAccessibleName(new RegExp(escape(snippet.slice(0, 20))));
+  await expect(link).toHaveAccessibleDescription(new RegExp(escape(snippet.slice(0, 20))));
+  await expect(link.locator(".hit-snippet")).toBeVisible();
+
+  // A publication chip is one name: the checkbox's label. Its visible text is not read again.
+  const chip = page.locator('.filters .filter-group:has(legend:text-is("Publication")) .chip').first();
+  const label = (await chip.locator("input").getAttribute("aria-label"))!;
+  expect(label).toMatch(/, [\d,]+ entr(y|ies)$/);
+  await expect(chip).toMatchAriaSnapshot(`- checkbox "${label}"`);
+  await expect(chip.locator("span")).toHaveAttribute("aria-hidden", "true");
+});
+
 installedTest("Filter chips count the entries that choosing them shows", async ({ page }) => {
   await installLibrary(page);
   await page.goto("#/search");
@@ -1280,6 +1320,75 @@ installedTest("Recently viewed shows five rows, expands with Show more, removes 
   await expect(layer.getByRole("heading", { name: "Recent searches" })).toBeVisible();
   await expect(quickGroup(page, "Recent searches")).toHaveText(["grapple"]);
   await expect.poll(() => storedRecentCount(page)).toBe(0);
+});
+
+installedTest("Quick search lists own only options, take one name, and the field names only lists that exist (#12)", async ({ page }) => {
+  await installLibrary(page);
+  const visits = activeSpells.slice(0, 3).map((entry: any) => ({ id: entry.id as string, title: entry.title as string }));
+  await seedHome(page, { recents: visits });
+  await quickSearchFor(page, "grapple");
+  await page.goto("#/");
+  await waitHomeIdle(page);
+  const layer = await openQuickSearch(page);
+  const field = quickField(page);
+
+  // Every id in aria-controls is a list in the page.
+  const controls = ((await field.getAttribute("aria-controls")) ?? "").split(" ").filter(Boolean);
+  expect(controls.length).toBeGreaterThanOrEqual(2);
+  for (const id of controls) await expect(page.locator(`[id="${id}"]`)).toHaveCount(1);
+  expect(controls).toContain("quick-search-list-viewed");
+
+  // A listbox owns options only: no button inside, and the name comes from the heading alone.
+  const lists = layer.getByRole("listbox");
+  const names = await lists.evaluateAll((nodes) => nodes.map((node) => ({
+    label: node.getAttribute("aria-label"),
+    labelledby: node.getAttribute("aria-labelledby"),
+    foreign: node.querySelectorAll("button, a, input, [role=button]").length,
+    options: node.querySelectorAll("[role=option]").length,
+    items: node.querySelectorAll("li").length,
+  })));
+  expect(names.length).toBeGreaterThanOrEqual(2);
+  for (const list of names) {
+    expect(list.label).toBeNull();
+    expect(list.labelledby).toBeTruthy();
+    expect(list.foreign).toBe(0);
+    expect(list.options).toBe(list.items);
+  }
+  const viewed = layer.getByRole("listbox", { name: "Recently viewed" });
+  await expect(viewed).toMatchAriaSnapshot(
+    visits.map((visit) => `- option /${escape(visit.title)}/`).join("\n"),
+  );
+
+  // The remove button stays level with its row, and it works by keyboard.
+  const row = viewed.getByRole("option").first();
+  const remove = layer.getByRole("button", { name: `Remove “${visits[0].title}” from recently viewed` });
+  const rowBox = (await row.boundingBox())!;
+  const buttonBox = (await remove.boundingBox())!;
+  expect(buttonBox.y).toBeGreaterThanOrEqual(rowBox.y - 1);
+  expect(buttonBox.y + buttonBox.height).toBeLessThanOrEqual(rowBox.y + rowBox.height + 1);
+  await remove.focus();
+  await page.keyboard.press("Enter");
+  await expect(viewed.getByRole("option")).toHaveCount(visits.length - 1);
+  await expect(field).toBeFocused();
+
+  // Delete on the highlighted row does the same.
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowDown");
+  await expect(viewed.getByRole("option").first()).toHaveAttribute("aria-selected", "true");
+  await page.keyboard.press("Delete");
+  await expect(viewed.getByRole("option")).toHaveCount(visits.length - 2);
+
+  // With suggestions shown the field names that list. Folded by Escape, or closed, it names none.
+  await field.fill("grapple");
+  await expect(field).toHaveAttribute("aria-controls", "quick-search-list-suggestions");
+  await expect(page.locator("#quick-search-list-suggestions")).toHaveCount(1);
+  await page.keyboard.press("Escape");
+  await expect(layer).toBeVisible();
+  await expect(field).not.toHaveAttribute("aria-controls");
+  await page.keyboard.press("Escape");
+  await expect(layer).toBeHidden();
+  await expect(field).not.toHaveAttribute("aria-controls");
 });
 
 installedTest("Recently viewed hides a missing entry and an entry from an inactive book", async ({ page }) => {
