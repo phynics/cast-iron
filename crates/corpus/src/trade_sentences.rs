@@ -37,6 +37,12 @@
 //! a closing parenthesis of four words or more is an aside; a verb joined by `and` to another
 //! clause is a bare sentence; and the feature's own heading is a subject. `changes` is an `alters`
 //! verb (owner ruling 25), only in the sentence position.
+//!
+//! Owner ruling 22 (a level back-reference trade is renamed to the printed words) adds the
+//! subjects that name a granted thing: `spell`, `skill` and `evolution` join `feat` as subject
+//! words that name no ability (the sentence is bare), and `bonus` is a subject word right before a
+//! granted noun ("These bonus spells replace the oracle's mystery bonus spells at these levels.",
+//! "This bonus feat replaces ..."). "This bonus replaces ..." stays prose.
 
 use cast_iron_schema::TradeOp;
 
@@ -133,9 +139,10 @@ const ABILITY_WORDS: [&str; 27] = [
 ];
 
 /// The other words of a subject: a class qualifier, `also`, the verbs of "otherwise functions like
-/// and replaces", and `feat` ("These feats replace the monk's normal bonus feats"), which does not
-/// name an ability, so that sentence is bare.
-const FILLER_WORDS: [&str; 11] = [
+/// and replaces", and the granted things that do not name an ability: `feat` ("These feats replace
+/// the monk's normal bonus feats"), `spell`, `skill` and `evolution`. A sentence with one of them
+/// is bare, so it counts only when it names a stored trade.
+const FILLER_WORDS: [&str; 17] = [
     "class",
     "also",
     // "This ability otherwise functions like and replaces the standard witch familiar."
@@ -148,11 +155,59 @@ const FILLER_WORDS: [&str; 11] = [
     "and",
     "feat",
     "feats",
+    "spell",
+    "spells",
+    "skill",
+    "skills",
+    "evolution",
+    "evolutions",
+];
+
+/// Owner ruling 22 of 2026-11-24 (#540): the nouns that name what a feature grants. `bonus` is a
+/// subject word right before one of them ("These bonus spells replace the oracle's mystery bonus
+/// spells at these levels.", "This bonus feat replaces ..."), and only there: "This bonus
+/// replaces ..." (a numeric bonus) stays prose.
+const GRANTED_WORDS: [&str; 23] = [
+    "spell",
+    "spells",
+    "feat",
+    "feats",
+    "ability",
+    "abilities",
+    "power",
+    "powers",
+    "talent",
+    "talents",
+    "trick",
+    "tricks",
+    "hex",
+    "hexes",
+    "skill",
+    "skills",
+    "revelation",
+    "revelations",
+    "arcana",
+    "discovery",
+    "discoveries",
+    "evolution",
+    "evolutions",
 ];
 
 fn is_subject_word(word: &str) -> bool {
     let word = word.to_lowercase();
     ABILITY_WORDS.contains(&word.as_str()) || FILLER_WORDS.contains(&word.as_str())
+}
+
+/// The words between `This`/`These` and the verb are all subject words, where `bonus` counts
+/// right before a granted noun ([`GRANTED_WORDS`]).
+fn is_subject(words: &[&str]) -> bool {
+    words.iter().enumerate().all(|(index, word)| {
+        is_subject_word(word)
+            || (word.eq_ignore_ascii_case("bonus")
+                && words.get(index + 1).is_some_and(|next| {
+                    GRANTED_WORDS.contains(&next.to_lowercase().as_str())
+                }))
+    })
 }
 
 fn is_negation(word: &str) -> bool {
@@ -210,7 +265,7 @@ pub fn trade_sentences_headed(text: &str, head: Option<&str>) -> Vec<TradeSenten
         if !head_subject && !matches!(first.as_str(), "this" | "these" | "it") {
             continue;
         }
-        let plain_subject = head_subject || words[1..at].iter().all(|word| is_subject_word(word));
+        let plain_subject = head_subject || is_subject(&words[1..at]);
         // R11: "This movement provokes ..., and replaces X": a verb joined by `and` to another
         // clause. Read as bare: it counts only when it names a stored trade.
         let coordinated = !plain_subject
@@ -1147,12 +1202,56 @@ mod tests {
         }
         assert!(!one("These hexes replace the witch's patron spells.").bare);
         assert!(!one("These mercies replace channel energy.").bare);
-        for noun in ["bonus", "penalty", "effect", "value", "spell"] {
+        for noun in ["bonus", "penalty", "effect", "value"] {
             assert!(
                 trade_sentences(&format!("This {noun} replaces the usual bonus.")).is_empty(),
                 "{noun}"
             );
         }
+    }
+
+    #[test]
+    fn a_granted_thing_is_a_subject_with_or_without_bonus() {
+        // Ultimate Magic pp. 58-59: the six oracle archetypes (owner ruling 22).
+        let sentence = one(
+            "These bonus spells replace the oracle's mystery bonus spells at these levels.",
+        );
+        assert_eq!(sentence.op, TradeOp::Replaces);
+        assert!(sentence.bare);
+        for stored in [
+            "Mystery bonus spells at these levels",
+            "Oracle's mystery bonus spells at these levels",
+            "The oracle's mystery bonus spells at these levels",
+        ] {
+            let trades = [(TradeOp::Replaces, stored.to_string())];
+            assert!(names_a_trade(&sentence, &trades), "{stored}");
+        }
+        // Bare: it counts only when it names a stored trade.
+        let other = [(TradeOp::Replaces, "Bravery".to_string())];
+        assert!(!names_a_trade(&sentence, &other));
+        // Other nouns, with and without `bonus`.
+        let sentence = one("This bonus feat replaces the fighter's bonus feat at 2nd level.");
+        assert_eq!(sentence.op, TradeOp::Replaces);
+        assert!(sentence.bare);
+        assert!(!one("These bonus hexes replace the witch's patron spells.").bare);
+        assert!(!one("These bonus powers replace the mystery's powers.").bare);
+        assert!(one("These spells replace the sorcerer's bloodline spells.").bare);
+        assert!(one("This skill replaces Perception.").bare);
+        assert!(one("These evolutions replace the eidolon's base evolutions.").bare);
+        assert!(!one("This bonus ability alters bravery.").bare);
+        assert_eq!(one("This bonus ability alters bravery.").op, TradeOp::Alters);
+    }
+
+    #[test]
+    fn a_numeric_bonus_or_an_unlisted_noun_is_not_a_subject() {
+        assert!(trade_sentences("This bonus replaces the fighter's bonus feat.").is_empty());
+        assert!(trade_sentences("This bonus alters the fighter's bonus feat.").is_empty());
+        assert!(trade_sentences("These rounds replace the oracle's mystery spells.").is_empty());
+        assert!(trade_sentences("These bonus rounds replace the oracle's spells.").is_empty());
+        // `bonus` before a verb or an unlisted noun is not a subject word.
+        assert!(trade_sentences("This bonus value replaces bravery.").is_empty());
+        // A negation still rejects.
+        assert!(trade_sentences("These bonus spells do not replace bravery.").is_empty());
     }
 
     #[test]

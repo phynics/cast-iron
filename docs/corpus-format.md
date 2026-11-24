@@ -1236,12 +1236,17 @@ words are the **ability nouns** `ability`, `abilities`, `feature`, `features`, `
 `archetype`, `performance`, `performances`, `trick`, `tricks`, `talent`, `talents`, `hex`, `hexes`,
 `discovery`, `discoveries`, `revelation`, `revelations`, `mercy`, `mercies`, `deed`, `deeds`,
 `exploit`, `exploits`, `arcana` and `arcanum`, and the other words `class`, `also`, `otherwise`,
-`acts`, `works`, `functions`, `as`, `like`, `and`, `feat` and `feats`. `performance` is printed by the
+`acts`, `works`, `functions`, `as`, `like`, `and`, and the granted things that are no ability noun:
+`feat`, `feats`, `spell`, `spells`, `skill`, `skills`, `evolution` and `evolutions`. `performance` is printed by the
 Advanced Player's Guide bard archetypes ("This performance replaces inspire courage.", "These
 performances replace ..."), `feats` by its Zen Archer ("These feats replace the monk's normal
 bonus feats."); the other nouns name the choices of the other classes, and no sentence of the
-Advanced Player's Guide pilot uses them (they are added so the next books read). A noun that names no ability ("bonus", "penalty", "effect", "value", "spell")
-stays out: "This bonus replaces the usual bonus." is prose. A `both` right after the verb reads as
+Advanced Player's Guide pilot uses them (they are added so the next books read). A noun that names no ability ("penalty", "effect", "value", "round") stays out, and
+`bonus` is a subject word only right before a granted noun (owner ruling 22 of 2026-11-24, #540:
+`spell`, `feat`, `ability`, `power`, `talent`, `trick`, `hex`, `skill`, `revelation`, `arcana`,
+`discovery` or `evolution`, singular or plural): "These bonus spells replace the oracle's mystery
+bonus spells at these levels." and "This bonus feat replaces ..." are sentences. "This bonus replaces
+the usual bonus." is prose. A `both` right after the verb reads as
 the start of a list of two: "This ability replaces both diamond body and quivering palm." names two
 features (`either ... or` is not read: no printed sentence uses it). "This ability replaces
 bravery.", "This class feature also replaces bravery." and "This ability otherwise functions like and
@@ -1250,8 +1255,9 @@ alters armor training." gives two trades. These are not: a sentence that only me
 ("The bonus replaces the usual bonus."), one with another subject ("This bonus replaces ..."), a
 negated one ("This ability does not replace ..."), and a comparison to a spell ("This ability
 functions like alter self, except ..."; `like` or `as` must be followed by `and` before the verb).
-A **bare** sentence is one whose subject names no ability noun (the list above; `feat` and `feats`
-are subject words that are not ability nouns): "This replaces bravery.", "These replace the normal
+A **bare** sentence is one whose subject names no ability noun (the list above; `feat`, `spell`,
+`skill` and `evolution` are subject words that are not ability nouns, so "These bonus spells replace
+..." is bare): "This replaces bravery.", "These replace the normal
 attack roll bonus and AC penalty for charging." A bare sentence is a trade sentence only when it
 names one of the entry's stored trades with the same op, because the pronoun may stand for
 anything. So is a sentence whose verb is joined by `and` to another clause: "This movement provokes
