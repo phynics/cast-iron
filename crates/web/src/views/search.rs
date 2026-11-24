@@ -1351,10 +1351,10 @@ pub fn Search() -> impl IntoView {
                     };
                     facet_data.push((field.to_owned(), values));
                 }
-                // Rule headings come from typed, cached rule entries only. The other results
-                // cause a shard read only when the query named a class feature of the entry
-                // (#540): the engine says which alias matched, and only an archetype, a class
-                // option or a class has features, so a title or text hit never reads a shard.
+                // Rule headings come from typed, cached rule entries only. Non-rule results
+                // never cause shard reads. A result that the query matched through a class
+                // feature (#540) carries the feature's name in the anchor of its link; the entry
+                // page resolves the anchor from the entry it loads, so no shard is read here.
                 let query_text = current.q.clone();
                 for result in &mut hits {
                     for (hit, anchor) in std::iter::once((&result.hit, &mut result.anchor)).chain(
@@ -1363,24 +1363,19 @@ pub fn Search() -> impl IntoView {
                             .iter_mut()
                             .map(|(hit, anchor)| (&*hit, anchor)),
                     ) {
-                        let named_feature = feature_alias_kind(&hit.kind)
-                            .then_some(hit.alias.as_deref())
-                            .flatten();
-                        if hit.kind != EntryKind::Rule.slug() && named_feature.is_none() {
+                        if hit.kind != EntryKind::Rule.slug() {
+                            if feature_alias_kind(&hit.kind) {
+                                *anchor = hit.alias.clone();
+                            }
                             continue;
                         }
                         if let Ok(id) = EntryId::parse(hit.id.clone())
                             && let Ok(entry) = library.entry(&id).await
                         {
-                            *anchor = match named_feature {
-                                Some(alias) => {
-                                    crate::views::entry_contents::feature_anchor(&entry, alias)
-                                }
-                                None => crate::views::entry_contents::matching_heading(
-                                    &entry.body,
-                                    &query_text,
-                                ),
-                            };
+                            *anchor = crate::views::entry_contents::matching_heading(
+                                &entry.body,
+                                &query_text,
+                            );
                         }
                     }
                 }

@@ -138,9 +138,9 @@ struct Renderer {
     /// The entry whose body this is. An `entry-link` row names the listed entry's book, unless
     /// that is this entry's own row book (#461).
     hub: Option<EntryId>,
-    /// The listed features (corpus format 4, #540) by heading key, with the level of each. A
-    /// heading in this table renders as a feature head.
-    features: BTreeMap<String, Option<u8>>,
+    /// The listed features (corpus format 4, #540). A heading that `feature_of` finds in them
+    /// renders as a feature head.
+    features: Vec<FeatureFact>,
 }
 
 /// What the renderer knows about the footnotes of the entry it renders: where each note stands,
@@ -208,24 +208,21 @@ impl Renderer {
             slot: None,
             slot_open: false,
             hub: None,
-            features: BTreeMap::new(),
+            features: Vec::new(),
         }
     }
 
-    /// The level of the feature that the heading `key` prints: `None` when the heading is no
-    /// listed feature, `Some(None)` for a feature with no level.
-    fn feature_of(&self, key: Option<&str>) -> Option<Option<u8>> {
-        self.features.get(key?).copied()
+    /// The level of the feature that a heading with this explicit anchor prints: `None` when the
+    /// heading is no listed feature, `Some(None)` for a feature with no level. The rule is the
+    /// schema's, shared with the search aliases.
+    fn feature_of(&self, anchor: Option<&str>) -> Option<Option<u8>> {
+        cast_iron_schema::headings::feature_of(anchor, &self.features).map(|fact| fact.level)
     }
 
     /// The headings of `features` render as feature heads. A fact with no heading in the body is
     /// ignored, so the data may run ahead of the text or the other way round.
     fn with_features(mut self, features: &[FeatureFact]) -> Self {
-        self.features = cast_iron_sort::map_of(
-            features
-                .iter()
-                .map(|fact| (fact.anchor.clone(), fact.level)),
-        );
+        self.features = features.to_vec();
         self
     }
 
@@ -358,7 +355,11 @@ impl Renderer {
 
     fn block(&mut self, item: &Block) -> AnyView {
         match item {
-            Block::Heading { level, content, .. } => {
+            Block::Heading {
+                level,
+                content,
+                anchor: explicit,
+            } => {
                 let key = self.keys.get(&std::ptr::from_ref(item)).cloned().flatten();
                 debug_assert!(
                     self.keys.contains_key(&std::ptr::from_ref(item)),
@@ -373,7 +374,7 @@ impl Renderer {
                 {
                     self.slot_open = true;
                 }
-                match self.feature_of(key.as_deref()) {
+                match self.feature_of(explicit.as_deref()) {
                     Some(gained) => feature_head(*level, id, section, gained, inlines(content)),
                     None => heading(*level, id, section, None, inlines(content)),
                 }
@@ -965,7 +966,7 @@ pub fn RichBody(
         .with_features(&features)
         .with_slot(archetype_list);
     let plan = power_title
-        .map(|title| powers::plan(&title, &body))
+        .map(|title| powers::plan_for(&title, &body, &features))
         .unwrap_or_default();
     let content = match entry {
         Some(entry) => renderer.entry_body(&body, entry, book, &plan),
@@ -1073,7 +1074,10 @@ mod tests {
         ]);
         let heads: Vec<Option<Option<u8>>> = keyed_headings(&body)
             .into_iter()
-            .map(|(_, key)| renderer.feature_of(key.as_deref()))
+            .map(|(block, _)| match block {
+                Block::Heading { anchor, .. } => renderer.feature_of(anchor.as_deref()),
+                _ => None,
+            })
             .collect();
         // A heading that is no feature renders as before; a level-less feature has a head but
         // no level, so no leader and no right side.
@@ -1083,7 +1087,10 @@ mod tests {
         assert!(
             keyed_headings(&body)
                 .into_iter()
-                .all(|(_, key)| plain.feature_of(key.as_deref()).is_none())
+                .all(|(block, _)| match block {
+                    Block::Heading { anchor, .. } => plain.feature_of(anchor.as_deref()).is_none(),
+                    _ => true,
+                })
         );
     }
 

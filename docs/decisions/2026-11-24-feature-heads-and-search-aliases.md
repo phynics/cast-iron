@@ -36,17 +36,30 @@ Slice 2 of #540 renders the corpus format 4 fields that slice 1 (#677) added
 - **Search aliases.** The compiler adds the printed name of each listed feature, without its
   ability tag, to the aliases of an archetype, a class option and a base class (`pipeline.rs`
   `search_aliases`). The index already stores aliases per document, so `INDEX_FORMAT_VERSION`
-  stays 2 and `SCHEMA_VERSION` stays 7. The client needs the anchor, and the index has none, so the
-  engine reports which alias a hit matched (`Hit.alias`, filled when no word of the title matched:
-  not part of the stored index), and the results page reads the entry (a cached shard) only for a
-  hit with such an alias, then opens it at the feature whose name equals the alias. Rule entries
-  keep their own heading match. A title or text hit never reads a shard.
+  stays 2 and `SCHEMA_VERSION` stays 7. "Which heading is a feature" is one function
+  (`headings::feature_of`) that the page and the aliases share.
+- **Deep link.** The index holds no anchors, and the results page does not read entry shards. The
+  engine reports which alias a hit matched (`Hit.alias`: the alias whose words are exactly the
+  query's, else the first that holds every word; filled only when no word of the title matched;
+  not part of the stored index). The result's link carries that name in the existing anchor
+  parameter (`#/entry/<id>?a=Shattering%20Strike`), and the entry page resolves it from the entry
+  it loaded (`resolve_anchor`): a name that a listed feature prints becomes the feature's anchor,
+  anything else is left as it is, so an alias that the entry no longer lists opens it at the top.
+  Rule entries keep their own heading match on the results page.
+- **Ranking (owner ruling, 2026-11-24).** An entry that a feature name matches ranks below every
+  entry whose title holds all the query words: a non-rule alias that equals the query adds 100
+  (`BOOST_FEATURE_ALIAS`), where an all-words title adds 200. Rule aliases keep their boost.
+  Query `Evasion` lists the entry titled Evasion, then Improved Evasion, then the archetypes
+  that have the feature.
+- **Scaffold headings are never features (owner ruling, 2026-11-24).** `corpus-check` fails a
+  `features` anchor whose heading reads as one of `NOT_FEATURE_HEADINGS` (Size, Speed, Attack, AC,
+  Ability Scores, Companion Type, Prerequisites, Effect, Use, Cost, Action, Bonus Spells, Bonus
+  Feats, Weapon and Armor Proficiency), so such a heading gets no head and no alias.
 
 ## Size budget
 
 The pinned library has no `features`, so the budget does not change today (aliases added: 0). The
-issue's survey counts about 6,800 archetype and 8,200 class-option feature names. Each alias costs
-its text in the index's document table and one posting per new word. At about 25 bytes of alias text
-and about 8 bytes of postings each, 15,000 names add roughly 0.5 MB to `search.bin` before
-compression, against a budget of 72.3 MB. The measurement waits for the data (the first converted
-batch); `cargo xtask size-budget` is the gate.
+issue's survey counts about 6,800 archetype and 8,200 class-option feature names. The words of an
+alias already have text postings, because the headings are in the indexed text, so the cost is the
+alias strings in the document table (`DocMeta`): about 0.2 MB for about 13,600 names. The
+measurement waits for the pilot batch; `cargo xtask size-budget` is the gate.

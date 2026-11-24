@@ -95,14 +95,20 @@ pub fn matching_heading(body: &[Block], query: &str) -> Option<String> {
         .map(|heading| heading.anchor.clone())
 }
 
-/// The anchor of the class feature that a search alias names (#540): the feature of `entry`
-/// whose printed name, without its ability tag, is `alias`. `None` when the entry lists no such
-/// feature, so the result opens the entry at the top.
-pub fn feature_anchor(entry: &RuleEntry, alias: &str) -> Option<String> {
-    feature_heads(&entry.body, entry.fields.features())
+/// The anchor to scroll to for the `anchor` of an entry route. A search result that matched a
+/// class feature of the entry carries the feature's name there (#540), because the results page
+/// does not read the entry; the entry page resolves it here, from the entry it loaded. An anchor
+/// that already is a listed feature's anchor, or that names no feature, is returned as it is, so
+/// an alias that the entry no longer lists opens the entry at the top.
+pub fn resolve_anchor(entry: &RuleEntry, anchor: &str) -> String {
+    let heads = feature_heads(&entry.body, entry.fields.features());
+    if heads.iter().any(|head| head.anchor == anchor) {
+        return anchor.to_string();
+    }
+    heads
         .into_iter()
-        .find(|head| head.name == alias)
-        .map(|head| head.anchor)
+        .find(|head| head.name == anchor)
+        .map_or_else(|| anchor.to_string(), |head| head.anchor)
 }
 
 /// The article lists its sections from this many headings on. A listed feature is a heading of
@@ -272,7 +278,7 @@ mod tests {
     }
 
     #[test]
-    fn a_feature_alias_opens_the_entry_at_the_feature_that_prints_the_name() {
+    fn a_feature_name_in_the_anchor_resolves_to_the_feature_that_prints_it() {
         use cast_iron_schema::{ArchetypeFields, EntryKind, FeatureFact, Provenance, TypedFields};
         let entry = RuleEntry {
             id: EntryId::parse("ref/arc-fighter/two-handed-fighter").unwrap(),
@@ -304,13 +310,20 @@ mod tests {
             relations: vec![],
         };
         assert_eq!(
-            feature_anchor(&entry, "Shattering Strike").as_deref(),
-            Some("shattering-strike")
+            resolve_anchor(&entry, "Shattering Strike"),
+            "shattering-strike"
         );
-        // A heading that the data does not list is not a feature, and a printed name with its tag
-        // is not the alias.
-        assert_eq!(feature_anchor(&entry, "Piledriver"), None);
-        assert_eq!(feature_anchor(&entry, "Shattering Strike (Ex)"), None);
+        // A real anchor stays. A heading that the data does not list is not a feature, and a
+        // printed name with its tag is not the alias: both stay as written.
+        assert_eq!(
+            resolve_anchor(&entry, "shattering-strike"),
+            "shattering-strike"
+        );
+        assert_eq!(resolve_anchor(&entry, "Piledriver"), "Piledriver");
+        assert_eq!(
+            resolve_anchor(&entry, "Shattering Strike (Ex)"),
+            "Shattering Strike (Ex)"
+        );
     }
 
     #[test]

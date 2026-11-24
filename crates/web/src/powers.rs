@@ -11,7 +11,7 @@ use cast_iron_schema::headings::plain_text;
 use cast_iron_schema::power::{
     Power, candidates, one_power_page, power_heading_level, split_ability_tag, validate_power,
 };
-use cast_iron_schema::{Block, Inline};
+use cast_iron_schema::{Block, FeatureFact, Inline};
 use std::collections::BTreeMap;
 
 /// One validated power that the renderer lays out in place of its blocks.
@@ -71,6 +71,21 @@ pub fn plan<'a>(title: &str, body: &'a [Block]) -> Plan<'a> {
         }
     }
     Plan { by_start }
+}
+
+/// Whether the class-option power layout runs on an entry with these `features`. An entry that
+/// lists features is converted (corpus format 4, #540): its features are headed printed prose and
+/// it has no import rows, so the power layout and the one-power page do not apply to it.
+pub fn layout_applies(features: &[FeatureFact]) -> bool {
+    features.is_empty()
+}
+
+/// [`plan`] for an entry with `features`: no power is placed when the layout does not apply.
+pub fn plan_for<'a>(title: &str, body: &'a [Block], features: &[FeatureFact]) -> Plan<'a> {
+    match layout_applies(features) {
+        true => plan(title, body),
+        false => Plan::default(),
+    }
 }
 
 /// The ability tag in words with the printed tag: `Supernatural (Su)`, `Extraordinary or
@@ -235,6 +250,30 @@ mod tests {
         let second = plan.at(&body[5]).expect("the second power is placed");
         assert_eq!((second.len, second.heading, second.folded), (3, 2, false));
         assert!(plan.at(&body[1]).is_none());
+    }
+
+    #[test]
+    fn a_class_option_with_features_gets_no_power_layout() {
+        let body = resistance();
+        let features = [FeatureFact {
+            anchor: "resistance".into(),
+            level: Some(1),
+        }];
+        // The same body is laid out without features and left alone with them.
+        assert!(plan_for("Abjuration", &body, &[]).at(&body[0]).is_some());
+        assert!(
+            plan_for("Abjuration", &body, &features)
+                .at(&body[0])
+                .is_none()
+        );
+        // A one-power page too: the head does not fold.
+        assert!(
+            plan_for("Resistance", &body, &features)
+                .at(&body[0])
+                .is_none()
+        );
+        assert!(!layout_applies(&features));
+        assert!(layout_applies(&[]));
     }
 
     #[test]

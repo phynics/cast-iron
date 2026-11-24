@@ -22,7 +22,7 @@ use crate::views::book_tier::Tier;
 use crate::views::class_card::{SpellListLink, class_card};
 use crate::views::continue_reading;
 use crate::views::crumbs::{Crumb, EntryCrumbs, EntryFacts};
-use crate::views::entry_contents::{ArticleContents, JumpLink, lists_contents};
+use crate::views::entry_contents::{ArticleContents, JumpLink, lists_contents, resolve_anchor};
 use crate::views::fresh::IntoFresh as _;
 use crate::views::icons;
 use crate::views::recent;
@@ -1041,7 +1041,7 @@ fn EntryView(
     // A class option's powers take the layout. On a one-power page the power's facts sit in the
     // entry head, and its name is the title.
     let (power_title, facts) =
-        match kind == EntryKind::ClassOption && !hide_body && features.is_empty() {
+        match kind == EntryKind::ClassOption && !hide_body && powers::layout_applies(&features) {
             true => {
                 let facts = powers::entry_facts(&entry.title, &rendered_body);
                 let facts = (!facts.is_empty()).then(|| muted_line("entry-facts", &facts));
@@ -1093,10 +1093,12 @@ fn EntryView(
         Route::Entry { book, .. } => book.clone(),
         _ => None,
     };
+    // A search result that matched a class feature names it in the anchor (#540).
     let live_anchor = match &live {
         Route::Entry { anchor, .. } => anchor.clone(),
         _ => anchor.clone(),
-    };
+    }
+    .map(|anchor| resolve_anchor(&entry, &anchor));
     if let Some(section) = live.section()
         && live_anchor.is_none()
         && class_sections

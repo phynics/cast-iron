@@ -14,6 +14,9 @@
 //!    sentence is a listed feature, or sits inside one. The opening text (before the first listed
 //!    feature) may print trades that no feature prints; those trades have no `by`.
 //!
+//! 5. no listed feature has a scaffold heading ([`NOT_FEATURE_HEADINGS`]): those headings
+//!    structure a page and are not class features, so they get no head and no search alias.
+//!
 //! The drift check (`drift.rs`) compares each trade with the trade sentence of its feature.
 
 use crate::check::{Report, line_of};
@@ -22,6 +25,35 @@ use crate::load::Corpus;
 use crate::trade_sentences::{TradeSentence, level_lead, names_a_trade, trade_sentences};
 use cast_iron_schema::headings::{keyed_headings, plain_text};
 use cast_iron_schema::{Block, EntryKind, RuleEntry};
+
+/// Headings that structure an archetype, class option or class page and are never class
+/// features (owner ruling, 2026-11-24): a `features` anchor whose heading reads as one of these
+/// is an error, so such a heading gets no feature head and no search alias. Compared without
+/// case, surrounding space and a trailing colon.
+pub const NOT_FEATURE_HEADINGS: &[&str] = &[
+    "Size",
+    "Speed",
+    "Attack",
+    "AC",
+    "Ability Scores",
+    "Companion Type",
+    "Prerequisites",
+    "Effect",
+    "Use",
+    "Cost",
+    "Action",
+    "Bonus Spells",
+    "Bonus Feats",
+    "Weapon and Armor Proficiency",
+];
+
+/// Whether `heading` is one of the [`NOT_FEATURE_HEADINGS`].
+fn is_scaffold_heading(heading: &str) -> bool {
+    let heading = heading.trim().trim_end_matches(':').trim();
+    NOT_FEATURE_HEADINGS
+        .iter()
+        .any(|scaffold| scaffold.eq_ignore_ascii_case(heading))
+}
 
 /// One feature section of a body: the heading with its key, and the blocks under it up to the
 /// next heading of the same or a higher level.
@@ -194,6 +226,15 @@ fn check_entry(entry: &RuleEntry, at: &dyn Fn(&str) -> String, report: &mut Repo
             report.problems.push(format!(
                 "{place}: [fields] the heading of the feature `{}` needs an explicit `{{#{}}}` anchor; a derived key changes with the heading text",
                 feature.anchor, feature.anchor
+            ));
+        }
+        if let Block::Heading { content, .. } = section.heading
+            && is_scaffold_heading(&plain_text(content))
+        {
+            report.problems.push(format!(
+                "{place}: [fields] the feature `{}` is the scaffold heading `{}`, which is no class feature; leave it out of `features`",
+                feature.anchor,
+                plain_text(content).trim()
             ));
         }
         if last_position.is_some_and(|last| position < last) {
@@ -392,6 +433,33 @@ mod tests {
         let found = problems(archetype(body(), vec![("shatter", Some(2))], vec![]));
         assert_eq!(found.len(), 1, "{found:?}");
         assert!(found[0].contains("not a heading key"), "{found:?}");
+    }
+
+    #[test]
+    fn a_scaffold_heading_is_never_a_feature() {
+        for name in [
+            "Size",
+            "weapon and armor proficiency",
+            "Bonus Spells:",
+            "AC",
+        ] {
+            let scaffold = vec![
+                heading(Some("scaffold"), name),
+                text("The fighter gains a bonus."),
+            ];
+            let found = problems(archetype(scaffold, vec![("scaffold", None)], vec![]));
+            assert_eq!(found.len(), 1, "{name}: {found:?}");
+            assert!(found[0].contains("scaffold heading"), "{found:?}");
+        }
+        // The same heading, left out of `features`, is only a heading.
+        let plain = vec![heading(Some("size"), "Size"), text("Medium.")];
+        assert!(problems(archetype(plain, vec![], vec![])).is_empty());
+        // A feature whose name only contains a stop word is a feature.
+        let named = vec![
+            heading(Some("speed-boost"), "Speed Boost (Ex)"),
+            text("Faster."),
+        ];
+        assert!(problems(archetype(named, vec![("speed-boost", None)], vec![])).is_empty());
     }
 
     #[test]

@@ -154,33 +154,43 @@ pub struct FeatureHead {
     pub name: String,
 }
 
-/// The `features` of an entry that have a heading in `body`, in body order. A feature matches the
-/// heading whose explicit anchor is its anchor; a derived key never matches, because the format
-/// requires the anchor to be written. A feature with no such heading is left out, and so is one
-/// whose heading has no text, so a reader never meets a head with nothing in it.
+/// The feature that a heading is, if it is one: the item of `features` whose anchor is the
+/// heading's explicit anchor. A derived key never matches, because the format requires the anchor
+/// to be written. This is the one rule for "which headings are features": the page's feature
+/// heads and the search aliases both use it.
+pub fn feature_of<'a>(
+    anchor: Option<&str>,
+    features: &'a [crate::FeatureFact],
+) -> Option<&'a crate::FeatureFact> {
+    let anchor = anchor.filter(|anchor| !anchor.is_empty())?;
+    features.iter().find(|fact| fact.anchor == anchor)
+}
+
+/// The `features` of an entry that have a heading in `body`, in body order (see [`feature_of`]).
+/// A feature with no such heading is left out, and so is one whose heading has no text, so a
+/// reader never meets a head with nothing in it. A feature listed twice yields its first heading.
 pub fn feature_heads(body: &[Block], features: &[crate::FeatureFact]) -> Vec<FeatureHead> {
     if features.is_empty() {
         return Vec::new();
     }
+    let mut seen: BTreeSet<&str> = BTreeSet::new();
     headings_in_order(body)
         .into_iter()
         .filter_map(|block| {
             let Block::Heading {
-                anchor: Some(anchor),
-                content,
-                ..
+                anchor, content, ..
             } = block
             else {
                 return None;
             };
-            let fact = features.iter().find(|fact| fact.anchor == *anchor)?;
+            let fact = feature_of(anchor.as_deref(), features)?;
             let printed = plain_text(content).trim().to_string();
             let name = crate::power::split_ability_tag(&printed)
                 .0
                 .trim()
                 .to_string();
-            (!name.is_empty()).then_some(FeatureHead {
-                anchor: anchor.clone(),
+            (!name.is_empty() && seen.insert(fact.anchor.as_str())).then(|| FeatureHead {
+                anchor: fact.anchor.clone(),
                 level: fact.level,
                 printed,
                 name,
