@@ -80,6 +80,24 @@ const PERSISTED_GRANTED: &str = "Granted. The browser will not clear the library
 const PERSISTED_DENIED: &str =
     "Not granted. The browser may clear the library if the device runs low on space.";
 
+/// What the request answered. The refusal says what to do next, because the browser gives no reason.
+const PERSIST_REQUEST_REFUSED: &str =
+    "Not granted. On iPhone, add Cast Iron to the Home Screen; other browsers decide on their own.";
+const STORAGE_STATUS_ID: &str = "storage-request-status";
+
+/// Moves focus to the storage status line, for when the request button has just gone away.
+fn focus_storage_status() {
+    let Some(line) = web_sys::window()
+        .and_then(|window| window.document())
+        .and_then(|document| document.get_element_by_id(STORAGE_STATUS_ID))
+    else {
+        return;
+    };
+    if let Ok(line) = line.dyn_into::<web_sys::HtmlElement>() {
+        let _ = line.focus();
+    }
+}
+
 #[component]
 pub fn Settings() -> impl IntoView {
     let app = use_app();
@@ -98,6 +116,8 @@ pub fn Settings() -> impl IntoView {
 
     let estimate = RwSignal::new(None::<StorageEstimate>);
     let persisted = RwSignal::new(None::<bool>);
+    // The answer to the last "Request persistent storage" press; None until pressed.
+    let persist_answer = RwSignal::new(None::<bool>);
     let refresh_storage = move || {
         spawn_local(async move {
             estimate.set(Some(js::storage_estimate().await));
@@ -312,12 +332,22 @@ pub fn Settings() -> impl IntoView {
                 <p>
                     <button class="btn" type="button" on:click=move |_| {
                         spawn_local(async move {
-                            let _ = js::storage_persist().await;
+                            let granted = js::storage_persist().await;
+                            persist_answer.set(Some(granted));
                             refresh_storage();
+                            if granted {
+                                // The button goes with the grant; keep focus on the page.
+                                request_animation_frame(focus_storage_status);
+                            }
                         });
                     }>"Request persistent storage"</button>
                 </p>
             </Show>
+            <div role="status" id=STORAGE_STATUS_ID tabindex="-1" data-testid="storage-request-status">
+                {move || persist_answer.get().map(|granted| view! {
+                    <p class="muted">{if granted { PERSISTED_GRANTED } else { PERSIST_REQUEST_REFUSED }}</p>
+                })}
+            </div>
         </section>
 
         <section class="settings-section" aria-labelledby="set-help">
