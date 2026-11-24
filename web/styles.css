@@ -15,6 +15,9 @@
   --ink-muted: #5c534a;
   --ink-dim: #72685d;
   --line: #d3c8b7;
+  /* Control edges (WCAG 1.4.11, 3:1 or more). Dividers and cards keep --line; a control's own border uses this.
+     Light #857a6d against bg #f4efe6 3.67, surface #fbf8f2 3.96, surface-2 #ebe4d8 3.32, stat-bg #efe8da 3.44. */
+  --control-edge: #857a6d;
   --accent: #a2411a;
   --accent-ink: #fff8ef;
   --focus: #0b5cad;
@@ -70,6 +73,8 @@
     --ink-muted: #b4a99c;
     --ink-dim: #968b7f;
     --line: #4b433b;
+    /* Dark #857a6e against bg #14110f 4.48, surface #221e1b 3.94, surface-2 #332d27 3.24, stat-bg #2b2623 3.57. */
+    --control-edge: #857a6e;
     --accent: #e5864f;
     --accent-ink: #1c1917;
     --focus: #7db9f2;
@@ -96,6 +101,7 @@
   --ink-muted: #b4a99c;
   --ink-dim: #968b7f;
   --line: #4b433b;
+  --control-edge: #857a6e;
   --accent: #e5864f;
   --accent-ink: #1c1917;
   --focus: #7db9f2;
@@ -881,7 +887,7 @@ mark {
   align-items: center;
   min-height: var(--touch);
   padding: 0 var(--space-3);
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-edge);
   border-radius: var(--radius);
   background: var(--surface);
   color: var(--ink);
@@ -1248,7 +1254,7 @@ mark {
   gap: var(--space-2);
   min-height: var(--touch);
   padding: 0 var(--space-3);
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-edge);
   border-radius: var(--radius);
   background: var(--surface);
   color: var(--ink);
@@ -1431,7 +1437,7 @@ mark {
   align-items: center;
   padding: 0 var(--space-3);
   background: var(--surface);
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-edge);
   border-radius: 999px;
   pointer-events: none;
 }
@@ -2610,7 +2616,7 @@ mark {
   text-decoration: none;
   white-space: nowrap;
   background: var(--surface);
-  border: var(--border);
+  border: 1px solid var(--control-edge);
   border-radius: var(--radius);
 }
 
@@ -2962,7 +2968,7 @@ main,
   color: var(--ink);
   text-decoration: none;
   background: var(--surface);
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-edge);
   border-radius: var(--radius);
   line-height: 1.1;
 }
@@ -3906,7 +3912,7 @@ main,
   color: var(--ink);
   text-decoration: none;
   background: var(--surface);
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-edge);
   border-radius: var(--radius);
 }
 
@@ -4138,7 +4144,7 @@ a.home-row-link:hover .home-row-title {
 .scope-choice {
   min-height: var(--touch);
   padding: var(--space-2) var(--space-3);
-  border: var(--border);
+  border: 1px solid var(--control-edge);
   border-radius: 999px;
   background: var(--surface);
   color: var(--ink-muted);
@@ -5374,7 +5380,7 @@ html:has(.quick-search[open]) {
   width: 100%;
   min-height: var(--touch);
   padding: 0 var(--space-3);
-  border: 1px solid var(--line);
+  border: 1px solid var(--control-edge);
   border-radius: var(--radius);
   background: var(--surface);
   color: var(--ink);
