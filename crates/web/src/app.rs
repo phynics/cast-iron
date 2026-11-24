@@ -90,6 +90,9 @@ impl AppCtx {
                     )),
                 },
             });
+            // The installer's focused status line is gone with the screen, and the Reader does
+            // not move focus on its first route, so focus would fall to the body (#12).
+            request_animation_frame(focus_main);
         });
     }
 }

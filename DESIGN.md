@@ -112,7 +112,7 @@ A summary keeps the 44 px target. The Collections pickers are the exception to t
 
 **Status lines.** A muted line that follows a control or a loading step, with no box:
 
-- `.status`: a live `role="status"` line for loading and progress (`Loading entry…`, the installer's progress text).
+- `.status`: a live `role="status"` line for loading and progress (`Loading entry…`). The installer's per-tick progress line is a `.status` that is not live (see Installer screen).
 - `.hint`: a smaller muted sentence beside a control (`The filters could not be loaded. Search still works.`).
 - `.undo-line`: the status line after a change on Manage books, with an accent `Undo`.
 - `.share-note`: the muted live line after `Copy code` and `Copy link`.
@@ -218,6 +218,7 @@ After each route change the frame scrolls (to the anchor, the section, the offse
 The frame leaves focus alone in these cases:
 
 - The first load of the app.
+- The end of an install: the installer's status line holds focus until the Reader is mounted, then the frame focuses `<main>` once.
 - Search: the page focuses its own field, and an edit from one search route to another moves nothing.
 - A change inside the page that is on screen: opening a chapter of the book that is shown, choosing a school on the spell list that is shown, typing in the `Find a book` field of Books or Manage books, and a jump between the sections of an entry page.
 
@@ -684,7 +685,7 @@ While `legal.json` or `coverage.json` loads, the place of its content shows `Loa
 
 ### Installer screen
 
-The installer screen shows when no library is installed yet. It has the masthead (the brand only), then `main.install-main`: the `h1` `Install the rules library`, a lede that says the library downloads once and works offline afterwards, an optional `.notice`, and one `.install-panel`. The panel shows `Library version` (the corpus tag with a short id, `v0.1.37 (v28481793…)`, never the bare content hash), the download size and the entry count as `dl.facts`, a paragraph that starts `On iPhone?` and names the Home Screen install and its separate library, a `Download` `.btn-primary`, and then a progress bar named `Download progress` with a live `.status` line. A failure is an `.error` with `role="alert"` and a `.btn-primary` `Retry` (`Check again` when the manifest must be fetched again); after a failed integrity check the panel adds that verified files are kept, so a retry continues where it stopped. The footer carries the unofficial line without the legal link. The same panel updates a library from Settings; there it shows only `Download update` with one muted reassurance line, then the progress and failure states, with no facts and no iPhone paragraph (see Settings, The update rows). While it reads the file list it shows `Checking the library…`.
+The installer screen shows when no library is installed yet. It has the masthead (the brand only), then `main.install-main`: the `h1` `Install the rules library`, a lede that says the library downloads once and works offline afterwards, an optional `.notice`, and one `.install-panel`. The panel shows `Library version` (the corpus tag with a short id, `v0.1.37 (v28481793…)`, never the bare content hash), the download size and the entry count as `dl.facts`, a paragraph that starts `On iPhone?` and names the Home Screen install and its separate library, a `Download` `.btn-primary`, and then a progress bar named `Download progress` with a `.status` line (`tabindex="-1"`, not live) that shows the detailed progress on every tick, and a visually hidden `role="status"` line after it that announces only the phase (`Checking what is already stored`, `Downloading`, `Verifying every file`, `Activating`, the ready sentence) and the download's progress in tens (`Downloading: 40%`). Pressing `Download` (or `Retry`) moves focus to the `.status` line, because the button goes away; when the library is ready the frame focuses `<main>`. A failure is an `.error` with `role="alert"` and `tabindex="-1"`, which takes focus, and a `.btn-primary` `Retry` (`Check again` when the manifest must be fetched again); after a failed integrity check the panel adds that verified files are kept, so a retry continues where it stopped. The footer carries the unofficial line without the legal link. The same panel updates a library from Settings; there it shows only `Download update` with one muted reassurance line, then the progress and failure states, with no facts and no iPhone paragraph (see Settings, The update rows). While it reads the file list it shows `Checking the library…`.
 
 ### Not yet designed
 
