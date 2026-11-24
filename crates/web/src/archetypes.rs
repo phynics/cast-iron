@@ -362,6 +362,7 @@ mod tests {
 
     fn trade(op: TradeOp, printed: &str, feature: Option<FeatureRef>) -> Trade {
         Trade {
+            by: None,
             op,
             printed: printed.into(),
             feature,
