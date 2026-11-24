@@ -1365,8 +1365,11 @@ installedTest("Quick search lists own only options, take one name, and the field
   const remove = layer.getByRole("button", { name: `Remove “${visits[0].title}” from recently viewed` });
   const rowBox = (await row.boundingBox())!;
   const buttonBox = (await remove.boundingBox())!;
-  expect(buttonBox.y).toBeGreaterThanOrEqual(rowBox.y - 1);
-  expect(buttonBox.y + buttonBox.height).toBeLessThanOrEqual(rowBox.y + rowBox.height + 1);
+  // Level means the two share a vertical centre. The 44 px button can be a fraction of a pixel
+  // taller than a one-line row, so compare centres, not edges.
+  const rowCentre = rowBox.y + rowBox.height / 2;
+  const buttonCentre = buttonBox.y + buttonBox.height / 2;
+  expect(Math.abs(buttonCentre - rowCentre)).toBeLessThanOrEqual(2);
   await remove.focus();
   await page.keyboard.press("Enter");
   await expect(viewed.getByRole("option")).toHaveCount(visits.length - 1);
