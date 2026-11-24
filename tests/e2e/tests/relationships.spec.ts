@@ -1,5 +1,5 @@
 import { installedTest as test, expect, loadCorpus } from "./fixtures";
-import { bookReadingOrder, bookTrees, firstBookPlacement, installLibrary, listedChapterTitles, openBookContents, openAllRows, openBookEntry, waitControlled } from "./helpers";
+import { openQuickSearch, quickField, bookReadingOrder, bookTrees, firstBookPlacement, installLibrary, listedChapterTitles, openBookContents, openAllRows, openBookEntry, waitControlled } from "./helpers";
 
 const corpus = loadCorpus();
 const entries = [...corpus.entries.values()];
@@ -226,6 +226,48 @@ test("feat pages preserve printed prerequisites and label alternatives honestly"
     const labels = await chain.getByRole("link").allInnerTexts();
     expect(labels.length).toBeGreaterThan(0);
   }
+});
+
+test("every feat chain page follows the list-page head and scopes the search to feats", async ({ page }) => {
+  await page.goto("#/feats/chains");
+  const main = page.locator("main");
+  const h1 = main.getByRole("heading", { name: "Feat chains", level: 1 });
+  await expect(h1).toBeVisible();
+  await expect(h1).toHaveAttribute("tabindex", "-1");
+  await expect(main.locator(".wide.list-page")).toHaveCount(1);
+
+  // The count line is the element right after the h1, and no lede sits above the rows.
+  const count = h1.locator("xpath=following-sibling::*[1]");
+  await expect(count).toHaveClass(/list-count/);
+  await expect(count).toHaveAttribute("aria-live", "polite");
+  await expect(count).toHaveText(/^\d[\d,]* feats? starts? a chain$/);
+  const heads = main.locator(".chain-heads");
+  await expect(heads.locator(".chain-head").first()).toBeVisible();
+  expect(await h1.evaluate((el) => {
+    let between = 0;
+    for (let n = el.nextElementSibling; n && !n.classList.contains("chain-heads"); n = n.nextElementSibling) {
+      if (n.tagName === "P" && !n.classList.contains("list-count")) between++;
+    }
+    return between;
+  })).toBe(0);
+
+  // The provenance note follows the rows.
+  const note = heads.locator("xpath=following-sibling::p[1]");
+  await expect(note).toContainText("A chain starts at a feat with no feat prerequisite.");
+
+  // A chain-head name uses the row type of the other lists.
+  const headFont = await heads.locator(".chain-name").first().evaluate((el) => getComputedStyle(el).fontFamily);
+
+  // The header search opens scoped to feats.
+  await openQuickSearch(page);
+  await expect(quickField(page)).toHaveAttribute("placeholder", "Search feats");
+  await expect(page.getByRole("button", { name: "Remove scope: Feats", exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+
+  await page.goto("#/browse/kind/feat");
+  const rowLink = main.locator(".entry-list a").first();
+  await expect(rowLink).toBeVisible();
+  expect(await rowLink.evaluate((el) => getComputedStyle(el).fontFamily)).toBe(headFont);
 });
 
 test("every feat chain Open the feat link has a 24 px hit area", async ({ page }) => {
