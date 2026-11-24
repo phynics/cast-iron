@@ -61,7 +61,7 @@ test("Home keeps legacy collection members as unique stars across offline restar
   await expect(rows.filter({ hasText: "Remembered Rule" })).toContainText("Not in this library");
   await expect(page.getByRole("link", { name: "Books", exact: true })).toBeVisible();
 
-  // The missing item has a usable Unstar control; it must not navigate away from Home.
+  // The missing item has a usable Star control; it must not navigate away from Home.
   await rows.filter({ hasText: "Remembered Rule" }).getByRole("button", { name: "Star Remembered Rule", exact: true }).click();
   await expect(rows).toHaveCount(2);
   await expect(page).toHaveURL(/#\/?$/);

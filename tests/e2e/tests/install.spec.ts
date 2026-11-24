@@ -58,6 +58,58 @@ test("Representative rules dataset installs completely", async ({ page }) => {
   expect(cached.has(`content/${version}/manifest.json`)).toBe(true);
 });
 
+test("Installing by keyboard keeps focus on the install screen status line, then main, and announces calmly", async ({ page }) => {
+  await page.goto("./");
+  const download = page.getByRole("button", { name: "Download" });
+  await expect(download).toBeVisible();
+  // Record each distinct consecutive text of the live announcement and of the detailed line. One
+  // text replacement can give several mutation records, so records are not counted.
+  await page.evaluate(() => {
+    const w = window as unknown as { __texts: Record<string, string[]> };
+    w.__texts = { live: [], detail: [] };
+    const watch = (testid: string, key: string) => {
+      const el = document.querySelector(`[data-testid=${testid}]`)!;
+      new MutationObserver(() => {
+        const text = (el.textContent ?? "").trim();
+        const seen = w.__texts[key];
+        if (text !== "" && text !== seen[seen.length - 1]) seen.push(text);
+      }).observe(el, { childList: true, characterData: true, subtree: true });
+    };
+    watch("install-announce", "live");
+    watch("install-status", "detail");
+  });
+  const active = () =>
+    page.evaluate(() => {
+      const el = document.activeElement as HTMLElement | null;
+      return { tag: el?.tagName, id: el?.id, testid: el?.getAttribute("data-testid") };
+    });
+
+  await download.focus();
+  // Sample the focus every 10 ms from the keypress on, for as long as the install screen is up.
+  await page.evaluate(() => {
+    const w = window as unknown as { __samples: string[] };
+    w.__samples = [];
+    setInterval(() => {
+      if (document.querySelector("[data-testid=install-status]")) {
+        w.__samples.push(document.activeElement?.getAttribute("data-testid") ?? document.activeElement?.tagName ?? "none");
+      }
+    }, 10);
+  });
+  await page.keyboard.press("Enter");
+  // The button is gone; the status line holds focus through the whole install, never the body.
+  await expect(page.getByTestId("install-status")).toContainText(/Checking what is already stored|Downloading|Verifying|Activating|installed/);
+  await waitReady(page);
+  const samples = await page.evaluate(() => (window as unknown as { __samples: string[] }).__samples);
+  expect(samples.length, "focus samples while installing").toBeGreaterThan(0);
+  expect(samples.filter((s) => s !== "install-status" && !s.startsWith("BUTTON")), "focus held outside the status line").toEqual([]);
+  await expect.poll(active).toMatchObject({ tag: "MAIN", id: "main" });
+
+  const texts = await page.evaluate(() => (window as unknown as { __texts: Record<string, string[]> }).__texts);
+  expect(texts.live.length, `live announcements: ${texts.live.join(" | ")}`).toBeGreaterThanOrEqual(2);
+  expect(texts.live.length, `live announcements: ${texts.live.join(" | ")}`).toBeLessThanOrEqual(15);
+  expect(texts.live.length, "live announcements against detail lines").toBeLessThan(texts.detail.length);
+});
+
 test("Download integrity is verified", async ({ page, server, guard }) => {
   guard.allow(/Failed to load resource|status of 5\d\d/);
   const bad = entryShards[0];
@@ -67,6 +119,8 @@ test("Download integrity is verified", async ({ page, server, guard }) => {
   await page.getByRole("button", { name: "Download" }).click();
   const error = page.getByRole("alert").filter({ hasText: shardName(0) });
   await expect(error).toContainText(/checksum|hash|sha/i, { timeout: 60_000 });
+  // The failure takes focus: the Download button and the status line it used are gone or idle.
+  await expect(error).toBeFocused();
   await expect(page.getByRole("button", { name: "Retry" })).toBeVisible();
 
   // Three attempts, no activation, no corrupted entry in the cache.

@@ -1,3 +1,4 @@
+import { goneAddress, remappedAddress } from "./legacy-addresses";
 import type { Page } from "@playwright/test";
 import { test, installedTest, expect, loadCorpus } from "./fixtures";
 import { goOffline } from "./fixtures";
@@ -55,6 +56,46 @@ async function renderedEntries(page: Page) {
   while (await more.isVisible()) await more.click();
   return page.locator(".results li.hit:not(.hit-group)").count();
 }
+
+installedTest("Desktop results page: Enter in the field puts focus on the count, so the first result is a few Tabs away; result links and chips keep short names (#12)", async ({ page }) => {
+  await installLibrary(page);
+  await page.goto("#/search");
+  const field = page.locator("#search-input");
+  await field.fill("fire");
+  await waitResults(page, "fire");
+  // Typing never moves focus out of the field.
+  await expect(field).toBeFocused();
+
+  // Enter ends the typing: the count line takes focus, and the filters before the results are
+  // not on the way. Without it the first result sat behind two dozen filter stops (WCAG 2.4.1).
+  await page.keyboard.press("Enter");
+  await expect(page.locator(".result-count")).toBeFocused();
+  let tabs = 0;
+  while (tabs < 4 && !(await page.evaluate(() => !!document.activeElement?.closest(".results")))) {
+    await page.keyboard.press("Tab");
+    tabs += 1;
+  }
+  expect(tabs, "Tab presses from the count to the first result").toBeLessThanOrEqual(3);
+  await expect(page.locator(".results").locator(":focus")).toHaveCount(1);
+
+  // A result link is named by its title and the Kind and book line. The excerpt is its description.
+  const link = page.locator(".results > .hit > .hit-link:has(.hit-snippet)").first();
+  const title = (await link.locator(".hit-title").innerText()).trim();
+  const snippet = (await link.locator(".hit-snippet").textContent())!.replace(/\s+/g, " ").trim();
+  expect(snippet.length).toBeGreaterThan(10);
+  await expect(link).not.toHaveAttribute("aria-label");
+  await expect(link).toHaveAccessibleName(new RegExp(`^${escape(title)}`));
+  await expect(link).not.toHaveAccessibleName(new RegExp(escape(snippet.slice(0, 20))));
+  await expect(link).toHaveAccessibleDescription(new RegExp(escape(snippet.slice(0, 20))));
+  await expect(link.locator(".hit-snippet")).toBeVisible();
+
+  // A publication chip is one name: the checkbox's label. Its visible text is not read again.
+  const chip = page.locator('.filters .filter-group:has(legend:text-is("Publication")) .chip').first();
+  const label = (await chip.locator("input").getAttribute("aria-label"))!;
+  expect(label).toMatch(/, [\d,]+ entr(y|ies)$/);
+  await expect(chip).toMatchAriaSnapshot(`- checkbox "${label}"`);
+  await expect(chip.locator("span")).toHaveAttribute("aria-hidden", "true");
+});
 
 installedTest("Filter chips count the entries that choosing them shows", async ({ page }) => {
   await installLibrary(page);
@@ -1282,6 +1323,75 @@ installedTest("Recently viewed shows five rows, expands with Show more, removes 
   await expect.poll(() => storedRecentCount(page)).toBe(0);
 });
 
+installedTest("Quick search lists own only options, take one name, and the field names only lists that exist (#12)", async ({ page }) => {
+  await installLibrary(page);
+  const visits = activeSpells.slice(0, 3).map((entry: any) => ({ id: entry.id as string, title: entry.title as string }));
+  await seedHome(page, { recents: visits });
+  await quickSearchFor(page, "grapple");
+  await page.goto("#/");
+  await waitHomeIdle(page);
+  const layer = await openQuickSearch(page);
+  const field = quickField(page);
+
+  // Every id in aria-controls is a list in the page.
+  const controls = ((await field.getAttribute("aria-controls")) ?? "").split(" ").filter(Boolean);
+  expect(controls.length).toBeGreaterThanOrEqual(2);
+  for (const id of controls) await expect(page.locator(`[id="${id}"]`)).toHaveCount(1);
+  expect(controls).toContain("quick-search-list-viewed");
+
+  // A listbox owns options only: no button inside, and the name comes from the heading alone.
+  const lists = layer.getByRole("listbox");
+  const names = await lists.evaluateAll((nodes) => nodes.map((node) => ({
+    label: node.getAttribute("aria-label"),
+    labelledby: node.getAttribute("aria-labelledby"),
+    foreign: node.querySelectorAll("button, a, input, [role=button]").length,
+    options: node.querySelectorAll("[role=option]").length,
+    items: node.querySelectorAll("li").length,
+  })));
+  expect(names.length).toBeGreaterThanOrEqual(2);
+  for (const list of names) {
+    expect(list.label).toBeNull();
+    expect(list.labelledby).toBeTruthy();
+    expect(list.foreign).toBe(0);
+    expect(list.options).toBe(list.items);
+  }
+  const viewed = layer.getByRole("listbox", { name: "Recently viewed" });
+  await expect(viewed).toMatchAriaSnapshot(
+    visits.map((visit) => `- option /${escape(visit.title)}/`).join("\n"),
+  );
+
+  // The remove button stays level with its row, and it works by keyboard.
+  const row = viewed.getByRole("option").first();
+  const remove = layer.getByRole("button", { name: `Remove “${visits[0].title}” from recently viewed` });
+  const rowBox = (await row.boundingBox())!;
+  const buttonBox = (await remove.boundingBox())!;
+  expect(buttonBox.y).toBeGreaterThanOrEqual(rowBox.y - 1);
+  expect(buttonBox.y + buttonBox.height).toBeLessThanOrEqual(rowBox.y + rowBox.height + 1);
+  await remove.focus();
+  await page.keyboard.press("Enter");
+  await expect(viewed.getByRole("option")).toHaveCount(visits.length - 1);
+  await expect(field).toBeFocused();
+
+  // Delete on the highlighted row does the same.
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowDown");
+  await page.keyboard.press("ArrowDown");
+  await expect(viewed.getByRole("option").first()).toHaveAttribute("aria-selected", "true");
+  await page.keyboard.press("Delete");
+  await expect(viewed.getByRole("option")).toHaveCount(visits.length - 2);
+
+  // With suggestions shown the field names that list. Folded by Escape, or closed, it names none.
+  await field.fill("grapple");
+  await expect(field).toHaveAttribute("aria-controls", "quick-search-list-suggestions");
+  await expect(page.locator("#quick-search-list-suggestions")).toHaveCount(1);
+  await page.keyboard.press("Escape");
+  await expect(layer).toBeVisible();
+  await expect(field).not.toHaveAttribute("aria-controls");
+  await page.keyboard.press("Escape");
+  await expect(layer).toBeHidden();
+  await expect(page.locator("#quick-search-input")).not.toHaveAttribute("aria-controls");
+});
+
 installedTest("Recently viewed hides a missing entry and an entry from an inactive book", async ({ page }) => {
   await installLibrary(page);
   const visit = activeVisits[1];
@@ -1799,66 +1909,74 @@ installedTest("A book section result opens its chapter page at the section and B
 });
 
 installedTest("A saved book section address from before stable anchors opens the section it named (#546)", async ({ page }) => {
-  // Corpus v0.1.31 numbered the rows of Blood of the Beast's Unpaged chapter by position, and
-  // toc-2-26 was Ranger and toc-2-27 Rogue. v0.1.33 inserted and removed rows ahead of them, so
-  // read by position the same addresses open Rogue and Shaman. The library keeps a table of the
-  // published addresses, so each opens the row it was saved for, as a stable address.
-  const book = bookTrees().find((candidate) => candidate.source === "blood-of-the-beast")!;
-  expect(book, "the corpus has Blood of the Beast").toBeTruthy();
-  const chapter = chapterIds(book).find(
-    (row) => book.chapters[row.path[0]].title === "Unpaged",
-  );
-  expect(chapter, "Blood of the Beast has an Unpaged chapter").toBeTruthy();
-  const chapterId = chapter!.id;
+  // Corpus v0.1.31 numbered the rows of a chapter page by position (`toc-2-26`), and later pins
+  // inserted and removed rows ahead of them, so read by position the same address opens another
+  // row. The library keeps a table of the published addresses, so each opens the row it was saved
+  // for, as a stable address. The cases come from that table and the compiled books, not from
+  // one book's rows, because a pin that drops an entry from a book (as v0.1.46 did for Ranger
+  // and Rogue in Blood of the Beast) must not turn this into a test of that book (#461).
+  const moved = remappedAddress();
+  const gone = goneAddress();
 
   await installLibrary(page);
-  for (const [old, anchor, title] of [
-    ["toc-2-26", "row-ref-class-ranger", "Ranger"],
-    ["toc-2-27", "row-ref-class-rogue", "Rogue"],
-  ]) {
-    await page.goto(`#/browse/book/blood-of-the-beast/${chapterId}?a=${old}`);
-    await expect(page.getByTestId("chapter-title")).toBeVisible();
-    // The address is rewritten to the stable one, and the row is on screen.
-    await expect(page).toHaveURL(new RegExp(`\\?a=${anchor}$`));
-    await expect(page.locator(`#${anchor}`)).toContainText(title);
-    await expect(page.locator(`#${anchor}`)).toBeInViewport();
-  }
+  // A published row that is still in its chapter, in another place now: the address is rewritten
+  // to the stable one, and the row is on screen.
+  await page.goto(`#/browse/book/${moved.source}/${moved.chapterId}?a=${moved.anchor}`);
+  await expect(page.getByTestId("chapter-title")).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`\\?a=${escape(moved.stable)}$`));
+  await expect(page.locator(`#${moved.stable}`)).toContainText(moved.title!);
+  await expect(page.locator(`#${moved.stable}`)).toBeInViewport();
+
+  // A published row that the book no longer prints has no section to open, so the address opens
+  // the chapter and leaves no dead anchor behind.
+  await page.goto(`#/browse/book/${gone.source}/${gone.chapterId}?a=${gone.anchor}`);
+  await expect(page.getByTestId("chapter-title")).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`/${escape(gone.chapterId)}$`));
+  await expect(page.locator(`#${gone.stable}`)).toHaveCount(0);
 
   // An address that no published tree made opens the chapter, with no dead anchor left over.
-  await page.goto(`#/browse/book/blood-of-the-beast/${chapterId}?a=toc-2-999`);
+  await page.goto(`#/browse/book/${moved.source}/${moved.chapterId}?a=toc-2-999`);
   await expect(page.getByTestId("chapter-title")).toBeVisible();
-  await expect(page).toHaveURL(new RegExp(`/${chapterId}$`));
+  await expect(page).toHaveURL(new RegExp(`/${escape(moved.chapterId)}$`));
 });
 
 installedTest("A saved book section Contents address from before stable rows opens the row it named (#550)", async ({ page }) => {
-  // `?c=2.26` named a row of the Contents page by its place in the tree. In corpus v0.1.31 that
-  // place held Ranger; v0.1.33 moved other rows in front of it, so read by position the address
-  // marks another class. The library keeps the table of published addresses, so the old address
-  // opens Ranger, and is rewritten to the stable form that later pins do not move.
+  // `?c=2.26` named a row of the Contents page by its place in the tree. Later pins moved other
+  // rows in front of it, so read by position the address marks another row. The library keeps the
+  // table of published addresses, so the old address opens the row it was saved for, and is
+  // rewritten to the stable form that later pins do not move. The cases come from that table and
+  // the compiled books, so a pin that drops the entry from its book does not break the test (#461).
+  const moved = remappedAddress();
+  const gone = goneAddress();
+
   await installLibrary(page);
   const marked = page.locator(".toc [aria-current='location']");
-  await page.goto("#/browse/book/blood-of-the-beast?c=2.26");
-  await expect(page).toHaveURL(/\?c=~unpaged&a=row-ref-class-ranger$/);
+  await page.goto(`#/browse/book/${moved.source}?c=${moved.contents}`);
+  await expect(page).toHaveURL(new RegExp(`\\?c=~${escape(moved.chapterId)}&a=${escape(moved.stable)}$`));
   await expect(marked).toHaveCount(1);
-  await expect(marked).toContainText("Ranger");
+  await expect(marked).toContainText(moved.title!);
   await expect(marked).toBeInViewport();
 
-  // The stable address opens the same row, and the old Rogue address the next one.
-  await page.goto("#/browse/book/blood-of-the-beast?c=~unpaged&a=row-ref-class-ranger");
-  await expect(marked).toContainText("Ranger");
-  await page.goto("#/browse/book/blood-of-the-beast?c=2.27");
-  await expect(page).toHaveURL(/\?c=~unpaged&a=row-ref-class-rogue$/);
-  await expect(marked).toContainText("Rogue");
+  // The stable address opens the same row.
+  await page.goto(`#/browse/book/${moved.source}?c=~${moved.chapterId}&a=${moved.stable}`);
+  await expect(marked).toHaveCount(1);
+  await expect(marked).toContainText(moved.title!);
 
   // A chapter row keeps its chapter, whatever its place now is.
-  await page.goto("#/browse/book/blood-of-the-beast?c=2");
-  await expect(page).toHaveURL(/\?c=~unpaged$/);
-  await expect(marked).toContainText("Unpaged");
+  await page.goto(`#/browse/book/${moved.source}?c=${moved.contents.split(".")[0]}`);
+  await expect(page).toHaveURL(new RegExp(`\\?c=~${escape(moved.chapterId)}$`));
+  await expect(marked).toHaveCount(1);
 
-  // An address that no published tree made opens the top of Contents, with nothing marked.
-  await page.goto("#/browse/book/blood-of-the-beast?c=2.999");
+  // A published row that the book no longer prints opens the top of Contents, with nothing marked.
+  await page.goto(`#/browse/book/${gone.source}?c=${gone.contents}`);
   await expect(page.locator(".toc")).toBeVisible();
-  await expect(page).toHaveURL(/blood-of-the-beast$/);
+  await expect(page).toHaveURL(new RegExp(`${escape(gone.source)}$`));
+  await expect(marked).toHaveCount(0);
+
+  // So does an address that no published tree made.
+  await page.goto(`#/browse/book/${moved.source}?c=2.999`);
+  await expect(page.locator(".toc")).toBeVisible();
+  await expect(page).toHaveURL(new RegExp(`${escape(moved.source)}$`));
   await expect(marked).toHaveCount(0);
 });
 

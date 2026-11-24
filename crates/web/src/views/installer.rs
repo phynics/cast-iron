@@ -64,6 +64,15 @@ pub fn InstallPanel(
     });
     let progress = RwSignal::new(Progress::default());
     let manifest = RwSignal::new(manifest);
+    // Pressing Download or Retry unmounts the button that had focus, so the status line (always
+    // mounted) takes it, and so does the error on a failure (#12).
+    let status_ref = NodeRef::<leptos::html::Div>::new();
+    let error_ref = NodeRef::<leptos::html::P>::new();
+    Effect::new(move |_| {
+        if let Some(error) = error_ref.get() {
+            let _ = error.focus();
+        }
+    });
 
     let load_manifest = move || {
         phase.set(Phase::Checking);
@@ -82,6 +91,9 @@ pub fn InstallPanel(
     }
 
     let start = move || {
+        if let Some(status) = status_ref.get_untracked() {
+            let _ = status.focus();
+        }
         let Some(found) = manifest.get_untracked() else {
             load_manifest();
             return;
@@ -107,6 +119,19 @@ pub fn InstallPanel(
         Phase::Done => "The library is installed and ready for offline use.".to_string(),
         other => format!("{}: {}", other.label(), progress.get().summary()),
     };
+
+    // What a screen reader announces: the phase, and the percentage only in tens, so a download
+    // of many files says about ten things, not one per progress tick (#12). The memo drops a
+    // value equal to the last one.
+    let announce = Memo::new(move |_| match phase.get() {
+        Phase::Downloading => match progress.get().percent() / 10 * 10 {
+            0 | 100 => Phase::Downloading.label().to_string(),
+            tens => format!("{}: {tens}%", Phase::Downloading.label()),
+        },
+        Phase::Done => "The library is installed and ready for offline use.".to_string(),
+        Phase::Checking | Phase::Offer | Phase::Failed(_) => String::new(),
+        other => other.label().to_string(),
+    });
 
     view! {
         <section class="install-panel" aria-label="Library installer">
@@ -147,7 +172,7 @@ pub fn InstallPanel(
                         "Retry"
                     };
                     view! {
-                        <p class="error" role="alert">{failure.message}</p>
+                        <p class="error" role="alert" tabindex="-1" node_ref=error_ref>{failure.message}</p>
                         {(failure.kind == FailureKind::Integrity).then(|| view! {
                             <p>"Files that were verified are kept, so a retry continues where it stopped."</p>
                         })}
@@ -168,7 +193,10 @@ pub fn InstallPanel(
                     ></progress>
                 }.into_any(),
             }}
-            <div class="status" role="status" aria-live="polite" data-testid="install-status">{status}</div>
+            // The detailed line changes on every progress tick, so it is not a live region; the
+            // announcement is the visually hidden line after it.
+            <div class="status" tabindex="-1" data-testid="install-status" node_ref=status_ref>{status}</div>
+            <div class="sr-only" role="status" aria-live="polite" data-testid="install-announce">{announce}</div>
         </section>
     }
 }

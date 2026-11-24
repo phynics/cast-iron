@@ -781,13 +781,16 @@ pub fn QuickSearchLayer() -> impl IntoView {
                             })
                         }
                         aria-autocomplete="list"
+                        // Name the lists only while they are rendered and shown.
                         aria-controls=move || {
-                            list.with(|list| {
-                                list.groups
-                                    .iter()
-                                    .map(|group| format!("quick-search-list-{}", group.kind.slug()))
-                                    .collect::<Vec<_>>()
-                                    .join(" ")
+                            (quick.open.get() && expanded()).then(|| {
+                                list.with(|list| {
+                                    list.groups
+                                        .iter()
+                                        .map(|group| format!("quick-search-list-{}", group.kind.slug()))
+                                        .collect::<Vec<_>>()
+                                        .join(" ")
+                                })
                             })
                         }
                         aria-expanded=move || expanded().to_string()
@@ -931,7 +934,7 @@ pub fn QuickSearchLayer() -> impl IntoView {
                                     </div>
                                 }.into_any()
                             };
-                            let items = group.rows.into_iter().map(|row| {
+                            let pairs = group.rows.into_iter().map(|row| {
                                 let i = index;
                                 index += 1;
                                 let remove = match &row {
@@ -999,7 +1002,7 @@ pub fn QuickSearchLayer() -> impl IntoView {
                                 let all = matches!(row, Row::SeeAll(_));
                                 let correction = matches!(row, Row::Correction(_));
                                 let reference = matches!(row, Row::Reference);
-                                view! {
+                                let item = view! {
                                     <li class="quick-search-item" role="presentation">
                                         <div
                                             id=option_id(i)
@@ -1015,16 +1018,44 @@ pub fn QuickSearchLayer() -> impl IntoView {
                                         >
                                             {body}
                                         </div>
-                                        {remove}
                                     </li>
-                                }
-                            }).collect_view();
+                                };
+                                (item, remove)
+                            }).collect::<Vec<_>>();
+                            // A listbox owns options only, so the remove buttons sit in a column
+                            // beside it. Both share the rows of the group's grid (CSS subgrid).
+                            let row_count = pairs.len();
+                            let has_remove = pairs.iter().any(|(_, remove)| remove.is_some());
+                            let mut items = Vec::with_capacity(row_count);
+                            let mut removes = Vec::with_capacity(row_count);
+                            for (item, remove) in pairs {
+                                items.push(item);
+                                removes.push(match remove {
+                                    Some(button) => view! {
+                                        <div class="quick-search-remove-cell">{button}</div>
+                                    }.into_any(),
+                                    None => view! {
+                                        <span class="quick-search-remove-cell" aria-hidden="true"></span>
+                                    }.into_any(),
+                                });
+                            }
+                            let removes = has_remove.then(|| view! {
+                                <div class="quick-search-removes" hidden=move || !expanded()>
+                                    {removes}
+                                </div>
+                            });
                             view! {
                                 {heading}
-                                <ul id=list_id class="quick-search-list" role="listbox"
-                                    aria-label=label aria-labelledby=heading_id hidden=move || !expanded()>
-                                    {items}
-                                </ul>
+                                // The row count goes through the CSSOM: the page's CSP blocks a
+                                // `style` attribute.
+                                <div class="quick-search-group-body" class:has-removes=has_remove
+                                    style:--quick-rows=row_count.to_string()>
+                                    <ul id=list_id class="quick-search-list" role="listbox"
+                                        aria-labelledby=heading_id hidden=move || !expanded()>
+                                        {items}
+                                    </ul>
+                                    {removes}
+                                </div>
                             }.into_any()
                         }).collect_view();
                         let more = (viewed_total > quick_rows::MAX_RECENT_VIEWED).then(|| view! {
