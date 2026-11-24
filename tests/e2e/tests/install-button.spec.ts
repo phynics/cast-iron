@@ -189,16 +189,60 @@ test("The header button lasts five launches, and Settings keeps offering install
     await expect(headerButton(next)).toHaveCount(0);
     await next.goto("#/settings");
     await expect(next.getByText("for full-screen reading and an icon on your device")).toBeVisible();
-    // The Storage section sits above Install. When the persistence check resolves, a row grows and a
-    // "Request persistent storage" button appears, which moves Install down by about 80 px. WebKit
-    // takes close to a second for that check; Chromium answers at once. A click aimed before the
-    // shift lands on other content, and no prompt opens. Wait until the layout is final.
+    // The Storage section sits above Install and holds its space while the persistence check runs
+    // (#666), so a click needs no wait. Keep the wait as a guard: this test is about the prompt.
     await expect(next.getByTestId("storage-persisted")).not.toHaveText("Checking…");
     await expect(next.getByTestId("storage-usage")).not.toHaveText("Checking…");
     await next.getByRole("button", { name: "Install app" }).click();
     await expect.poll(() => next.evaluate(() => (window as any).__installPrompts)).toBe(1);
   }
 });
+
+// #666: the persistence check resolves late (close to a second in WebKit). The Storage rows and the
+// "Request persistent storage" button must hold their space, or Install moves under a reader's finger.
+for (const granted of [false, true]) {
+  test(`Install does not move when the persistence check answers ${granted ? "granted" : "not granted"}`, async ({ page, context }) => {
+    await firePromptEarly(context);
+    await installLibrary(page);
+    // The first launch starts the update check; let it record its answer before the page closes (#477).
+    await expect.poll(() => storedMeta(page, "update_check")).not.toBeNull();
+
+    // A later page holds the browser's storage answers until the test releases them.
+    await context.addInitScript(`(() => {
+      let release;
+      const gate = new Promise((resolve) => { release = resolve; });
+      window.__releaseStorage = () => release();
+      const storage = navigator.storage;
+      if (!storage) return; // an opaque page such as about:blank has no storage
+      const estimate = storage.estimate.bind(storage);
+      storage.persisted = async () => { await gate; return ${granted}; };
+      storage.estimate = async () => { await gate; return estimate(); };
+    })();`);
+    const next = await context.newPage();
+    await next.goto("./#/settings");
+    await waitReady(next);
+
+    const install = next.getByRole("button", { name: "Install app" });
+    await expect(install).toBeVisible();
+    await expect(next.getByTestId("storage-persisted")).toHaveText("Checking…");
+    await expect(next.getByTestId("storage-usage")).toHaveText("Checking…");
+    const checking = await install.boundingBox();
+    expect(checking).not.toBeNull();
+
+    await next.evaluate(() => (window as any).__releaseStorage());
+    await expect(next.getByTestId("storage-persisted")).not.toHaveText("Checking…");
+    await expect(next.getByTestId("storage-usage")).not.toHaveText("Checking…");
+    // Wait for the layout to settle, then compare.
+    await afterRouteFrame(next);
+    const resolved = await install.boundingBox();
+    expect(resolved).not.toBeNull();
+    expect(resolved!.y).toBeCloseTo(checking!.y, 0);
+
+    const request = next.getByRole("button", { name: "Request persistent storage" });
+    await expect(request).toHaveCount(granted ? 0 : 1);
+    await next.close();
+  });
+}
 
 test("A browser without an install option gets only a hint in Settings", async ({ page }) => {
   await installLibrary(page);

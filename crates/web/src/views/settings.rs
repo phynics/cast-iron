@@ -75,6 +75,11 @@ fn format_date(ms: f64) -> String {
     fmt::day_month_year(&iso).unwrap_or(iso)
 }
 
+const PERSISTED_GRANTED: &str = "Granted. The browser will not clear the library on its own.";
+/// The longest of the row's texts. The row reserves its height, so the answer cannot move the page.
+const PERSISTED_DENIED: &str =
+    "Not granted. The browser may clear the library if the device runs low on space.";
+
 #[component]
 pub fn Settings() -> impl IntoView {
     let app = use_app();
@@ -266,22 +271,24 @@ pub fn Settings() -> impl IntoView {
                     None => "Checking…".to_string(),
                     Some(e) => e.quota.map_or("Not reported".to_string(), |q| fmt::bytes(q as u64)),
                 }}</dd></div>
-                <div><dt>"Persistent storage"</dt><dd data-testid="storage-persisted">{move || match persisted.get() {
+                <div><dt>"Persistent storage"</dt><dd class="reserve-text" data-testid="storage-persisted" data-reserve=PERSISTED_DENIED><span>{move || match persisted.get() {
                     None => "Checking…".to_string(),
-                    Some(true) => "Granted. The browser will not clear the library on its own.".to_string(),
-                    Some(false) => "Not granted. The browser may clear the library if the device runs low on space.".to_string(),
-                }}</dd></div>
+                    Some(true) => PERSISTED_GRANTED.to_string(),
+                    Some(false) => PERSISTED_DENIED.to_string(),
+                }}</span></dd></div>
             </dl>
-            <Show when=move || persisted.get() == Some(false)>
-                <p>
-                    <button class="btn" type="button" on:click=move |_| {
-                        spawn_local(async move {
-                            let _ = js::storage_persist().await;
-                            refresh_storage();
-                        });
-                    }>"Request persistent storage"</button>
-                </p>
-            </Show>
+            // The button's slot is held from the first paint, so the check resolving cannot move
+            // Install and the sections below it (#666). While the button is not offered, the slot
+            // keeps its size but is invisible and out of the tab order and the accessibility tree.
+            <p class="storage-request" class:held=move || persisted.get() != Some(false)
+                aria-hidden=move || (persisted.get() != Some(false)).then_some("true")>
+                <button class="btn" type="button" on:click=move |_| {
+                    spawn_local(async move {
+                        let _ = js::storage_persist().await;
+                        refresh_storage();
+                    });
+                }>"Request persistent storage"</button>
+            </p>
         </section>
 
         <section class="settings-section" aria-labelledby="set-install">

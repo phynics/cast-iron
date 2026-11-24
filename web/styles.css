@@ -596,6 +596,27 @@ progress {
   margin-bottom: var(--space-5);
 }
 
+/* A value whose text changes when an answer arrives keeps the height of its longest text: the
+   longest text sits invisible in the same grid cell, so the row never resizes (#666). */
+.reserve-text {
+  display: grid;
+}
+
+.reserve-text::after {
+  content: attr(data-reserve);
+  grid-area: 1 / 1;
+  visibility: hidden;
+}
+
+.reserve-text > * {
+  grid-area: 1 / 1;
+}
+
+/* The Storage request button's slot: the button's size is held while it is not offered. */
+.storage-request.held {
+  visibility: hidden;
+}
+
 .diagnostics-actions {
   display: flex;
   flex-wrap: wrap;
