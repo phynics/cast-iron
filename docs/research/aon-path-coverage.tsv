@@ -4991,6 +4991,51 @@ ref/feat/weapon-trick-ranged-weapon	feat	Weapon Trick (Ranged Weapon)
 ref/feat/weapon-trick-two-handed-weapon	feat	Weapon Trick (Two-Handed Weapon)
 ref/feat/weapon-trick-two-weapon	feat	Weapon Trick (Two-Weapon)
 ref/feat/weapon-trick-weapon-and-shield	feat	Weapon Trick (Weapon and Shield)
+ref/haunt/arcane-storm	haunt	Arcane Storm
+ref/haunt/belated-arrival	haunt	Belated Arrival
+ref/haunt/betrayal	haunt	Betrayal
+ref/haunt/bleeding-walls	haunt	Bleeding Walls
+ref/haunt/bloody-handprints	haunt	Bloody Handprints
+ref/haunt/bountiful-feast	haunt	Bountiful Feast
+ref/haunt/breach-to-the-quickening	haunt	Breach to the Quickening
+ref/haunt/buried-alive	haunt	Buried Alive
+ref/haunt/cold-spot	haunt	Cold Spot
+ref/haunt/crushing-terror	haunt	Crushing Terror
+ref/haunt/death-of-curchanus	haunt	Death of Curchanus
+ref/haunt/demanding-dead	haunt	Demanding Dead
+ref/haunt/devouring-maws	haunt	Devouring Maws
+ref/haunt/dimensional-tear	haunt	Dimensional Tear
+ref/haunt/dissolving-vat	haunt	Dissolving Vat
+ref/haunt/droughts-end	haunt	Drought's End
+ref/haunt/enchanting-demise	haunt	Enchanting Demise
+ref/haunt/eternal-pyre	haunt	Eternal Pyre
+ref/haunt/fallen-from-the-sky	haunt	Fallen from the Sky
+ref/haunt/final-soldier	haunt	Final Soldier
+ref/haunt/flayed-suicide	haunt	Flayed Suicide
+ref/haunt/flytrap	haunt	Flytrap
+ref/haunt/following-footsteps	haunt	Following Footsteps
+ref/haunt/foreboding-mist	haunt	Foreboding Mist
+ref/haunt/haunted-dungeon	haunt	Haunted Dungeon
+ref/haunt/heart-explosion	haunt	Heart Explosion
+ref/haunt/insidious-presence	haunt	Insidious Presence
+ref/haunt/isolation-haunt	haunt	Isolation Haunt
+ref/haunt/living-decay	haunt	Living Decay
+ref/haunt/malignant-weapon	haunt	Malignant Weapon
+ref/haunt/network-of-lasers	haunt	Network of Lasers
+ref/haunt/psychic-echo-anger	haunt	Psychic Echo (Anger)
+ref/haunt/rapping-spirit	haunt	Rapping Spirit
+ref/haunt/robotic-reactivation	haunt	Robotic Reactivation
+ref/haunt/scratching-behind-the-wall	haunt	Scratching Behind the Wall
+ref/haunt/servants-of-the-book	haunt	Servants of the Book
+ref/haunt/shifting-seasons	haunt	Shifting Seasons
+ref/haunt/soul-vortex	haunt	Soul Vortex
+ref/haunt/spawn-of-the-abyss	haunt	Spawn of the Abyss
+ref/haunt/spectral-screams	haunt	Spectral Screams
+ref/haunt/spectral-vermin	haunt	Spectral Vermin
+ref/haunt/twisted-wish	haunt	Twisted Wish
+ref/haunt/unsolved-murder	haunt	Unsolved Murder
+ref/haunt/watery-grave	haunt	Watery Grave
+ref/haunt/whispers-from-beyond	haunt	Whispers from Beyond
 ref/carried/advanced-players-guide/rules/gear/armor/quickdraw-shield/light-wooden-or-steel	item	Quickdraw Shield, Light Wooden or Steel
 ref/carried/advanced-players-guide/rules/gear/armor/wooden-armor	item	Wooden Armor
 ref/carried/advanced-players-guide/rules/gear/goods-and-services/adventuring-gear/backpack/masterwork	item	Backpack, Masterwork
@@ -14706,51 +14751,6 @@ ref/feat/whirlwind-attack/stamina	rule	Whirlwind Attack (Stamina)
 ref/feat/wind-stance/stamina	rule	Wind Stance (Stamina)
 ref/feat/winters-strike/stamina	rule	Winter's Strike (Stamina)
 ref/feat/wounded-paw-gambit/stamina	rule	Wounded Paw Gambit (Stamina)
-ref/haunt/arcane-storm	rule	Arcane Storm
-ref/haunt/belated-arrival	rule	Belated Arrival
-ref/haunt/betrayal	rule	Betrayal
-ref/haunt/bleeding-walls	rule	Bleeding Walls
-ref/haunt/bloody-handprints	rule	Bloody Handprints
-ref/haunt/bountiful-feast	rule	Bountiful Feast
-ref/haunt/breach-to-the-quickening	rule	Breach to the Quickening
-ref/haunt/buried-alive	rule	Buried Alive
-ref/haunt/cold-spot	rule	Cold Spot
-ref/haunt/crushing-terror	rule	Crushing Terror
-ref/haunt/death-of-curchanus	rule	Death of Curchanus
-ref/haunt/demanding-dead	rule	Demanding Dead
-ref/haunt/devouring-maws	rule	Devouring Maws
-ref/haunt/dimensional-tear	rule	Dimensional Tear
-ref/haunt/dissolving-vat	rule	Dissolving Vat
-ref/haunt/droughts-end	rule	Drought's End
-ref/haunt/enchanting-demise	rule	Enchanting Demise
-ref/haunt/eternal-pyre	rule	Eternal Pyre
-ref/haunt/fallen-from-the-sky	rule	Fallen from the Sky
-ref/haunt/final-soldier	rule	Final Soldier
-ref/haunt/flayed-suicide	rule	Flayed Suicide
-ref/haunt/flytrap	rule	Flytrap
-ref/haunt/following-footsteps	rule	Following Footsteps
-ref/haunt/foreboding-mist	rule	Foreboding Mist
-ref/haunt/haunted-dungeon	rule	Haunted Dungeon
-ref/haunt/heart-explosion	rule	Heart Explosion
-ref/haunt/insidious-presence	rule	Insidious Presence
-ref/haunt/isolation-haunt	rule	Isolation Haunt
-ref/haunt/living-decay	rule	Living Decay
-ref/haunt/malignant-weapon	rule	Malignant Weapon
-ref/haunt/network-of-lasers	rule	Network of Lasers
-ref/haunt/psychic-echo-anger	rule	Psychic Echo (Anger)
-ref/haunt/rapping-spirit	rule	Rapping Spirit
-ref/haunt/robotic-reactivation	rule	Robotic Reactivation
-ref/haunt/scratching-behind-the-wall	rule	Scratching Behind the Wall
-ref/haunt/servants-of-the-book	rule	Servants of the Book
-ref/haunt/shifting-seasons	rule	Shifting Seasons
-ref/haunt/soul-vortex	rule	Soul Vortex
-ref/haunt/spawn-of-the-abyss	rule	Spawn of the Abyss
-ref/haunt/spectral-screams	rule	Spectral Screams
-ref/haunt/spectral-vermin	rule	Spectral Vermin
-ref/haunt/twisted-wish	rule	Twisted Wish
-ref/haunt/unsolved-murder	rule	Unsolved Murder
-ref/haunt/watery-grave	rule	Watery Grave
-ref/haunt/whispers-from-beyond	rule	Whispers from Beyond
 ref/infestation/ear-seekers	rule	Ear Seekers
 ref/infestation/fractal-etch	rule	Fractal Etch
 ref/infestation/rot-grubs	rule	Rot Grubs
@@ -19150,7 +19150,6 @@ ref/spell/summon-totem-creature	spell	Summon Totem Creature
 ref/spell/transmute-mud-to-rock	spell	Transmute Mud to Rock
 ref/spell/transmute-rock-to-mud	spell	Transmute Rock to Mud
 ref/spell/unshakeable-zeal	spell	Unshakeable Zeal
-ref/carried/advanced-players-guide/rules/new-rules/traits/religion-traits/divine-courtesan	trait	Divine Courtesan
 ref/trait/artifact-hunter-isp	trait	Artifact Hunter (ISP)
 ref/trait/azlanti-scholar-hftf	trait	Azlanti Scholar (HFtF)
 ref/trait/azlanti-scholar-roapg	trait	Azlanti Scholar (RoAPG)
@@ -19165,7 +19164,7 @@ ref/trait/clamber	trait	Clamber
 ref/trait/demon-hunter	trait	Demon Hunter
 ref/trait/dirty-fighter-apg	trait	Dirty Fighter (APG)
 ref/trait/family-ties-drawback	trait	Family Ties (Drawback)
-ref/trait/favored-son-or-daughter	trait	Favored Son or Daughter
+ref/trait/favored-son-or-daughter	trait	Favored Son/Daughter
 ref/trait/firebug-qac	trait	Firebug (QaC)
 ref/trait/freed-slave-fg	trait	Freed Slave (FG)
 ref/trait/helpful-cop	trait	Helpful (CoP)
