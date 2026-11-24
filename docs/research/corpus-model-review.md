@@ -98,7 +98,7 @@ have their own printed form and their own lists in the app:
 | `family` | 114 | Creature families |
 | `subtype`, `type` | 99 | Creature subtypes and types |
 | `spelldef` | 52 | Spell definitions |
-| `haunt` | 45 | Haunts (a kind for them is in progress, [#618](https://github.com/phynics/cast-iron/issues/618)) |
+| `haunt` | 45 | Haunts (now their own kind: [#618](https://github.com/phynics/cast-iron/issues/618), schema 7 in #662, data in corpus v0.1.43) |
 
 The client finds these families by id prefix or by book position. A kind, or a typed `group` as
 class options have, would state it in the data. The haunt work is the trial: if it goes well,
@@ -151,4 +151,5 @@ The owner approved all seven on 2026-11-24, with 6 and 7 as a direction only
 
 Proposals 3 to 6 are in the `post-v1` milestone. Proposals 6 and 7 have no fixed design, order or
 date; they go in one format batch when that work is planned, after the haunt kind
-([#618](https://github.com/phynics/cast-iron/issues/618)) shows what a new kind costs.
+([#618](https://github.com/phynics/cast-iron/issues/618), #662) showed what a new kind costs. Main is
+now corpus format 4 and schema 7; a further new kind still needs a schema bump (`AGENTS.md` rule 4).

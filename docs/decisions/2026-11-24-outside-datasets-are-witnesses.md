@@ -4,7 +4,7 @@ date: 2026-11-24
 status: current
 superseded_by: []
 issues: [668]
-prs: []
+prs: [669]
 area: corpus
 ---
 
@@ -47,6 +47,6 @@ entries.
 ## Consequences
 
 - The comparison becomes a research script that anyone can run again (#668, milestone `post-v1`).
-- Findings of 2026-11-24: phynics/cast-iron-data#282, #283, #284 and #285.
+- Cross-check findings of 2026-11-24: phynics/cast-iron-data#282, #283, #284 and #285.
 - A new candidate witness needs the same three checks before use: what it states as its legal
   basis, whether it keeps printed names, and which approved witness it derives from.

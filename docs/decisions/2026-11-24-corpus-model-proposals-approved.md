@@ -34,10 +34,11 @@ change.
 
 - Proposals 1 to 5 add or correct data inside the present model. None needs an id, a kind or the
   corpus format to change, so each can land alone.
-- Proposals 6 and 7 break serialized content. Their cost is not known until the haunt kind (#618)
-  lands, and they are cheaper as one format batch than as two. Fixing a design now would be a guess.
+- Proposals 6 and 7 break serialized content. The haunt kind (#618, landed as schema 7 in #662 with
+  its data in corpus v0.1.43) showed what a new kind costs, and they are cheaper as one format batch
+  than as two. Fixing a design now would be a guess.
 
 ## Consequences
 
 - Proposals 3 to 6 are in the `post-v1` milestone and do not block v1.
-- Work on 6 or 7 starts with a short design note, written after #618.
+- Work on 6 or 7 starts with a short design note.
