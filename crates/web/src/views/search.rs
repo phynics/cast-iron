@@ -1665,7 +1665,7 @@ pub fn Search() -> impl IntoView {
                         aria-label=move || chip_name(&name_title, n.get())
                         on:change=move |_| change_filters(&|s| s.sources = toggled(&s.sources, &change_id))
                     />
-                    <span>{title}<small class="chip-count">{move || fmt::count(n.get())}</small></span>
+                    <span aria-hidden="true">{title}<small class="chip-count">{move || fmt::count(n.get())}</small></span>
                 </label>
             }
         }
@@ -1939,7 +1939,7 @@ pub fn Search() -> impl IntoView {
                                             }
                                             on:change=move |_| change_filters(&|s| s.facets = toggled(&s.facets, &pair2))
                                         />
-                                        <span>{label}<small class="chip-count">{move || n.get().map(fmt::count)}</small></span>
+                                        <span aria-hidden="true">{label}<small class="chip-count">{move || n.get().map(fmt::count)}</small></span>
                                     </label>
                                 }
                                 .into_any()
@@ -2358,10 +2358,15 @@ pub fn Search() -> impl IntoView {
                 spawn_local(async move {
                     crate::views::recent_searches::record(&submitted, scope).await;
                 });
-                if !pointer_is_fine()
-                    && let Some(input) = input_ref.get()
-                {
-                    let _ = input.blur();
+                if !pointer_is_fine() {
+                    if let Some(input) = input_ref.get() {
+                        let _ = input.blur();
+                    }
+                } else {
+                    // Enter ends the typing: the filters sit before the results in the page, so
+                    // the next Tab would cross every filter control. Put the focus on the count
+                    // instead; the first result is the next Tab stop. Typing never moves focus.
+                    focus_result_count();
                 }
             }>
                 <label class="sr-only" for="search-input">"Search the rules"</label>
@@ -2619,12 +2624,18 @@ fn hit_view(
     let title = marked(&hit.title, &hit.title_matches);
     let snippet = marked(&hit.snippet.text, &hit.snippet.matches);
     let has_snippet = !hit.snippet.text.is_empty();
+    // The excerpt is the link's description, not its name: the name stays the title and the
+    // `Kind · Book` line. The hidden copy in the row is what sighted readers see.
+    let snippet_id = has_snippet.then(|| format!("hit-snippet-{}", hit.id));
+    let described_by = snippet_id.clone();
     view! {
         <li class="hit">
-            <a class="hit-link" href=href>
+            <a class="hit-link" href=href aria-describedby=described_by>
                 <span class="hit-title">{title}</span>
                 <span class="hit-meta">{row_kind}" · "{source}</span>
-                {has_snippet.then(|| view! { <span class="hit-snippet">{snippet}</span> })}
+                {has_snippet.then(|| view! {
+                    <span class="hit-snippet" id=snippet_id aria-hidden="true">{snippet}</span>
+                })}
             </a>
         </li>
     }
