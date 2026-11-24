@@ -184,10 +184,10 @@ pub fn Home() -> impl IntoView {
                         let take = if expanded.get() { usize::MAX } else { STARRED_PREVIEW };
                         rows.iter().take(take).enumerate().map(|(index, row)| {
                             let id = row.id.clone();
-                            let unstar_name = format!("Unstar {}", row.title);
+                            let star_name = format!("Star {}", row.title);
                             let library = library.clone();
                             let button = view! {
-                                <button class="btn star-btn is-on" type="button" aria-label=unstar_name aria-disabled=move || unstarring.get().then_some("true") on:click=move |_| {
+                                <button class="btn star-btn is-on" type="button" aria-label=star_name aria-pressed="true" aria-disabled=move || unstarring.get().then_some("true") on:click=move |_| {
                                     if unstarring.get_untracked() { return; }
                                     unstarring.set(true);
                                     let id = id.clone();

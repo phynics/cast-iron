@@ -85,7 +85,7 @@ test("The star keeps keyboard focus while it saves, on an entry and on Home", as
     await expect(star).toHaveAttribute("aria-pressed", "false");
     await page.keyboard.press("Enter");
     await expect(star).toHaveAttribute("aria-pressed", "true");
-    await expect(star).toHaveAccessibleName(/^Unstar /);
+    await expect(star).toHaveAccessibleName(/^Star /);
     await expect(star).toBeFocused();
   }
   // Home: unstar the first row from the keyboard. The row goes; focus moves to the star that took its place.

@@ -240,3 +240,77 @@ test("Keyboard and touch readers get a 44 px original-text disclosure on a revis
   await expect(summary).toContainText("Original text");
   expect((await summary.boundingBox())!.height).toBeGreaterThanOrEqual(43.5);
 });
+
+// Relative luminance and contrast ratio of two `rgb()` colours, as WCAG defines them.
+function contrastRatio(a: string, b: string): number {
+  const luminance = (css: string) => {
+    const [r, g, b] = css.match(/[\d.]+/g)!.slice(0, 3).map((v) => {
+      const c = Number(v) / 255;
+      return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+test("Keyboard users get a fixed star name, 3:1 control edges and an answer to the storage request (#12 L2, L4, L5)", async ({ page }) => {
+  await installLibrary(page);
+  await waitControlled(page);
+
+  // L4: the star keeps its name; aria-pressed alone carries the state.
+  const spell = firstEntry("a spell", (entry) => entry.kind === "spell");
+  await page.goto(`#/entry/${spell.id}`);
+  const star = page.locator(".bookmark-toggle");
+  await expect(star).toBeEnabled();
+  await expect(star).toHaveAccessibleName(`Star ${spell.title}`);
+  await expect(star).toHaveAttribute("aria-pressed", "false");
+  await star.focus();
+  await page.keyboard.press("Enter");
+  await expect(star).toHaveAttribute("aria-pressed", "true");
+  await expect(star).toHaveAccessibleName(`Star ${spell.title}`);
+  await expect(star).toBeFocused();
+  await page.keyboard.press("Enter");
+  await expect(star).toHaveAttribute("aria-pressed", "false");
+  await expect(star).toHaveAccessibleName(`Star ${spell.title}`);
+
+  // L5: the border of a control is at least 3:1 against the page, in both themes.
+  const edge = (selector: string) => page.locator(selector).first().evaluate((el) => {
+    const css = getComputedStyle(el);
+    return { border: css.borderTopColor, width: css.borderTopWidth };
+  });
+  const pageGround = () => page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor);
+  for (const scheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme: scheme });
+    await page.goto("#/spells/Wizard/3");
+    await expect(page.locator(".filter-btn").first()).toBeVisible();
+    await expect(page.locator(".level-nav .lvl").first()).toBeVisible();
+    const controls: Record<string, string> = { "filter button": ".filter-btn", "level tab": ".level-nav a.lvl:not([aria-current])" };
+    for (const [name, selector] of Object.entries(controls)) {
+      const { border, width } = await edge(selector);
+      expect(width, `${name} has a border`).not.toBe("0px");
+      const ratio = contrastRatio(border, await pageGround());
+      expect(ratio, `${name} edge ${border} in ${scheme}: ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(3);
+    }
+    await page.goto("#/search?q=fire");
+    const pill = page.locator(".search-scopes .scope-choice:not([aria-pressed=\"true\"])").first();
+    await expect(pill).toBeVisible();
+    const { border } = await edge(".search-scopes .scope-choice:not([aria-pressed=\"true\"])");
+    const ratio = contrastRatio(border, await pageGround());
+    expect(ratio, `scope pill edge ${border} in ${scheme}: ${ratio.toFixed(2)}:1`).toBeGreaterThanOrEqual(3);
+  }
+  await page.emulateMedia({ colorScheme: null });
+
+  // L2: the storage request answers. Chromium refuses it in tests; the answer is a status line.
+  await page.goto("#/settings");
+  const request = page.getByRole("button", { name: "Request persistent storage" });
+  await expect(request).toBeVisible();
+  const status = page.getByTestId("storage-request-status");
+  await expect(status).toHaveAttribute("role", "status");
+  await expect(status).toHaveText("");
+  await request.focus();
+  await page.keyboard.press("Enter");
+  await expect(status).toHaveText(/^(Granted\. The browser will not clear|Not granted\. On iPhone, add Cast Iron to the Home Screen)/);
+  if (/^Not granted/.test(await status.innerText())) await expect(request).toBeFocused();
+  else await expect(status).toBeFocused();
+});

@@ -74,7 +74,7 @@ test("Home search opens a matched rule section and keeps stars usable offline", 
   await expect(page.locator(".bookmark-toggle")).toHaveAttribute("aria-pressed", "true");
 
   await primary.getByRole("link", { name: "Home" }).click();
-  await preview.getByRole("button", { name: `Unstar ${spell.title}` }).click();
+  await preview.getByRole("button", { name: `Star ${spell.title}`, exact: true }).click();
   await expect(preview.getByRole("link", { name: new RegExp(spell.title) })).toHaveCount(0);
 });
 
