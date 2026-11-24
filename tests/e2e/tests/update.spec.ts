@@ -107,6 +107,8 @@ test("Content update keeps user records", async ({ page, context, server }) => {
     // Activation: the new version is active, the old cache is gone, the records are intact.
     await expect(page.getByTestId("library-version")).toHaveText(corpusLabel(next.manifest), { timeout: 120_000 });
     expect((await activeLibrary(page)).content_version).toBe(next.version);
+    // The install panel's status line is gone with the old Reader; focus is on main, not the body.
+    await expect.poll(() => page.evaluate(() => document.activeElement?.id)).toBe("main");
     await expect.poll(async () => contentCaches(await cacheContents(page))).toEqual([`cast-iron-content-${next.version}`]);
     const cached = new Set((await cacheContents(page))[`cast-iron-content-${next.version}`]);
     expect(next.manifest.files.every((f) => cached.has(`content/${f.path}`))).toBe(true);

@@ -62,19 +62,21 @@ test("Installing by keyboard keeps focus on the install screen status line, then
   await page.goto("./");
   const download = page.getByRole("button", { name: "Download" });
   await expect(download).toBeVisible();
-  // Count text changes of the live announcement and of the detailed line.
+  // Record each distinct consecutive text of the live announcement and of the detailed line. One
+  // text replacement can give several mutation records, so records are not counted.
   await page.evaluate(() => {
-    const w = window as unknown as { __live: number; __detail: number };
-    w.__live = 0;
-    w.__detail = 0;
-    const watch = (testid: string, key: "__live" | "__detail") => {
+    const w = window as unknown as { __texts: Record<string, string[]> };
+    w.__texts = { live: [], detail: [] };
+    const watch = (testid: string, key: string) => {
       const el = document.querySelector(`[data-testid=${testid}]`)!;
-      new MutationObserver((records) => {
-        w[key] += records.length;
+      new MutationObserver(() => {
+        const text = (el.textContent ?? "").trim();
+        const seen = w.__texts[key];
+        if (text !== "" && text !== seen[seen.length - 1]) seen.push(text);
       }).observe(el, { childList: true, characterData: true, subtree: true });
     };
-    watch("install-announce", "__live");
-    watch("install-status", "__detail");
+    watch("install-announce", "live");
+    watch("install-status", "detail");
   });
   const active = () =>
     page.evaluate(() => {
@@ -102,13 +104,10 @@ test("Installing by keyboard keeps focus on the install screen status line, then
   expect(samples.filter((s) => s !== "install-status" && !s.startsWith("BUTTON")), "focus held outside the status line").toEqual([]);
   await expect.poll(active).toMatchObject({ tag: "MAIN", id: "main" });
 
-  const counts = await page.evaluate(() => {
-    const w = window as unknown as { __live: number; __detail: number };
-    return { live: w.__live, detail: w.__detail };
-  });
-  expect(counts.live, "live announcement changes").toBeGreaterThan(0);
-  expect(counts.live, "live announcement changes").toBeLessThanOrEqual(15);
-  expect(counts.live, "live changes against detail ticks").toBeLessThanOrEqual(counts.detail);
+  const texts = await page.evaluate(() => (window as unknown as { __texts: Record<string, string[]> }).__texts);
+  expect(texts.live.length, `live announcements: ${texts.live.join(" | ")}`).toBeGreaterThanOrEqual(2);
+  expect(texts.live.length, `live announcements: ${texts.live.join(" | ")}`).toBeLessThanOrEqual(15);
+  expect(texts.live.length, "live announcements against detail lines").toBeLessThan(texts.detail.length);
 });
 
 test("Download integrity is verified", async ({ page, server, guard }) => {

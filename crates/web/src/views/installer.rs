@@ -91,14 +91,14 @@ pub fn InstallPanel(
     }
 
     let start = move || {
+        if let Some(status) = status_ref.get_untracked() {
+            let _ = status.focus();
+        }
         let Some(found) = manifest.get_untracked() else {
             load_manifest();
             return;
         };
         phase.set(Phase::Scanning);
-        if let Some(status) = status_ref.get_untracked() {
-            let _ = status.focus();
-        }
         spawn_local(async move {
             let report = move |next: Phase, done: Progress| {
                 phase.set(next);
