@@ -78,7 +78,7 @@ installedTest("Desktop results page: Enter in the field puts focus on the count,
   await expect(page.locator(".results").locator(":focus")).toHaveCount(1);
 
   // A result link is named by its title and the Kind and book line. The excerpt is its description.
-  const link = page.locator(".results .hit-link:has(.hit-snippet)").first();
+  const link = page.locator(".results > .hit > .hit-link:has(.hit-snippet)").first();
   const title = (await link.locator(".hit-title").innerText()).trim();
   const snippet = (await link.locator(".hit-snippet").textContent())!.replace(/\s+/g, " ").trim();
   expect(snippet.length).toBeGreaterThan(10);
@@ -1388,7 +1388,7 @@ installedTest("Quick search lists own only options, take one name, and the field
   await expect(field).not.toHaveAttribute("aria-controls");
   await page.keyboard.press("Escape");
   await expect(layer).toBeHidden();
-  await expect(field).not.toHaveAttribute("aria-controls");
+  await expect(page.locator("#quick-search-input")).not.toHaveAttribute("aria-controls");
 });
 
 installedTest("Recently viewed hides a missing entry and an entry from an inactive book", async ({ page }) => {

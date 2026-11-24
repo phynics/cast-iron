@@ -1028,17 +1028,14 @@ pub fn QuickSearchLayer() -> impl IntoView {
                             let has_remove = pairs.iter().any(|(_, remove)| remove.is_some());
                             let mut items = Vec::with_capacity(row_count);
                             let mut removes = Vec::with_capacity(row_count);
-                            for (n, (item, remove)) in pairs.into_iter().enumerate() {
+                            for (item, remove) in pairs {
                                 items.push(item);
                                 removes.push(match remove {
                                     Some(button) => view! {
-                                        <div class="quick-search-remove-cell"
-                                            style=format!("grid-row: {}", n + 1)>{button}</div>
+                                        <div class="quick-search-remove-cell">{button}</div>
                                     }.into_any(),
                                     None => view! {
-                                        <span class="quick-search-remove-cell"
-                                            style=format!("grid-row: {}", n + 1)
-                                            aria-hidden="true"></span>
+                                        <span class="quick-search-remove-cell" aria-hidden="true"></span>
                                     }.into_any(),
                                 });
                             }
@@ -1049,8 +1046,10 @@ pub fn QuickSearchLayer() -> impl IntoView {
                             });
                             view! {
                                 {heading}
+                                // The row count goes through the CSSOM: the page's CSP blocks a
+                                // `style` attribute.
                                 <div class="quick-search-group-body" class:has-removes=has_remove
-                                    style=format!("--quick-rows: {row_count}")>
+                                    style:--quick-rows=row_count.to_string()>
                                     <ul id=list_id class="quick-search-list" role="listbox"
                                         aria-labelledby=heading_id hidden=move || !expanded()>
                                         {items}
