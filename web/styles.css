@@ -3551,9 +3551,14 @@ main,
 }
 
 .chain-name {
-  font-family: var(--font-display);
+  font-family: var(--font-text);
   font-weight: 600;
   overflow-wrap: anywhere;
+}
+
+/* The provenance note below the list. */
+.chain-note {
+  margin-top: var(--space-4);
 }
 
 .chain-count {
