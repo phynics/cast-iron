@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 import { installedTest as test, expect, loadCorpus } from "./fixtures";
-import { corpusEntry, isMember, memberBooks, count, featLeadsTo, installLibrary, letterId, listLetters, num, openBookGroups, openQuickSearch, quickField, waitControlled, waitResults } from "./helpers";
+import { corpusEntry, isMember, memberBooks, count, featLeadsTo, installLibrary, letterId, listLetters, num, openBookGroups, openQuickSearch, quickField, waitControlled, waitResults, closeQuickSearch } from "./helpers";
 
 const corpus = loadCorpus();
 /** The books the corpus marks third party (#189); a settled profile starts without them. */
@@ -1253,7 +1253,7 @@ test("Quick search on a spell list names the class and the chosen schools, and o
   await expect(quickField(page)).toHaveAttribute("placeholder", "Search Wizard spells");
   await page.getByRole("button", { name: "Remove scope: Wizard spells", exact: true }).click();
   await expect(quickField(page)).toHaveAttribute("placeholder", "Search spells, feats, rules…");
-  await page.keyboard.press("Escape");
+  await closeQuickSearch(page);
 
   await page.goto("#/spells/Wizard/3?school=evocation&school=conjuration");
   await openQuickSearch(page);

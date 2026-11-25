@@ -1,5 +1,5 @@
 import { installedTest as test, expect, loadCorpus } from "./fixtures";
-import { openQuickSearch, quickField, bookReadingOrder, bookTrees, firstBookPlacement, installLibrary, listedChapterTitles, openBookContents, openAllRows, openBookEntry, waitControlled } from "./helpers";
+import { openQuickSearch, quickField, bookReadingOrder, bookTrees, firstBookPlacement, installLibrary, listedChapterTitles, openBookContents, openAllRows, openBookEntry, waitControlled, closeQuickSearch } from "./helpers";
 
 const corpus = loadCorpus();
 const entries = [...corpus.entries.values()];
@@ -262,7 +262,7 @@ test("every feat chain page follows the list-page head and scopes the search to 
   await openQuickSearch(page);
   await expect(quickField(page)).toHaveAttribute("placeholder", "Search feats");
   await expect(page.getByRole("button", { name: "Remove scope: Feats", exact: true })).toBeVisible();
-  await page.keyboard.press("Escape");
+  await closeQuickSearch(page);
 
   await page.goto("#/browse/kind/feat");
   const rowLink = main.locator(".entry-list a").first();
