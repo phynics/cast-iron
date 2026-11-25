@@ -3256,6 +3256,25 @@ mod tests {
     }
 
     #[test]
+    fn a_phrase_ending_in_as_indicated_below_needs_no_trade() {
+        // Adventurer's Guide p. 175, Raven Master (owner ruling 40 of 2026-11-25, #540).
+        let text = "A raven master gains a raven. This ability alters hunter's bond and replaces specific ranger abilities as indicated below.";
+        let check = |trades: &[(TradeOp, &str)]| {
+            find_drift(&printed_archetype(
+                &[("raven-companion", text)],
+                trades
+                    .iter()
+                    .map(|(op, name)| trade_by(*op, name, &["raven-companion"]))
+                    .collect(),
+            ))
+        };
+        // The ignored phrase needs no `replaces` trade: the `alters` trade alone agrees.
+        assert!(check(&[(TradeOp::Alters, "Hunter's bond")]).is_empty());
+        // The `alters` clause is still a printed sentence: without its trade the entry drifts.
+        assert_eq!(check(&[]).len(), 1);
+    }
+
+    #[test]
     fn the_aside_of_another_op_states_no_trade() {
         // The feature prints an `alters` sentence too, so ruling 24 does not excuse the trade;
         // the aside of the `replaces` sentence names it, but with the wrong op.
