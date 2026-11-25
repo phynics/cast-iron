@@ -329,13 +329,17 @@ export async function openQuickSearch(page: Page, { keyboard = false } = {}) {
 }
 
 /**
- * Close Quick search with Escape and wait until the layer is gone. Escape goes back through the
- * history entry Quick search pushed when it opened, and `history.back()` runs later; a
- * navigation sent before it lands would be undone by it. Wait for the layer to close (on
- * `popstate`, or the fallback) before navigating.
+ * Close Quick search with Escape and wait until the back traversal has run. Escape goes back
+ * through the history entry Quick search pushed when it opened (marked `quickSearch` in
+ * `history.state`), and `history.back()` runs later; a navigation sent before it lands would be
+ * undone by it. The layer can also close on its 400 ms fallback with the back still pending, so
+ * wait for the marked entry to be gone, not only for the layer to hide.
  */
 export async function closeQuickSearch(page: Page) {
   await page.keyboard.press("Escape");
+  await page.waitForFunction(
+    () => !(window.history.state && (window.history.state as { quickSearch?: unknown }).quickSearch),
+  );
   await expect(quickSearch(page)).toBeHidden();
 }
 

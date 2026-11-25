@@ -175,7 +175,7 @@ test("A saved continue point for a book that does not hold the entry is not offe
   await openQuickSearch(page);
   await expect(continueRow(page).first()).toContainText(`Continue ${book.title}`);
   await expect(continueRow(page)).toHaveCount(1);
-  await page.keyboard.press("Escape");
+  await closeQuickSearch(page);
 
   // The book that holds the entry offers its point, which proves the points have loaded; the
   // book that dropped it offers none.

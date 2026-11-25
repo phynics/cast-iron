@@ -233,7 +233,7 @@ test("The Race menu narrows the racial traits to one race, and Quick search take
   await page.locator("header.app-header").getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByRole("button", { name: "Remove scope: Dwarf racial traits", exact: true })).toBeVisible();
   await expect(quickField(page)).toHaveAttribute("placeholder", "Search Dwarf racial traits");
-  await page.keyboard.press("Escape");
+  await closeQuickSearch(page);
 
   // The search filter panel offers the race for racial traits.
   await page.goto("#/search?q=attributes&kind=racial_trait");
@@ -288,7 +288,7 @@ test("The affliction Type menu narrows the list in place, Back returns to all ty
   await page.locator("header.app-header").getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByRole("button", { name: "Remove scope: Disease afflictions", exact: true })).toBeVisible();
   await expect(quickField(page)).toHaveAttribute("placeholder", "Search Disease afflictions");
-  await page.keyboard.press("Escape");
+  await closeQuickSearch(page);
 
   // Back returns to every affliction.
   await page.goBack();
