@@ -1,8 +1,8 @@
 # Top-50 result ids for the 50 queries of tests/e2e/measure-library.mjs.
 # Regenerate with `cargo xtask search-golden` (after `cargo xtask content`) in every corpus-pin PR.
-# corpus a41ac04447c10bafd42ced1139dbe5049a287707
-# tag v0.1.54
-# content vb1ba83324895ace8
+# corpus 79cbe278c580392cb6c80f979232e646364067de
+# tag v0.1.56
+# content v8141c4b774042e5d
 # Format: `query: <text>` starts a block; each other line is a result id.
 query: fire
 ref/subtype/fire
@@ -68,8 +68,8 @@ ref/spell/cure-serious-wounds-mass
 ref/spell/cure-moderate-wounds-mass
 ref/magic-weapon/inheritors-light
 ref/rule/wounds-threshold-feats
-ref/carried/game-mastery-guide/monsters/heretics/cult-leader
 ref/npc/heretic-cult-leader
+ref/carried/game-mastery-guide/monsters/heretics/cult-leader
 ref/magic-wondrous/first-aid-gloves
 ref/magic-rod/rod-of-the-alicorn
 ref/feat/improvisational-healer
@@ -793,20 +793,19 @@ ref/monster/octopus-giant-octopus
 ref/aspect/owl
 ref/npc/pirate-smuggler
 ref/arc-rogue/cat-burglar
-ref/arc-familiar/pilferer
 ref/arc-rogue/heister
 ref/arc-rogue/guerrilla
+ref/arc-familiar/pilferer
 ref/monster/scorpion-deadfall-scorpion
 ref/arc-hunter/flood-flourisher
 ref/monster/gargoyle-four-armed-gargoyle
-ref/arc-rogue/desert-raider
 ref/monster/gargoyle-kapoacinth-hunter
 ref/monster/gargoyle-gargoyle-abductor
 ref/race/kasatha
+ref/arc-rogue/desert-raider
 ref/monster/keulia
 ref/monster/bat-dire-bat
 ref/sorcbloodline/shadow
-ref/arc-rogue/river-rat
 ref/rule/avoid-being-noticed
 ref/feat/kobold-ambusher
 ref/npc/aloof-archer
@@ -820,6 +819,7 @@ ref/carried/advanced-players-guide/rules/races/halflings/alternate-racial-traits
 ref/npc/chernasardo-sniper
 ref/feat/exquisite-sneak
 ref/feat/friendly-shroud
+ref/feat/kobold-sniper
 query: charm
 ref/spelldef/charm
 ref/domain/charm
@@ -864,10 +864,10 @@ book-section/core-rulebook/16-2
 ref/magic-wondrous/saints-protection-charm
 ref/magic-wondrous/harp-of-charming
 ref/magic-wondrous/snake-charmers-flute
+ref/arc-swashbuckler/dashing-thief
 ref/arc-rogue/kitsune-trickster
 ref/magic-wondrous/bracelet-of-friends
 ref/magic-weapon/traitors-blade
-ref/arc-swashbuckler/dashing-thief
 ref/magic-weapon/goad-of-obedience
 ref/arc-monk/monk-of-the-lotus
 ref/trait/tempters-tongue
@@ -1132,12 +1132,12 @@ ref/domain/animal
 ref/blessing/animal
 ref/rule/creature-type-grafts
 ref/carried/bestiary/rules/creature-types/creature-types
+ref/arc-familiar/animal-exemplar
 ref/ability/animal-tricks
 ref/sidekick/animal-companion
 ref/ability/animal-foci
 ref/arc-bard/animal-speaker
 ref/rule/animal-words
-ref/arc-familiar/animal-exemplar
 ref/eq-misc/animal-call
 ref/template/animal-lord
 ref/eq-misc/animal-repellent
@@ -1208,16 +1208,16 @@ ref/spell/protection-from-good-communal
 ref/spell/protection-from-law-communal
 ref/spell/crime-of-opportunity
 ref/spell/darkvision-greater
+ref/spell/inner-focus
 ref/spell/litany-of-defense
 ref/spell/longshot
 ref/spell/halfling-vengeance-mass
-ref/spell/inner-focus
 ref/spell/utter-contempt
 ref/spell/darkvision-communal
+ref/spell/invisibility-greater
 ref/spell/curse-water
 ref/spell/litany-of-weakness
 ref/spell/inflict-pain-mass
-ref/spell/invisibility-greater
 ref/spell/litany-of-admonition
 ref/spell/unlife-current
 ref/spell/vestment-of-the-champion
@@ -1339,12 +1339,12 @@ ref/eq-weapon/arrow-trip
 ref/eq-weapon/arrow-raining
 ref/eq-weapon/arrow-durable
 ref/eq-weapon/arrow-tangleshot
+ref/arc-swashbuckler/arrow-champion
 ref/eq-weapon/arrow-dye
 ref/spell/arrow-eruption
 ref/eq-weapon/arrow-splintercloud
 ref/carried/advanced-players-guide/rules/gear/weapons/arrow/blunt
 ref/eq-weapon/arrow-slow-burn
-ref/arc-swashbuckler/arrow-champion
 ref/magic-wondrous/arrow-magnet
 ref/magic-wondrous/arrow-of-latching
 ref/eq-weapon/arrow-bleeding
@@ -1826,8 +1826,9 @@ book-section/mythic-adventures/5-2-199
 book-section/mythic-adventures/5-2-268
 ref/rule/alignment
 ref/ability/domains
-ref/carried/game-mastery-guide/monsters/temple/priest
 ref/npc/temple-priest
+ref/carried/game-mastery-guide/monsters/temple/priest
+ref/arc-unchained-summoner/devil-binder
 ref/magic-ring/ring-of-entropy-and-order
 ref/spelldef/chaotic
 ref/magic-staff/lawful-staff
@@ -1839,7 +1840,6 @@ ref/magic-wondrous/orb-of-pure-law
 ref/faith/apep
 ref/magic-armor/panoply-of-the-fierani-knight-elf
 ref/magic-wondrous/blessed-keepsake
-ref/spell/unmaking-touch
 query: cleric
 ref/carried/npc-codex/rules/core-class-npcs/cleric
 ref/carried/ultimate-combat/rules/class-archetypes/cleric
@@ -1969,7 +1969,6 @@ ref/eq-misc/combat-scabbard
 ref/feat/combat-advice
 ref/feat/combat-reflexes
 ref/magic-wondrous/combat-sandals
-ref/eq-weapon/combat-scabbard
 ref/feat/combat-expertise
 ref/feat/combat-distraction
 ref/rule/grid
@@ -1993,6 +1992,7 @@ ref/feat/combat-vigor
 ref/feat/combat-reflexes/stamina
 ref/feat/combat-style-master/stamina
 book-section/core-rulebook/8
+ref/rule/unarmed-combatant
 query: cure
 ref/carried/core-rulebook/rules/glossary/special-abilities
 ref/tech-pharma/cureall
@@ -2378,6 +2378,7 @@ ref/magic-wondrous/eyes-of-the-eagle
 ref/magic-weapon/black-eagles-blade
 ref/spell/summon-flight-of-eagles
 ref/rule/aff-vangard
+ref/arc-paladin/scion-of-talmandor
 ref/magic-weapon/talonstrike-sword
 ref/magic-wondrous/key-of-the-second-vault
 ref/magic-wondrous/caravan-guardian
@@ -2387,7 +2388,6 @@ ref/carried/advanced-players-guide/rules/core-classes/druid/druid-archetypes/ani
 ref/magic-wondrous/plumed-mantle
 ref/carried/advanced-race-guide/races/tengus/new-racial-rules/tengu-magic-items/black-jade-raven-figurine-of-wondrous-power
 ref/rule/f-vangard
-ref/arc-paladin/scion-of-talmandor
 ref/carried/bestiary/rules/monster-roles/no-role
 ref/trait/promising
 ref/trait/slave-runner
@@ -2462,6 +2462,8 @@ ref/blrgbloodline/elemental
 ref/arc-magus/elemental-knight
 ref/arc-barbarian/elemental-kin
 ref/arc-arcanist/elemental-master
+ref/arc-oracle/elementalist-oracle
+ref/arc-shifter/elementalist-shifter
 ref/arc-kineticist/elemental-ascetic
 ref/spell/elemental-bombardment
 ref/arc-druid/elemental-ally
@@ -2500,9 +2502,7 @@ ref/magic-armor/elemental-bulwark
 ref/eq-weapon/elemental-brine
 ref/trait/elemental-apprentice
 ref/feat/elemental-spell/teitr
-ref/arc-oracle/elementalist-oracle
 ref/feat/elemental-spell
-ref/eq-misc/elemental-breath
 query: energy
 ref/umr/energy-drain
 ref/exploit/energy-absorption

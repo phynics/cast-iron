@@ -12,7 +12,13 @@ import { buildLibraryWithFeatures, installLibrary, waitControlled } from "./help
 
 const corpus = loadCorpus();
 const TARGET = "ref/arc-fighter/two-handed-fighter";
-const CONTROL = "ref/arc-fighter/lore-warden";
+// An archetype still in its import form (no `features`): the control that renders as before. #540
+// converts the archetypes book by book (Lore Warden, the first control, converted in v0.1.56), so the
+// control comes from the library. Once every archetype is converted, the step has nothing to compare.
+const CONTROL: string | undefined = [...corpus.entries.values()]
+  .filter((entry) => entry.kind === "archetype" && entry.id !== TARGET && !entry.fields?.features)
+  .map((entry) => entry.id)
+  .sort()[0];
 
 const text = (v: string) => ({ t: "text", v });
 const paragraph = (v: string) => ({ t: "paragraph", content: [text(v)] });
@@ -58,7 +64,6 @@ test("an archetype in format 4 shows its features as heads, a trade link and the
   // The overlay and the first install of the library take longer than the default budget.
   test.setTimeout(300_000);
   expect(corpus.entries.get(TARGET), "the compiled library has Two-Handed Fighter").toBeTruthy();
-  expect(corpus.entries.get(CONTROL), "the compiled library has a second archetype").toBeTruthy();
   const variant = buildLibraryWithFeatures(TARGET, body, features, by);
   try {
     await server.overlay(variant.dir);
@@ -145,6 +150,8 @@ test("an archetype in format 4 shows its features as heads, a trade link and the
     });
 
     await test.step("an archetype without features renders as before", async () => {
+      // `test.skip` here would skip the whole test, so the step returns instead.
+      if (CONTROL === undefined) return;
       await open(page, CONTROL);
       await expect(page.locator(".feature-head")).toHaveCount(0);
       await expect(page.locator(".entry-facts a")).toHaveCount(0);
