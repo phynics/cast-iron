@@ -1256,8 +1256,16 @@ Advanced Player's Guide pilot uses them (they are added so the next books read).
 `bonus` is a subject word only right before a granted noun (owner ruling 22 of 2026-11-24, #540:
 `spell`, `feat`, `ability`, `power`, `talent`, `trick`, `hex`, `skill`, `revelation`, `arcana`,
 `discovery` or `evolution`, singular or plural): "These bonus spells replace the oracle's mystery
-bonus spells at these levels." and "This bonus feat replaces ..." are sentences. "This bonus replaces
-the usual bonus." is prose. A `both` right after the verb reads as
+bonus spells at these levels." and "This bonus feat replaces ..." are sentences. `choice` and
+`choices` are a subject word only right after `bonus feat` or `bonus feats` ("These bonus feat
+choices replace Dodge, Mobility, and Spring Attack on his bonus feat list.", Advanced Race Guide
+p. 122); the sentence is bare, like every `feat` subject. "This bonus replaces the usual bonus." is
+prose, and so is "These choices replace ..." or "These feat choices replace ...". A sentence also
+ends after a parenthesis that closes a sentence of its own: a `.`, `!` or `?` right before the `)`,
+then whitespace, when that `)` closes a `(` opened earlier in the text ("(Those marked with an
+asterisk are detailed in this book.) This alters the bonus feat class ability.", Advanced Class
+Guide p. 124). "(Ex) This ...", "(see below) This ..." and a `)` that closes no `(` end no
+sentence. A `both` right after the verb reads as
 the start of a list of two: "This ability replaces both diamond body and quivering palm." names two
 features (`either ... or` is not read: no printed sentence uses it). "This ability replaces
 bravery.", "This class feature also replaces bravery." and "This ability otherwise functions like and
