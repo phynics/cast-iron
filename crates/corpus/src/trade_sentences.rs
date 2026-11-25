@@ -37,6 +37,18 @@
 //! a closing parenthesis of four words or more is an aside; a verb joined by `and` to another
 //! clause is a bare sentence; and the feature's own heading is a subject. `changes` is an `alters`
 //! verb (owner ruling 25), only in the sentence position.
+//!
+//! Owner ruling 22 (a level back-reference trade is renamed to the printed words) adds the
+//! subjects that name a granted thing: `spell`, `skill` and `evolution` join `feat` as subject
+//! words that name no ability (the sentence is bare), and `bonus` is a subject word right before a
+//! granted noun ("These bonus spells replace the oracle's mystery bonus spells at these levels.",
+//! "This bonus feat replaces ..."). "This bonus replaces ..." stays prose.
+//!
+//! Owner ruling 30 of 2026-11-25 adds three readings: the phrase ends at ", and " when a clause
+//! follows (R13, [`CLAUSE_WORDS`]); a class name before "class ability" is a descriptor (R14); and
+//! "raging song" after a name is a descriptor (R15). The aside that R9 drops is kept in
+//! [`TradeSentence::aside`] (ruling 29), and [`prose_mentions`] reads a name in the prose around
+//! the sentences (ruling 28).
 
 use cast_iron_schema::TradeOp;
 
@@ -50,6 +62,10 @@ pub struct TradeSentence {
     pub bare: bool,
     /// What follows the verb, as printed, without the final period.
     pub phrase: String,
+    /// The closing parenthesis that R9 dropped from the phrase as an aside ("(a deep bomber never
+    /// gains instant alchemy)"), or empty. It names no coverage, but a trade whose `by` is the
+    /// feature may rest on a name in it (owner ruling 29).
+    pub aside: String,
 }
 
 /// The sentences of `text`, split at a period that ends a word.
@@ -133,9 +149,10 @@ const ABILITY_WORDS: [&str; 27] = [
 ];
 
 /// The other words of a subject: a class qualifier, `also`, the verbs of "otherwise functions like
-/// and replaces", and `feat` ("These feats replace the monk's normal bonus feats"), which does not
-/// name an ability, so that sentence is bare.
-const FILLER_WORDS: [&str; 11] = [
+/// and replaces", and the granted things that do not name an ability: `feat` ("These feats replace
+/// the monk's normal bonus feats"), `spell`, `skill` and `evolution`. A sentence with one of them
+/// is bare, so it counts only when it names a stored trade.
+const FILLER_WORDS: [&str; 17] = [
     "class",
     "also",
     // "This ability otherwise functions like and replaces the standard witch familiar."
@@ -148,11 +165,73 @@ const FILLER_WORDS: [&str; 11] = [
     "and",
     "feat",
     "feats",
+    "spell",
+    "spells",
+    "skill",
+    "skills",
+    "evolution",
+    "evolutions",
+];
+
+/// Owner ruling 22 of 2026-11-24 (#540): the nouns that name what a feature grants. `bonus` is a
+/// subject word right before one of them ("These bonus spells replace the oracle's mystery bonus
+/// spells at these levels.", "This bonus feat replaces ..."), and only there: "This bonus
+/// replaces ..." (a numeric bonus) stays prose.
+const GRANTED_WORDS: [&str; 23] = [
+    "spell",
+    "spells",
+    "feat",
+    "feats",
+    "ability",
+    "abilities",
+    "power",
+    "powers",
+    "talent",
+    "talents",
+    "trick",
+    "tricks",
+    "hex",
+    "hexes",
+    "skill",
+    "skills",
+    "revelation",
+    "revelations",
+    "arcana",
+    "discovery",
+    "discoveries",
+    "evolution",
+    "evolutions",
 ];
 
 fn is_subject_word(word: &str) -> bool {
     let word = word.to_lowercase();
     ABILITY_WORDS.contains(&word.as_str()) || FILLER_WORDS.contains(&word.as_str())
+}
+
+/// The words between `This`/`These` and the verb are all subject words, where `bonus` counts
+/// right before a granted noun ([`GRANTED_WORDS`]).
+fn is_subject(words: &[&str]) -> bool {
+    words.iter().enumerate().all(|(index, word)| {
+        is_subject_word(word)
+            || (word.eq_ignore_ascii_case("bonus")
+                && words
+                    .get(index + 1)
+                    .is_some_and(|next| GRANTED_WORDS.contains(&next.to_lowercase().as_str())))
+    })
+}
+
+/// R13: the words that mark a clause rather than a list of names, in the part after ", and ". A
+/// closed list of words that no feature name holds.
+const CLAUSE_WORDS: [&str; 15] = [
+    "that", "which", "who", "also", "modify", "modifies", "gain", "gains", "is", "are", "does",
+    "cannot", "must", "grants", "allows",
+];
+
+fn is_clause_word(word: &str) -> bool {
+    let word = word
+        .trim_matches(|ch: char| !ch.is_alphanumeric())
+        .to_lowercase();
+    CLAUSE_WORDS.contains(&word.as_str())
 }
 
 fn is_negation(word: &str) -> bool {
@@ -210,7 +289,7 @@ pub fn trade_sentences_headed(text: &str, head: Option<&str>) -> Vec<TradeSenten
         if !head_subject && !matches!(first.as_str(), "this" | "these" | "it") {
             continue;
         }
-        let plain_subject = head_subject || words[1..at].iter().all(|word| is_subject_word(word));
+        let plain_subject = head_subject || is_subject(&words[1..at]);
         // R11: "This movement provokes ..., and replaces X": a verb joined by `and` to another
         // clause. Read as bare: it counts only when it names a stored trade.
         let coordinated = !plain_subject
@@ -245,6 +324,17 @@ pub fn trade_sentences_headed(text: &str, head: Option<&str>) -> Vec<TradeSenten
                 index += 1;
                 continue;
             }
+            // R13: ", and abilities that modify arcane pool also modify eldritch pool": a clause
+            // after ", and" is a remark, not a name (owner ruling 30).
+            if word.eq_ignore_ascii_case("and")
+                && phrase.last().is_some_and(|last| last.ends_with(','))
+                && words
+                    .get(index + 1)
+                    .is_some_and(|next| verb_of(next).is_none())
+                && words[index + 1..].iter().any(|next| is_clause_word(next))
+            {
+                break;
+            }
             let joined_verb = word.eq_ignore_ascii_case("and")
                 && words
                     .get(index + 1)
@@ -255,6 +345,7 @@ pub fn trade_sentences_headed(text: &str, head: Option<&str>) -> Vec<TradeSenten
                     op,
                     bare,
                     phrase: phrase.join(" "),
+                    aside: String::new(),
                 });
                 op = verb_of(words[index + 1]).expect("a verb was found");
                 phrase.clear();
@@ -267,11 +358,14 @@ pub fn trade_sentences_headed(text: &str, head: Option<&str>) -> Vec<TradeSenten
         found.push(TradeSentence {
             op,
             bare,
-            phrase: phrase.join(" "),
+            phrase: phrase.join(" ").trim_end_matches(',').to_string(),
+            aside: String::new(),
         });
     }
     for sentence in &mut found {
-        sentence.phrase = drop_aside(&sentence.phrase);
+        let (phrase, aside) = drop_aside(&sentence.phrase);
+        sentence.phrase = phrase;
+        sentence.aside = aside;
     }
     found.retain(|sentence| !sentence.phrase.trim().is_empty());
     found
@@ -280,19 +374,38 @@ pub fn trade_sentences_headed(text: &str, head: Option<&str>) -> Vec<TradeSenten
 /// R9: a parenthesis at the end of the phrase that holds a clause (four words or more) is an
 /// aside, not part of a name: "the mutagen class ability (a mindchemist cannot create mutagens
 /// unless he selects mutagen as a discovery)". Tags ("(Ex)") and short qualifiers stay.
-fn drop_aside(phrase: &str) -> String {
+fn drop_aside(phrase: &str) -> (String, String) {
+    let keep = || (phrase.to_string(), String::new());
     let trimmed = phrase.trim_end();
     if !trimmed.ends_with(')') {
-        return phrase.to_string();
+        return keep();
     }
     let Some(open) = trimmed.rfind('(') else {
-        return phrase.to_string();
+        return keep();
     };
     let inner = &trimmed[open + 1..trimmed.len() - 1];
     if inner.contains('(') || inner.split_whitespace().count() < 4 {
-        return phrase.to_string();
+        return keep();
     }
-    trimmed[..open].trim_end().to_string()
+    // Ruling 16: a cross-reference ("(see the X ability ...)") is dropped from the phrase and
+    // states nothing, so it leaves no aside.
+    let aside = if is_cross_reference(inner) {
+        String::new()
+    } else {
+        inner.to_string()
+    };
+    (trimmed[..open].trim_end().to_string(), aside)
+}
+
+/// True when `text` starts with the word "see": the inside of a printed cross-reference.
+fn is_cross_reference(text: &str) -> bool {
+    let text = text.trim_start();
+    text.get(..3)
+        .is_some_and(|head| head.eq_ignore_ascii_case("see"))
+        && text[3..]
+            .chars()
+            .next()
+            .is_none_or(|next| !next.is_alphanumeric())
 }
 
 /// The level in an "At Nth level" or "Starting at Nth level" lead at the start of `text`.
@@ -325,6 +438,7 @@ const ARTICLES: [&str; 11] = [
 pub fn name_words(text: &str) -> Vec<String> {
     // R7: "as well as" joins two names like `and`.
     let text = replace_words(text, "as well as", "and");
+    let text = strip_raging_song(&text);
     let words: Vec<String> = expand_lists(&strip_possessives(&strip_tags(&text)))
         .split(|ch: char| !ch.is_alphanumeric())
         .filter(|word| !word.is_empty())
@@ -350,6 +464,40 @@ pub fn name_words(text: &str) -> Vec<String> {
     if kept.is_empty() { words } else { kept }
 }
 
+/// R15 (owner ruling 30): "raging song" after a name is a descriptor, like "class ability":
+/// "the inspired rage raging song" names `Inspired rage`. A `raging song` that leads a name, or
+/// follows a comma, an article or a connector, is the name `Raging song` and stays.
+fn strip_raging_song(text: &str) -> String {
+    let tokens: Vec<&str> = text.split_whitespace().collect();
+    let mut out: Vec<&str> = Vec::with_capacity(tokens.len());
+    let mut index = 0;
+    while index < tokens.len() {
+        let song = |token: &str| {
+            let word = token
+                .trim_matches(|ch: char| !ch.is_alphanumeric())
+                .to_lowercase();
+            word == "song" || word == "songs"
+        };
+        let raging = tokens[index]
+            .trim_matches(|ch: char| !ch.is_alphanumeric())
+            .eq_ignore_ascii_case("raging");
+        let follows_a_name = index > 0 && {
+            let previous = tokens[index - 1];
+            let bare = previous.to_lowercase();
+            !previous.ends_with(',')
+                && !CONNECTORS.contains(&bare.as_str())
+                && !ARTICLES.contains(&bare.as_str())
+        };
+        if raging && follows_a_name && tokens.get(index + 1).is_some_and(|next| song(next)) {
+            index += 2;
+            continue;
+        }
+        out.push(tokens[index]);
+        index += 1;
+    }
+    out.join(" ")
+}
+
 /// Drops a possessive word before a name: "the rogue's trapfinding" reads as "trapfinding", the
 /// way a trade names it. A name that holds a possessive ("Hunter's bond") drops it on both sides
 /// of the comparison, so the two still agree.
@@ -365,7 +513,7 @@ fn strip_possessives(text: &str) -> String {
 }
 
 /// Removes `(Ex)`, `(Su)`, `(Sp)` and `(Ex or Sp)`: a parenthesis that holds only ability tags.
-fn strip_tags(text: &str) -> String {
+pub(crate) fn strip_tags(text: &str) -> String {
     let mut out = String::new();
     let mut rest = text;
     while let Some(open) = rest.find('(') {
@@ -645,9 +793,33 @@ fn strip_class_names(phrase: &str) -> String {
         if leads && index + 1 < tokens.len() && CLASS_NAMES.contains(&word.as_str()) {
             continue;
         }
+        // R14 (owner ruling 30): "the aspect summoner class ability" names `Aspect`: a class name
+        // right before "class ability" or "class feature" is a descriptor, after another word.
+        if !leads
+            && CLASS_NAMES.contains(&word.as_str())
+            && descriptor_follows(&tokens[index + 1..])
+        {
+            continue;
+        }
         out.push(token);
     }
     out.join(" ")
+}
+
+/// True when `tokens` start with "class ability", "class feature" or their plurals.
+fn descriptor_follows(tokens: &[&str]) -> bool {
+    let word = |at: usize| {
+        tokens.get(at).map(|token| {
+            token
+                .trim_matches(|ch: char| !ch.is_alphanumeric())
+                .to_lowercase()
+        })
+    };
+    word(0).as_deref() == Some("class")
+        && matches!(
+            word(1).as_deref(),
+            Some("ability" | "abilities" | "feature" | "features")
+        )
 }
 
 /// True when `name` occurs as a run of words in `phrase`, as a whole name or as one of the names
@@ -671,6 +843,58 @@ pub fn name_in_phrase(name: &[String], phrase: &str) -> bool {
 pub fn names_a_trade(sentence: &TradeSentence, trades: &[(TradeOp, String)]) -> bool {
     trades.iter().any(|(op, printed)| {
         *op == sentence.op && name_in_phrase(&name_words(printed), &sentence.phrase)
+    })
+}
+
+/// The text of `text` that can state a trade (rulings 28 and 29, with ruling 16): without a
+/// parenthesized cross-reference (a run that starts with "see": "(see the Stealth skill)",
+/// "(see below)", "(see Table 15-4 ...)"), and cut at a comparison ("functions as the X ability",
+/// "works like the X ability", "as the X ability"), which names another ability, not the trade.
+pub(crate) fn stating_text(text: &str) -> String {
+    let mut out = String::new();
+    let mut rest = text;
+    while let Some(open) = rest.find('(') {
+        if is_cross_reference(&rest[open + 1..]) {
+            out.push_str(&rest[..open]);
+            match rest[open..].find(')') {
+                Some(close) => rest = &rest[open + close + 1..],
+                None => rest = "",
+            }
+        } else {
+            out.push_str(&rest[..=open]);
+            rest = &rest[open + 1..];
+        }
+    }
+    out.push_str(rest);
+    let lower = out.to_lowercase();
+    let cut = [
+        "functions as ",
+        "functions like ",
+        "works as ",
+        "works like ",
+        "acts as ",
+        "acts like ",
+        " as the ",
+        " like the ",
+    ]
+    .iter()
+    .filter_map(|marker| lower.find(marker))
+    .min();
+    match cut {
+        Some(at) => out[..at].to_string(),
+        None => out,
+    }
+}
+
+/// Ruling 28 (owner, 2026-11-25): true when `name` is in the text of a sentence of `text` that is
+/// itself no trade sentence: "The hunter tactics class ability allows a verminous hunter to grant
+/// her teamwork feats" names `Hunter tactics`. A trade sentence never counts, so a trade of
+/// another op than the sentence that names it stays drift. A cross-reference or a comparison
+/// ([`stating_text`]) states nothing.
+pub fn prose_mentions(text: &str, name: &[String]) -> bool {
+    sentences(text).iter().any(|sentence| {
+        trade_sentences_headed(sentence, None).is_empty()
+            && name_in_phrase(name, &stating_text(sentence))
     })
 }
 
@@ -839,12 +1063,14 @@ mod tests {
                 TradeSentence {
                     op: TradeOp::Replaces,
                     bare: false,
-                    phrase: "bravery".into()
+                    phrase: "bravery".into(),
+                    aside: String::new(),
                 },
                 TradeSentence {
                     op: TradeOp::Alters,
                     bare: false,
-                    phrase: "armor training".into()
+                    phrase: "armor training".into(),
+                    aside: String::new(),
                 }
             ]
         );
@@ -1147,12 +1373,258 @@ mod tests {
         }
         assert!(!one("These hexes replace the witch's patron spells.").bare);
         assert!(!one("These mercies replace channel energy.").bare);
-        for noun in ["bonus", "penalty", "effect", "value", "spell"] {
+        for noun in ["bonus", "penalty", "effect", "value"] {
             assert!(
                 trade_sentences(&format!("This {noun} replaces the usual bonus.")).is_empty(),
                 "{noun}"
             );
         }
+    }
+
+    #[test]
+    fn a_granted_thing_is_a_subject_with_or_without_bonus() {
+        // Ultimate Magic pp. 58-59: the six oracle archetypes (owner ruling 22).
+        let sentence =
+            one("These bonus spells replace the oracle's mystery bonus spells at these levels.");
+        assert_eq!(sentence.op, TradeOp::Replaces);
+        assert!(sentence.bare);
+        for stored in [
+            "Mystery bonus spells at these levels",
+            "Oracle's mystery bonus spells at these levels",
+            "The oracle's mystery bonus spells at these levels",
+        ] {
+            let trades = [(TradeOp::Replaces, stored.to_string())];
+            assert!(names_a_trade(&sentence, &trades), "{stored}");
+        }
+        // Bare: it counts only when it names a stored trade.
+        let other = [(TradeOp::Replaces, "Bravery".to_string())];
+        assert!(!names_a_trade(&sentence, &other));
+        // Other nouns, with and without `bonus`.
+        let sentence = one("This bonus feat replaces the fighter's bonus feat at 2nd level.");
+        assert_eq!(sentence.op, TradeOp::Replaces);
+        assert!(sentence.bare);
+        assert!(!one("These bonus hexes replace the witch's patron spells.").bare);
+        assert!(!one("These bonus powers replace the mystery's powers.").bare);
+        assert!(one("These spells replace the sorcerer's bloodline spells.").bare);
+        assert!(one("This skill replaces Perception.").bare);
+        assert!(one("These evolutions replace the eidolon's base evolutions.").bare);
+        assert!(!one("This bonus ability alters bravery.").bare);
+        assert_eq!(
+            one("This bonus ability alters bravery.").op,
+            TradeOp::Alters
+        );
+    }
+
+    #[test]
+    fn a_numeric_bonus_or_an_unlisted_noun_is_not_a_subject() {
+        assert!(trade_sentences("This bonus replaces the fighter's bonus feat.").is_empty());
+        assert!(trade_sentences("This bonus alters the fighter's bonus feat.").is_empty());
+        assert!(trade_sentences("These rounds replace the oracle's mystery spells.").is_empty());
+        assert!(trade_sentences("These bonus rounds replace the oracle's spells.").is_empty());
+        // `bonus` before a verb or an unlisted noun is not a subject word.
+        assert!(trade_sentences("This bonus value replaces bravery.").is_empty());
+        // A negation still rejects.
+        assert!(trade_sentences("These bonus spells do not replace bravery.").is_empty());
+    }
+
+    #[test]
+    fn a_possessor_phrase_never_hides_a_stored_name() {
+        // Advanced Class Guide, Strangler (pp. 88-89): R10 is an alternative reading only; the
+        // plain reading wins when it covers.
+        let trades = [
+            (TradeOp::Replaces, "Unarmed strike".to_string()),
+            (TradeOp::Replaces, "brawler's flurry".to_string()),
+        ];
+        let names: Vec<Vec<String>> = trades.iter().map(|(_, name)| name_words(name)).collect();
+        for text in [
+            "This ability replaces unarmed strike and brawler's flurry.",
+            "This ability replaces unarmed strike and the brawler's flurry.",
+            "This ability replaces the brawler's flurry and unarmed strike.",
+            "This ability replaces the brawler's unarmed strike and flurry.",
+            "This ability replaces the unarmed strike and the brawler's flurry class features.",
+            "This ability replaces the brawler's flurry class feature and the unarmed strike class feature.",
+        ] {
+            let sentence = one(text);
+            assert!(phrase_is_covered(&sentence.phrase, &names), "{text}");
+            for (_, name) in &trades {
+                assert!(
+                    name_in_phrase(&name_words(name), &sentence.phrase),
+                    "{text}: {name}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn the_strangler_sentence_pairs_with_both_stored_names() {
+        // Advanced Class Guide, Strangler, Strangle (Ex): the exact printed text.
+        let text = "This damage increases by +1d6 at 2nd, 8th and 15th levels. This ability replaces unarmed strike and brawler's flurry.";
+        let sentence = one(text);
+        assert_eq!(sentence.op, TradeOp::Replaces);
+        assert!(!sentence.bare);
+        assert_eq!(sentence.phrase, "unarmed strike and brawler's flurry");
+        let both = [
+            (TradeOp::Replaces, "Unarmed strike".to_string()),
+            (TradeOp::Replaces, "brawler's flurry".to_string()),
+        ];
+        for (_, name) in &both {
+            assert!(
+                name_in_phrase(&name_words(name), &sentence.phrase),
+                "{name}"
+            );
+        }
+        let all: Vec<Vec<String>> = both.iter().map(|(_, name)| name_words(name)).collect();
+        assert!(phrase_is_covered(&sentence.phrase, &all));
+        // Each name alone still pairs: it is one item of the sentence, as ruling A allows.
+        for (_, name) in &both {
+            assert!(name_in_phrase(&name_words(name), &sentence.phrase));
+            let alone = [(TradeOp::Replaces, name.clone())];
+            assert!(names_a_trade(&sentence, &alone), "{name}");
+        }
+        // The possessor reading is only a fallback: it never reads "and brawler's" as the
+        // possessor of `flurry`.
+        assert_eq!(
+            strip_possessor_phrases("unarmed strike and brawler's flurry"),
+            "unarmed strike and brawler's flurry"
+        );
+    }
+
+    #[test]
+    fn a_clause_after_comma_and_ends_the_phrase() {
+        // Advanced Class Guide, Eldritch Scion.
+        let sentence = one(
+            "This ability replaces arcane pool, and abilities that modify arcane pool also modify eldritch pool.",
+        );
+        assert_eq!(sentence.phrase, "arcane pool");
+        assert!(name_in_phrase(&name_words("Arcane pool"), &sentence.phrase));
+        assert!(phrase_is_covered(
+            &sentence.phrase,
+            &names(&["Arcane pool"])
+        ));
+        // A list "X, Y, and Z" is not cut.
+        let sentence = one("This ability replaces bravery, armor training, and weapon training.");
+        assert_eq!(
+            sentence.phrase,
+            "bravery, armor training, and weapon training"
+        );
+        let sentence = one("This ability replaces poison use, and poison immunity.");
+        assert_eq!(sentence.phrase, "poison use, and poison immunity");
+        // A joined verb is still a second trade, not a clause.
+        let found = trade_sentences("This ability replaces bravery, and alters armor training.");
+        assert_eq!(found.len(), 2);
+    }
+
+    #[test]
+    fn a_class_name_before_class_ability_is_a_descriptor() {
+        // Advanced Class Guide, Naturalist.
+        let sentence = one("This ability replaces the aspect summoner class ability.");
+        assert!(name_in_phrase(&name_words("Aspect"), &sentence.phrase));
+        assert!(phrase_is_covered(&sentence.phrase, &names(&["Aspect"])));
+        let sentence = one("This ability replaces the greater aspect summoner class ability.");
+        assert!(phrase_is_covered(
+            &sentence.phrase,
+            &names(&["Greater aspect"])
+        ));
+        // A class name that is the whole name stays.
+        let sentence = one("This ability replaces the summoner class ability.");
+        assert!(phrase_is_covered(&sentence.phrase, &names(&["Summoner"])));
+        // The name `Aspect` does not cover a different name.
+        assert!(!phrase_is_covered(
+            "the aspect summoner class ability",
+            &names(&["Life bond"])
+        ));
+    }
+
+    #[test]
+    fn raging_song_is_a_descriptor_after_a_name() {
+        // Advanced Class Guide, Spell Warrior.
+        let sentence = one("This ability replaces the inspired rage raging song.");
+        assert!(name_in_phrase(
+            &name_words("Inspired rage"),
+            &sentence.phrase
+        ));
+        assert!(phrase_is_covered(
+            &sentence.phrase,
+            &names(&["Inspired rage"])
+        ));
+        let sentence = one("This ability replaces the dirge of doom raging song.");
+        assert!(phrase_is_covered(
+            &sentence.phrase,
+            &names(&["Dirge of doom"])
+        ));
+        // A `raging song` that is the name itself stays.
+        let sentence = one("This ability replaces raging song and inspired rage.");
+        assert!(phrase_is_covered(
+            &sentence.phrase,
+            &names(&["Raging song", "Inspired rage"])
+        ));
+        let sentence = one("This ability replaces inspired rage, raging song.");
+        assert!(!phrase_is_covered(
+            &sentence.phrase,
+            &names(&["Inspired rage"])
+        ));
+    }
+
+    #[test]
+    fn a_cross_reference_or_comparison_states_no_trade() {
+        // Owner ruling 16: printed cross-references stay, and never state a trade.
+        let hunter = name_words("Hunter tactics");
+        assert!(prose_mentions(
+            "The hunter tactics class ability allows a verminous hunter to grant her teamwork feats.",
+            &hunter
+        ));
+        for text in [
+            "A verminous hunter gains a bonus (see the hunter tactics class ability).",
+            "A verminous hunter gains a bonus (See hunter tactics).",
+            "A verminous hunter gains a bonus ( see below for hunter tactics).",
+            "A verminous hunter gains a bonus (see Table 15-4 of the hunter tactics).",
+            "This ability functions as the hunter tactics class ability.",
+            "This ability works like the hunter tactics class ability.",
+            "A verminous hunter uses it as the hunter tactics class ability.",
+        ] {
+            assert!(!prose_mentions(text, &hunter), "{text}");
+        }
+        // A name before the comparison, or outside the cross-reference, still counts.
+        assert!(prose_mentions(
+            "The hunter tactics ability works like the animal focus class ability.",
+            &hunter
+        ));
+        assert!(prose_mentions(
+            "The hunter tactics grant a bonus (see below).",
+            &hunter
+        ));
+        // `see` is a word, not a prefix.
+        assert!(prose_mentions("A bonus (seeking hunter tactics).", &hunter));
+        // The aside of a trade sentence follows the same rule.
+        let instant = name_words("Instant alchemy");
+        for text in [
+            "This ability replaces swift alchemy (see the instant alchemy class ability for more).",
+            "This ability replaces swift alchemy (See below: a deep bomber gains instant alchemy).",
+        ] {
+            let sentence = one(text);
+            assert_eq!(sentence.phrase, "swift alchemy", "{text}");
+            assert!(
+                !name_in_phrase(&instant, &stating_text(&sentence.aside)),
+                "{text}"
+            );
+        }
+        let sentence =
+            one("This ability replaces swift alchemy (a deep bomber never gains instant alchemy).");
+        assert!(name_in_phrase(&instant, &stating_text(&sentence.aside)));
+    }
+
+    #[test]
+    fn a_long_parenthesis_is_kept_as_the_aside() {
+        // Advanced Class Guide, Deep Bomber: both names are printed, one in the aside.
+        let sentence =
+            one("This ability replaces swift alchemy (a deep bomber never gains instant alchemy).");
+        assert_eq!(sentence.phrase, "swift alchemy");
+        assert_eq!(sentence.aside, "a deep bomber never gains instant alchemy");
+        assert!(name_in_phrase(
+            &name_words("Instant alchemy"),
+            &sentence.aside
+        ));
+        assert!(one("This ability replaces bravery (Ex).").aside.is_empty());
     }
 
     #[test]

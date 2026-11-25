@@ -52,14 +52,44 @@ pub const NOT_FEATURE_HEADINGS: &[&str] = &[
     // "Skills"; Martial Artist prints "Alignment".
     "Skills",
     "Alignment",
+    // Owner ruling 33 of 2026-11-25 (#540, batch 2 and 3 review): the printed variants of the
+    // proficiency and skill headings are scaffold too.
+    "Weapon and Armor Proficiencies",
+    "Weapon Proficiencies",
+    "Armor Proficiency",
+    "Armor Proficiencies",
+    "Skill Ranks per Level",
+    "Class Skills",
 ];
+
+/// The proficiency scaffold headings whose section may carry an `alters` trade that print does not
+/// state as a sentence (owner rulings 23 and 33).
+const PROFICIENCY_HEADINGS: [&str; 5] = [
+    "Weapon and Armor Proficiency",
+    "Weapon and Armor Proficiencies",
+    "Weapon Proficiencies",
+    "Armor Proficiency",
+    "Armor Proficiencies",
+];
+
+/// A heading as the scaffold lists compare it: ability tags ("(Ex)"), a trailing colon, case and
+/// surrounding space do not matter ("Bonus Feats (Ex)" is "Bonus Feats").
+fn scaffold_text(heading: &str) -> String {
+    let stripped = crate::trade_sentences::strip_tags(heading);
+    stripped
+        .trim()
+        .trim_end_matches(':')
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .join(" ")
+}
 
 /// Whether `heading` is one of the [`NOT_FEATURE_HEADINGS`].
 fn is_scaffold_heading(heading: &str) -> bool {
-    let heading = heading.trim().trim_end_matches(':').trim();
+    let heading = scaffold_text(heading);
     NOT_FEATURE_HEADINGS
         .iter()
-        .any(|scaffold| scaffold.eq_ignore_ascii_case(heading))
+        .any(|scaffold| scaffold.eq_ignore_ascii_case(&heading))
 }
 
 /// One feature section of a body: the heading with its key, and the blocks under it up to the
@@ -409,10 +439,6 @@ pub(crate) fn placements(entry: &RuleEntry) -> Vec<(&Block, Place)> {
     out
 }
 
-/// The scaffold heading whose section may carry a proficiency trade that print does not state as
-/// a sentence (owner ruling 23 of 2026-11-24, #540).
-const PROFICIENCY_HEADING: &str = "Weapon and Armor Proficiency";
-
 /// True when the body has a "Weapon and Armor Proficiency" section outside every listed feature
 /// that prints no trade sentence of `op`. Owner ruling 23 of 2026-11-24 (#540): a trade with no
 /// `by` may then rest on that section, like a trade on a feature that only describes the changed
@@ -444,9 +470,13 @@ pub(crate) fn proficiency_section_prints_no(
             key_of(block).is_some_and(|key| features.iter().any(|feature| feature.anchor == key));
         let inside_feature = stack.iter().any(|(_, listed)| *listed);
         stack.push((*level, is_feature));
-        let heading = plain_text(content);
-        let heading = heading.trim().trim_end_matches(':').trim();
-        if is_feature || inside_feature || !heading.eq_ignore_ascii_case(PROFICIENCY_HEADING) {
+        let heading = scaffold_text(&plain_text(content));
+        if is_feature
+            || inside_feature
+            || !PROFICIENCY_HEADINGS
+                .iter()
+                .any(|name| name.eq_ignore_ascii_case(&heading))
+        {
             continue;
         }
         let end = blocks[position + 1..]
@@ -559,6 +589,16 @@ mod tests {
             // Owner ruling 19 of 2026-11-24 (#540): Urban Barbarian, Cad, Sohei; Martial Artist.
             "Skills",
             "alignment",
+            // Owner ruling 33 of 2026-11-25 (#540): the printed variants.
+            "Weapon and Armor Proficiencies",
+            "Weapon Proficiencies",
+            "Armor Proficiency",
+            "Armor Proficiencies:",
+            "Skill Ranks per Level",
+            "class skills",
+            // An ability tag does not make a scaffold heading a feature (Disenchanter).
+            "Bonus Feats (Ex)",
+            "Weapon and Armor Proficiency (Ex)",
         ] {
             let scaffold = vec![
                 heading(Some("scaffold"), name),
@@ -774,6 +814,10 @@ mod tests {
             "Bonus Spells:",
             "Skills",
             "Alignment",
+            "Weapon and Armor Proficiencies",
+            "Armor Proficiency",
+            "Class Skills",
+            "Bonus Feats (Ex)",
         ] {
             let found = problems(archetype(after(name), features(), trades()));
             assert!(found.is_empty(), "{name}: {found:?}");
