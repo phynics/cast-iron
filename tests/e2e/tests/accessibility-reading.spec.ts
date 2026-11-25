@@ -300,6 +300,15 @@ test("Keyboard and touch readers keep the tab bar and stat values usable at 200 
     return split;
   }, selector);
 
+  // A fact's term sits above its value on a phone at normal size, as before the flex rows.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("#/settings");
+  await expect(page.locator("h1")).toBeVisible();
+  const row = page.locator(".facts > div").first();
+  await expect(row).toBeVisible();
+  const [term, value] = await Promise.all([row.locator("dt").boundingBox(), row.locator("dd").boundingBox()]);
+  expect(value!.y, "a Settings fact stacks its value under its term at 390 px").toBeGreaterThanOrEqual(term!.y + term!.height - 0.5);
+
   const viewports = [{ width: 390, height: 844 }, { width: 320, height: 700 }];
   const pages = [
     { name: "Fireball", route: `#/entry/${corpusEntry("spell", "Fireball").id}` },

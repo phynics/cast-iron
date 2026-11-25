@@ -768,9 +768,18 @@ progress {
     padding-inline: var(--space-3);
   }
 
+  /* On a phone a fact's term sits above its value, as it always did. */
   .facts > div {
-    grid-template-columns: 1fr;
+    flex-direction: column;
     gap: 0;
+  }
+
+  .facts dt {
+    min-width: 0;
+  }
+
+  .facts dd {
+    flex: none;
   }
 
   h1 {
@@ -2800,8 +2809,8 @@ mark {
   color: var(--ink-muted);
 }
 
-.provenance .facts > div {
-  grid-template-columns: minmax(8rem, 10rem) 1fr;
+.provenance .facts dt {
+  min-width: min(8rem, 100%);
 }
 
 @media print {
@@ -5041,7 +5050,7 @@ input::placeholder {
   margin: 0 0 var(--space-3);
 }
 
-/* The brand keeps one line; the search box gives way instead. */
+/* The brand never shrinks on its own; the phone rule below lets it give way. */
 .app-header .brand {
   flex: none;
 }
