@@ -1196,6 +1196,71 @@ resolving the membership fails the check until the row is removed. A malformed f
 and the memberships are then checked without exceptions. Never add a row to make the check pass:
 a new uncited membership is a cleanup item (add the row or remove the book), not an exception.
 
+### Printed trade sentences without a trade
+
+In an archetype or class option with `features`, every trade sentence that a listed feature prints
+needs a stored trade of the same op, a name that the phrase covers, and `by` that names the feature
+(#540). The drift check below compares a sentence with the trades of its feature, but it reads a
+**bare** sentence ("This alters class skills.", "These replace the normal attack roll bonus and AC
+penalty for charging.") only when it names a stored trade. A trade that was never stored left
+nothing to name, so the sentence was dropped and the check passed. This rule closes the gap: a bare
+sentence of a listed feature that names no stored trade of its op is reported, with the entry's
+path and the heading line of the feature, the feature anchor, the printed sentence and the trade
+to store:
+
+```text
+entries/arc-hunter/roof-runner.md:38: [trades] the feature `skilled` prints "This alters the hunter's class skills." but the entry has no `alters` trade named "the hunter's class skills" with `by` = ["skilled"]; store `{ alters = "the hunter's class skills", by = ["skilled"] }`, or list the sentence in `trade-sentence-exceptions.toml` when it states no trade
+```
+
+A wrong op or a missing trade is reported here. A sentence that names a stored trade with another
+`by`, or that the trades cover only in part, is drift (the next section). What the rule does not read:
+
+- the opening text and the sections under a scaffold heading that no listed feature contains: the
+  trades they state have no `by` (owner rulings 13 and 28);
+- a phrase that ends in "as indicated below" and a parenthesized cross-reference or aside such as
+  "(see below)" (rulings 16, 29 and 40): the reader drops them, so a name that only they hold needs
+  no trade;
+- a sentence in an unlisted `###` section inside a feature, such as the abilities that a companion
+  gains (ruling 37): it belongs to the feature that contains the section;
+- a prose sentence that is no trade ("This change to spells doesn't apply to knacks."). After the
+  singular `This`, `change` is a noun, not the verb of ruling 25; "These change ..." is a trade
+  sentence;
+- an anaphoric phrase ("... works like the standard mutagen class feature and replaces that
+  ability"): it names nothing, so the feature needs one trade of its op with `by` = the feature,
+  whatever the name.
+
+The rule is a **warning** while the pinned corpus holds printed sentences without a trade
+(`PRINTED_TRADES_ARE_ERRORS` in `crates/corpus/src/check_printed_trades.rs`), and an **error** after
+the pin moves to the data tag that carries the fixes; decision
+`2026-11-25-printed-trade-sentence-needs-a-trade`. A corpus that has not stored a trade for such a
+sentence on purpose lists it in `trade-sentence-exceptions.toml`.
+
+### Trade sentence exceptions
+
+`trade-sentence-exceptions.toml` in the corpus root is optional. It lists the printed trade
+sentences of a listed feature that state no concrete trade, such as Weretouched's "This alters her
+other class features, as detailed in each relevant class feature." (Advanced Race Guide): a
+cross-reference to the features that follow. It follows `membership-exceptions.toml`. The file is
+plain data that only `corpus-check` reads; when it is absent, no sentence is excepted.
+
+```toml
+[[exception]]
+entry = "ref/arc-shifter/weretouched"           # the entry id
+feature = "lycanthrope-aspect"                  # the anchor of the listed feature that prints the sentence
+sentence = "as detailed in each relevant class feature"   # the sentence or a distinctive quote of it
+reason = "..."                                  # why the sentence states no trade
+issue = "phynics/cast-iron#540"                 # the issue that decides it, as owner/repo#number
+```
+
+Every key is required. `sentence` is a text that the printed sentence holds ("This alters ..." with
+its phrase, or the phrase alone), case and spacing aside; it needs a text, as does `reason`; `issue`
+reads `owner/repo#number`; a second row for one `(entry, feature, sentence)` is an error, as is an
+unknown key. The list only shrinks: a row is an error (`remove the row`) when its entry does not
+exist, the entry lists no such feature, or the feature prints no sentence without a trade that the
+quote names, for example because the trade is stored now. A malformed file is an error too, and the
+sentences are then checked without exceptions. A row is never a way to silence a new finding: a
+sentence that states a trade needs the trade.
+
 ## Drift between fields and body
 
 Some values live twice in an entry: in `[fields]`, and in the body. `corpus-check`
@@ -1312,7 +1377,8 @@ A **bare** sentence is one whose subject names no ability noun (the list above; 
 ..." is bare): "This replaces bravery.", "These replace the normal
 attack roll bonus and AC penalty for charging." A bare sentence is a trade sentence only when it
 names one of the entry's stored trades with the same op, because the pronoun may stand for
-anything. So is a sentence whose verb is joined by `and` to another clause: "This movement provokes
+anything (the check for a bare sentence that names no trade is "Printed trade sentences without a
+trade", above). So is a sentence whose verb is joined by `and` to another clause: "This movement provokes
 attacks of opportunity as normal, and replaces deadly performance." counts only when `Deadly
 performance` is a stored `replaces` trade; "This bonus replaces the usual bonus." and a negated
 clause stay prose.
@@ -1367,7 +1433,9 @@ champion`; not across a comma, `and` or `or`). The
 tolerance works on the trade names as stored: trades need no rewrite to match print. A sentence
 that lists several names is covered by one trade per name, or by one trade that states the whole
 phrase. Three shorthands read as one name per item: a hyphen-suspended list ("the 1st-, 2nd- and
-3rd-level bonus feats" is `1st-level bonus feat`, `2nd-level bonus feat`, `3rd-level bonus feat`), a
+3rd-level bonus feats" is `1st-level bonus feat`, `2nd-level bonus feat`, `3rd-level bonus feat`; each suspended item takes the tail of the next full item after it, so "the 4th-
+and 14th-level vigilante talents and the 9th- and 19th-level social talents" (Serial Killer, Horror
+Adventures p. 69) reads each list against its own tail), a
 shared tail without the trailing hyphen ("the paladin's 3rd-level and 9th-level mercies" is
 `3rd-level mercies`, `9th-level mercies`) and numbered steps after a shared head ("armor training
 1, 2, 3, and 4" is `armor training 1` to `armor training 4`; "weapon training 2 and 3" likewise), so

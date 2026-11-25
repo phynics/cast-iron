@@ -170,6 +170,24 @@ pub(crate) fn sentences_in(
         .collect()
 }
 
+/// The bare trade sentences of `blocks` that name no stored trade of their op (the sentences that
+/// [`sentences_in`] drops, see [`crate::check_printed_trades`]).
+pub(crate) fn bare_unnamed_sentences_in(
+    blocks: &[Block],
+    trades: &[cast_iron_schema::Trade],
+    head: Option<&str>,
+) -> Vec<TradeSentence> {
+    let stored: Vec<(cast_iron_schema::TradeOp, String)> = trades
+        .iter()
+        .map(|trade| (trade.op, trade.printed.clone()))
+        .collect();
+    paragraph_texts(blocks)
+        .iter()
+        .flat_map(|paragraph| trade_sentences_headed(paragraph, head))
+        .filter(|sentence| sentence.bare && !names_a_trade(sentence, &stored))
+        .collect()
+}
+
 /// The part of the body that an entry with `features` reads: the whole body, cut only at a
 /// block that starts another publication's version, a `**Sources:**` paragraph that is not the
 /// first block (and the `###` heading directly above it). A `###` that only `source_ids` marks
