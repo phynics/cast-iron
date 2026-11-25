@@ -456,3 +456,5 @@ hodgepodge-from-the-grand-lodge
 paizo-blog-golarion-day-subdomains
 paizo-blog-ultimate-cantrips
 paizo-blog-the-gauntlet-will-be-ours
+guide-to-pathfinder-society-organized-play-4-3
+pathfinder-society-roleplaying-guild-guide-8-0
