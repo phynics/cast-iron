@@ -1232,7 +1232,33 @@ fn feature_trade_pairs(entry: &RuleEntry, text: &str) -> Vec<Pair> {
                 .iter()
                 .all(|sentence| sentence.op != trade.op)
         });
-        if !trade_stated(trade, &all) && !prints_none {
+        // Owner ruling 29 (2026-11-25): a name in the aside of a printed sentence of the same op
+        // ("replaces swift alchemy (a deep bomber never gains instant alchemy)") states it.
+        let in_aside = {
+            let name = crate::trade_sentences::name_words(&trade.printed);
+            all.iter().any(|sentence| {
+                sentence.op == trade.op
+                    && !sentence.aside.is_empty()
+                    && crate::trade_sentences::name_in_phrase(&name, &sentence.aside)
+            })
+        };
+        // Owner ruling 28 (2026-11-25), Verminous Hunter: the prose of a feature that the trade
+        // names in `by` states the trade ("The hunter tactics class ability allows ..."). Only
+        // the feature's own sentences that are no trade sentence count, and only its own text.
+        let in_prose = {
+            let name = crate::trade_sentences::name_words(&trade.printed);
+            named.iter().any(|by| {
+                found
+                    .iter()
+                    .find(|section| section.key == **by)
+                    .is_some_and(|section| {
+                        crate::check_features::paragraph_texts(section.blocks)
+                            .iter()
+                            .any(|text| crate::trade_sentences::prose_mentions(text, &name))
+                    })
+            })
+        };
+        if !trade_stated(trade, &all) && !prints_none && !in_aside && !in_prose {
             pairs.push(Pair {
                 field: "trades",
                 field_value: trade_list(&[trade]),
@@ -3008,6 +3034,85 @@ mod tests {
         assert_eq!(find_drift(&entry).len(), 1);
     }
 
+    #[test]
+    fn a_trade_that_the_feature_prose_names_passes() {
+        // Owner ruling 28 of 2026-11-25 (#540), Verminous Hunter (Advanced Class Guide).
+        let text = "At 1st level, a verminous hunter forms a bond with a vermin companion. The hunter tactics class ability allows a verminous hunter to grant her teamwork feats to her vermin companion. This ability alters animal companion.";
+        let trades = |hunter_tactics: &str| {
+            vec![
+                trade_by(TradeOp::Alters, "Animal companion", &["vermin-companion"]),
+                trade_by(TradeOp::Alters, hunter_tactics, &["vermin-companion"]),
+            ]
+        };
+        let entry = printed_archetype(&[("vermin-companion", text)], trades("hunter tactics"));
+        assert!(find_drift(&entry).is_empty(), "{:?}", find_drift(&entry));
+        // A name that the feature's text does not hold stays drift (ruling 24's guard).
+        let entry = printed_archetype(&[("vermin-companion", text)], trades("Wild empathy"));
+        assert_eq!(find_drift(&entry).len(), 1, "{:?}", find_drift(&entry));
+        // Only the text of the feature the trade names counts.
+        let entry = printed_archetype(
+            &[
+                ("vermin-companion", text),
+                (
+                    "wild-empathy",
+                    "At 1st level, the hunter gains a bonus. This ability replaces wild empathy.",
+                ),
+            ],
+            vec![
+                trade_by(TradeOp::Alters, "Animal companion", &["vermin-companion"]),
+                trade_by(TradeOp::Replaces, "Wild empathy", &["wild-empathy"]),
+                trade_by(TradeOp::Alters, "Wild empathy", &["vermin-companion"]),
+            ],
+        );
+        assert_eq!(find_drift(&entry).len(), 1, "{:?}", find_drift(&entry));
+        // A trade sentence of the other op that names the trade is no prose: the op is wrong.
+        let entry = printed_archetype(
+            &[(
+                "vermin-companion",
+                "At 1st level, a hunter gains a bond. This ability alters hunter tactics.",
+            )],
+            vec![trade_by(
+                TradeOp::Replaces,
+                "Hunter tactics",
+                &["vermin-companion"],
+            )],
+        );
+        assert_eq!(find_drift(&entry).len(), 1, "{:?}", find_drift(&entry));
+    }
+
+    #[test]
+    fn a_name_in_the_aside_of_a_printed_sentence_states_the_trade() {
+        // Owner ruling 29 of 2026-11-25 (#540), Deep Bomber (Advanced Class Guide).
+        let text = "At 4th level, a deep bomber gains a bonus. This ability replaces swift alchemy (a deep bomber never gains instant alchemy).";
+        let entry = printed_archetype(
+            &[("deep-bombs", text)],
+            vec![
+                trade_by(TradeOp::Replaces, "Swift alchemy", &["deep-bombs"]),
+                trade_by(TradeOp::Replaces, "Instant alchemy", &["deep-bombs"]),
+            ],
+        );
+        assert!(find_drift(&entry).is_empty(), "{:?}", find_drift(&entry));
+        // A name that neither the phrase nor the aside holds is still drift.
+        let entry = printed_archetype(
+            &[("deep-bombs", text)],
+            vec![
+                trade_by(TradeOp::Replaces, "Swift alchemy", &["deep-bombs"]),
+                trade_by(TradeOp::Replaces, "Poison use", &["deep-bombs"]),
+            ],
+        );
+        assert_eq!(find_drift(&entry).len(), 1, "{:?}", find_drift(&entry));
+        // The op counts: the aside of a `replaces` sentence does not state an `alters` trade; the
+        // feature carries it unstated only because it prints no `alters` sentence (ruling 24).
+        let entry = printed_archetype(
+            &[("deep-bombs", text)],
+            vec![
+                trade_by(TradeOp::Replaces, "Swift alchemy", &["deep-bombs"]),
+                trade_by(TradeOp::Alters, "Instant alchemy", &["deep-bombs"]),
+            ],
+        );
+        assert!(find_drift(&entry).is_empty());
+    }
+
     /// A listed feature, then a heading with the given text and the given paragraphs under it.
     fn with_section_after_feature(
         heading_text: &str,
@@ -3038,6 +3143,12 @@ mod tests {
         for name in [
             "Weapon and Armor Proficiency",
             "weapon and armor proficiency:",
+            // Owner ruling 33 of 2026-11-25 (#540): the printed variants, with or without a tag.
+            "Weapon and Armor Proficiencies",
+            "Weapon Proficiencies",
+            "Armor Proficiency",
+            "Armor Proficiencies",
+            "Weapon and Armor Proficiency (Ex)",
         ] {
             let drift = find_drift(&with_section_after_feature(name, &prose, trades()));
             assert!(drift.is_empty(), "{name}: {drift:?}");
@@ -3259,6 +3370,9 @@ mod tests {
             ]
         };
         let drift = find_drift(&with_heading_after_feature("Bonus Feats", both()));
+        assert!(drift.is_empty(), "{drift:?}");
+        // Owner ruling 33 of 2026-11-25 (#540), Disenchanter: the heading with an ability tag.
+        let drift = find_drift(&with_heading_after_feature("Bonus Feats (Ex)", both()));
         assert!(drift.is_empty(), "{drift:?}");
         // The sentence needs a trade without `by`: with a `by` that names a feature that does
         // not print it, or with none at all, it is uncovered.
