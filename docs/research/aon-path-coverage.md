@@ -6,10 +6,10 @@ Every canonical entry of the pinned corpus that has no verified Archives of Neth
 
 | | |
 |---|---|
-| Corpus | [`phynics/cast-iron-data`](https://github.com/phynics/cast-iron-data/tree/dc735165e24d1171db601678b536e0284601cc8c) |
-| Tag | `v0.1.47` |
-| Commit | `dc735165e24d1171db601678b536e0284601cc8c` |
-| Tree hash | `82b05f3d708d6de917817b712d6ec42e6b67ec65190464f0c270c918af8eea72` |
+| Corpus | [`phynics/cast-iron-data`](https://github.com/phynics/cast-iron-data/tree/8f1efbd68b883f7eaf81e4f3561c296bb2986e4b) |
+| Tag | `v0.1.50` |
+| Commit | `8f1efbd68b883f7eaf81e4f3561c296bb2986e4b` |
+| Tree hash | `2c8307edf27d062bbabe4d0af04748d053875fbb6f06c78c3901be28a2667111` |
 | Entries | 31,672 |
 | Publications | 443 |
 
