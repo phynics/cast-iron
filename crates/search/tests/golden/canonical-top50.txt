@@ -1,8 +1,8 @@
 # Top-50 result ids for the 50 queries of tests/e2e/measure-library.mjs.
 # Regenerate with `cargo xtask search-golden` (after `cargo xtask content`) in every corpus-pin PR.
-# corpus dc735165e24d1171db601678b536e0284601cc8c
-# tag v0.1.47
-# content v02e2c9fd95df5e38
+# corpus 8f1efbd68b883f7eaf81e4f3561c296bb2986e4b
+# tag v0.1.50
+# content v411d4bd8456e4981
 # Format: `query: <text>` starts a block; each other line is a result id.
 query: fire
 ref/subtype/fire
@@ -23,6 +23,7 @@ ref/rule/firearm-description
 ref/eq-siegeengine/firedrake
 ref/eq-weapon/firework-firecracker
 ref/eq-weapon/fire-lance
+ref/arc-alchemist/fire-bomber
 ref/npc/fire-cleric
 ref/kinetic/fire-sculptor
 ref/spell/firefall
@@ -35,7 +36,6 @@ ref/monster/fire-whale
 ref/spell/firestream
 ref/spell/fire-shield
 ref/spell/fireball
-ref/arc-alchemist/fire-bomber
 ref/magic-weapon/firedrake-pistol
 ref/kinetic/fire-blast
 ref/feat/fire-music
@@ -145,13 +145,13 @@ ref/umr/rake
 ref/spell/wall-of-thorns/mythic
 ref/rule/escape-from-restraints
 ref/feat/kudzu-takeover
+ref/arc-monk/tetori
 ref/skill/escape-artist
 ref/spell/wall-of-bone
 ref/feat/kudzu-invasion
 ref/feat/greater-whip-mastery
 ref/feat/tatzlwyrm-claw-style
 ref/spell/hungry-earth
-ref/arc-monk/tetori
 ref/magic-wondrous/quicksand-cloak
 ref/ragepower/suffocating-grip
 ref/feat/unfair-grip
@@ -185,6 +185,7 @@ ref/family/dragon-primal
 ref/family/dragon-outer
 ref/family/dragon-planar
 ref/feat/dragoncrafting
+ref/arc-druid/dragon-shaman
 ref/family/dragon-green
 ref/family/dragon-blue
 ref/pclass/dragon-disciple
@@ -197,7 +198,6 @@ ref/magic-staff/dragon-staff
 ref/feat/dragon-touched
 ref/npc/dragon-smiter
 ref/trait/dragon-tracker
-ref/arc-druid/dragon-shaman
 ref/arc-bard/dragon-herald
 ref/trait/dragon-friend
 ref/monster/dragon-horse
@@ -326,6 +326,7 @@ ref/magic-armor/elysian-shield
 ref/trait/stubborn
 ref/feat/eerie-sense
 ref/feat/charge-of-the-righteous
+ref/arc-witch/gravewalker
 ref/rule/high-rp-types
 ref/arc-wizard/hallowed-necromancer
 ref/magic-ioun/amethyst-pyramid
@@ -348,11 +349,10 @@ ref/monster/shredskin
 ref/subtype/nightshade
 ref/druiddomain/arctic
 ref/spell/unlock-flesh
-ref/arc-slayer/grave-warden
 ref/spell/life-current
 ref/feat/greater-channel-smite
 ref/feat/versatile-channeler
-ref/arc-witch/gravewalker
+ref/arc-slayer/grave-warden
 ref/spell/rest-eternal
 ref/magic-weapon/blade-of-the-rising-sun
 ref/faith/ruzel
@@ -392,12 +392,12 @@ ref/rule/force-words
 ref/magic-weapon/deck-of-slivering-fate
 ref/npc/mage-sniper
 ref/arcaneschool/metal
+ref/arc-wizard/spellbinder
 ref/npc/signifer-of-the-nail
 ref/arc-magus/eldritch-archer
 ref/spell/shield
 ref/magic-wondrous/brooch-of-shielding
 ref/monster/formian-formian-queen
-ref/arc-wizard/spellbinder
 ref/spell/die-for-your-master
 ref/npc/cyphermage
 ref/magic-wondrous/cloak-of-the-hedge-wizard
@@ -538,6 +538,7 @@ ref/spell/invisibility-bubble-giant
 ref/magic-wondrous/see-invisibility-sight
 ref/magic-wondrous/crystal-ball-see-invisibility
 book-section/mythic-adventures/5-2-149
+ref/arc-slayer/stygian-slayer
 book-section/bestiary-2/2-20
 book-section/bestiary-4/2-10
 book-section/bestiary-4/2-10-1
@@ -564,7 +565,6 @@ ref/spell/vanish
 ref/npc/toothy-transmuter
 ref/npc/demonologist
 ref/magic-wondrous/mariners-eye-patch
-ref/magic-wondrous/clandestine-horseshoes
 query: potion
 ref/rule/potions
 ref/eq-misc/potion-sponge
@@ -700,8 +700,8 @@ ref/feat/improved-disarm-partner
 ref/feat/snap-shot
 ref/feat/paired-opportunists
 ref/feat/improved-two-weapon-fighting/stamina
-ref/arc-fighter/two-weapon-warrior
 ref/feat/porcupine-defense/stamina
+ref/arc-fighter/two-weapon-warrior
 ref/feat/aquatic-advantage
 ref/trait/reckless-contempt
 ref/feat/intrepid-rescuer/stamina
@@ -791,9 +791,9 @@ ref/feat/diversion-shot
 ref/feat/subtle-devices
 ref/monster/octopus-giant-octopus
 ref/aspect/owl
-ref/arc-rogue/cat-burglar
 ref/arc-rogue/heister
 ref/npc/pirate-smuggler
+ref/arc-rogue/cat-burglar
 ref/arc-familiar/pilferer
 ref/arc-rogue/guerrilla
 ref/monster/scorpion-deadfall-scorpion
@@ -818,8 +818,8 @@ ref/monster/gargoyle-gargoyle-guardian
 ref/feat/expert-sniper
 ref/carried/advanced-players-guide/rules/races/halflings/alternate-racial-traits/swift-as-shadows
 ref/npc/chernasardo-sniper
-ref/arc-rogue/chameleon
 ref/feat/exquisite-sneak
+ref/feat/friendly-shroud
 query: charm
 ref/spelldef/charm
 ref/domain/charm
@@ -864,12 +864,12 @@ book-section/core-rulebook/16-2
 ref/magic-wondrous/saints-protection-charm
 ref/magic-wondrous/harp-of-charming
 ref/magic-wondrous/snake-charmers-flute
+ref/arc-rogue/kitsune-trickster
 ref/magic-wondrous/bracelet-of-friends
 ref/magic-weapon/traitors-blade
 ref/arc-swashbuckler/dashing-thief
 ref/magic-weapon/goad-of-obedience
 ref/arc-monk/monk-of-the-lotus
-ref/arc-rogue/kitsune-trickster
 ref/trait/tempters-tongue
 query: weapon focus
 ref/feat/weapon-focus/teitr
@@ -883,6 +883,7 @@ ref/feat/greater-weapon-focus/stamina
 ref/feat/gnome-weapon-focus
 book-section/pathfinder-unchained/1-811
 ref/feat/gnome-weapon-focus/stamina
+ref/arc-magus/kensai
 book-section/pathfinder-unchained/1-503
 book-section/pathfinder-unchained/1-533
 ref/feat/aquadynamic-focus
@@ -921,7 +922,6 @@ ref/ability/advanced-weapon-training
 ref/carried/ultimate-equipment/rules/magic-arms-and-armor/weapon-special-abilities
 ref/feat/greater-weapon-of-the-chosen
 ref/feat/improved-weapon-of-the-chosen
-ref/rule/tew-melee
 query: fly
 ref/skill/fly
 ref/spell/fly
@@ -939,9 +939,9 @@ ref/magic-wondrous/flying-skiff
 ref/monster/familiar-flying-squirrel
 ref/monster/leshy-flytrap-leshy
 ref/monster/flying-polyp
+ref/arc-swashbuckler/flying-blade
 ref/magic-wondrous/flying-chest
 ref/magic-wondrous/flying-ointment
-ref/arc-swashbuckler/flying-blade
 ref/eq-weapon/flying-blade
 ref/eq-weapon/flying-talon
 ref/monster/familiar-flying-fox
@@ -1135,9 +1135,9 @@ ref/carried/bestiary/rules/creature-types/creature-types
 ref/ability/animal-tricks
 ref/sidekick/animal-companion
 ref/ability/animal-foci
+ref/arc-bard/animal-speaker
 ref/rule/animal-words
 ref/arc-familiar/animal-exemplar
-ref/arc-bard/animal-speaker
 ref/eq-misc/animal-call
 ref/template/animal-lord
 ref/eq-misc/animal-repellent
@@ -1155,8 +1155,8 @@ ref/feat/animal-call
 ref/carried/mythic-adventures/feats/animal-affinity/mythic
 ref/spell/animal-aspect
 ref/magic-wondrous/animal-divining-pot
-ref/spell/animal-messenger
 ref/patron/animals
+ref/spell/animal-messenger
 ref/feat/animal-ally
 ref/carried/advanced-players-guide/rules/core-classes/druid/druid-archetypes/animal-shamans
 ref/feat/animal-disguise
@@ -1190,8 +1190,8 @@ ref/faith/hei-feng
 ref/carried/monster-codex/rules/bugbears/new-rules
 ref/spell/shared-suffering
 ref/ability/channel-energy
-ref/arc-antipaladin/knight-of-the-sepulcher
 ref/arc-antipaladin/iron-tyrant
+ref/arc-antipaladin/knight-of-the-sepulcher
 ref/spell/defile-armor
 ref/spell/inflict-serious-wounds
 ref/spell/inflict-moderate-wounds
@@ -1247,6 +1247,7 @@ ref/arc-arcanist/arcane-tinkerer
 ref/spell/arcane-disruption
 ref/feat/arcane-jinxer
 ref/feat/arcane-vendetta
+ref/arc-wizard/arcane-bomber
 ref/pclass/arcane-trickster
 ref/rule/pclass-arcane-trickster/arcane-trickster
 ref/magic-wondrous/arcane-battery
@@ -1267,7 +1268,6 @@ ref/spell/arcane-sight
 ref/arcana/arcane-scent
 ref/spell/arcane-lock
 ref/rule/arcane-spells
-ref/arc-wizard/arcane-bomber
 ref/spell/arcane-eye
 ref/spell/arcane-cannon
 ref/spell/arcane-pocket
@@ -1289,16 +1289,17 @@ ref/rule/armor
 ref/carried/technology-guide/rules/equipment/armor
 ref/carried/ultimate-equipment/rules/arms-and-armor/arms-and-armor
 ref/carried/technology-guide/rules/equipment/introduction
+ref/arc-barbarian/armored-hulk
 ref/companion/armorfish
 ref/eq-armor/armored-kilt
 ref/eq-armor/armored-coat
 ref/misc/armory
-ref/arc-barbarian/armored-hulk
 ref/arc-magus/armored-battlemage
 ref/slayertalent/armored-swiftness
 ref/slayertalent/armored-marauder
 ref/feat/armored-athlete
 ref/exploit/armored-mask
+ref/arc-fighter/armor-master
 ref/rule/armor-words
 ref/monster/skeleton-armored-ogre-skeleton
 ref/feat/armor-trick
@@ -1309,7 +1310,6 @@ ref/rule/armor-glitches
 ref/trait/armored-soul
 ref/rule/armor-as-dr
 ref/feat/armor-material-mastery
-ref/arc-fighter/armor-master
 ref/rule/armor-pieces-and-armor-suits
 ref/feat/armor-material-expertise
 ref/magic-armor/armor-of-the-pious
@@ -1484,11 +1484,11 @@ ref/feat/imposing-bearing/stamina
 ref/feat/poised-bearing/stamina
 ref/feat/torch-bearer/stamina
 query: blade
+ref/arc-magus/bladebound
 ref/arc-arcanist/blade-adept
 ref/spell/blade-barrier
 ref/kinetic/blade-whirlwind
 ref/kinetic/blade-rush
-ref/arc-magus/bladebound
 ref/eq-weapon/blade-boot
 ref/eq-weapon/blade-of-lifes-defense
 ref/spell/blade-snare
@@ -1521,6 +1521,7 @@ ref/tech-weapon/null-blade
 ref/magic-artifact/final-blade
 ref/arc-swashbuckler/guiding-blade
 ref/arc-warpriest/libertys-blade
+ref/arc-swashbuckler/flying-blade
 ref/pclass/lion-blade
 ref/magic-weapon/risen-blade
 ref/arc-slayer/velvet-blade
@@ -1533,7 +1534,6 @@ ref/arc-spiritualist/phantom-blade
 ref/magic-artifact/mantis-blade
 ref/kinetic/kinetic-blade
 ref/magic-weapon/grudge-blade
-ref/magic-weapon/sun-blade
 query: blind
 ref/carried/ultimate-magic/rules/words-of-power/effect-words
 ref/trait/blind-zeal
@@ -1586,15 +1586,16 @@ book-section/pathfinder-unchained/1-370
 ref/magic-wondrous/swordmasters-blindfold
 ref/umr/light-blindness
 query: blood
-ref/ability/bloodrager-bloodlines
 ref/arc-arcanist/blood-arcanist
-ref/class/bloodrager
+ref/ability/bloodrager-bloodlines
+ref/arc-bloodrager/bloodrider
 ref/umr/blood-drain
+ref/class/bloodrager
 ref/umr/blood-rage
 ref/arc-bloodrager/blood-conduit
 ref/spell/blood-biography
+ref/arc-summoner/blood-god-disciple
 ref/magic-enh/blood-hunting
-ref/arc-bloodrager/bloodrider
 ref/eq-material/blood-crystal
 ref/spell/blood-salvation
 ref/ability/bloodline-mutations
@@ -1632,7 +1633,6 @@ ref/spell/blood-boil
 ref/slayertalent/blood-reader
 ref/feat/blood-feast
 ref/trait/blood-stalker
-ref/arc-summoner/blood-god-disciple
 ref/rule/umr-blood-rage/blood-rage
 ref/carried/bestiary/rules/universal-monster-rules/blood-rage
 ref/spell/blood-transcription
@@ -1685,8 +1685,8 @@ ref/rule/force-words
 ref/magic-weapon/vaultbow
 ref/spell/umbral-strike
 ref/magic-weapon/ikarikurusai-the-raging-cyclone
-ref/spell/call-lightning-storm
 ref/arc-fighter/cavern-sniper
+ref/spell/call-lightning-storm
 query: bow
 ref/arc-ranger/bow-nomad
 ref/spell/bow-spirit
@@ -1726,6 +1726,7 @@ ref/feat/empty-quiver-style
 ref/arc-fighter/archer
 ref/arc-swashbuckler/arrow-champion
 ref/feat/overwatch-style
+ref/arc-ranger/hooded-champion
 ref/eq-weapon/longbow
 ref/eq-weapon/shortbow
 ref/monster/giant-jungle-giant
@@ -1737,7 +1738,6 @@ ref/magic-enh/endless-ammunition
 ref/monster/wild-hunt-wild-hunt-archer
 ref/vigtalent/signature-arrows
 ref/magic-wondrous/bracers-of-archery-greater
-ref/magic-wondrous/bracers-of-archery-lesser
 query: burn
 ref/umr/burn
 ref/rule/umr-burn/burn
@@ -1890,7 +1890,7 @@ book-section/pathfinder-unchained/1-1052
 ref/feat/versatile-channeler
 ref/feat/adept-channel
 ref/eq-weaponenh/consecrated-weapon
-ref/arc-cleric/varisian-pilgrim
+ref/arc-cleric/separatist
 query: cold
 ref/spelldef/cold
 ref/subtype/cold
@@ -2172,6 +2172,7 @@ ref/magic-artifact/demon-prince-armor
 ref/carried/mythic-adventures/monsters/demon/nalfeshnee/mythic
 ref/feat/demon-hunter/stamina
 ref/trait/demon-smiter
+ref/arc-cleric/demonic-apostle
 ref/npc/demon-blooded-sorcerer
 ref/carried/mythic-adventures/monsters/demon/vrock/mythic
 ref/magic-implant/demon-senses
@@ -2183,7 +2184,6 @@ ref/trait/demonic-persuasion
 ref/magic-implant/demonhide
 ref/rule/demonic
 ref/feat/demonic-obedience
-ref/arc-cleric/demonic-apostle
 ref/trait/demonblight-reistance
 ref/npc/demonologist
 ref/magic-wondrous/demon-mothers-mask
@@ -2250,23 +2250,23 @@ book-section/ultimate-magic/4-12-14
 ref/eq-misc/light-detector
 query: divine
 ref/arc-paladin/divine-defender
+ref/arc-paladin/divine-hunter
 ref/rule/divine-spells
 ref/pclass/divine-scion
 ref/arc-paladin/divine-guardian
-ref/arc-cleric/divine-strategist
+ref/arc-warpriest/divine-commander
 ref/arc-oracle/divine-numerologist
+ref/arc-cleric/divine-strategist
 ref/template/divine-guardian
 ref/carried/bestiary-4/monsters/divine-guardian
-ref/arc-warpriest/divine-commander
 ref/arc-ranger/divine-tracker
 ref/rule/divine-gifts
-ref/arc-paladin/divine-hunter
 ref/feat/divine-deception
 ref/arc-cleric/divine-scourge
 ref/arc-cleric/divine-paragon
+ref/arc-hunter/divine-hunter
 ref/arc-warpriest/divine-champion
 ref/rule/divine-intervention
-ref/arc-hunter/divine-hunter
 ref/feat/divine-denouncer
 ref/feat/divine-dignity
 ref/trait/divine-denier
@@ -2434,8 +2434,8 @@ ref/magic-weapon/earthcracker
 ref/monster/veela-earth-veela
 ref/magic-wondrous/earth-child-faceguard
 ref/rule/earthquake
-ref/monster/wysp-earth-wysp
 ref/npc/earthfather
+ref/monster/wysp-earth-wysp
 ref/spell/earthquake
 ref/feat/earth-child-binder
 ref/feat/earth-child-topple
@@ -2459,7 +2459,9 @@ ref/sorcbloodline/elemental
 ref/eidolon/elemental
 ref/mystery/elemental
 ref/blrgbloodline/elemental
+ref/arc-magus/elemental-knight
 ref/arc-barbarian/elemental-kin
+ref/arc-arcanist/elemental-master
 ref/spell/elemental-bombardment
 ref/arc-druid/elemental-ally
 ref/spell/elemental-swarm
@@ -2468,10 +2470,8 @@ ref/trait/elemental-ties
 ref/trait/elemental-endowment
 ref/spell/elemental-bombardment/mythic
 ref/carried/bestiary/monsters/elemental/earth/elder
-ref/arc-magus/elemental-knight
 ref/carried/bestiary/monsters/elemental/fire/elder
 ref/magic-wondrous/elemental-gem
-ref/arc-arcanist/elemental-master
 ref/arc-monk/elemental-monk
 ref/arc-ranger/elemental-envoy
 ref/ragepower/elemental-blood
