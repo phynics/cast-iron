@@ -1,8 +1,8 @@
 # Top-50 result ids for the 50 queries of tests/e2e/measure-library.mjs.
 # Regenerate with `cargo xtask search-golden` (after `cargo xtask content`) in every corpus-pin PR.
-# corpus 46fd82ec7eee2ddf4973443c0654a123a68ab5e2
-# tag v0.1.53
-# content vaf480bb658b3a9ec
+# corpus a41ac04447c10bafd42ced1139dbe5049a287707
+# tag v0.1.54
+# content vb1ba83324895ace8
 # Format: `query: <text>` starts a block; each other line is a result id.
 query: fire
 ref/subtype/fire
@@ -549,8 +549,8 @@ ref/magic-staff/staff-of-stealth
 ref/magic-wondrous/dust-of-disappearance
 ref/rule/swi-cloak
 ref/patron/deception
-ref/monster/duergar-duergar-high-priest
 ref/arc-ranger/urban-ranger
+ref/monster/duergar-duergar-high-priest
 ref/magic-wondrous/cloak-of-the-hunt
 ref/magic-wondrous/lantern-of-revealing
 ref/ragepower/celestial-totem
@@ -791,10 +791,10 @@ ref/feat/diversion-shot
 ref/feat/subtle-devices
 ref/monster/octopus-giant-octopus
 ref/aspect/owl
-ref/arc-rogue/heister
 ref/npc/pirate-smuggler
 ref/arc-rogue/cat-burglar
 ref/arc-familiar/pilferer
+ref/arc-rogue/heister
 ref/arc-rogue/guerrilla
 ref/monster/scorpion-deadfall-scorpion
 ref/arc-hunter/flood-flourisher
@@ -1517,19 +1517,19 @@ ref/feat/bladed-brush
 ref/spell/bladed-dash
 ref/trait/bladed-magic
 ref/feat/blades-above-and-below
+ref/arc-slayer/velvet-blade
+ref/arc-swashbuckler/guiding-blade
+ref/arc-swashbuckler/veiled-blade
 ref/tech-weapon/null-blade
 ref/magic-artifact/final-blade
-ref/arc-swashbuckler/guiding-blade
 ref/arc-warpriest/libertys-blade
 ref/arc-swashbuckler/flying-blade
 ref/pclass/lion-blade
 ref/magic-weapon/risen-blade
-ref/arc-slayer/velvet-blade
 ref/tech-weapon/plasma-blade
 ref/arc-samurai/sovereign-blade
 ref/rule/scaling-magic-weapons-thirsting-blade
 ref/arc-slayer/butterfly-blade
-ref/arc-swashbuckler/veiled-blade
 ref/arc-spiritualist/phantom-blade
 ref/magic-artifact/mantis-blade
 ref/kinetic/kinetic-blade
@@ -1591,6 +1591,7 @@ ref/ability/bloodrager-bloodlines
 ref/arc-bloodrager/bloodrider
 ref/umr/blood-drain
 ref/class/bloodrager
+ref/arc-kineticist/blood-kineticist
 ref/umr/blood-rage
 ref/arc-bloodrager/blood-conduit
 ref/spell/blood-biography
@@ -1604,7 +1605,6 @@ ref/disease/blood-veil
 ref/monster/blood-maize
 ref/monster/blood-lily
 ref/spell/blood-scent
-ref/arc-kineticist/blood-kineticist
 ref/feat/blood-salvage
 ref/arc-summoner/blood-summoner
 ref/eq-misc/blood-neutralizer
@@ -1670,11 +1670,11 @@ ref/rule/a-bolt-hole
 ref/spell/lightning-bolt/mythic
 book-section/game-mastery-guide/5-5-8
 book-section/mythic-adventures/5-2-158
+ref/arc-vigilante/warlock
 ref/feat/symbolic-mastery
 ref/spell/call-lightning
 ref/magic-weapon/cornerstone-crossbow
 ref/eq-weapon/double-crossbow
-ref/arc-vigilante/warlock
 ref/magic-weapon/sparkwake-starknife
 ref/magic-weapon/nightpiercer
 ref/spell/storm-of-vengeance/mythic
@@ -2086,6 +2086,7 @@ book-section/inner-sea-temples/1-3
 book-section/bestiary-2/2-23
 book-section/bestiary-5/1-360
 book-section/bestiary-5/1-360-1
+ref/arc-spiritualist/shadow-caller
 ref/npc/vivisectionist-cleric
 ref/npc/priest-of-oblivion
 ref/faith/asmodeus
@@ -2094,7 +2095,6 @@ ref/feat/umbral-shift
 ref/magic-wondrous/voidlight-lantern
 ref/magic-weapon/umbral-chain
 ref/spell/flickering-lights
-ref/eq-misc/glowing-ink
 query: death
 ref/spelldef/death
 ref/patron/death
@@ -2462,6 +2462,7 @@ ref/blrgbloodline/elemental
 ref/arc-magus/elemental-knight
 ref/arc-barbarian/elemental-kin
 ref/arc-arcanist/elemental-master
+ref/arc-kineticist/elemental-ascetic
 ref/spell/elemental-bombardment
 ref/arc-druid/elemental-ally
 ref/spell/elemental-swarm
@@ -2476,7 +2477,6 @@ ref/arc-monk/elemental-monk
 ref/arc-ranger/elemental-envoy
 ref/ragepower/elemental-blood
 ref/eq-misc/elemental-proofing
-ref/arc-kineticist/elemental-ascetic
 ref/feat/elemental-channel
 ref/npc/elemental-priest
 ref/arc-kineticist/elemental-purist
@@ -2488,8 +2488,8 @@ ref/kipower/elemental-burst
 ref/feat/elemental-fist
 ref/magic-ring/elemental-ring
 ref/carried/bestiary/monsters/elemental/water/elder
-ref/kinetic/elemental-exile
 ref/arc-kineticist/elemental-annihilator
+ref/kinetic/elemental-exile
 ref/arc-companion/elemental-companion
 ref/trait/elemental-negotiator
 ref/trait/elemental-caller

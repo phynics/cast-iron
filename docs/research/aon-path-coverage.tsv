@@ -4616,7 +4616,7 @@ ref/npc/pirate-queen	creature	Pirate Queen
 ref/npc/pirate-sailor	creature	Pirate (Sailor)
 ref/npc/pirate-smuggler	creature	Pirate (Smuggler)
 ref/npc/poacher	creature	Poacher
-ref/npc/poisononous-performer	creature	Poisononous Performer
+ref/npc/poisononous-performer	creature	Poisonous Performer
 ref/npc/prankster-illusionist	creature	Prankster Illusionist
 ref/npc/priest-of-oblivion	creature	Priest of Oblivion
 ref/npc/princess	creature	Princess
@@ -4967,7 +4967,7 @@ ref/feat/equipment-trick-wondrous-item	feat	Equipment Trick (Wondrous Item)
 ref/feat/extra-mythic-power	feat	Extra Mythic Power
 ref/feat/extra-path-ability	feat	Extra Path Ability
 ref/feat/fabulous-figments	feat	Fabulous Figments
-ref/feat/introspecitve-performance	feat	Introspecitve Performance
+ref/feat/introspecitve-performance	feat	Introspective Performance
 ref/feat/legendary-teamwork	feat	Legendary Teamwork
 ref/feat/lucky-surge	feat	Lucky Surge
 ref/feat/maximize-surge	feat	Maximize Surge
@@ -4980,7 +4980,7 @@ ref/feat/titan-strike	feat	Titan Strike
 ref/feat/trick-spell	feat	Trick Spell
 ref/feat/two-fisted-drinker	feat	Two-Fisted Drinker
 ref/feat/valiant-vault	feat	Valiant Vault
-ref/feat/vampire-animal-companion	feat	Vampire Animal Companion
+ref/feat/vampire-animal-companion	feat	Vampiric Animal Companion
 ref/feat/weapon-trick-one-handed-weapon	feat	Weapon Trick (One-Handed Weapon)
 ref/feat/weapon-trick-polearm	feat	Weapon Trick (Polearm)
 ref/feat/weapon-trick-ranged-weapon	feat	Weapon Trick (Ranged Weapon)
@@ -19070,9 +19070,9 @@ ref/spell/detect-chaos-evil-good-law	spell	Detect Chaos/Evil/Good/Law
 ref/spell/drench	spell	Drench
 ref/spell/flesh-to-stone	spell	Flesh to Stone
 ref/spell/fleshwarping-swarm	spell	Fleshwarping Swarm
-ref/spell/hasten-judgement	spell	Hasten Judgement
+ref/spell/hasten-judgement	spell	Hasten Judgment
 ref/spell/jolt	spell	Jolt
-ref/spell/judgement-undone	spell	Judgement Undone
+ref/spell/judgement-undone	spell	Judgment Undone
 ref/spell/magic-circle	spell	Magic Circle
 ref/spell/magic-circle-against-chaos-evil-good-law	spell	Magic Circle Against Chaos/Evil/Good/Law
 ref/spell/penumbra	spell	Penumbra
@@ -19088,7 +19088,7 @@ ref/spell/summon-natures-ally	spell	Summon Nature's Ally
 ref/spell/summon-totem-creature	spell	Summon Totem Creature
 ref/spell/transmute-mud-to-rock	spell	Transmute Mud to Rock
 ref/spell/transmute-rock-to-mud	spell	Transmute Rock to Mud
-ref/spell/unshakeable-zeal	spell	Unshakeable Zeal
+ref/spell/unshakeable-zeal	spell	Unshakable Zeal
 ref/trait/artifact-hunter-isp	trait	Artifact Hunter (ISP)
 ref/trait/azlanti-scholar-hftf	trait	Azlanti Scholar (HFtF)
 ref/trait/azlanti-scholar-roapg	trait	Azlanti Scholar (RoAPG)
