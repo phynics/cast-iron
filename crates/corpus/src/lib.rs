@@ -26,6 +26,7 @@ mod block;
 mod books;
 mod check;
 mod check_features;
+mod check_memberships;
 mod check_powers;
 mod check_residue;
 mod check_trades;
