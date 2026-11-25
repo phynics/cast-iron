@@ -44,6 +44,16 @@
 //! granted noun ("These bonus spells replace the oracle's mystery bonus spells at these levels.",
 //! "This bonus feat replaces ..."). "This bonus replaces ..." stays prose.
 //!
+//! `choice` and `choices` are a subject word only right after `bonus feat` or `bonus feats` ("These
+//! bonus feat choices replace Dodge, Mobility, and Spring Attack on his bonus feat list.",
+//! Advanced Race Guide, Ironskin Monk); the sentence is bare like every `feat` subject.
+//!
+//! A sentence also ends after a parenthesis that closes a sentence of its own: ".)", "!)" or "?)"
+//! followed by whitespace, when that `)` closes a `(` opened earlier ("(Those marked with an
+//! asterisk are detailed in this book.) This alters the bonus feat class ability.", Advanced Class
+//! Guide, Daring Infiltrator). A tag or a short qualifier ("(Ex) This ...", "(see below) This ...")
+//! and a `)` that closes no `(` end no sentence.
+//!
 //! Owner ruling 30 of 2026-11-25 adds three readings: the phrase ends at ", and " when a clause
 //! follows (R13, [`CLAUSE_WORDS`]); a class name before "class ability" is a descriptor (R14); and
 //! "raging song" after a name is a descriptor (R15). The aside that R9 drops is kept in
@@ -68,15 +78,30 @@ pub struct TradeSentence {
     pub aside: String,
 }
 
-/// The sentences of `text`, split at a period that ends a word.
+/// The sentences of `text`, split at a period that ends a word, and after a parenthesis that
+/// closes a sentence of its own: "(Those marked with an asterisk are detailed in this book.) This
+/// alters the bonus feat class ability." Only the form ".)" counts (a `.`, `!` or `?` right before
+/// the `)`), and only when that `)` closes a `(` opened earlier in the text: "(Ex) This ..." and
+/// "(see below) This ..." do not end a sentence, and a stray ".) This" does not either.
 fn sentences(text: &str) -> Vec<String> {
     let mut out = Vec::new();
     let mut current = String::new();
     let chars: Vec<char> = text.chars().collect();
+    let mut depth = 0usize;
     for (index, ch) in chars.iter().enumerate() {
         current.push(*ch);
-        let ends = matches!(ch, '.' | '!' | '?')
-            && chars.get(index + 1).is_none_or(|next| next.is_whitespace());
+        let at_end = |after: usize| chars.get(after).is_none_or(|next| next.is_whitespace());
+        let closes_a_sentence = *ch == ')'
+            && depth > 0
+            && index > 0
+            && matches!(chars[index - 1], '.' | '!' | '?')
+            && at_end(index + 1);
+        match ch {
+            '(' => depth += 1,
+            ')' => depth = depth.saturating_sub(1),
+            _ => {}
+        }
+        let ends = (matches!(ch, '.' | '!' | '?') && at_end(index + 1)) || closes_a_sentence;
         if ends {
             out.push(std::mem::take(&mut current));
         }
@@ -217,7 +242,19 @@ fn is_subject(words: &[&str]) -> bool {
                 && words
                     .get(index + 1)
                     .is_some_and(|next| GRANTED_WORDS.contains(&next.to_lowercase().as_str())))
+            || is_bonus_feat_choice(words, index)
     })
+}
+
+/// "These bonus feat choices replace Dodge, Mobility, and Spring Attack on his bonus feat list."
+/// (Advanced Race Guide, Ironskin Monk): `choice` or `choices` is a subject word only right after
+/// `bonus feat` or `bonus feats`. The sentence stays bare, like every `feat` subject.
+fn is_bonus_feat_choice(words: &[&str], index: usize) -> bool {
+    let lower = words[index].to_lowercase();
+    matches!(lower.as_str(), "choice" | "choices")
+        && index >= 2
+        && words[index - 2].eq_ignore_ascii_case("bonus")
+        && matches!(words[index - 1].to_lowercase().as_str(), "feat" | "feats")
 }
 
 /// R13: the words that mark a clause rather than a list of names, in the part after ", and ". A
@@ -1413,6 +1450,107 @@ mod tests {
             one("This bonus ability alters bravery.").op,
             TradeOp::Alters
         );
+    }
+
+    const DARING_INFILTRATOR: &str = "In addition to combat feats, a daring infiltrator's bonus feats at 4th, 8th, 12th, 16th, and 20th level can come from the following list: [Alertness](ref/feat/alertness), [Antagonize](ref/feat/antagonize), [Cosmopolitan](ref/feat/cosmopolitan), [Deceitful](ref/feat/deceitful), [Deft Hands](ref/feat/deft-hands), Disarming Threat\\*, [Persuasive](ref/feat/persuasive), [Prodigy](ref/feat/prodigy), and [Skill Focus](ref/feat/skill-focus). (Those marked with an asterisk \\[\\*\\] are detailed in this book.) This alters the bonus feat class ability.";
+
+    #[test]
+    fn a_sentence_starts_after_a_parenthesis_that_closes_a_sentence() {
+        // Advanced Class Guide p. 124, Daring Infiltrator ("Bonus Feats" scaffold section).
+        let sentence = one(DARING_INFILTRATOR);
+        assert_eq!(sentence.op, TradeOp::Alters);
+        // "This alters ..." has no subject noun, so it is bare: it counts when a trade names it.
+        assert!(sentence.bare);
+        assert_eq!(sentence.phrase, "the bonus feat class ability");
+        assert!(names_a_trade(
+            &sentence,
+            &[(TradeOp::Alters, "Bonus feats".to_string())]
+        ));
+        assert!(phrase_is_covered(
+            &sentence.phrase,
+            &names(&["Bonus feats"])
+        ));
+        // Other punctuation inside the parenthesis, and the verb `replaces`.
+        assert_eq!(
+            one("It grants a bonus (Those are listed below!) This replaces bravery.").phrase,
+            "bravery"
+        );
+        assert_eq!(
+            one("(Is this a rule?) This alters armor training.").phrase,
+            "armor training"
+        );
+        // The parenthesis ends the sentence before it: no trade is read across it.
+        assert!(
+            trade_sentences(
+                "This ability replaces bravery (a fighter never gains it.) It also grants a bonus."
+            )
+            .iter()
+            .all(|sentence| sentence.phrase == "bravery"
+                && sentence.aside == "a fighter never gains it.")
+        );
+    }
+
+    #[test]
+    fn a_parenthesis_that_does_not_close_a_sentence_starts_none() {
+        // A tag or a short qualifier is not a sentence end.
+        assert!(trade_sentences("A bravery bonus (Ex) This alters armor training.").is_empty());
+        assert!(trade_sentences("A bonus (see below) This alters armor training.").is_empty());
+        assert!(trade_sentences("A bonus (as normal) This replaces bravery.").is_empty());
+        // A `)` that closes no earlier `(` ends nothing.
+        assert!(trade_sentences("A bonus of 1.) This replaces bravery.").is_empty());
+        // Inside a parenthesis, the sentence is not split before the closing `)`.
+        let sentence =
+            one("This ability replaces swift alchemy (a deep bomber never gains instant alchemy.)");
+        assert_eq!(sentence.phrase, "swift alchemy");
+        assert_eq!(sentence.aside, "a deep bomber never gains instant alchemy.");
+    }
+
+    #[test]
+    fn bonus_feat_choices_are_a_bare_granted_thing_subject() {
+        // Advanced Race Guide p. 122, Ironskin Monk.
+        let sentence = one(
+            "These bonus feat choices replace Dodge, Mobility, and Spring Attack on his bonus feat list.",
+        );
+        assert_eq!(sentence.op, TradeOp::Replaces);
+        assert!(sentence.bare);
+        assert_eq!(
+            sentence.phrase,
+            "Dodge, Mobility, and Spring Attack on his bonus feat list"
+        );
+        let stored = [
+            (TradeOp::Replaces, "Dodge".to_string()),
+            (TradeOp::Replaces, "Mobility".to_string()),
+            (
+                TradeOp::Replaces,
+                "Spring Attack on his bonus feat list".to_string(),
+            ),
+        ];
+        assert!(names_a_trade(&sentence, &stored));
+        assert!(phrase_is_covered(
+            &sentence.phrase,
+            &names(&["Dodge", "Mobility", "Spring Attack on his bonus feat list"])
+        ));
+        // The singular, and `feats`.
+        assert!(one("This bonus feat choice replaces Dodge.").bare);
+        assert!(one("These bonus feats choices replace Dodge.").bare);
+        // A bare sentence counts only when it names a stored trade.
+        let other = [(TradeOp::Replaces, "Bravery".to_string())];
+        assert!(!names_a_trade(&sentence, &other));
+    }
+
+    #[test]
+    fn choices_is_a_subject_word_only_after_bonus_feat() {
+        for text in [
+            "These choices replace Dodge.",
+            "These bonus choices replace Dodge.",
+            "These feat choices replace Dodge.",
+            "These bonus spell choices replace Dodge.",
+            "These bonus choices feat replace Dodge.",
+            "This choice replaces Dodge.",
+            "These bonus feat choices do not replace Dodge.",
+        ] {
+            assert!(trade_sentences(text).is_empty(), "{text}");
+        }
     }
 
     #[test]
