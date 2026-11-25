@@ -23,6 +23,7 @@ use crate::views::filter_menu::{
     take_focus_request, trigger_text,
 };
 use crate::views::icons;
+use crate::views::list_order::list_order;
 use crate::views::scope::{FilterPill, Scope};
 use crate::views::search::{facet_label, sort_facet_pairs};
 use crate::views::source_variants::{Parent, SourceVariant, SourceVariants, group_variants};
@@ -37,15 +38,16 @@ use wasm_bindgen::JsCast;
 
 // ---- pure helpers -----------------------------------------------------------------------
 
-/// Indices into `titles` grouped by first letter, in A to Z order with `#` last. Within a
-/// group, entries keep their order in `titles`, so pass them sorted.
-pub fn group_by_letter(titles: &[&str]) -> Vec<(char, Vec<usize>)> {
+/// Indices into `letters` grouped by letter, in A to Z order with `#` last. Within a group,
+/// entries keep their order, so pass them in display order. The letter of a row is the letter
+/// of the place the list gives it (`list_order`), not of its own title: `Greater Weapon Focus`
+/// belongs to W.
+pub fn group_by_letter(letters: &[char]) -> Vec<(char, Vec<usize>)> {
     let mut groups: Vec<(char, Vec<usize>)> = Vec::new();
-    for (i, title) in titles.iter().enumerate() {
-        let letter = group_letter(title);
-        match groups.iter_mut().find(|(l, _)| *l == letter) {
+    for (i, letter) in letters.iter().enumerate() {
+        match groups.iter_mut().find(|(l, _)| l == letter) {
             Some((_, list)) => list.push(i),
-            None => groups.push((letter, vec![i])),
+            None => groups.push((*letter, vec![i])),
         }
     }
     cast_iron_sort::sort_by_key(&mut groups, |(l, _)| (*l == '#', *l));
@@ -55,7 +57,7 @@ pub fn group_by_letter(titles: &[&str]) -> Vec<(char, Vec<usize>)> {
 /// Entries of a kind as `(stub)` sorted by title.
 fn sorted_of_kind(library: &Library, kind: EntryKind) -> Vec<EntryStub> {
     let mut list: Vec<EntryStub> = library.discovery().entries_of_kind(kind).cloned().collect();
-    sort_rows(&mut list, kind);
+    sort_rows(&mut list);
     list
 }
 
@@ -67,33 +69,30 @@ fn sorted_of_kind_in_source(library: &Library, kind: EntryKind, source: &str) ->
         .filter(|stub| library.stub_is_in_source(stub, source))
         .cloned()
         .collect();
-    sort_rows(&mut list, kind);
+    sort_rows(&mut list);
     list
 }
 
-/// Order key for a feat row. A mythic version (`Dodge, Mythic`) sits directly after its base
-/// (`Dodge`), before titles such as `Dodge Anything` that sort between the two strings. The
-/// corpus titles every mythic version `{base}, Mythic`; the relation graph supplies the row's
-/// label, and this supplies only its place.
-fn feat_sort_key(title: &str) -> (String, u8) {
-    const MYTHIC: &str = ", mythic";
-    let lower = sort_key(title);
-    match lower.strip_suffix(MYTHIC) {
-        Some(base) if !base.is_empty() => (base.to_string(), 1),
-        _ => (lower, 0),
-    }
+/// Puts a list in display order, and returns each row's letter section. The order follows the
+/// titles of this list: a modifier title (`Greater Weapon Focus`) sits after its base (see
+/// `list_order`), so call this on the list that is shown, after any filter.
+fn arranged(list: Vec<EntryStub>) -> (Vec<EntryStub>, Vec<char>) {
+    let rows: Vec<(&str, &str)> = list
+        .iter()
+        .map(|stub| (stub.title.as_str(), stub.id.as_str()))
+        .collect();
+    let placed = list_order(&rows);
+    let letters = placed.iter().map(|p| p.letter).collect();
+    let mut slots: Vec<Option<EntryStub>> = list.into_iter().map(Some).collect();
+    let ordered = placed
+        .iter()
+        .filter_map(|p| slots[p.index].take())
+        .collect();
+    (ordered, letters)
 }
 
-fn sort_rows(list: &mut [EntryStub], kind: EntryKind) {
-    if kind == EntryKind::Feat {
-        cast_iron_sort::sort_by(list, |a, b| {
-            feat_sort_key(&a.title)
-                .cmp(&feat_sort_key(&b.title))
-                .then_with(|| a.id.cmp(&b.id))
-        });
-    } else {
-        cast_iron_sort::sort_by_key(list, |s| (sort_key(&s.title), s.id.clone()));
-    }
+fn sort_rows(list: &mut Vec<EntryStub>) {
+    *list = arranged(std::mem::take(list)).0;
 }
 
 // ---- views ------------------------------------------------------------------------------
@@ -1613,11 +1612,24 @@ fn AzList(
             };
             let mut order = indices.to_vec();
             if parents.is_some() {
-                // Rows of one title sort by their parent's title, then by id.
+                // Rows of one title sort by their parent's title, then by id. The rows come in
+                // list order, which places a modifier title after its base, so a run of equal
+                // titles is the unit to keep in place, not the title's own spelling.
+                let mut run = HashMap::with_capacity(order.len());
+                let mut current = 0_usize;
+                let mut last: Option<String> = None;
+                for &i in &order {
+                    let title = sort_key(&stubs[i].title);
+                    if last.as_deref() != Some(title.as_str()) {
+                        current += 1;
+                        last = Some(title);
+                    }
+                    run.insert(i, current);
+                }
                 cast_iron_sort::sort_by_cached_key(&mut order, |&i| {
                     let stub = &stubs[i];
                     (
-                        sort_key(&stub.title),
+                        run[&i],
                         parent_of(stub).map(|parent| sort_key(&parent.title)),
                         stub.id.clone(),
                     )
@@ -2217,6 +2229,15 @@ fn BrowseList(
     revisions: Option<Shared<EffectiveRevisions>>,
 ) -> impl IntoView {
     let library = use_library();
+    // The order and the letter sections follow the titles of this list, after the filter: a
+    // modifier title sits after its base only while the base is in the list, and under the
+    // base's letter.
+    let (stubs, letters) = if sections.is_some() {
+        let letters = stubs.iter().map(|s| group_letter(&s.title)).collect();
+        (stubs, letters)
+    } else {
+        arranged(stubs)
+    };
     let count = stubs.len();
     let narrowed = !applied.is_empty();
     let book = source_title.is_some();
@@ -2238,8 +2259,7 @@ fn BrowseList(
     let multi_source = stubs
         .first()
         .is_some_and(|first| stubs.iter().any(|s| row_source(s) != row_source(first)));
-    let titles: Vec<&str> = stubs.iter().map(|s| s.title.as_str()).collect();
-    let groups = group_by_letter(&titles);
+    let groups = group_by_letter(&letters);
     let requested = letter.filter(|letter| groups.iter().any(|(group, _)| group == letter));
     let selected = requested.or_else(|| groups.first().map(|(letter, _)| *letter));
     // A class scope is part of the URL but not an applied facet, so the letter links and the
@@ -2505,7 +2525,7 @@ pub fn BrowseSource(id: String, #[prop(optional)] bare: bool) -> impl IntoView {
             if stubs.is_empty() {
                 return None;
             }
-            cast_iron_sort::sort_by_key(&mut stubs, |s| (sort_key(&s.title), s.id.clone()));
+            sort_rows(&mut stubs);
             Some((kind, stubs))
         })
         .map(|(kind, stubs)| {
@@ -2578,7 +2598,8 @@ mod tests {
     #[test]
     fn letters_group_in_order_with_other_last() {
         let titles = ["1st Strike", "Acid", "Alarm", "Bless", "(Zone)"];
-        let groups = group_by_letter(&titles);
+        let letters: Vec<char> = titles.iter().map(|t| group_letter(t)).collect();
+        let groups = group_by_letter(&letters);
         assert_eq!(
             groups,
             vec![
@@ -2721,6 +2742,55 @@ mod tests {
         }
     }
 
+    #[test]
+    fn a_moved_row_counts_in_its_base_letter_section_and_the_sections_agree_with_the_rows() {
+        let list: Vec<EntryStub> = [
+            "Greater Weapon Focus",
+            "Weapon Focus, Mythic",
+            "Weapon Focus",
+            "Greater Fortitude",
+            "Gather Information",
+        ]
+        .iter()
+        .enumerate()
+        .map(|(i, title)| stub(&format!("ref/feat/f{i}"), title))
+        .collect();
+        let (ordered, letters) = arranged(list);
+        let titles: Vec<&str> = ordered.iter().map(|s| s.title.as_str()).collect();
+        assert_eq!(
+            titles,
+            [
+                "Gather Information",
+                "Greater Fortitude",
+                "Weapon Focus",
+                "Weapon Focus, Mythic",
+                "Greater Weapon Focus",
+            ]
+        );
+        let groups = group_by_letter(&letters);
+        let sections: Vec<(char, Vec<&str>)> = groups
+            .iter()
+            .map(|(letter, rows)| (*letter, rows.iter().map(|&i| titles[i]).collect()))
+            .collect();
+        assert_eq!(
+            sections,
+            [
+                ('G', vec!["Gather Information", "Greater Fortitude"]),
+                (
+                    'W',
+                    vec![
+                        "Weapon Focus",
+                        "Weapon Focus, Mythic",
+                        "Greater Weapon Focus"
+                    ]
+                ),
+            ]
+        );
+        // A list without the base keeps the modifier title under its own letter.
+        let (_, letters) = arranged(vec![stub("ref/feat/g0", "Greater Weapon Focus")]);
+        assert_eq!(letters, ['G']);
+    }
+
     fn ids(list: &[&str]) -> HashSet<String> {
         list.iter().map(|id| id.to_string()).collect()
     }
@@ -2815,20 +2885,6 @@ mod tests {
         assert_eq!(chain_mark_suffix(1234), ", leads to 1,234 feats");
         assert_eq!(chain_mark_suffix(1), ", leads to 1 feat");
         assert_eq!(CHAIN_MARK_MIN, 5);
-    }
-
-    #[test]
-    fn a_mythic_version_sits_directly_after_its_base_in_a_feat_list() {
-        let mut titles = ["Acrobatic Spellcaster", "Acrobatic, Mythic", "Acrobatic"];
-        titles.sort_by_key(|title| feat_sort_key(title));
-        assert_eq!(
-            titles,
-            ["Acrobatic", "Acrobatic, Mythic", "Acrobatic Spellcaster"]
-        );
-        assert_eq!(feat_sort_key("Dodge"), ("dodge".to_string(), 0));
-        assert_eq!(feat_sort_key("Dodge, Mythic"), ("dodge".to_string(), 1));
-        // A title that only looks like a suffix keeps its own place.
-        assert_eq!(feat_sort_key(", Mythic"), (", mythic".to_string(), 0));
     }
 
     fn book(id: &str, title: &str, category: Option<&str>, date: Option<&str>) -> BookListEntry {
