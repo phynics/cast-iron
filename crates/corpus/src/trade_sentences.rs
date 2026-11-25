@@ -11,8 +11,11 @@
 //! A name is compared as words: case, punctuation, hyphens, articles, ability tags (`(Ex)`) and a
 //! plural `s` do not matter, and a possessive word before a name ("the rogue's trapfinding") is
 //! dropped. A hyphen-suspended list ("1st-, 2nd- and 3rd-level bonus feats") reads as one name per
-//! level ("1st-level bonus feats", ...), and numbered steps ("armor training 1, 2, 3, and 4") as
-//! one name per step. The words `ability` and `class feature` around a name are dropped too
+//! level ("1st-level bonus feats", ...); each suspended item takes the tail of the next full item
+//! after it, so a phrase with two lists ("the 4th- and 14th-level vigilante talents and the 9th-
+//! and 19th-level social talents", Horror Adventures, Serial Killer) expands each against its own
+//! tail (a clarification of this reading, #540). Numbered steps ("armor training 1, 2, 3, and 4")
+//! read as one name per step. The words `ability` and `class feature` around a name are dropped too
 //! ("the paladin's spells class feature" names `Spells`; `class ability` likewise, but `Class
 //! skills` keeps both words). A trade may name one item of a sentence or the whole phrase.
 //!
@@ -750,7 +753,9 @@ pub(crate) fn strip_tags(text: &str) -> String {
 /// Expands the two printed shorthands of a list of names, so each name stands alone:
 ///
 /// - a hyphen-suspended list: "1st-, 2nd- and 3rd-level bonus feats" becomes "1st-level bonus
-///   feats, 2nd-level bonus feats, 3rd-level bonus feats";
+///   feats, 2nd-level bonus feats, 3rd-level bonus feats". Each suspended item takes the tail of
+///   the next full item after it, so a phrase with two lists ("4th- and 14th-level vigilante
+///   talents and the 9th- and 19th-level social talents") expands each against its own tail;
 /// - numbered steps after a shared head: "armor training 1, 2, 3, and 4" becomes "armor training
 ///   1, armor training 2, armor training 3, armor training 4".
 ///
@@ -809,10 +814,23 @@ fn expand_lists(text: &str) -> String {
     if !suspended && !numbered && !shared && !ranged {
         return text.to_string();
     }
-    let tail = items
-        .iter()
-        .find(|item| !item.ends_with('-') && item.contains('-'))
-        .and_then(|item| item.split_once('-').map(|(_, tail)| tail.to_string()));
+    // The tail of a hyphenated item: "level vigilante talents" of "14th-level vigilante talents".
+    let tail_of = |item: &String| -> Option<String> {
+        (!item.ends_with('-'))
+            .then(|| item.split_once('-').map(|(_, tail)| tail.to_string()))
+            .flatten()
+    };
+    // Each suspended item takes the tail of the next full item after it, so a phrase with two
+    // lists ("4th- and 14th-level vigilante talents and the 9th- and 19th-level social talents")
+    // expands each against its own tail. A suspended item with no full item after it falls back
+    // to the first full item of the phrase.
+    let first_tail = items.iter().find_map(tail_of);
+    let tail_for = |index: usize| -> Option<String> {
+        items[index + 1..]
+            .iter()
+            .find_map(tail_of)
+            .or_else(|| first_tail.clone())
+    };
     let mut head: Option<String> = None;
     let mut out = Vec::new();
     for (index, item) in items.iter().enumerate() {
@@ -822,7 +840,7 @@ fn expand_lists(text: &str) -> String {
         }
         if suspended
             && item.ends_with('-')
-            && let Some(tail) = &tail
+            && let Some(tail) = tail_for(index)
         {
             out.push(format!("{item}{tail}"));
             continue;
@@ -1357,6 +1375,96 @@ mod tests {
             phrase,
             &names(&["1st-level bonus feat", "2nd-level bonus feat"])
         ));
+    }
+
+    #[test]
+    fn two_suspended_lists_expand_each_against_its_own_tail() {
+        // Horror Adventures, Serial Killer, Studied Target (p. 69).
+        let phrase =
+            "the 4th- and 14th-level vigilante talents and the 9th- and 19th-level social talents";
+        assert_eq!(
+            name_words(phrase),
+            name_words(
+                "4th-level vigilante talents, 14th-level vigilante talents, \
+                 9th-level social talents, 19th-level social talents"
+            )
+        );
+        // The two stored trades, each a whole suspended list.
+        let stored = names(&[
+            "4th- and 14th-level vigilante talents",
+            "9th- and 19th-level social talents",
+        ]);
+        assert!(phrase_is_covered(phrase, &stored));
+        // One trade per level covers it as well.
+        let per_level = names(&[
+            "4th-level vigilante talent",
+            "14th-level vigilante talents",
+            "9th-level social talents",
+            "19th-level social talents",
+        ]);
+        assert!(phrase_is_covered(phrase, &per_level));
+        assert!(name_in_phrase(&per_level[2], phrase));
+        // A level of the wrong list is not covered.
+        let crossed = names(&[
+            "4th-level vigilante talents",
+            "14th-level vigilante talents",
+            "9th-level vigilante talents",
+            "19th-level social talents",
+        ]);
+        assert!(!phrase_is_covered(phrase, &crossed));
+        // One list alone is not the whole phrase.
+        assert!(!phrase_is_covered(
+            phrase,
+            &names(&["4th- and 14th-level vigilante talents"])
+        ));
+    }
+
+    #[test]
+    fn a_single_suspended_list_is_unchanged() {
+        let phrase = "the 4th- and 14th-level vigilante talents";
+        assert_eq!(
+            name_words(phrase),
+            name_words("4th-level vigilante talents, 14th-level vigilante talents")
+        );
+        assert!(phrase_is_covered(
+            phrase,
+            &names(&["4th-level vigilante talent", "14th-level vigilante talent"])
+        ));
+        assert!(phrase_is_covered(
+            phrase,
+            &names(&["4th- and 14th-level vigilante talents"])
+        ));
+    }
+
+    #[test]
+    fn a_suspended_list_with_or_expands_like_one_with_and() {
+        let phrase =
+            "the 4th- or 14th-level vigilante talents and the 9th- or 19th-level social talents";
+        assert!(phrase_is_covered(
+            phrase,
+            &names(&[
+                "4th- or 14th-level vigilante talents",
+                "9th- or 19th-level social talents",
+            ])
+        ));
+        assert_eq!(
+            name_words("the 1st-, 2nd- or 3rd-level bonus feats"),
+            name_words("1st-level bonus feats, 2nd-level bonus feats, 3rd-level bonus feats")
+        );
+    }
+
+    #[test]
+    fn two_suspended_lists_that_share_one_tail_both_take_it() {
+        // No printed form is known; the lists have no tail of their own, so the later full item
+        // gives both.
+        let phrase = "the 1st- and 2nd-, and the 5th- and 6th-level bonus feats";
+        assert_eq!(
+            name_words(phrase),
+            name_words(
+                "1st-level bonus feats, 2nd-level bonus feats, 5th-level bonus feats, \
+                 6th-level bonus feats"
+            )
+        );
     }
 
     #[test]
