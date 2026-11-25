@@ -53,5 +53,7 @@ switch to reading 2 in one line.
 Unit tests in `trade_sentences.rs` carry the exact Raven Master sentence, the variant without the
 cross-reference (both trades), the other verb, both clause orders, and the negatives (the words
 before other words, inside a parenthesis, inside a longer word). One test in `drift.rs` pairs the
-sentence with its trade through `find_drift`. The pinned corpus (v0.1.54) holds no phrase that
-ends in these words, so `cargo xtask content` gives the same output.
+sentence with its trade through `find_drift`. No entry of the pinned corpus
+(v0.1.54) prints a trade sentence whose phrase ends in these words (the few entries that print them
+are items, a feat and a witch's hex list), so the compiled library does not change. `cargo xtask
+check` and `cargo xtask content` pass on the pin.
