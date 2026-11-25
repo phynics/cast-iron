@@ -215,6 +215,9 @@ pub fn facet_label(field: &str, value: &str) -> String {
         ("race_group", "monster_race") => "Monster races".into(),
         ("race_group", "other_race") => "Other races".into(),
         ("class_type", "npc") => "NPC".into(),
+        // The corpus spelled these two as identifiers before phynics/cast-iron-data#287. Drop
+        // these two arms with `LEGACY_CREATURE_TYPES` once the pin carries the lower-case
+        // words; `capitalize_words` then labels both.
         ("creature_type", "magicalBeast") => "Magical Beast".into(),
         ("creature_type", "monstrousHumanoid") => "Monstrous Humanoid".into(),
         ("creature_type", _)
@@ -2782,14 +2785,16 @@ mod tests {
         assert_eq!(facet_label("race_group", "monster_race"), "Monster races");
         assert_eq!(facet_label("race_group", "other_race"), "Other races");
         assert_eq!(facet_label("class_type", "npc"), "NPC");
-        assert_eq!(
-            facet_label("creature_type", "magicalBeast"),
-            "Magical Beast"
-        );
-        assert_eq!(
-            facet_label("creature_type", "monstrousHumanoid"),
-            "Monstrous Humanoid"
-        );
+        // Both spellings read the same: the identifier form of the corpus before
+        // phynics/cast-iron-data#287, and the lower-case words after it.
+        for (value, label) in [
+            ("magicalBeast", "Magical Beast"),
+            ("magical beast", "Magical Beast"),
+            ("monstrousHumanoid", "Monstrous Humanoid"),
+            ("monstrous humanoid", "Monstrous Humanoid"),
+        ] {
+            assert_eq!(facet_label("creature_type", value), label);
+        }
         // Every lowercase creature type reads as a title, not as its index value.
         for (value, label) in [
             ("aberration", "Aberration"),

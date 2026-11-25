@@ -17,10 +17,12 @@ use cast_iron_schema::{
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
-/// The creature types of Pathfinder First Edition, in the corpus spelling.
+/// The creature types of Pathfinder First Edition, in the corpus spelling: the printed words in
+/// lower case (phynics/cast-iron-data#287).
 ///
 /// The client shows a `creature_type` facet value as written, so one type must have exactly one
 /// spelling. Case variants such as `Humanoid` would otherwise appear as separate filter values.
+/// [`LEGACY_CREATURE_TYPES`] lists the older spellings that the check still accepts.
 pub const CREATURE_TYPES: [&str; 13] = [
     "aberration",
     "animal",
@@ -28,14 +30,22 @@ pub const CREATURE_TYPES: [&str; 13] = [
     "dragon",
     "fey",
     "humanoid",
-    "magicalBeast",
-    "monstrousHumanoid",
+    "magical beast",
+    "monstrous humanoid",
     "ooze",
     "outsider",
     "plant",
     "undead",
     "vermin",
 ];
+
+/// The identifier spellings that `creature_type` used before phynics/cast-iron-data#287, which
+/// the check accepts until the corpus pin carries the lower-case words. The compiler indexes a
+/// value as written, so a library built from the old corpus still filters on these spellings.
+///
+/// Remove this list, and the `contains` call that reads it, in the PR that pins the corpus tag
+/// holding #287: from then on a value in this list is an error.
+pub const LEGACY_CREATURE_TYPES: [&str; 2] = ["magicalBeast", "monstrousHumanoid"];
 
 /// The feat types that print uses, one spelling each (phynics/cast-iron-data#169).
 ///
@@ -1492,6 +1502,7 @@ pub fn check(corpus: &Corpus) -> Report {
         if let TypedFields::Creature(fields) = &entry.fields
             && let Some(creature_type) = &fields.creature_type
             && !CREATURE_TYPES.contains(&creature_type.as_str())
+            && !LEGACY_CREATURE_TYPES.contains(&creature_type.as_str())
         {
             report.problems.push(format!(
                 "{}: creature_type `{creature_type}` is not one of the PF1e creature types: {}",
@@ -2978,8 +2989,15 @@ mod tests {
 
     #[test]
     fn creature_type_must_be_a_pf1e_type() {
-        let report = check(&corpus(vec![creature("ref/creature/ok", "magicalBeast")]));
-        assert!(report.problems.is_empty(), "{:?}", report.problems);
+        // The printed words in lower case, and the identifier spellings of the corpus before
+        // phynics/cast-iron-data#287, both pass until the pin carries #287.
+        for value in ["magical beast", "monstrous humanoid"]
+            .into_iter()
+            .chain(LEGACY_CREATURE_TYPES)
+        {
+            let report = check(&corpus(vec![creature("ref/creature/ok", value)]));
+            assert!(report.problems.is_empty(), "{value}: {:?}", report.problems);
+        }
 
         let report = check(&corpus(vec![creature("ref/creature/bad", "Magical Beast")]));
         assert_eq!(report.problems.len(), 1, "{:?}", report.problems);
@@ -2989,7 +3007,7 @@ mod tests {
             problem.contains("creature_type `Magical Beast`"),
             "{problem}"
         );
-        assert!(problem.contains("magicalBeast"), "{problem}");
+        assert!(problem.contains("magical beast"), "{problem}");
     }
 
     #[test]
@@ -3591,7 +3609,7 @@ mod tests {
     fn creature_with_body(body: &str) -> Corpus {
         let mut c = corpus(vec![creature(
             "ref/creature/spell-list-marker",
-            "magicalBeast",
+            "magical beast",
         )]);
         let stored = c.entries.values_mut().next().unwrap();
         stored.text = format!("{}\n{body}", stored.text.trim_end());
