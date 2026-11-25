@@ -1591,8 +1591,7 @@ installedTest("A scope that the Feats choice does not offer still shows and remo
   await expect(scopePill(page, "Traits")).toBeVisible();
   await layer.getByRole("button", { name: "Remove scope: Traits" }).click();
   await expect(scopePill(page, "Traits")).toHaveCount(0);
-  await page.keyboard.press("Escape");
-  await expect(layer).toBeHidden();
+  await closeQuickSearch(page);
 
   await page.goto("#/search?q=bully&kind=trait");
   await waitResults(page, "bully");
@@ -1616,8 +1615,7 @@ installedTest("Back from a scoped search returns to the list, and the scope foll
   // Escape closes the layer on the same list page; the scope is read again at the next opening.
   await openQuickSearch(page);
   await expect(scopePill(page)).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(layer).toBeHidden();
+  await closeQuickSearch(page);
   expect(new URL(page.url()).hash).toBe(listHash);
   await page.goto("#/");
   await openQuickSearch(page);
