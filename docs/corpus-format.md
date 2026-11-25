@@ -23,6 +23,7 @@ history.toml                    frozen results of the import; never edited
 aliases.toml                    legacy-to-canonical map (optional, when the library has one)
 option-groups.toml              class-option vocabulary (optional, schema 4)
 power-exceptions.toml           class-option powers that stay non-canonical on purpose (optional; read only by corpus-check)
+membership-exceptions.toml      book memberships that stay without a `[[sources]]` row on purpose (optional; read only by corpus-check)
 ```
 
 The path is derived from the permanent id. `ref/spell/fog-cloud` is
@@ -1148,20 +1149,43 @@ an unchanged Paizo base. A mixed entry is either a missed split or a shared-prin
 that a reviewer must confirm. The warnings stay non-failing while genuine shared printings
 remain; a clean corpus can promote them to errors.
 
-`corpus-check` also **warns** once per run about book memberships that lack a structured citation
-(#461): an entry lists a book in `source_ids` other than its first, and the entry has no
-`[[sources]]` row for that book. A row without a `page` satisfies the rule, so the rule asks for
-the row, not for a page. The first book is the entry's home and needs no row. Every later book
-claims that it prints the entry or a section of its body, and the `[[sources]]` row is the
-evidence that the check can read. A body `**Sources:**` line does not count, even when someone
-verified it against print: a reviewer converts a verified body citation to a `[[sources]]` row. An
-[`expanded_in`](#expanded_in) credit sits outside membership and does not count either. The warning
-gives the number of memberships and of entries, and three examples, each as
-`path:line: entry id in book` with the line of `source_ids`. It measures what remains of the
-cleanup of memberships that a book does not print: each batch either adds the row (the book prints
-the entry), removes the book, or, for a book that only expands the entry, moves it to
-`expanded_in`. When the count reaches 0 the warning becomes an error, as the footnote findings did
-(#531).
+`corpus-check` also **fails** on every book membership that lacks a structured citation (#461): an
+entry lists a book in `source_ids` other than its first, and the entry has no `[[sources]]` row
+for that book. A row without a `page` satisfies the rule, so the rule asks for the row, not for a
+page. The first book is the entry's home and needs no row. Every later book claims that it prints
+the entry or a section of its body, and the `[[sources]]` row is the evidence that the check can
+read. A body `**Sources:**` line does not count, even when someone verified it against print: a
+reviewer converts a verified body citation to a `[[sources]]` row. An [`expanded_in`](#expanded_in)
+credit sits outside membership and does not count either. Each finding is one error,
+`path:line: [memberships] entry id lists book in source_ids but no [[sources]] row cites it`, with the
+line of `source_ids`. The fix is one of three: add the row (the book prints the entry), remove the
+book (it does not), or, for a book that only expands the entry, move it to `expanded_in`. The rule
+was a warning while the cleanup of #461 ran, and became an error when the count reached its last
+named exception (decision `2026-11-25-uncited-membership-is-an-error`).
+
+### Membership exceptions
+
+`membership-exceptions.toml` in the corpus root is optional. It lists the memberships that stay
+without a row for a named reason that print cannot settle yet. The check skips a pair that the file
+names and never hides another: every other uncited membership is an error. The file is plain data
+that only `corpus-check` reads. When the file is absent, no membership is excepted. The content
+compiler does not read it, and the entries and the format number do not change.
+
+```toml
+[[exception]]
+entry = "ref/rule/gamemastery"           # the entry id
+book = "game-mastery-guide"              # a publication id that the entry lists in source_ids
+reason = "..."                           # why the book stays a member without a row
+issue = "phynics/cast-iron-data#277"    # the issue that decides it, as owner/repo#number
+```
+
+Every key is required, `reason` needs a text, `issue` reads `owner/repo#number`, and a second row
+for one `(entry, book)` is an error, as is an unknown key. The list only shrinks. A row is an error
+(`remove the row`) when its entry does not exist, when the entry does not list the book in
+`source_ids`, when the book is the entry's first, or when a `[[sources]]` row cites the book now. So
+resolving the membership fails the check until the row is removed. A malformed file is an error too,
+and the memberships are then checked without exceptions. Never add a row to make the check pass:
+a new uncited membership is a cleanup item (add the row or remove the book), not an exception.
 
 ## Drift between fields and body
 
