@@ -11,8 +11,11 @@
 //! A name is compared as words: case, punctuation, hyphens, articles, ability tags (`(Ex)`) and a
 //! plural `s` do not matter, and a possessive word before a name ("the rogue's trapfinding") is
 //! dropped. A hyphen-suspended list ("1st-, 2nd- and 3rd-level bonus feats") reads as one name per
-//! level ("1st-level bonus feats", ...), and numbered steps ("armor training 1, 2, 3, and 4") as
-//! one name per step. The words `ability` and `class feature` around a name are dropped too
+//! level ("1st-level bonus feats", ...); each suspended item takes the tail of the next full item
+//! after it, so a phrase with two lists ("the 4th- and 14th-level vigilante talents and the 9th-
+//! and 19th-level social talents", Serial Killer, Horror Adventures p. 69) expands each against its own
+//! tail (a clarification of this reading, #540). Numbered steps ("armor training 1, 2, 3, and 4")
+//! read as one name per step. The words `ability` and `class feature` around a name are dropped too
 //! ("the paladin's spells class feature" names `Spells`; `class ability` likewise, but `Class
 //! skills` keeps both words). A trade may name one item of a sentence or the whole phrase.
 //!
@@ -750,7 +753,9 @@ pub(crate) fn strip_tags(text: &str) -> String {
 /// Expands the two printed shorthands of a list of names, so each name stands alone:
 ///
 /// - a hyphen-suspended list: "1st-, 2nd- and 3rd-level bonus feats" becomes "1st-level bonus
-///   feats, 2nd-level bonus feats, 3rd-level bonus feats";
+///   feats, 2nd-level bonus feats, 3rd-level bonus feats". Each suspended item takes the tail of
+///   the next full item after it, so a phrase with two lists ("4th- and 14th-level vigilante
+///   talents and the 9th- and 19th-level social talents") expands each against its own tail;
 /// - numbered steps after a shared head: "armor training 1, 2, 3, and 4" becomes "armor training
 ///   1, armor training 2, armor training 3, armor training 4".
 ///
@@ -809,10 +814,38 @@ fn expand_lists(text: &str) -> String {
     if !suspended && !numbered && !shared && !ranged {
         return text.to_string();
     }
-    let tail = items
-        .iter()
-        .find(|item| !item.ends_with('-') && item.contains('-'))
-        .and_then(|item| item.split_once('-').map(|(_, tail)| tail.to_string()));
+    // The tail of a full ordinal item: "level vigilante talents" of "14th-level vigilante
+    // talents", or "level" of a bare "4th-level". Only an item that starts with `Nth-<word>`
+    // gives one; "low-light vision" and "well-known ..." give none.
+    let ordinal_tail_of = |item: &String| -> Option<String> {
+        let (word, rest) = ordinal_head(item)?;
+        Some(if rest.is_empty() {
+            word
+        } else {
+            format!("{word} {rest}")
+        })
+    };
+    // The tail of any full hyphenated item: "level" of "high-level".
+    let generic_tail_of = |item: &String| -> Option<String> {
+        (!item.ends_with('-'))
+            .then(|| item.split_once('-').map(|(_, tail)| tail.to_string()))
+            .flatten()
+    };
+    // Each suspended item takes the tail of the next full item after it, so a phrase with two
+    // lists ("4th- and 14th-level vigilante talents and the 9th- and 19th-level social talents")
+    // expands each against its own tail. A suspended ordinal ("the 4th-") takes only an ordinal
+    // tail, so "the 4th- and low-light vision" never reads "4th-light vision"; any other suspended
+    // item ("low- and high-level") takes the generic hyphen tail of the next full item. A
+    // suspended item with no full item after it stays as it is: no tail is borrowed from an
+    // earlier list.
+    let tail_for = |index: usize| -> Option<String> {
+        let later = &items[index + 1..];
+        if is_ordinal_stem(&items[index]) {
+            later.iter().find_map(ordinal_tail_of)
+        } else {
+            later.iter().find_map(generic_tail_of)
+        }
+    };
     let mut head: Option<String> = None;
     let mut out = Vec::new();
     for (index, item) in items.iter().enumerate() {
@@ -822,7 +855,7 @@ fn expand_lists(text: &str) -> String {
         }
         if suspended
             && item.ends_with('-')
-            && let Some(tail) = &tail
+            && let Some(tail) = tail_for(index)
         {
             out.push(format!("{item}{tail}"));
             continue;
@@ -837,6 +870,24 @@ fn expand_lists(text: &str) -> String {
         out.push(item.clone());
     }
     out.join(", ")
+}
+
+/// True for a suspended ordinal: `4th-` or `the 4th-`.
+fn is_ordinal_stem(item: &str) -> bool {
+    let Some(token) = item
+        .split_whitespace()
+        .find(|token| !ARTICLES.contains(&token.to_lowercase().as_str()))
+    else {
+        return false;
+    };
+    let Some(ordinal) = token.strip_suffix('-') else {
+        return false;
+    };
+    let digits = ordinal.trim_end_matches(|ch: char| ch.is_alphabetic());
+    let suffix = &ordinal[digits.len()..];
+    !digits.is_empty()
+        && digits.bytes().all(|byte| byte.is_ascii_digit())
+        && matches!(suffix, "st" | "nd" | "rd" | "th")
 }
 
 /// `("level", "mercies")` of `3rd-level mercies`: the word that follows the ordinal's hyphen, and
@@ -1357,6 +1408,148 @@ mod tests {
             phrase,
             &names(&["1st-level bonus feat", "2nd-level bonus feat"])
         ));
+    }
+
+    #[test]
+    fn two_suspended_lists_expand_each_against_its_own_tail() {
+        // Horror Adventures, Serial Killer, Studied Target (p. 69).
+        let phrase =
+            "the 4th- and 14th-level vigilante talents and the 9th- and 19th-level social talents";
+        assert_eq!(
+            name_words(phrase),
+            name_words(
+                "4th-level vigilante talents, 14th-level vigilante talents, \
+                 9th-level social talents, 19th-level social talents"
+            )
+        );
+        // The two stored trades, each a whole suspended list.
+        let stored = names(&[
+            "4th- and 14th-level vigilante talents",
+            "9th- and 19th-level social talents",
+        ]);
+        assert!(phrase_is_covered(phrase, &stored));
+        // One trade per level covers it as well.
+        let per_level = names(&[
+            "4th-level vigilante talent",
+            "14th-level vigilante talents",
+            "9th-level social talents",
+            "19th-level social talents",
+        ]);
+        assert!(phrase_is_covered(phrase, &per_level));
+        assert!(name_in_phrase(&per_level[2], phrase));
+        // A level of the wrong list is not covered.
+        let crossed = names(&[
+            "4th-level vigilante talents",
+            "14th-level vigilante talents",
+            "9th-level vigilante talents",
+            "19th-level social talents",
+        ]);
+        assert!(!phrase_is_covered(phrase, &crossed));
+        // One list alone is not the whole phrase.
+        assert!(!phrase_is_covered(
+            phrase,
+            &names(&["4th- and 14th-level vigilante talents"])
+        ));
+    }
+
+    #[test]
+    fn a_single_suspended_list_is_unchanged() {
+        let phrase = "the 4th- and 14th-level vigilante talents";
+        assert_eq!(
+            name_words(phrase),
+            name_words("4th-level vigilante talents, 14th-level vigilante talents")
+        );
+        assert!(phrase_is_covered(
+            phrase,
+            &names(&["4th-level vigilante talent", "14th-level vigilante talent"])
+        ));
+        assert!(phrase_is_covered(
+            phrase,
+            &names(&["4th- and 14th-level vigilante talents"])
+        ));
+    }
+
+    #[test]
+    fn a_suspended_ordinal_takes_a_tail_only_from_an_ordinal_item() {
+        // "low-light vision" and "well-known ..." are no ordinal tails.
+        for phrase in [
+            "the 4th- and low-light vision",
+            "the 4th- and well-known tricks",
+        ] {
+            let expanded = expand_lists(phrase);
+            assert!(!expanded.contains("4th-light"), "{expanded}");
+            assert!(!expanded.contains("4th-known"), "{expanded}");
+            assert!(expanded.contains("4th-"), "{expanded}");
+        }
+        // A real ordinal tail after a non-ordinal hyphen item is still found.
+        assert_eq!(
+            expand_lists("the 4th-, low-light vision and 14th-level talents"),
+            "the 4th-level talents, low-light vision, 14th-level talents"
+        );
+    }
+
+    #[test]
+    fn a_bare_ordinal_tail_and_a_non_ordinal_stem_expand_as_on_main() {
+        assert_eq!(
+            expand_lists("the 2nd- or 4th-level"),
+            "the 2nd-level, 4th-level"
+        );
+        assert_eq!(
+            expand_lists("the 1st-, 5th-, and 9th-level"),
+            "the 1st-level, 5th-level, 9th-level"
+        );
+        assert_eq!(expand_lists("low- and high-level"), "low-level, high-level");
+        assert_eq!(
+            name_words("the 2nd- or 4th-level"),
+            name_words("2nd-level, 4th-level")
+        );
+    }
+
+    #[test]
+    fn a_trailing_suspended_item_with_no_later_full_item_stays_unexpanded() {
+        let phrase = "the 4th- and 14th-level vigilante talents and the 9th-";
+        let expanded = expand_lists(phrase);
+        assert!(
+            expanded.contains("4th-level vigilante talents"),
+            "{expanded}"
+        );
+        assert!(
+            expanded.contains("14th-level vigilante talents"),
+            "{expanded}"
+        );
+        assert!(expanded.ends_with("the 9th-"), "{expanded}");
+        assert!(!expanded.contains("9th-level"), "{expanded}");
+    }
+
+    #[test]
+    fn a_suspended_list_with_or_expands_like_one_with_and() {
+        let phrase =
+            "the 4th- or 14th-level vigilante talents and the 9th- or 19th-level social talents";
+        assert!(phrase_is_covered(
+            phrase,
+            &names(&[
+                "4th- or 14th-level vigilante talents",
+                "9th- or 19th-level social talents",
+            ])
+        ));
+        assert_eq!(
+            name_words("the 1st-, 2nd- or 3rd-level bonus feats"),
+            name_words("1st-level bonus feats, 2nd-level bonus feats, 3rd-level bonus feats")
+        );
+    }
+
+    #[test]
+    fn two_suspended_lists_that_share_one_tail_both_take_it() {
+        // No printed form is known; the lists have no tail of their own, so the later full item
+        // gives both.
+        let phrase = "the 1st- and 2nd-, and the 5th- and 6th-level bonus feats";
+        assert_eq!(
+            name_words(phrase),
+            name_words(
+                "1st-level bonus feats, 2nd-level bonus feats, 5th-level bonus feats, \
+                 6th-level bonus feats"
+            )
+        );
     }
 
     #[test]

@@ -1367,7 +1367,9 @@ champion`; not across a comma, `and` or `or`). The
 tolerance works on the trade names as stored: trades need no rewrite to match print. A sentence
 that lists several names is covered by one trade per name, or by one trade that states the whole
 phrase. Three shorthands read as one name per item: a hyphen-suspended list ("the 1st-, 2nd- and
-3rd-level bonus feats" is `1st-level bonus feat`, `2nd-level bonus feat`, `3rd-level bonus feat`), a
+3rd-level bonus feats" is `1st-level bonus feat`, `2nd-level bonus feat`, `3rd-level bonus feat`; each suspended item takes the tail of the next full item after it, so "the 4th-
+and 14th-level vigilante talents and the 9th- and 19th-level social talents" (Serial Killer, Horror
+Adventures p. 69) reads each list against its own tail), a
 shared tail without the trailing hyphen ("the paladin's 3rd-level and 9th-level mercies" is
 `3rd-level mercies`, `9th-level mercies`) and numbered steps after a shared head ("armor training
 1, 2, 3, and 4" is `armor training 1` to `armor training 4`; "weapon training 2 and 3" likewise), so
