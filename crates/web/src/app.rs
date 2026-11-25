@@ -558,7 +558,7 @@ fn NavLink(label: &'static str, route: Route) -> impl IntoView {
             }
         >
             <span class="nav-icon" aria-hidden="true">{views::icons::nav(label)}</span>
-            <span>{label}</span>
+            <span class="nav-label">{label}</span>
         </a>
     }
 }
