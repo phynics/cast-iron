@@ -28,6 +28,7 @@ mod check;
 mod check_features;
 mod check_memberships;
 mod check_powers;
+mod check_printed_trades;
 mod check_residue;
 mod check_trades;
 pub mod cli;

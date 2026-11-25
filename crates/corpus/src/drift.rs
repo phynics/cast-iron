@@ -1039,7 +1039,7 @@ fn describe_trades<'a>(items: impl Iterator<Item = (TradeOp, &'a str)>) -> Strin
 }
 
 /// A trade sentence is covered when the trades of its op, together, state the whole phrase.
-fn sentence_uncovered(
+pub(crate) fn sentence_uncovered(
     sentence: &crate::trade_sentences::TradeSentence,
     trades: &[&cast_iron_schema::Trade],
 ) -> bool {
