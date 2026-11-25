@@ -1456,6 +1456,40 @@ mod tests {
     }
 
     #[test]
+    fn the_strangler_sentence_pairs_with_both_stored_names() {
+        // Advanced Class Guide, Strangler, Strangle (Ex): the exact printed text.
+        let text = "This damage increases by +1d6 at 2nd, 8th and 15th levels. This ability replaces unarmed strike and brawler's flurry.";
+        let sentence = one(text);
+        assert_eq!(sentence.op, TradeOp::Replaces);
+        assert!(!sentence.bare);
+        assert_eq!(sentence.phrase, "unarmed strike and brawler's flurry");
+        let both = [
+            (TradeOp::Replaces, "Unarmed strike".to_string()),
+            (TradeOp::Replaces, "brawler's flurry".to_string()),
+        ];
+        for (_, name) in &both {
+            assert!(
+                name_in_phrase(&name_words(name), &sentence.phrase),
+                "{name}"
+            );
+        }
+        let all: Vec<Vec<String>> = both.iter().map(|(_, name)| name_words(name)).collect();
+        assert!(phrase_is_covered(&sentence.phrase, &all));
+        // Each name alone still pairs: it is one item of the sentence, as ruling A allows.
+        for (_, name) in &both {
+            assert!(name_in_phrase(&name_words(name), &sentence.phrase));
+            let alone = [(TradeOp::Replaces, name.clone())];
+            assert!(names_a_trade(&sentence, &alone), "{name}");
+        }
+        // The possessor reading is only a fallback: it never reads "and brawler's" as the
+        // possessor of `flurry`.
+        assert_eq!(
+            strip_possessor_phrases("unarmed strike and brawler's flurry"),
+            "unarmed strike and brawler's flurry"
+        );
+    }
+
+    #[test]
     fn a_clause_after_comma_and_ends_the_phrase() {
         // Advanced Class Guide, Eldritch Scion.
         let sentence = one(

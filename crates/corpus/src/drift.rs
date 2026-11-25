@@ -3158,6 +3158,28 @@ mod tests {
     }
 
     #[test]
+    fn the_strangler_feature_pairs_with_its_trades() {
+        // Advanced Class Guide, Strangler, Strangle (Ex): the exact printed text.
+        let text = "A strangler deals +1d6 damage. This damage increases by +1d6 at 2nd, 8th and 15th levels. This ability replaces unarmed strike and brawler's flurry.";
+        let strangle =
+            |trades: Vec<cast_iron_schema::Trade>| printed_archetype(&[("strangle", text)], trades);
+        let both = vec![
+            trade_by(TradeOp::Replaces, "Unarmed strike", &["strangle"]),
+            trade_by(TradeOp::Replaces, "brawler's flurry", &["strangle"]),
+        ];
+        assert!(find_drift(&strangle(both)).is_empty());
+        // Each alone states its name, but the sentence then names a trade that is not stored.
+        for name in ["Unarmed strike", "brawler's flurry"] {
+            let alone = vec![trade_by(TradeOp::Replaces, name, &["strangle"])];
+            let drift = find_drift(&strangle(alone));
+            assert_eq!(drift.len(), 1, "{name}: {drift:?}");
+            assert!(drift[0].source.contains("strangle"), "{drift:?}");
+            // The name itself is stated: no pair reports it as unstated.
+            assert_eq!(drift[0].field_value, format!("replaces: {name}"));
+        }
+    }
+
+    #[test]
     fn the_aside_of_another_op_states_no_trade() {
         // The feature prints an `alters` sentence too, so ruling 24 does not excuse the trade;
         // the aside of the `replaces` sentence names it, but with the wrong op.
