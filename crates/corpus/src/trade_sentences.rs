@@ -59,6 +59,25 @@
 //! "raging song" after a name is a descriptor (R15). The aside that R9 drops is kept in
 //! [`TradeSentence::aside`] (ruling 29), and [`prose_mentions`] reads a name in the prose around
 //! the sentences (ruling 28).
+//!
+//! The held entries of data pull request 314 (#540, 2026-11-25) add four more:
+//!
+//! - R16: a verb joined by ", and it", ", and this", ", and he", ", and she" or ", and they" (an
+//!   optional `also` after the pronoun) starts a second clause with its own verb, like a verb
+//!   joined by `and` alone: "This ability alters flurry of blows and ki pool, and it replaces the
+//!   bonus feat gained at 10th level." is an `alters` and a `replaces` sentence, with the subject
+//!   status of the first. After a first clause that is no subject ("This movement provokes ...,
+//!   and it replaces X") it is a bare sentence (R11). Any other verb ("and it gains", "and it
+//!   is") starts no trade, and a clause word after a second clause's verb does not cut the first
+//!   clause (R13 looks only up to the next such clause);
+//! - R17: `counts` is a clause word, so the phrase ends at ", and counts as arcane pool for the
+//!   purpose of feats";
+//! - R18: a parenthesis of four words or more anywhere in the phrase is an aside, not only at the
+//!   end (R9): "replaces alchemy (which also includes bombs, extracts, and mutagen) and Throw
+//!   Anything" names `Alchemy` and `Throw Anything`. The asides join with "; " in
+//!   [`TradeSentence::aside`]. No word inside a parenthesis ends a phrase or starts a clause;
+//! - R19: "alter self" is a spell name, never the verb: a bare `alter` followed by the word `self`
+//!   is no verb ("This ability functions as alter self, beast shape IV, ...").
 
 use cast_iron_schema::TradeOp;
 
@@ -72,8 +91,8 @@ pub struct TradeSentence {
     pub bare: bool,
     /// What follows the verb, as printed, without the final period.
     pub phrase: String,
-    /// The closing parenthesis that R9 dropped from the phrase as an aside ("(a deep bomber never
-    /// gains instant alchemy)"), or empty. It names no coverage, but a trade whose `by` is the
+    /// The parentheses that R9 and R18 dropped from the phrase as asides ("(a deep bomber never
+    /// gains instant alchemy)"), joined by "; ", or empty. It names no coverage, but a trade whose `by` is the
     /// feature may rest on a name in it (owner ruling 29).
     pub aside: String,
 }
@@ -119,6 +138,26 @@ fn verb_of(word: &str) -> Option<TradeOp> {
         "alters" | "alter" => Some(TradeOp::Alters),
         _ => None,
     }
+}
+
+/// True when `word` is the first word of the spell name "alter self" (R19): "This ability
+/// functions as alter self, ..." names the spell, so the word is no verb. `alters self-...` and
+/// `alters Self` are not the spell: only the bare `alter`, followed by the bare word `self`.
+fn is_alter_self(word: &str, next: Option<&&str>) -> bool {
+    word.eq_ignore_ascii_case("alter")
+        && next.is_some_and(|next| {
+            next.trim_end_matches(|ch: char| !ch.is_alphanumeric() && ch != '-')
+                .eq_ignore_ascii_case("self")
+        })
+}
+
+/// The verb at `index` of `words`: `verb_of` without the spell "alter self" (R19).
+fn verb_at(words: &[&str], index: usize) -> Option<TradeOp> {
+    let word = words.get(index)?;
+    if is_alter_self(word, words.get(index + 1)) {
+        return None;
+    }
+    verb_of(word)
 }
 
 /// The verb of the trade-sentence position, the first verb after the subject. Owner ruling 25 of
@@ -258,11 +297,65 @@ fn is_bonus_feat_choice(words: &[&str], index: usize) -> bool {
 }
 
 /// R13: the words that mark a clause rather than a list of names, in the part after ", and ". A
-/// closed list of words that no feature name holds.
-const CLAUSE_WORDS: [&str; 15] = [
+/// closed list of words that no feature name holds. `counts` (R17, #540 2026-11-25) ends the phrase at ", and
+/// counts as arcane pool for the purpose of feats".
+const CLAUSE_WORDS: [&str; 16] = [
     "that", "which", "who", "also", "modify", "modifies", "gain", "gains", "is", "are", "does",
-    "cannot", "must", "grants", "allows",
+    "cannot", "must", "grants", "allows", "counts",
 ];
+
+/// R16 (#540, 2026-11-25): the pronouns that stand for the ability in a second clause: ", and it
+/// replaces X".
+const CLAUSE_PRONOUNS: [&str; 5] = ["it", "this", "he", "she", "they"];
+
+/// R16: at `index` of `words` starts a second clause with its own trade verb: `and`, a pronoun of
+/// [`CLAUSE_PRONOUNS`], an optional `also`, and `replaces` or `alters` ("..., and it replaces
+/// aura of good"). Returns the position of the verb. Any other verb ("and it gains", "and it is")
+/// is no trade clause.
+fn second_clause(words: &[&str], index: usize) -> Option<usize> {
+    if !words.get(index)?.eq_ignore_ascii_case("and") {
+        return None;
+    }
+    let pronoun = words.get(index + 1)?.to_lowercase();
+    if !CLAUSE_PRONOUNS.contains(&pronoun.as_str()) {
+        return None;
+    }
+    let mut at = index + 2;
+    if words
+        .get(at)
+        .is_some_and(|word| word.eq_ignore_ascii_case("also"))
+    {
+        at += 1;
+    }
+    verb_at(words, at).map(|_| at)
+}
+
+/// The depth of parentheses after `word`: `open` more for each `(` and `open` fewer for each `)`.
+fn paren_depth(open: usize, word: &str) -> usize {
+    word.chars().fold(open, |depth, ch| match ch {
+        '(' => depth + 1,
+        ')' => depth.saturating_sub(1),
+        _ => depth,
+    })
+}
+
+/// R13: true when a word of [`CLAUSE_WORDS`] stands in `words` outside a parenthesis, before the
+/// next second clause of R16 (that clause has its own verb and reads on its own).
+fn has_clause_word(words: &[&str]) -> bool {
+    let mut depth = 0;
+    for (index, word) in words.iter().enumerate() {
+        if depth == 0 && second_clause(words, index).is_some() {
+            return false;
+        }
+        // A word that opens a parenthesis is inside it.
+        let after = paren_depth(depth, word);
+        if depth == 0 && after == 0 && is_clause_word(word) {
+            return true;
+        }
+        depth = after;
+    }
+    false
+}
 
 fn is_clause_word(word: &str) -> bool {
     let word = word
@@ -314,7 +407,10 @@ pub fn trade_sentences_headed(text: &str, head: Option<&str>) -> Vec<TradeSenten
         let Some(first) = words.first().map(|word| word.to_lowercase()) else {
             continue;
         };
-        let Some(at) = words.iter().position(|word| lead_verb_of(word).is_some()) else {
+        let Some(at) = (0..words.len()).find(|&index| {
+            lead_verb_of(words[index]).is_some()
+                && !is_alter_self(words[index], words.get(index + 1))
+        }) else {
             continue;
         };
         // R12: the feature's own name as the subject ("Sermonic performance replaces ...").
@@ -328,17 +424,22 @@ pub fn trade_sentences_headed(text: &str, head: Option<&str>) -> Vec<TradeSenten
         }
         let plain_subject = head_subject || is_subject(&words[1..at]);
         // R11: "This movement provokes ..., and replaces X": a verb joined by `and` to another
-        // clause. Read as bare: it counts only when it names a stored trade.
+        // clause. Read as bare: it counts only when it names a stored trade. R16: the same with a
+        // pronoun, "..., and it replaces X".
+        let pronoun_clause =
+            (at.saturating_sub(3)..at).any(|index| second_clause(&words, index) == Some(at));
         let coordinated = !plain_subject
-            && at >= 2
-            && words[at - 1]
-                .trim_end_matches(',')
-                .eq_ignore_ascii_case("and");
+            && ((at >= 2
+                && words[at - 1]
+                    .trim_end_matches(',')
+                    .eq_ignore_ascii_case("and"))
+                || pronoun_clause);
         // "functions like and replaces X" is a trade; "works like alter self" is the spell.
         let compares = words[1..at]
             .iter()
             .any(|word| matches!(word.to_lowercase().as_str(), "like" | "as"));
-        let compares_a_spell = compares && !words[at - 1].eq_ignore_ascii_case("and");
+        let compares_a_spell =
+            compares && !words[at - 1].eq_ignore_ascii_case("and") && !pronoun_clause;
         if (!plain_subject && !coordinated)
             || compares_a_spell
             || words[..at].iter().any(|word| is_negation(word))
@@ -363,28 +464,39 @@ pub fn trade_sentences_headed(text: &str, head: Option<&str>) -> Vec<TradeSenten
             }
             // R13: ", and abilities that modify arcane pool also modify eldritch pool": a clause
             // after ", and" is a remark, not a name (owner ruling 30).
-            if word.eq_ignore_ascii_case("and")
+            // R16: a word inside a parenthesis starts no clause.
+            let inside = paren_depth(0, &phrase.join(" ")) > 0;
+            if !inside && let Some(verb) = second_clause(&words, index) {
+                // ", and it replaces X": the pronoun and an `also` belong to the new clause.
+                found.push(TradeSentence {
+                    op,
+                    bare,
+                    phrase: phrase.join(" ").trim_end_matches(',').to_string(),
+                    aside: String::new(),
+                });
+                op = verb_at(&words, verb).expect("a verb was found");
+                phrase.clear();
+                index = verb + 1;
+                continue;
+            }
+            if !inside
+                && word.eq_ignore_ascii_case("and")
                 && phrase.last().is_some_and(|last| last.ends_with(','))
-                && words
-                    .get(index + 1)
-                    .is_some_and(|next| verb_of(next).is_none())
-                && words[index + 1..].iter().any(|next| is_clause_word(next))
+                && verb_at(&words, index + 1).is_none()
+                && has_clause_word(&words[index + 1..])
             {
                 break;
             }
-            let joined_verb = word.eq_ignore_ascii_case("and")
-                && words
-                    .get(index + 1)
-                    .and_then(|next| verb_of(next))
-                    .is_some();
+            let joined_verb =
+                !inside && word.eq_ignore_ascii_case("and") && verb_at(&words, index + 1).is_some();
             if joined_verb {
                 found.push(TradeSentence {
                     op,
                     bare,
-                    phrase: phrase.join(" "),
+                    phrase: phrase.join(" ").trim_end_matches(',').to_string(),
                     aside: String::new(),
                 });
-                op = verb_of(words[index + 1]).expect("a verb was found");
+                op = verb_at(&words, index + 1).expect("a verb was found");
                 phrase.clear();
                 index += 2;
                 continue;
@@ -408,30 +520,58 @@ pub fn trade_sentences_headed(text: &str, head: Option<&str>) -> Vec<TradeSenten
     found
 }
 
-/// R9: a parenthesis at the end of the phrase that holds a clause (four words or more) is an
-/// aside, not part of a name: "the mutagen class ability (a mindchemist cannot create mutagens
-/// unless he selects mutagen as a discovery)". Tags ("(Ex)") and short qualifiers stay.
+/// R9: a parenthesis that holds a clause (four words or more) is an aside, not part of a name:
+/// "the mutagen class ability (a mindchemist cannot create mutagens unless he selects mutagen as a
+/// discovery)". Tags ("(Ex)") and short qualifiers stay. R18 (#540, 2026-11-25): the same in the
+/// middle of the phrase, "replaces alchemy (which also includes bombs, extracts, and mutagen) and
+/// Throw Anything" names `Alchemy` and `Throw Anything`. Every aside is kept in the second value,
+/// joined by "; ". A parenthesis that holds another parenthesis stays whole.
 fn drop_aside(phrase: &str) -> (String, String) {
-    let keep = || (phrase.to_string(), String::new());
-    let trimmed = phrase.trim_end();
-    if !trimmed.ends_with(')') {
-        return keep();
+    let mut kept = String::new();
+    let mut asides: Vec<String> = Vec::new();
+    let mut rest = phrase;
+    while let Some(open) = rest.find('(') {
+        let Some(len) = group_len(&rest[open..]) else {
+            break;
+        };
+        let inner = &rest[open + 1..open + len - 1];
+        if inner.contains('(') || inner.split_whitespace().count() < 4 {
+            kept.push_str(&rest[..open + len]);
+        } else {
+            kept.push_str(&rest[..open]);
+            // Ruling 16: a cross-reference ("(see the X ability ...)") is dropped from the phrase
+            // and states nothing, so it leaves no aside.
+            if !is_cross_reference(inner) {
+                asides.push(inner.to_string());
+            }
+        }
+        rest = &rest[open + len..];
     }
-    let Some(open) = trimmed.rfind('(') else {
-        return keep();
-    };
-    let inner = &trimmed[open + 1..trimmed.len() - 1];
-    if inner.contains('(') || inner.split_whitespace().count() < 4 {
-        return keep();
+    kept.push_str(rest);
+    if asides.is_empty() && kept == phrase {
+        return (phrase.to_string(), String::new());
     }
-    // Ruling 16: a cross-reference ("(see the X ability ...)") is dropped from the phrase and
-    // states nothing, so it leaves no aside.
-    let aside = if is_cross_reference(inner) {
-        String::new()
-    } else {
-        inner.to_string()
-    };
-    (trimmed[..open].trim_end().to_string(), aside)
+    let kept = kept.split_whitespace().collect::<Vec<_>>().join(" ");
+    (kept, asides.join("; "))
+}
+
+/// The byte length of the parenthesis at the start of `text` (which starts with `(`), through its
+/// closing `)`; `None` when it never closes. A nested parenthesis counts inside it.
+fn group_len(text: &str) -> Option<usize> {
+    let mut depth = 0usize;
+    for (at, ch) in text.char_indices() {
+        match ch {
+            '(' => depth += 1,
+            ')' => {
+                depth -= 1;
+                if depth == 0 {
+                    return Some(at + 1);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
 }
 
 /// True when `text` starts with the word "see": the inside of a printed cross-reference.
@@ -2142,5 +2282,263 @@ mod tests {
             &names(&["The 1st-, 9th-, and 15th-level channel energy abilities"])
         ));
         assert!(trade_sentences_headed(text, Some("Spontaneous Casting")).is_empty());
+    }
+
+    fn pairs(text: &str) -> Vec<(TradeOp, String)> {
+        trade_sentences(text)
+            .into_iter()
+            .map(|sentence| (sentence.op, sentence.phrase))
+            .collect()
+    }
+
+    #[test]
+    fn a_second_clause_with_a_pronoun_has_its_own_verb() {
+        // Ultimate Intrigue, Sage Counselor, Feinting Flurry.
+        let found = trade_sentences(
+            "This ability alters flurry of blows and ki pool, and it replaces the bonus feat gained at 10th level.",
+        );
+        assert_eq!(found.len(), 2, "{found:?}");
+        assert_eq!(found[0].op, TradeOp::Alters);
+        assert_eq!(found[0].phrase, "flurry of blows and ki pool");
+        assert!(!found[0].bare);
+        assert_eq!(found[1].op, TradeOp::Replaces);
+        assert_eq!(found[1].phrase, "the bonus feat gained at 10th level");
+        assert!(!found[1].bare);
+        assert!(phrase_is_covered(
+            &found[0].phrase,
+            &names(&["Flurry of blows", "Ki pool"])
+        ));
+        assert!(phrase_is_covered(
+            &found[1].phrase,
+            &names(&["Bonus feat gained at 10th level"])
+        ));
+        // Gray Paladin, Weakened Grace: a list of four before the second clause is not cut at ", and aura".
+        let found = trade_sentences(
+            "This ability alters smite evil, aura of courage, aura of resolve, and aura of righteousness, and it replaces aura of good and divine grace.",
+        );
+        assert_eq!(found.len(), 2, "{found:?}");
+        assert_eq!(
+            found[0].phrase,
+            "smite evil, aura of courage, aura of resolve, and aura of righteousness"
+        );
+        assert_eq!(found[1].op, TradeOp::Replaces);
+        assert_eq!(found[1].phrase, "aura of good and divine grace");
+        // Guiding Blade, Daring Teamwork: the first clause is a hyphen-suspended list.
+        let found = trade_sentences(
+            "This ability replaces bonus feats and the swashbuckler's 1st-, 7th-, and 15th-level deeds, and it alters panache.",
+        );
+        assert_eq!(found.len(), 2, "{found:?}");
+        assert_eq!(found[1].op, TradeOp::Alters);
+        assert_eq!(found[1].phrase, "panache");
+        assert!(phrase_is_covered(
+            &found[0].phrase,
+            &names(&[
+                "Bonus feats",
+                "1st-level deeds",
+                "7th-level deeds",
+                "15th-level deeds"
+            ])
+        ));
+    }
+
+    #[test]
+    fn a_second_clause_reads_each_pronoun_an_also_and_a_bare_subject() {
+        for pronoun in ["it", "this", "he", "she", "they", "It"] {
+            let found = pairs(&format!(
+                "This ability replaces bravery, and {pronoun} alters armor training."
+            ));
+            assert_eq!(
+                found,
+                [
+                    (TradeOp::Replaces, "bravery".to_string()),
+                    (TradeOp::Alters, "armor training".to_string())
+                ],
+                "{pronoun}"
+            );
+        }
+        // `also` after the pronoun, no comma, and the plural verb.
+        assert_eq!(
+            pairs("This ability replaces bravery and it also replaces armor training."),
+            [
+                (TradeOp::Replaces, "bravery".to_string()),
+                (TradeOp::Replaces, "armor training".to_string())
+            ]
+        );
+        // A bare sentence keeps its status in the second clause.
+        let found = trade_sentences("These replace bravery, and they alter armor training.");
+        assert_eq!(found.len(), 2, "{found:?}");
+        assert!(found.iter().all(|sentence| sentence.bare));
+        // R11 with a pronoun: another first clause makes the sentence bare.
+        let sentence = one(
+            "This movement provokes attacks of opportunity as normal, and it replaces deadly performance.",
+        );
+        assert!(sentence.bare);
+        assert_eq!(sentence.phrase, "deadly performance");
+    }
+
+    #[test]
+    fn a_second_clause_with_another_verb_is_no_trade() {
+        // "and it gains", "and it is", "and it does not replace": a clause, not a verb of a trade.
+        assert_eq!(
+            pairs("This ability replaces bravery, and it gains a new power."),
+            [(TradeOp::Replaces, "bravery".to_string())]
+        );
+        assert_eq!(
+            pairs("This ability replaces bravery, and it is a swift action."),
+            [(TradeOp::Replaces, "bravery".to_string())]
+        );
+        assert_eq!(
+            pairs("This ability replaces bravery, and it does not replace armor training."),
+            [(TradeOp::Replaces, "bravery".to_string())]
+        );
+        // The clause word after the second clause's verb does not cut the first clause.
+        assert_eq!(
+            pairs(
+                "This ability alters armor training, and weapon training, and it replaces bravery that is lost."
+            ),
+            [
+                (
+                    TradeOp::Alters,
+                    "armor training, and weapon training".to_string()
+                ),
+                (TradeOp::Replaces, "bravery that is lost".to_string())
+            ]
+        );
+        // A noun that is no pronoun starts no clause.
+        assert_eq!(
+            pairs("This ability replaces bravery, and the archer replaces armor training."),
+            [(
+                TradeOp::Replaces,
+                "bravery, and the archer replaces armor training".to_string()
+            )]
+        );
+    }
+
+    #[test]
+    fn counts_as_ends_the_phrase() {
+        // Occult Adventures, Mindblade, Psychic Pool.
+        let sentence = one(
+            "This ability replaces arcane pool, and counts as arcane pool for the purpose of feats, abilities, and class features.",
+        );
+        assert_eq!(sentence.phrase, "arcane pool");
+        assert!(phrase_is_covered(
+            &sentence.phrase,
+            &names(&["Arcane pool"])
+        ));
+        let sentence = one(
+            "This ability replaces arcane pool, and it counts as arcane pool for the purpose of feats.",
+        );
+        assert_eq!(sentence.phrase, "arcane pool");
+        // A list that holds no clause word is not cut.
+        assert_eq!(
+            one("This ability replaces arcane pool, and spell strike.").phrase,
+            "arcane pool, and spell strike"
+        );
+    }
+
+    #[test]
+    fn alter_self_is_a_spell_not_a_verb() {
+        // Occult Adventures p. 114, Flesheater.
+        assert!(
+            trade_sentences(
+                "This ability functions as alter self, beast shape IV, form of the dragon III, or giant form II, as appropriate."
+            )
+            .is_empty()
+        );
+        // Ultimate Intrigue p. 19, Metamorph.
+        assert!(
+            trade_sentences("This ability functions like alter self, except as noted here.")
+                .is_empty()
+        );
+        // Without the comparison words, or in another subject: still the spell.
+        assert!(trade_sentences("This ability can use alter self once per day.").is_empty());
+        assert!(trade_sentences("This ability is alter self, as the spell.").is_empty());
+        // The verb after the spell is the verb: "alter self" is skipped, not the sentence.
+        assert_eq!(
+            pairs("This ability alter self and replaces bravery."),
+            [(TradeOp::Replaces, "bravery".to_string())]
+        );
+        // A word that only starts with "self" is a name; the verb `alters` before "self" is one.
+        assert_eq!(
+            pairs("This ability alters self-sufficiency."),
+            [(TradeOp::Alters, "self-sufficiency".to_string())]
+        );
+        assert_eq!(
+            pairs("This ability alters self."),
+            [(TradeOp::Alters, "self".to_string())]
+        );
+        // The plural verb before another word is a verb.
+        assert_eq!(
+            pairs("These abilities alter bravery."),
+            [(TradeOp::Alters, "bravery".to_string())]
+        );
+        // A spell named after a joined verb is not a second clause.
+        assert_eq!(
+            pairs("This ability replaces bravery and alter self."),
+            [(TradeOp::Replaces, "bravery and alter self".to_string())]
+        );
+    }
+
+    #[test]
+    fn a_parenthesis_in_the_middle_of_a_phrase_is_an_aside() {
+        // Ultimate Intrigue p. 19, Metamorph.
+        let sentence = one(
+            "This ability replaces alchemy (which also includes bombs, extracts, and mutagen) and Throw Anything.",
+        );
+        assert_eq!(sentence.phrase, "alchemy and Throw Anything");
+        assert_eq!(
+            sentence.aside,
+            "which also includes bombs, extracts, and mutagen"
+        );
+        assert!(phrase_is_covered(
+            &sentence.phrase,
+            &names(&["Alchemy", "Throw Anything"])
+        ));
+        assert!(name_in_phrase(
+            &name_words("Mutagen"),
+            &stating_text(&sentence.aside)
+        ));
+        assert!(!name_in_phrase(&name_words("Mutagen"), &sentence.phrase));
+        // A clause word inside the parenthesis does not end the phrase, a joined verb either.
+        let found = trade_sentences(
+            "This ability replaces alchemy, and bombs (which also includes extracts, and it replaces mutagen), and alters swift alchemy.",
+        );
+        assert_eq!(found.len(), 2, "{found:?}");
+        assert_eq!(found[0].phrase, "alchemy, and bombs");
+        assert_eq!(
+            found[0].aside,
+            "which also includes extracts, and it replaces mutagen"
+        );
+        assert_eq!(found[1].phrase, "swift alchemy");
+        // A short parenthesis in the middle stays in the name; two asides join.
+        assert_eq!(
+            one("This ability replaces Weapon Focus (longsword) and bravery.").phrase,
+            "Weapon Focus (longsword) and bravery"
+        );
+        let sentence = one(
+            "This ability replaces alchemy (the first four things it grants) and bombs (the second four things it grants).",
+        );
+        assert_eq!(sentence.phrase, "alchemy and bombs");
+        assert_eq!(
+            sentence.aside,
+            "the first four things it grants; the second four things it grants"
+        );
+        // A cross-reference leaves no aside; a parenthesis that never closes stays.
+        let sentence =
+            one("This ability replaces alchemy (see the alchemist class ability list) and bombs.");
+        assert_eq!(sentence.phrase, "alchemy and bombs");
+        assert!(sentence.aside.is_empty());
+        assert_eq!(
+            one("This ability replaces alchemy (which also includes bombs.").phrase,
+            "alchemy (which also includes bombs"
+        );
+        // A nested parenthesis stays whole.
+        let sentence =
+            one("This ability replaces alchemy (the first (and second) four things) and bombs.");
+        assert_eq!(
+            sentence.phrase,
+            "alchemy (the first (and second) four things) and bombs"
+        );
+        assert!(sentence.aside.is_empty());
     }
 }

@@ -2,6 +2,7 @@ import { installedTest as test, expect, loadCorpus } from "./fixtures";
 import {
   bookReadingOrder,
   bookTrees,
+  closeQuickSearch,
   installLibrary,
   openBookEntry,
   openQuickSearch,
@@ -95,7 +96,7 @@ test("An entry opened from a book sets its continue point on the book page and i
   await openQuickSearch(page);
   await expect(continueRow(page)).toHaveCount(1);
   await expect(continueRow(page).first()).toContainText(`Continue ${book.title}`);
-  await page.keyboard.press("Escape");
+  await closeQuickSearch(page);
 
   await page.goto(`#/browse/book/${book.source}`);
   await expect(page.getByTestId("continue-reading")).toContainText(`Continue reading: ${entry.title}`);
@@ -150,7 +151,7 @@ test("Clear in Recently viewed removes the visit and the continue point, and bot
   await openQuickSearch(page);
   await expect(page.getByRole("heading", { name: "Recently viewed" })).toHaveCount(0);
   await expect(continueRow(page)).toHaveCount(0);
-  await page.keyboard.press("Escape");
+  await closeQuickSearch(page);
 
   await page.goto(`#/browse/book/${book.source}`);
   await expect(page.getByTestId("continue-reading")).toHaveCount(0);
@@ -174,7 +175,7 @@ test("A saved continue point for a book that does not hold the entry is not offe
   await openQuickSearch(page);
   await expect(continueRow(page).first()).toContainText(`Continue ${book.title}`);
   await expect(continueRow(page)).toHaveCount(1);
-  await page.keyboard.press("Escape");
+  await closeQuickSearch(page);
 
   // The book that holds the entry offers its point, which proves the points have loaded; the
   // book that dropped it offers none.
