@@ -243,6 +243,105 @@ test("Keyboard and touch readers get a 44 px original-text disclosure on a revis
   expect((await summary.boundingBox())!.height).toBeGreaterThanOrEqual(43.5);
 });
 
+test("Keyboard and touch readers keep the tab bar and stat values usable at 200 % text (#12 L6)", async ({ page }) => {
+  await installLibrary(page);
+  await waitControlled(page);
+  const settle = () => page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve(null)))));
+  const setRoot = async (percent: number) => {
+    await page.evaluate((value) => { document.documentElement.style.fontSize = `${value}%`; }, percent);
+    await settle();
+  };
+  const overflow = () => page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
+  // The widest offenders, so a failure names the element that pushes the page sideways.
+  const offenders = () => page.evaluate(() => Array.from(document.body.querySelectorAll("*"))
+    .map((el) => ({ el, right: el.getBoundingClientRect().right }))
+    .filter((hit) => hit.right > innerWidth + 0.5 && !hit.el.closest(".table-wrap"))
+    .slice(0, 8)
+    .map((hit) => `${hit.el.tagName.toLowerCase()}.${hit.el.className} right=${Math.round(hit.right)}`));
+  // Each tab of the bottom bar is inside the viewport, at least 44 px each way, and keeps its
+  // accessible name and the current marker whether its label shows or not.
+  const tabs = async () => {
+    const nav = page.getByRole("navigation", { name: "Primary" });
+    for (const name of ["Home", "Books", "Table", "Settings"]) {
+      const link = nav.getByRole("link", { name, exact: true });
+      const box = (await link.boundingBox())!;
+      const width = await page.evaluate(() => innerWidth);
+      expect(box, `${name} tab`).toBeTruthy();
+      expect(box.x, `${name} tab left edge`).toBeGreaterThanOrEqual(-0.5);
+      expect(box.x + box.width, `${name} tab right edge`).toBeLessThanOrEqual(width + 0.5);
+      expect(box.width, `${name} tab width`).toBeGreaterThanOrEqual(43.5);
+      expect(box.height, `${name} tab height`).toBeGreaterThanOrEqual(43.5);
+    }
+    await expect(nav.locator('a[aria-current="page"]')).toHaveCount(1);
+  };
+  const labelWidth = () => page.locator('nav[aria-label="Primary"] .nav-label').first().evaluate((el) => el.getBoundingClientRect().width);
+
+  // A word is split when a client rect of it sits on two lines although it would fit a line. Hyphens and slashes are
+  // legitimate break points, so a token is the run between whitespace, hyphens and slashes.
+  const splitWords = (selector: string) => page.evaluate((sel) => {
+    const split: string[] = [];
+    for (const root of Array.from(document.querySelectorAll(sel))) {
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+      for (let node = walker.nextNode() as Text | null; node; node = walker.nextNode() as Text | null) {
+        for (const match of node.data.matchAll(/[^\s\-\u2010-\u2015/]+/g)) {
+          const range = document.createRange();
+          range.setStart(node, match.index!);
+          range.setEnd(node, match.index! + match[0].length);
+          const lines = new Set(Array.from(range.getClientRects()).filter((r) => r.width > 0).map((r) => Math.round(r.top)));
+          // Superscript markers sit a few pixels higher than the line; compare line boxes only.
+          if (lines.size < 2 || node.parentElement!.closest("sup")) continue;
+          // A word wider than its whole line has to split; only a word that would have fit is a failure.
+          const whole = Array.from(range.getClientRects()).reduce((sum, r) => sum + r.width, 0);
+          const line = node.parentElement!.closest("dd, dt, p, li, div")!.getBoundingClientRect().width;
+          if (whole <= line) split.push(match[0]);
+        }
+      }
+    }
+    return split;
+  }, selector);
+
+  // A fact's term sits above its value on a phone at normal size, as before the flex rows.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("#/settings");
+  await expect(page.locator("h1")).toBeVisible();
+  const row = page.locator(".facts > div").first();
+  await expect(row).toBeVisible();
+  const [term, value] = await Promise.all([row.locator("dt").boundingBox(), row.locator("dd").boundingBox()]);
+  expect(value!.y, "a Settings fact stacks its value under its term at 390 px").toBeGreaterThanOrEqual(term!.y + term!.height - 0.5);
+
+  const viewports = [{ width: 390, height: 844 }, { width: 320, height: 700 }];
+  const pages = [
+    { name: "Fireball", route: `#/entry/${corpusEntry("spell", "Fireball").id}` },
+    { name: "Goblin", route: `#/entry/${corpusEntry("creature", "Goblin").id}` },
+    { name: "Wizard", route: "#/entry/ref/class/wizard" },
+  ];
+  for (const viewport of viewports) {
+    await page.setViewportSize(viewport);
+    await page.goto("#/");
+    await waitHomeIdle(page);
+    await setRoot(100);
+    await tabs();
+    expect(await labelWidth(), `${viewport.width} px at 100 %: the labels show`).toBeGreaterThan(10);
+    for (const percent of [125, 150, 175, 200]) {
+      await setRoot(percent);
+      await tabs();
+      expect(await overflow(), `${viewport.width} px at ${percent} %: home scrolls sideways: ${await offenders()}`).toBeLessThanOrEqual(0);
+    }
+    expect(await labelWidth(), `${viewport.width} px at 200 %: the labels are hidden, the icons stay`).toBeLessThanOrEqual(1);
+    for (const { name, route } of pages) {
+      await page.goto(route);
+      await expect(page.locator("h1")).toBeVisible();
+      await setRoot(200);
+      const blocks = page.locator(".stat-block");
+      await expect(blocks.first(), `${name} has a stat block`).toBeVisible();
+      expect(await overflow(), `${viewport.width} px at 200 %: ${name} scrolls sideways: ${await offenders()}`).toBeLessThanOrEqual(0);
+      expect(await splitWords(".stat-block"), `${viewport.width} px at 200 %: ${name} splits words`).toEqual([]);
+      await tabs();
+    }
+    await setRoot(100);
+  }
+});
+
 // Relative luminance and contrast ratio of two `rgb()` colours, as WCAG defines them.
 function contrastRatio(a: string, b: string): number {
   const luminance = (css: string) => {
