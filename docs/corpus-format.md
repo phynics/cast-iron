@@ -74,7 +74,7 @@ page = "221"
 [fields]
 kind = "spell"
 school = "conjuration"
-subschools = ["Creation"]
+subschools = ["creation"]
 levels = [
   { class = "Arcanist", level = 2 },
   { class = "Druid", level = 2 },
@@ -182,6 +182,15 @@ order:
 `levels`, `effects`, and `attributes` are arrays of inline tables. `cr` is the
 printed fraction (`1/2`, `1/8`) or a whole number. `abilities` is six strings in
 STR, DEX, CON, INT, WIS, CHA order, with `-` where none applies.
+
+Two fields hold lower-case printed words, because the client shows them as written:
+`creature_type` is one of `aberration`, `animal`, `construct`, `dragon`, `fey`, `humanoid`,
+`magical beast`, `monstrous humanoid`, `ooze`, `outsider`, `plant`, `undead`, `vermin`, and a spell's
+`subschools` and `descriptors` read like the school line of print (`conjuration (calling) [fire]`).
+Until the pin carries phynics/cast-iron-data#287, `corpus-check` also accepts the old identifier
+spellings `magicalBeast` and `monstrousHumanoid`, and a capitalised subschool such as `Calling`;
+no check reads the case of a subschool. See
+[the lower-case transition](decisions/2026-11-25-lower-case-creature-types-and-subschools.md).
 
 ### Trades
 

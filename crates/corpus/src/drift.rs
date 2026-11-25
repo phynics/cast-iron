@@ -116,8 +116,9 @@ fn normalize(text: &str) -> String {
 
 /// Whether a `creature_type` field agrees with the `Type` row of its stat block.
 ///
-/// The field uses the corpus spelling (`magicalBeast`), while the body keeps the printed spelling
-/// (`Magical Beast`), so case, spaces, and punctuation do not decide the comparison. The
+/// The field uses the corpus spelling (`magical beast`; `magicalBeast` before
+/// phynics/cast-iron-data#287), while the body keeps the printed spelling (`Magical Beast`), so
+/// case, spaces, and punctuation do not decide the comparison. The
 /// Technology Guide prints `Type: Intelligence` for its sample AIs, but the book states that an
 /// artificial intelligence counts as a construct for every effect that targets creature type; the
 /// corpus records the type that the rules use, so `construct` agrees with that row.
@@ -127,7 +128,8 @@ fn creature_type_agrees(field: &str, source: &str) -> bool {
     field == source || (field == "construct" && source == "intelligence")
 }
 
-/// A creature type reduced to letters and digits, so `Magical Beast` and `magicalBeast` match.
+/// A creature type reduced to letters and digits, so `Magical Beast`, `magical beast` and
+/// `magicalBeast` match.
 fn creature_type_key(text: &str) -> String {
     normalize(text)
         .chars()
@@ -1538,15 +1540,30 @@ mod tests {
 
     #[test]
     fn a_creature_type_agrees_across_case_and_spaces() {
+        // The lower-case words (phynics/cast-iron-data#287) and the identifier spelling
+        // that the corpus used before both agree with the printed words.
+        for value in ["monstrous humanoid", "monstrousHumanoid"] {
+            let entry = base(
+                "ref/monster/beast",
+                EntryKind::Creature,
+                TypedFields::Creature(Box::new(CreatureFields {
+                    creature_type: Some(value.into()),
+                    subtypes: vec!["mythic".into()],
+                    ..Default::default()
+                })),
+                vec![statblock(vec![row("Type", "Monstrous Humanoid (mythic)")])],
+            );
+            let drift = find_drift(&stored(entry));
+            assert!(drift.is_empty(), "{value}: {drift:?}");
+        }
         let entry = base(
             "ref/monster/beast",
             EntryKind::Creature,
             TypedFields::Creature(Box::new(CreatureFields {
-                creature_type: Some("monstrousHumanoid".into()),
-                subtypes: vec!["mythic".into()],
+                creature_type: Some("magical beast".into()),
                 ..Default::default()
             })),
-            vec![statblock(vec![row("Type", "Monstrous Humanoid (mythic)")])],
+            vec![statblock(vec![row("Type", "Magical Beast")])],
         );
         let drift = find_drift(&stored(entry));
         assert!(drift.is_empty(), "{drift:?}");
@@ -2582,6 +2599,32 @@ mod tests {
         assert!(find_drift(&stored_spell).is_empty());
         set_school(&mut stored_spell, "necromancy [death]");
         assert_eq!(find_drift(&stored_spell).len(), 1);
+    }
+
+    #[test]
+    fn a_subschool_agrees_with_its_printed_row_in_either_case() {
+        // phynics/cast-iron-data#287 sets subschools in lower case, like descriptors; print
+        // capitalises the `Subschool` row, and the comparison ignores case.
+        for value in ["calling", "Calling"] {
+            let mut stored_spell = spell("close", "close");
+            let TypedFields::Spell(fields) = &mut stored_spell.entry.fields else {
+                panic!("spell");
+            };
+            fields.subschools = vec![value.into()];
+            let Block::StatBlock { rows, .. } = &mut stored_spell.entry.body[0] else {
+                panic!("stat block");
+            };
+            rows.push(row("Subschool", "Calling"));
+            let drift = find_drift(&stored_spell);
+            assert!(drift.is_empty(), "{value}: {drift:?}");
+            let TypedFields::Spell(fields) = &mut stored_spell.entry.fields else {
+                panic!("spell");
+            };
+            fields.subschools = vec!["creation".into()];
+            let drift = find_drift(&stored_spell);
+            assert_eq!(drift.len(), 1, "{value}: {drift:?}");
+            assert_eq!(drift[0].field, "subschools");
+        }
     }
 
     fn attached(id: &str, kind: EntryKind, fields: TypedFields, labels: &[(&str, &str)]) -> Stored {
