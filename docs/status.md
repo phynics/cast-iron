@@ -1,6 +1,6 @@
 # Status
 
-Updated 2026-11-24. This page holds the current state and nothing else. The history is a log with one file per entry: [`docs/status/`](status/README.md) (pins, releases, acceptance records). Decisions are in [`docs/decisions/`](decisions/README.md). Open work is in [GitHub Issues](https://github.com/phynics/cast-iron/issues).
+Updated 2026-11-25. This page holds the current state and nothing else. The history is a log with one file per entry: [`docs/status/`](status/README.md) (pins, releases, acceptance records). Decisions are in [`docs/decisions/`](decisions/README.md). Open work is in [GitHub Issues](https://github.com/phynics/cast-iron/issues).
 
 Edit this page only where a change makes a line untrue, and add a log file for the event (`docs/status/YYYY-MM-DD-<slug>.md`). Keep local verification, CI and deployment apart.
 
@@ -8,8 +8,8 @@ Edit this page only where a change makes a line untrue, and add a log file for t
 
 | | |
 |---|---|
-| Corpus | `phynics/cast-iron-data` tag `v0.1.47`, commit `dc735165e24d1171db601678b536e0284601cc8c` (`sources/corpus.toml`), corpus format 4. Pin entry: [2026-11-24](status/2026-11-24-pin-corpus-v0-1-47.md) |
-| Content version | `v02e2c9fd95df5e38` (`cargo xtask content` on `main` at `e6938c6b7` plus the v0.1.47 pin, 2026-11-24). The release still serves `v3f3d0b708758820d` (corpus v0.1.40). |
+| Corpus | `phynics/cast-iron-data` tag `v0.1.50`, commit `8f1efbd68b883f7eaf81e4f3561c296bb2986e4b` (`sources/corpus.toml`), corpus format 4. Pin entry: [2026-11-25](status/2026-11-25-pin-corpus-v0-1-50.md) |
+| Content version | `v411d4bd8456e4981` (`cargo xtask content` on `main` at `53a5f809b` plus the v0.1.50 pin, 2026-11-25). The release still serves `v3f3d0b708758820d` (corpus v0.1.40). |
 | Library | 31,672 entries, 443 publications, 443 books; 0 unreachable entries, 0 broken links |
 | `SCHEMA_VERSION` | 7 (`crates/schema/src/lib.rs`; the client reads 1 to 7). Schema 7 adds the haunt kind ([decision](decisions/2026-11-23-haunts-are-a-kind-schema-7.md)) |
 | `INDEX_FORMAT_VERSION` | 2 (`crates/search/src/lib.rs`) |
