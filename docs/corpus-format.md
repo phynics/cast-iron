@@ -1294,6 +1294,20 @@ aspect summoner class ability" names `Aspect`). "raging song" after a name is a 
 inspired rage raging song" names `Inspired rage`); a `raging song` that leads a name or follows a
 comma, an article or a connector is the name `Raging song`.
 
+Four more readings (the held entries of data pull request 314, #540, 2026-11-25; decision
+`2026-11-25-second-clause-verbs-and-mid-phrase-asides`): a verb joined by ", and it", ", and
+this", ", and he", ", and she" or ", and they" (with an optional `also`) starts a second clause
+with its own verb and the subject status of the first ("This ability alters flurry of blows and ki
+pool, and it replaces the bonus feat gained at 10th level." is an `alters` and a `replaces`
+sentence; "and it gains" and "and it is" start none); `counts` joins the clause words ("This
+ability replaces arcane pool, and counts as arcane pool for the purpose of feats, abilities, and
+class features." names `Arcane pool`); a parenthesis of four words or more is an aside anywhere
+in the phrase ("replaces alchemy (which also includes bombs, extracts, and mutagen) and Throw
+Anything" names `Alchemy` and `Throw Anything`, and the aside states `Bombs`, `Extracts` and
+`Mutagen` for a trade of the feature, as a closing one does); and "alter self" is a spell, never
+the verb ("This ability functions as alter self, beast shape IV, ...", "functions like alter self,
+except as noted here").
+
 Names are compared as words, ignoring case, punctuation, hyphens, articles (and `standard`,
 `normal`, `normally`; **never `bonus`**: "bonus spells" are not `Spells`), ability
 tags (`(Ex)`), a plural (`s`, `es`, `ies`: `bombs`/`bomb`, `hexes`/`hex`, `mercies`/`mercy`), a
