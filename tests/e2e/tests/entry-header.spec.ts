@@ -1,6 +1,6 @@
 import type { Locator } from "@playwright/test";
 import { installedTest as test, expect, loadCorpus } from "./fixtures";
-import { firstEntry, installLibrary, openQuickSearch, waitResults } from "./helpers";
+import { firstEntry, installLibrary, openQuickSearch, waitResults, closeQuickSearch } from "./helpers";
 
 // The entry header and the four chip roles in DESIGN.md: metadata is a text line, filters are the
 // only pills, navigation is a rectangle, labels carry no border.
@@ -96,7 +96,7 @@ test("Chips keep one form per role", async ({ page }) => {
   await expect(recent).toBeVisible();
   expect(await recent.evaluate((el) => getComputedStyle(el).borderTopWidth)).toBe("0px");
   expect(await recent.evaluate((el) => getComputedStyle(el).borderRadius)).toBe("0px");
-  await page.keyboard.press("Escape");
+  await closeQuickSearch(page);
 
   // Filters: the only pill; a selected one is filled and carries a check, and keeps its count.
   await page.goto("#/search?q=fire");

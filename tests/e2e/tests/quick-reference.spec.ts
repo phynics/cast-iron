@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { installedTest as test, expect, loadCorpus, ROOT, type Page } from "./fixtures";
-import { installLibrary, openQuickSearch, quickAllOptions, quickField, quickSearch, waitControlled } from "./helpers";
+import { installLibrary, openQuickSearch, quickAllOptions, quickField, quickSearch, waitControlled, closeQuickSearch } from "./helpers";
 
 const corpus = loadCorpus();
 
@@ -279,8 +279,7 @@ test("An empty unscoped Quick search leads with the Quick reference row, which t
   // Whitespace is not text.
   await quickField(page).fill("   ");
   await expect(quickAllOptions(page).first()).toContainText("Quick reference");
-  await page.keyboard.press("Escape");
-  await expect(quickSearch(page)).toBeHidden();
+  await closeQuickSearch(page);
 
   // A scope hides it too, and removing the scope brings it back.
   await page.goto("#/browse/kind/feat");

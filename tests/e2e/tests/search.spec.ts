@@ -2,7 +2,7 @@ import { goneAddress, remappedAddress } from "./legacy-addresses";
 import type { Page } from "@playwright/test";
 import { test, installedTest, expect, loadCorpus } from "./fixtures";
 import { goOffline } from "./fixtures";
-import { aliasOf, bodyText, bookTrees, chapterIds, corpusEntry, count, hitTitles, installLibrary, latestPrintingGroup, listedChapters, memberBooks, num, openBookGroups, openQuickSearch, pct, quickAllOptions, quickField, quickGroup, quickOptions, quickSearch, quickSearchFor, searchIcon, seedHome, showAllResults, storedRecentCount, suggestionTitles, waitControlled, waitHomeIdle, waitResults } from "./helpers";
+import { aliasOf, bodyText, bookTrees, chapterIds, corpusEntry, count, hitTitles, installLibrary, latestPrintingGroup, listedChapters, memberBooks, num, openBookGroups, openQuickSearch, pct, quickAllOptions, quickField, quickGroup, quickOptions, quickSearch, quickSearchFor, searchIcon, seedHome, showAllResults, storedRecentCount, suggestionTitles, waitControlled, waitHomeIdle, waitResults, closeQuickSearch } from "./helpers";
 
 const corpus = loadCorpus();
 const entries = [...corpus.entries.values()];
@@ -932,10 +932,9 @@ installedTest("Quick search leaves no stale query in the header after searches a
   await expect(page.locator("h1").first()).toBeVisible();
   await expect(page.locator("header.app-header input")).toHaveCount(0);
   // Opening the layer again starts from an empty field, and Books shows no query either.
-  const layer = await openQuickSearch(page);
+  await openQuickSearch(page);
   await expect(quickField(page)).toHaveValue("");
-  await page.keyboard.press("Escape");
-  await expect(layer).toBeHidden();
+  await closeQuickSearch(page);
   await page.goto("#/books");
   await expect(page.locator("header.app-header input")).toHaveCount(0);
 });
@@ -1217,7 +1216,7 @@ installedTest("Recent searches persist offline, stay unique and newest first, an
   await expect(quickOptions(page)).toHaveText(["fireball", "grapple", "cure light", "dragon"]);
 
   // Tapping a recent search runs it.
-  await page.keyboard.press("Escape");
+  await closeQuickSearch(page);
   await quickSearchFor(page, "wizard");
   await page.goto("#/");
   await openQuickSearch(page);
@@ -1592,8 +1591,7 @@ installedTest("A scope that the Feats choice does not offer still shows and remo
   await expect(scopePill(page, "Traits")).toBeVisible();
   await layer.getByRole("button", { name: "Remove scope: Traits" }).click();
   await expect(scopePill(page, "Traits")).toHaveCount(0);
-  await page.keyboard.press("Escape");
-  await expect(layer).toBeHidden();
+  await closeQuickSearch(page);
 
   await page.goto("#/search?q=bully&kind=trait");
   await waitResults(page, "bully");
@@ -1617,8 +1615,7 @@ installedTest("Back from a scoped search returns to the list, and the scope foll
   // Escape closes the layer on the same list page; the scope is read again at the next opening.
   await openQuickSearch(page);
   await expect(scopePill(page)).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(layer).toBeHidden();
+  await closeQuickSearch(page);
   expect(new URL(page.url()).hash).toBe(listHash);
   await page.goto("#/");
   await openQuickSearch(page);

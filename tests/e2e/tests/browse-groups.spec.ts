@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 import { installedTest as test, expect, loadCorpus } from "./fixtures";
-import { corpusEntry, isMember, memberBooks, count, featLeadsTo, installLibrary, letterId, listLetters, num, openBookGroups, openQuickSearch, quickField, waitControlled, waitResults } from "./helpers";
+import { corpusEntry, isMember, memberBooks, count, featLeadsTo, installLibrary, letterId, listLetters, num, openBookGroups, openQuickSearch, quickField, waitControlled, waitResults, closeQuickSearch } from "./helpers";
 
 const corpus = loadCorpus();
 /** The books the corpus marks third party (#189); a settled profile starts without them. */
@@ -233,7 +233,7 @@ test("The Race menu narrows the racial traits to one race, and Quick search take
   await page.locator("header.app-header").getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByRole("button", { name: "Remove scope: Dwarf racial traits", exact: true })).toBeVisible();
   await expect(quickField(page)).toHaveAttribute("placeholder", "Search Dwarf racial traits");
-  await page.keyboard.press("Escape");
+  await closeQuickSearch(page);
 
   // The search filter panel offers the race for racial traits.
   await page.goto("#/search?q=attributes&kind=racial_trait");
@@ -288,7 +288,7 @@ test("The affliction Type menu narrows the list in place, Back returns to all ty
   await page.locator("header.app-header").getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByRole("button", { name: "Remove scope: Disease afflictions", exact: true })).toBeVisible();
   await expect(quickField(page)).toHaveAttribute("placeholder", "Search Disease afflictions");
-  await page.keyboard.press("Escape");
+  await closeQuickSearch(page);
 
   // Back returns to every affliction.
   await page.goBack();
@@ -1253,7 +1253,7 @@ test("Quick search on a spell list names the class and the chosen schools, and o
   await expect(quickField(page)).toHaveAttribute("placeholder", "Search Wizard spells");
   await page.getByRole("button", { name: "Remove scope: Wizard spells", exact: true }).click();
   await expect(quickField(page)).toHaveAttribute("placeholder", "Search spells, feats, rules…");
-  await page.keyboard.press("Escape");
+  await closeQuickSearch(page);
 
   await page.goto("#/spells/Wizard/3?school=evocation&school=conjuration");
   await openQuickSearch(page);
