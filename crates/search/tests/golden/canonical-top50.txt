@@ -1,8 +1,8 @@
 # Top-50 result ids for the 50 queries of tests/e2e/measure-library.mjs.
 # Regenerate with `cargo xtask search-golden` (after `cargo xtask content`) in every corpus-pin PR.
-# corpus 8f1efbd68b883f7eaf81e4f3561c296bb2986e4b
-# tag v0.1.50
-# content v411d4bd8456e4981
+# corpus 689deb0e0a290ea3c2eb952f636e2f218b71046f
+# tag v0.1.51
+# content vad43d1e1b6e40e61
 # Format: `query: <text>` starts a block; each other line is a result id.
 query: fire
 ref/subtype/fire
@@ -700,8 +700,8 @@ ref/feat/improved-disarm-partner
 ref/feat/snap-shot
 ref/feat/paired-opportunists
 ref/feat/improved-two-weapon-fighting/stamina
-ref/feat/porcupine-defense/stamina
 ref/arc-fighter/two-weapon-warrior
+ref/feat/porcupine-defense/stamina
 ref/feat/aquatic-advantage
 ref/trait/reckless-contempt
 ref/feat/intrepid-rescuer/stamina
