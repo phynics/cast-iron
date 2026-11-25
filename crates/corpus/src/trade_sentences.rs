@@ -417,9 +417,13 @@ pub fn trade_sentences_headed(text: &str, head: Option<&str>) -> Vec<TradeSenten
         let Some(first) = words.first().map(|word| word.to_lowercase()) else {
             continue;
         };
+        // "This change to spells doesn't apply ...": after the singular `This`, `change` is a
+        // noun, not the verb of ruling 25 ("These change ...").
+        let noun_change = |word: &str| word.eq_ignore_ascii_case("change") && first == "this";
         let Some(at) = (0..words.len()).find(|&index| {
             lead_verb_of(words[index]).is_some()
                 && !is_alter_self(words[index], words.get(index + 1))
+                && !noun_change(words[index])
         }) else {
             continue;
         };
@@ -2440,6 +2444,22 @@ mod tests {
         let found = trade_sentences("This ability replaces bravery and changes the saving throw.");
         assert_eq!(found.len(), 1, "{found:?}");
         assert_eq!(found[0].op, TradeOp::Replaces);
+    }
+
+    #[test]
+    fn change_after_this_is_a_noun() {
+        // Planar Oracle (Advanced Class Guide), Amnesiac (Occult Adventures): "This change ..." is
+        // no trade sentence; "These change ..." is.
+        assert!(
+            trade_sentences(
+                "This change does not alter your Hit Dice, hit points, saving throws, or class skills."
+            )
+            .is_empty()
+        );
+        assert!(
+            trade_sentences("This change to spells doesn't apply to knacks (0-level spells).")
+                .is_empty()
+        );
     }
 
     #[test]

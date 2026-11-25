@@ -1664,6 +1664,7 @@ pub fn check(corpus: &Corpus) -> Report {
     check_replaces_features(corpus, &keys, &mut report);
     crate::check_trades::check_trades(corpus, &keys, &mut report);
     crate::check_features::check_features(corpus, &mut report);
+    crate::check_printed_trades::check_printed_trades(corpus, &mut report);
     crate::check_powers::check_class_option_powers(corpus, &mut report);
     crate::check_residue::check_class_option_residue(corpus, &mut report);
     check_publication_suffixes(corpus, &ids, &mut report);
