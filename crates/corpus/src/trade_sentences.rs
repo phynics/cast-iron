@@ -13,7 +13,7 @@
 //! dropped. A hyphen-suspended list ("1st-, 2nd- and 3rd-level bonus feats") reads as one name per
 //! level ("1st-level bonus feats", ...); each suspended item takes the tail of the next full item
 //! after it, so a phrase with two lists ("the 4th- and 14th-level vigilante talents and the 9th-
-//! and 19th-level social talents", Horror Adventures, Serial Killer) expands each against its own
+//! and 19th-level social talents", Serial Killer, Horror Adventures p. 69) expands each against its own
 //! tail (a clarification of this reading, #540). Numbered steps ("armor training 1, 2, 3, and 4")
 //! read as one name per step. The words `ability` and `class feature` around a name are dropped too
 //! ("the paladin's spells class feature" names `Spells`; `class ability` likewise, but `Class
@@ -814,23 +814,18 @@ fn expand_lists(text: &str) -> String {
     if !suspended && !numbered && !shared && !ranged {
         return text.to_string();
     }
-    // The tail of a hyphenated item: "level vigilante talents" of "14th-level vigilante talents".
+    // The tail of a full ordinal item: "level vigilante talents" of "14th-level vigilante
+    // talents". Only an item that starts with `Nth-<word>` and names something after it gives a
+    // tail; "low-light vision" and "well-known ..." give none.
     let tail_of = |item: &String| -> Option<String> {
-        (!item.ends_with('-'))
-            .then(|| item.split_once('-').map(|(_, tail)| tail.to_string()))
-            .flatten()
+        let (word, rest) = ordinal_head(item)?;
+        (!rest.is_empty()).then(|| format!("{word} {rest}"))
     };
     // Each suspended item takes the tail of the next full item after it, so a phrase with two
     // lists ("4th- and 14th-level vigilante talents and the 9th- and 19th-level social talents")
-    // expands each against its own tail. A suspended item with no full item after it falls back
-    // to the first full item of the phrase.
-    let first_tail = items.iter().find_map(tail_of);
-    let tail_for = |index: usize| -> Option<String> {
-        items[index + 1..]
-            .iter()
-            .find_map(tail_of)
-            .or_else(|| first_tail.clone())
-    };
+    // expands each against its own tail. A suspended item with no full item after it stays as it
+    // is: no tail is borrowed from an earlier list.
+    let tail_for = |index: usize| -> Option<String> { items[index + 1..].iter().find_map(tail_of) };
     let mut head: Option<String> = None;
     let mut out = Vec::new();
     for (index, item) in items.iter().enumerate() {
@@ -1434,6 +1429,41 @@ mod tests {
             phrase,
             &names(&["4th- and 14th-level vigilante talents"])
         ));
+    }
+
+    #[test]
+    fn a_suspended_ordinal_takes_a_tail_only_from_an_ordinal_item() {
+        // "low-light vision" and "well-known ..." are no ordinal tails.
+        for phrase in [
+            "the 4th- and low-light vision",
+            "the 4th- and well-known tricks",
+        ] {
+            let expanded = expand_lists(phrase);
+            assert!(!expanded.contains("4th-light"), "{expanded}");
+            assert!(!expanded.contains("4th-known"), "{expanded}");
+            assert!(expanded.contains("4th-"), "{expanded}");
+        }
+        // A real ordinal tail after a non-ordinal hyphen item is still found.
+        assert_eq!(
+            expand_lists("the 4th-, low-light vision and 14th-level talents"),
+            "the 4th-level talents, low-light vision, 14th-level talents"
+        );
+    }
+
+    #[test]
+    fn a_trailing_suspended_item_with_no_later_full_item_stays_unexpanded() {
+        let phrase = "the 4th- and 14th-level vigilante talents and the 9th-";
+        let expanded = expand_lists(phrase);
+        assert!(
+            expanded.contains("4th-level vigilante talents"),
+            "{expanded}"
+        );
+        assert!(
+            expanded.contains("14th-level vigilante talents"),
+            "{expanded}"
+        );
+        assert!(expanded.ends_with("the 9th-"), "{expanded}");
+        assert!(!expanded.contains("9th-level"), "{expanded}");
     }
 
     #[test]
