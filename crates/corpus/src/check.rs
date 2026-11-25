@@ -1644,7 +1644,7 @@ pub fn check(corpus: &Corpus) -> Report {
 
     check_relations(corpus, &mut report);
     check_third_party_sharing(corpus, &mut report);
-    check_uncited_memberships(corpus, &mut report);
+    crate::check_memberships::check_uncited_memberships(corpus, &mut report);
     check_unfielded_feat_labels(corpus, &mut report);
     check_unsettled_stat_sets(corpus, &mut report);
     note_unmarked_heading_cuts(corpus, &mut report);
@@ -1800,55 +1800,6 @@ fn check_third_party_sharing(corpus: &Corpus, report: &mut Report) {
             ));
         }
     }
-}
-
-/// The book memberships that no `[[sources]]` row supports (issue #461).
-///
-/// An entry's first book is its home and needs no row here. Every later book in `source_ids`
-/// is a claim that the book prints the entry or a section of it, and the structured citation (a
-/// `[[sources]]` row, with or without a page) is the evidence that the corpus can check. A body
-/// `**Sources:**` line or an `[[expanded_in]]` credit does not count: the first is free text, the
-/// second sits outside membership. Memberships without a row are the unreviewed rest of the
-/// cleanup of unprinted memberships. Each item is the entry's location (`path:line` of its
-/// `source_ids`), its id and the publication id.
-fn uncited_memberships(corpus: &Corpus) -> Vec<(String, &str, &str)> {
-    let mut out = Vec::new();
-    for stored in corpus.entries.values() {
-        let entry = &stored.entry;
-        let at = format!(
-            "{}:{}",
-            stored.path.display(),
-            line_of(&stored.text, "source_ids")
-        );
-        for book in entry.source_ids.iter().skip(1) {
-            if !entry.sources.iter().any(|row| &row.publication == book) {
-                out.push((at.clone(), entry.id.as_str(), book.as_str()));
-            }
-        }
-    }
-    out
-}
-
-/// Warns, once per run, about memberships in `source_ids` without a `[[sources]]` row. It is a
-/// warning while the cleanup of #461 runs: the count measures what is left. When it reaches 0 it
-/// becomes an error, as the footnote findings did.
-fn check_uncited_memberships(corpus: &Corpus, report: &mut Report) {
-    let uncited = uncited_memberships(corpus);
-    if uncited.is_empty() {
-        return;
-    }
-    let entries: BTreeSet<&str> = uncited.iter().map(|(_, id, _)| *id).collect();
-    let examples: Vec<String> = uncited
-        .iter()
-        .take(3)
-        .map(|(at, id, book)| format!("{at}: `{id}` in `{book}`"))
-        .collect();
-    report.warnings.push(format!(
-        "{} book memberships in {} entries have no `[[sources]]` row, although the book is not the entry's first (for example {}); add the row if the book prints the entry (a verified body citation becomes a row), or remove the book if it does not (#461)",
-        uncited.len(),
-        entries.len(),
-        examples.join(", ")
-    ));
 }
 
 /// Warns, once per run, about feats whose normal part prints `**Prerequisites:**` or
@@ -3497,7 +3448,7 @@ mod tests {
     }
 
     #[test]
-    fn a_later_book_without_a_citation_row_is_counted_in_one_warning() {
+    fn each_later_book_without_a_citation_row_is_an_error() {
         let mut entry = rule("ref/rule/shared", vec![]);
         entry.source_ids.push("second-book".into());
         entry.source_ids.push("third-book".into());
@@ -3515,24 +3466,20 @@ mod tests {
             c.publications.push(publication);
         }
         let report = check(&c);
-        assert!(report.problems.is_empty(), "{:?}", report.problems);
-        assert_eq!(report.warnings.len(), 1, "{:?}", report.warnings);
+        assert!(report.warnings.is_empty(), "{:?}", report.warnings);
+        assert_eq!(report.problems.len(), 2, "{:?}", report.problems);
+        // Entries come in id order: `other` first.
         assert!(
-            report.warnings[0]
-                .contains("2 book memberships in 2 entries have no `[[sources]]` row"),
+            report.problems[0].contains(
+                "entries/rule/other.md:5: [memberships] entry `ref/rule/other` lists `second-book`"
+            ),
             "{:?}",
-            report.warnings
+            report.problems
         );
         assert!(
-            report.warnings[0]
-                .contains("entries/rule/shared.md:5: `ref/rule/shared` in `second-book`"),
+            report.problems[1].contains("entries/rule/shared.md:5: [memberships] entry `ref/rule/shared` lists `second-book`"),
             "{:?}",
-            report.warnings
-        );
-        assert!(
-            !report.warnings[0].contains("`ref/rule/shared` in `third-book`"),
-            "{:?}",
-            report.warnings
+            report.problems
         );
     }
 
@@ -4288,14 +4235,13 @@ mod tests {
                 "{chapter}: {:?}",
                 report.problems
             );
-            // The same placement passes once the entry names the book.
-            corpus
-                .entries
-                .get_mut("ref/rule/a")
-                .unwrap()
-                .entry
-                .source_ids
-                .push("other-book".into());
+            // The same placement passes once the entry names and cites the book.
+            let named = &mut corpus.entries.get_mut("ref/rule/a").unwrap().entry;
+            named.source_ids.push("other-book".into());
+            named.sources.push(Citation {
+                publication: "other-book".into(),
+                page: None,
+            });
             let report = check(&corpus);
             assert!(
                 report.problems.is_empty(),
@@ -4374,12 +4320,12 @@ mod tests {
     #[test]
     fn a_placement_in_a_book_the_entry_names_passes() {
         let mut corpus = two_books();
-        corpus
-            .entries
-            .get_mut("ref/rule/a")
-            .unwrap()
-            .entry
-            .source_ids = vec!["core-rulebook".into(), "other-book".into()];
+        let named = &mut corpus.entries.get_mut("ref/rule/a").unwrap().entry;
+        named.source_ids = vec!["core-rulebook".into(), "other-book".into()];
+        named.sources.push(Citation {
+            publication: "other-book".into(),
+            page: None,
+        });
         corpus.books = BookIndex {
             books: vec![
                 tree(
@@ -5451,6 +5397,10 @@ mod tests {
                 content: vec![Inline::text("Variant")],
             });
             entry.source_ids.push("second-book".into());
+            entry.sources.push(Citation {
+                publication: "second-book".into(),
+                page: None,
+            });
             entry
         };
         let mut c = corpus(vec![
