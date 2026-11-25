@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 import { installedTest as test, expect, loadCorpus } from "./fixtures";
-import { corpusEntry, isMember, memberBooks, count, featLeadsTo, groupLetter, installLibrary, letterId, num, openBookGroups, openQuickSearch, quickField, waitControlled, waitResults } from "./helpers";
+import { corpusEntry, isMember, memberBooks, count, featLeadsTo, installLibrary, letterId, listLetters, num, openBookGroups, openQuickSearch, quickField, waitControlled, waitResults } from "./helpers";
 
 const corpus = loadCorpus();
 /** The books the corpus marks third party (#189); a settled profile starts without them. */
@@ -501,10 +501,11 @@ test("Feats that lead to more than five feats carry a chain marker, and it stays
   const leads = featLeadsTo(5, activeIds);
   const powerAttack = corpusEntry("feat", "Power Attack");
   const dodge = corpusEntry("feat", "Dodge");
+  const featSection = listLetters(activeStubs.filter((stub: any) => stub.kind === "feat"));
   for (const feat of [powerAttack, dodge]) {
     const n = leads.get(feat.id);
     expect(n, `${feat.title} should lead to more than five feats`).toBeGreaterThan(5);
-    await page.goto(`#/browse/kind/feat?l=${groupLetter(feat.title)}`);
+    await page.goto(`#/browse/kind/feat?l=${featSection.get(feat.id)}`);
     const row = page.locator(`.letter-group a[href="#/entry/${feat.id}"]`).first();
     await expect(row.locator("svg.chain-mark")).toHaveCount(1);
     expect(await row.locator("svg.chain-mark").getAttribute("aria-hidden")).toBe("true");
@@ -518,15 +519,60 @@ test("Feats that lead to more than five feats carry a chain marker, and it stays
   // Measure: across every letter group the markers match the relations, and they are few.
   const letters = await page.getByRole("navigation", { name: "Jump to letter" }).getByRole("link").evaluateAll((links) => links.map((link) => (link.textContent ?? "").trim()));
   let marked = 0;
+  // A modifier title (`Greater Weapon Focus`) sits under the letter of its base (#678).
+  const sectionOf = listLetters(activeStubs.filter((stub: any) => stub.kind === "feat"));
   for (const letter of letters) {
     await page.goto(`#/browse/kind/feat?l=${encodeURIComponent(letter)}`);
-    const expected = [...leads.keys()].filter((id) => groupLetter(corpus.entries.get(id)!.title) === letter).length;
+    const expected = [...leads.keys()].filter((id) => sectionOf.get(id) === letter).length;
     await expect(page.locator(".letter-group .chain-mark")).toHaveCount(expected);
     marked += expected;
   }
   console.log(`chain markers: ${marked} of ${featCount} feats (${((marked / featCount) * 100).toFixed(1)} %)`);
   expect(marked).toBe(leads.size);
   expect(marked / featCount).toBeLessThan(0.05);
+});
+
+test("A modifier title sits after its base under the base's letter, and the letter bar counts it there (#678)", async ({ page }) => {
+  await installLibrary(page);
+  const base = corpusEntry("feat", "Weapon Focus");
+  const mythic = corpusEntry("feat", "Weapon Focus, Mythic");
+  const greater = corpusEntry("feat", "Greater Weapon Focus");
+  const row = (id: string) => `#/entry/${id}`;
+
+  // Under W: the base, its mythic version, then Greater Weapon Focus, each with its printed title.
+  await page.goto("#/browse/kind/feat?l=W");
+  const group = page.locator(`#${letterId("W")}`);
+  await expect(group.locator(`a[href="${row(greater.id)}"]`)).toHaveCount(1);
+  const rows: string[][] = await group
+    .locator(".entry-list > li")
+    .evaluateAll((items) => items.map((item) => [...item.querySelectorAll("a")].map((a) => a.getAttribute("href") ?? "")));
+  const at = rows.findIndex((hrefs) => hrefs.includes(row(base.id)));
+  expect(at).toBeGreaterThanOrEqual(0);
+  expect(rows.slice(at, at + 3).map((hrefs) => hrefs[0])).toEqual([row(base.id), row(mythic.id), row(greater.id)]);
+  await expect(group.locator(`a[href="${row(greater.id)}"]`)).toHaveText(/^Greater Weapon Focus/);
+
+  // Not under G: the row is no longer in its own letter's group.
+  await page.goto("#/browse/kind/feat?l=G");
+  await expect(page.locator(`#${letterId("G")} .entry-list`)).toBeVisible();
+  await expect(page.locator(`a[href="${row(greater.id)}"]`)).toHaveCount(0);
+
+  // The letter bar and the group headings count the rows where the list puts them.
+  const feats = activeStubs.filter((stub: any) => stub.kind === "feat");
+  const sectionOf = listLetters(feats);
+  expect(sectionOf.get(greater.id)).toBe("W");
+  const sizes = new Map<string, number>();
+  for (const letter of sectionOf.values()) sizes.set(letter, (sizes.get(letter) ?? 0) + 1);
+  const letters = await page
+    .getByRole("navigation", { name: "Jump to letter" })
+    .getByRole("link")
+    .evaluateAll((links) => links.map((link) => (link.textContent ?? "").trim()));
+  expect(letters).toEqual([...sizes.keys()].sort((a, b) => Number(a === "#") - Number(b === "#") || a.localeCompare(b)));
+  for (const letter of letters.filter((l) => l !== "G")) {
+    const n = sizes.get(letter)!;
+    await expect(page.locator(`#${letterId(letter)} .letter-head-link`)).toHaveAccessibleName(
+      `${letter}, ${count(n)} ${n === 1 ? "entry" : "entries"}`,
+    );
+  }
 });
 
 // ---- The other kinds: items, traits, archetypes, spells and classes (#193 PR 3, #195) ----
@@ -768,7 +814,12 @@ test("Removing the book pill keeps the letter and the facet, and moves focus to 
       (entry.fields?.school ?? "").toLowerCase().split(/[[(]/)[0].trim() === "evocation",
   );
   expect(evocation.length).toBeGreaterThan(0);
-  const letter = groupLetter([...evocation].sort((a, b) => a.title.localeCompare(b.title))[0].title);
+  // The list opens on its first letter section. A modifier title sits under its base's letter
+  // (#678), so the sections come from the filtered list, in A to Z order with `#` last.
+  const sections = [...new Set(listLetters(evocation).values())].sort(
+    (a, b) => Number(a === "#") - Number(b === "#") || a.localeCompare(b),
+  );
+  const letter = sections[0];
   const hash = `#/browse/kind/spell?source=${core.id}&facet=school:evocation&l=${encodeURIComponent(letter)}`;
   await page.goto(hash);
 
