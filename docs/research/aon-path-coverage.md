@@ -6,11 +6,11 @@ Every canonical entry of the pinned corpus that has no verified Archives of Neth
 
 | | |
 |---|---|
-| Corpus | [`phynics/cast-iron-data`](https://github.com/phynics/cast-iron-data/tree/a41ac04447c10bafd42ced1139dbe5049a287707) |
-| Tag | `v0.1.54` |
-| Commit | `a41ac04447c10bafd42ced1139dbe5049a287707` |
-| Tree hash | `773755fb2f2f57c87ec8059d1a757c55afa3ce8fbab9f058a74cb6e24d285ab4` |
-| Entries | 31,672 |
+| Corpus | [`phynics/cast-iron-data`](https://github.com/phynics/cast-iron-data/tree/79cbe278c580392cb6c80f979232e646364067de) |
+| Tag | `v0.1.56` |
+| Commit | `79cbe278c580392cb6c80f979232e646364067de` |
+| Tree hash | `7debe09fb671d4f93719478216c9e0f03cbc9e59b73f748988261914a2d0e78d` |
+| Entries | 31,671 |
 | Publications | 443 |
 
 ## Totals by kind
@@ -26,7 +26,7 @@ Every canonical entry of the pinned corpus that has no verified Archives of Neth
 | creature | 2,193 | 1,469 | 3,662 |
 | feat | 3,442 | 215 | 3,657 |
 | haunt | 0 | 45 | 45 |
-| item | 439 | 7,658 | 8,097 |
+| item | 439 | 7,657 | 8,096 |
 | prestige_class | 115 | 0 | 115 |
 | race | 74 | 2 | 76 |
 | racial_trait | 0 | 342 | 342 |
@@ -35,7 +35,7 @@ Every canonical entry of the pinned corpus that has no verified Archives of Neth
 | spell | 2,999 | 30 | 3,029 |
 | trait | 1,896 | 39 | 1,935 |
 | trap | 0 | 60 | 60 |
-| **Total** | **12,483** | **19,189** | **31,672** |
+| **Total** | **12,483** | **19,188** | **31,671** |
 
 ## Publications
 
@@ -69,9 +69,9 @@ Every canonical entry of the pinned corpus that has no verified Archives of Neth
 
 ## The per-entry list
 
-[`aon-path-coverage.tsv`](aon-path-coverage.tsv) holds one row per missing entry, sorted by kind then id: `id`, `kind`, and `title`, with a header row. 19,189 data rows.
+[`aon-path-coverage.tsv`](aon-path-coverage.tsv) holds one row per missing entry, sorted by kind then id: `id`, `kind`, and `title`, with a header row. 19,188 data rows.
 
-SHA-256 of the list: `a6ea47b926d7fce10805482af1ddfc89ddee53c25a462b42e3152f6b2630987b`
+SHA-256 of the list: `4d92cd7f46169e02dcd62bff620870ca025f2bebd06add94e1ad13afad21aeba`
 
 ## What a missing row means
 
