@@ -11,7 +11,7 @@ import {
   firstBookPlacement,
   listedChapterTitles,
   memberBooks,
-  groupLetter,
+  listLetters,
   hasBlock,
   headingAnchors,
   headingKeys,
@@ -188,12 +188,13 @@ test("Home is category-only and Books is the publication directory", async ({ pa
 
   // The Spells category opens one letter group at a time; the jump bar moves between them.
   const spells = activeStubs.filter((stub) => stub.kind === "spell");
-  const letters = [...new Set(spells.map((stub) => groupLetter(stub.title)))].sort(
+  const sectionOf = listLetters(spells);
+  const letters = [...new Set(sectionOf.values())].sort(
     (a, b) => Number(a === "#") - Number(b === "#") || a.localeCompare(b),
   );
   const firstLetter = letters[0];
   const firstId = letterId(firstLetter);
-  const firstGroup = spells.filter((stub) => groupLetter(stub.title) === firstLetter);
+  const firstGroup = spells.filter((stub) => sectionOf.get(stub.id) === firstLetter);
   await tiles.filter({ has: page.locator(".cat-name", { hasText: /^Spells$/ }) }).click();
   const jump = page.getByRole("navigation", { name: "Jump to letter" });
   await expect(jump).toBeVisible();
@@ -202,7 +203,7 @@ test("Home is category-only and Books is the publication directory", async ({ pa
   // Other groups stay collapsed behind their heading link.
   const targetLetter = letters.find((letter) => letter !== firstLetter)!;
   const targetId = letterId(targetLetter);
-  const targetGroup = spells.filter((stub) => groupLetter(stub.title) === targetLetter);
+  const targetGroup = spells.filter((stub) => sectionOf.get(stub.id) === targetLetter);
   const collapsed = page.locator(`#${targetId} .letter-head-link`);
   await expect(collapsed).toHaveCount(1);
   await expect(collapsed).toHaveAccessibleName(new RegExp(`^${targetLetter}, ${targetGroup.length} entr`));

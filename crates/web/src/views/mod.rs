@@ -25,6 +25,7 @@ pub mod home;
 pub mod icons;
 pub mod installer;
 pub mod legal;
+pub mod list_order;
 pub mod not_found;
 pub mod progression;
 pub mod quick;
