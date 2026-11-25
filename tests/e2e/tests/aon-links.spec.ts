@@ -313,6 +313,11 @@ test("The AoN link and Copy link keep their own edges at a phone width", async (
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto(`#/entry/${DODGE.id}`);
   await expect(page.getByRole("heading", { level: 1, name: DODGE.title })).toBeVisible();
+  // The heading can draw before the AoN line and the related panel; wait for every element read below.
+  await expect(page.locator(".entry > .aon-line a")).toBeVisible();
+  await expect(page.locator(".entry > .aon-line .aon-copy")).toBeVisible();
+  await expect(page.locator(".entry > .sources-line")).toBeVisible();
+  await expect(page.locator(".entry > #entry-related")).toBeVisible();
 
   const owns = await page.evaluate(() => {
     const link = document.querySelector(".entry > .aon-line a") as HTMLElement;
