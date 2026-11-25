@@ -815,17 +815,37 @@ fn expand_lists(text: &str) -> String {
         return text.to_string();
     }
     // The tail of a full ordinal item: "level vigilante talents" of "14th-level vigilante
-    // talents". Only an item that starts with `Nth-<word>` and names something after it gives a
-    // tail; "low-light vision" and "well-known ..." give none.
-    let tail_of = |item: &String| -> Option<String> {
+    // talents", or "level" of a bare "4th-level". Only an item that starts with `Nth-<word>`
+    // gives one; "low-light vision" and "well-known ..." give none.
+    let ordinal_tail_of = |item: &String| -> Option<String> {
         let (word, rest) = ordinal_head(item)?;
-        (!rest.is_empty()).then(|| format!("{word} {rest}"))
+        Some(if rest.is_empty() {
+            word
+        } else {
+            format!("{word} {rest}")
+        })
+    };
+    // The tail of any full hyphenated item: "level" of "high-level".
+    let generic_tail_of = |item: &String| -> Option<String> {
+        (!item.ends_with('-'))
+            .then(|| item.split_once('-').map(|(_, tail)| tail.to_string()))
+            .flatten()
     };
     // Each suspended item takes the tail of the next full item after it, so a phrase with two
     // lists ("4th- and 14th-level vigilante talents and the 9th- and 19th-level social talents")
-    // expands each against its own tail. A suspended item with no full item after it stays as it
-    // is: no tail is borrowed from an earlier list.
-    let tail_for = |index: usize| -> Option<String> { items[index + 1..].iter().find_map(tail_of) };
+    // expands each against its own tail. A suspended ordinal ("the 4th-") takes only an ordinal
+    // tail, so "the 4th- and low-light vision" never reads "4th-light vision"; any other suspended
+    // item ("low- and high-level") takes the generic hyphen tail of the next full item. A
+    // suspended item with no full item after it stays as it is: no tail is borrowed from an
+    // earlier list.
+    let tail_for = |index: usize| -> Option<String> {
+        let later = &items[index + 1..];
+        if is_ordinal_stem(&items[index]) {
+            later.iter().find_map(ordinal_tail_of)
+        } else {
+            later.iter().find_map(generic_tail_of)
+        }
+    };
     let mut head: Option<String> = None;
     let mut out = Vec::new();
     for (index, item) in items.iter().enumerate() {
@@ -850,6 +870,24 @@ fn expand_lists(text: &str) -> String {
         out.push(item.clone());
     }
     out.join(", ")
+}
+
+/// True for a suspended ordinal: `4th-` or `the 4th-`.
+fn is_ordinal_stem(item: &str) -> bool {
+    let Some(token) = item
+        .split_whitespace()
+        .find(|token| !ARTICLES.contains(&token.to_lowercase().as_str()))
+    else {
+        return false;
+    };
+    let Some(ordinal) = token.strip_suffix('-') else {
+        return false;
+    };
+    let digits = ordinal.trim_end_matches(|ch: char| ch.is_alphabetic());
+    let suffix = &ordinal[digits.len()..];
+    !digits.is_empty()
+        && digits.bytes().all(|byte| byte.is_ascii_digit())
+        && matches!(suffix, "st" | "nd" | "rd" | "th")
 }
 
 /// `("level", "mercies")` of `3rd-level mercies`: the word that follows the ordinal's hyphen, and
@@ -1447,6 +1485,23 @@ mod tests {
         assert_eq!(
             expand_lists("the 4th-, low-light vision and 14th-level talents"),
             "the 4th-level talents, low-light vision, 14th-level talents"
+        );
+    }
+
+    #[test]
+    fn a_bare_ordinal_tail_and_a_non_ordinal_stem_expand_as_on_main() {
+        assert_eq!(
+            expand_lists("the 2nd- or 4th-level"),
+            "the 2nd-level, 4th-level"
+        );
+        assert_eq!(
+            expand_lists("the 1st-, 5th-, and 9th-level"),
+            "the 1st-level, 5th-level, 9th-level"
+        );
+        assert_eq!(expand_lists("low- and high-level"), "low-level, high-level");
+        assert_eq!(
+            name_words("the 2nd- or 4th-level"),
+            name_words("2nd-level, 4th-level")
         );
     }
 
