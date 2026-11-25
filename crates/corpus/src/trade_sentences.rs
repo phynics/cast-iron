@@ -77,7 +77,14 @@
 //!   Anything" names `Alchemy` and `Throw Anything`. The asides join with "; " in
 //!   [`TradeSentence::aside`]. No word inside a parenthesis ends a phrase or starts a clause;
 //! - R19: "alter self" is a spell name, never the verb: a bare `alter` followed by the word `self`
-//!   is no verb ("This ability functions as alter self, beast shape IV, ...").
+//!   is no verb ("This ability functions as alter self, beast shape IV, ...");
+//! - R20 (owner ruling 40 of 2026-11-25, #540): a phrase that ends in "as indicated below" is a
+//!   cross-reference, like a printed "(see ...)". The reader ignores that phrase and stores no
+//!   trade for it: "This ability alters hunter's bond and replaces specific ranger abilities as
+//!   indicated below." (Adventurer's Guide, Raven Master) gives one `alters` sentence,
+//!   `hunter's bond`; the trades of the replaced abilities come from the later features. The rule
+//!   works on a phrase, the part after one verb: the other verb of the sentence is read as before,
+//!   and the words "as indicated below" in the middle of a phrase change nothing.
 
 use cast_iron_schema::TradeOp;
 
@@ -516,8 +523,28 @@ pub fn trade_sentences_headed(text: &str, head: Option<&str>) -> Vec<TradeSenten
         sentence.phrase = phrase;
         sentence.aside = aside;
     }
-    found.retain(|sentence| !sentence.phrase.trim().is_empty());
+    // R20: a phrase that ends in "as indicated below" is a cross-reference and states no trade.
+    found.retain(|sentence| {
+        !sentence.phrase.trim().is_empty() && !is_indicated_below(&sentence.phrase)
+    });
     found
+}
+
+/// R20 (owner ruling 40 of 2026-11-25, #540): true when the phrase ends in the words "as
+/// indicated below" (case aside; a trailing comma or colon aside; a closing parenthesis is not): a cross-reference to the later
+/// features, which state the trades. The same words before other words ("... as indicated below
+/// at 5th level") end no phrase and stay a name.
+fn is_indicated_below(phrase: &str) -> bool {
+    let words: Vec<String> = phrase
+        .trim_end_matches([',', ':'])
+        .split_whitespace()
+        .map(str::to_lowercase)
+        .collect();
+    words.ends_with(&[
+        "as".to_string(),
+        "indicated".to_string(),
+        "below".to_string(),
+    ])
 }
 
 /// R9: a parenthesis that holds a clause (four words or more) is an aside, not part of a name:
@@ -2477,6 +2504,73 @@ mod tests {
             pairs("This ability replaces bravery and alter self."),
             [(TradeOp::Replaces, "bravery and alter self".to_string())]
         );
+    }
+
+    #[test]
+    fn a_phrase_ending_in_as_indicated_below_is_a_cross_reference() {
+        // Adventurer's Guide p. 175, Raven Master (owner ruling 40): only the phrase that ends in
+        // "as indicated below" is ignored; the `alters` clause is read as before.
+        assert_eq!(
+            pairs(
+                "This ability alters hunter's bond and replaces specific ranger abilities as indicated below."
+            ),
+            [(TradeOp::Alters, "hunter's bond".to_string())]
+        );
+        // The sentence with no cross-reference still yields both trades.
+        assert_eq!(
+            pairs("This ability alters hunter's bond and replaces specific ranger abilities."),
+            [
+                (TradeOp::Alters, "hunter's bond".to_string()),
+                (TradeOp::Replaces, "specific ranger abilities".to_string()),
+            ]
+        );
+        // The cross-reference alone, in either verb, in any case, with a pronoun clause.
+        assert!(
+            trade_sentences("This ability replaces specific ranger abilities as indicated below.")
+                .is_empty()
+        );
+        assert!(
+            trade_sentences("These replace bravery and armor training AS INDICATED BELOW.")
+                .is_empty()
+        );
+        assert_eq!(
+            pairs(
+                "This ability alters hunter's bond, and it replaces wild empathy as indicated below."
+            ),
+            [(TradeOp::Alters, "hunter's bond".to_string())]
+        );
+        // Either order of the two clauses.
+        assert_eq!(
+            pairs(
+                "This ability alters hunter's bond as indicated below and replaces wild empathy."
+            ),
+            [(TradeOp::Replaces, "wild empathy".to_string())]
+        );
+        // The words before other words end no phrase, and stay a name.
+        assert_eq!(
+            pairs("This ability replaces bravery as indicated below at 5th level."),
+            [(
+                TradeOp::Replaces,
+                "bravery as indicated below at 5th level".to_string()
+            )]
+        );
+        assert_eq!(
+            pairs("This ability replaces bravery (as indicated below)."),
+            [(
+                TradeOp::Replaces,
+                "bravery (as indicated below)".to_string()
+            )]
+        );
+        // A word that only contains the words is no cross-reference.
+        assert_eq!(
+            pairs("This ability replaces bravery as indicated belowground."),
+            [(
+                TradeOp::Replaces,
+                "bravery as indicated belowground".to_string()
+            )]
+        );
+        // A trade name that is itself those words stays no name; the sentence states nothing.
+        assert!(trade_sentences("This ability replaces as indicated below.").is_empty());
     }
 
     #[test]

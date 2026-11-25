@@ -1332,6 +1332,14 @@ Anything" names `Alchemy` and `Throw Anything`, and the aside states `Bombs`, `E
 the verb ("This ability functions as alter self, beast shape IV, ...", "functions like alter self,
 except as noted here").
 
+One more reading (owner ruling 40 of 2026-11-25, #540; decision
+`2026-11-25-as-indicated-below-is-a-cross-reference`): a phrase that ends in "as indicated below"
+is a cross-reference, like a printed "(see ...)". The reader ignores that phrase and the entry
+stores no trade for it: "This ability alters hunter's bond and replaces specific ranger abilities
+as indicated below." is one `alters` sentence naming `Hunter's bond`; the trades of the replaced
+abilities come from the sentences of the later features. The rule works per phrase, the part after
+one verb, and only at its end: "replaces bravery as indicated below at 5th level" keeps its name.
+
 Names are compared as words, ignoring case, punctuation, hyphens, articles (and `standard`,
 `normal`, `normally`; **never `bonus`**: "bonus spells" are not `Spells`), ability
 tags (`(Ex)`), a plural (`s`, `es`, `ies`: `bombs`/`bomb`, `hexes`/`hex`, `mercies`/`mercy`), a
