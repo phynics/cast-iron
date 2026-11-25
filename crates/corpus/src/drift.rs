@@ -3180,6 +3180,82 @@ mod tests {
     }
 
     #[test]
+    fn the_held_sentences_of_batch_3_pair_with_their_trades() {
+        // Held entries of data pull request 314 (#540, 2026-11-25).
+        let check = |anchor: &str, text: &str, trades: &[(TradeOp, &str)]| {
+            let entry = printed_archetype(
+                &[(anchor, text)],
+                trades
+                    .iter()
+                    .map(|(op, name)| trade_by(*op, name, &[anchor]))
+                    .collect(),
+            );
+            find_drift(&entry)
+        };
+        // Sage Counselor, Feinting Flurry (Ultimate Intrigue): a second clause with "it".
+        let text = "At 6th level, a sage counselor gains a bonus. This ability alters flurry of blows and ki pool, and it replaces the bonus feat gained at 10th level.";
+        let trades = [
+            (TradeOp::Alters, "Flurry of blows"),
+            (TradeOp::Alters, "Ki pool"),
+            (TradeOp::Replaces, "Bonus feat gained at 10th level"),
+        ];
+        assert!(check("feinting-flurry", text, &trades).is_empty());
+        // The op of the second clause counts.
+        let wrong = [
+            (TradeOp::Alters, "Flurry of blows"),
+            (TradeOp::Alters, "Ki pool"),
+            (TradeOp::Alters, "Bonus feat gained at 10th level"),
+        ];
+        assert!(!check("feinting-flurry", text, &wrong).is_empty());
+        // Gray Paladin, Weakened Grace.
+        let text = "At 2nd level, a gray paladin gains a bonus. This ability alters smite evil, aura of courage, aura of resolve, and aura of righteousness, and it replaces aura of good and divine grace.";
+        let trades = [
+            (TradeOp::Alters, "Smite evil"),
+            (TradeOp::Alters, "Aura of courage"),
+            (TradeOp::Alters, "Aura of resolve"),
+            (TradeOp::Alters, "Aura of righteousness"),
+            (TradeOp::Replaces, "Aura of good"),
+            (TradeOp::Replaces, "Divine grace"),
+        ];
+        assert!(check("weakened-grace", text, &trades).is_empty());
+        // Guiding Blade, Daring Teamwork.
+        let text = "At 1st level, a guiding blade gains a bonus. This ability replaces bonus feats and the swashbuckler's 1st-, 7th-, and 15th-level deeds, and it alters panache.";
+        let trades = [
+            (TradeOp::Replaces, "Bonus feats"),
+            (TradeOp::Replaces, "1st-, 7th-, and 15th-level deeds"),
+            (TradeOp::Alters, "Panache"),
+        ];
+        assert!(check("daring-teamwork", text, &trades).is_empty());
+        // Mindblade, Psychic Pool (Occult Adventures): ", and counts as" ends the phrase.
+        let text = "At 1st level, a mindblade gains a pool. This ability replaces arcane pool, and counts as arcane pool for the purpose of feats, abilities, and class features.";
+        let trades = [(TradeOp::Replaces, "Arcane pool")];
+        assert!(check("psychic-pool", text, &trades).is_empty());
+        // Metamorph, Alchemy (Ultimate Intrigue): a parenthesis in the middle of the phrase.
+        let text = "A metamorph gains a form. This ability replaces alchemy (which also includes bombs, extracts, and mutagen) and Throw Anything.";
+        let trades = [
+            (TradeOp::Replaces, "Alchemy"),
+            (TradeOp::Replaces, "Bombs"),
+            (TradeOp::Replaces, "Extracts"),
+            (TradeOp::Replaces, "Mutagen"),
+            (TradeOp::Replaces, "Throw Anything"),
+        ];
+        assert!(check("alchemy", text, &trades).is_empty());
+        // The aside names no coverage: a trade that neither names is still drift.
+        let more = [
+            (TradeOp::Replaces, "Alchemy"),
+            (TradeOp::Replaces, "Throw Anything"),
+            (TradeOp::Replaces, "Poison use"),
+        ];
+        assert_eq!(check("alchemy", text, &more).len(), 1);
+        // Metamorph's and Flesheater's "alter self" is the spell, not a trade sentence.
+        let text = "A metamorph gains a form. This ability functions like alter self, except as noted here. This ability alters alchemy.";
+        let trades = [(TradeOp::Alters, "Alchemy")];
+        assert!(check("shapechanger", text, &trades).is_empty());
+        let text = "A flesheater gains a form. This ability functions as alter self, beast shape IV, form of the dragon III, or giant form II, as appropriate.";
+        assert!(check("unbound-form", text, &[]).is_empty());
+    }
+
+    #[test]
     fn the_aside_of_another_op_states_no_trade() {
         // The feature prints an `alters` sentence too, so ruling 24 does not excuse the trade;
         // the aside of the `replaces` sentence names it, but with the wrong op.
