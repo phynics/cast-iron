@@ -3268,11 +3268,10 @@ mod tests {
                     .collect(),
             ))
         };
+        // The ignored phrase needs no `replaces` trade: the `alters` trade alone agrees.
         assert!(check(&[(TradeOp::Alters, "Hunter's bond")]).is_empty());
         // The `alters` clause is still a printed sentence: without its trade the entry drifts.
         assert_eq!(check(&[]).len(), 1);
-        // The ignored phrase needs no trade, so the entry agrees with no `replaces` trade at all.
-        assert!(check(&[(TradeOp::Alters, "Hunter's bond")]).is_empty());
     }
 
     #[test]
