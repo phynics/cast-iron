@@ -148,9 +148,9 @@ the decoded body length of the response the browser received for the `*_bg.wasm`
   and Advanced Race Guide) and are not published.
 - [#461](https://github.com/phynics/cast-iron/issues/461): book memberships a book does not print. Slices S5 to S12
   are in this release; the warning for memberships without a page citation is 1 at v0.1.51 (Gamemastery, in the
-  GameMastery Guide). [#715](https://github.com/phynics/cast-iron/issues/715) (an uncited membership becomes a
-  corpus error, with an allow-list) waits for the data repository's allow-list tag; the v0.1.53 pin on `main` brings
-  the allow-list file, and #715 is not merged.
+  GameMastery Guide). [#715](https://github.com/phynics/cast-iron/pull/715) (an uncited membership becomes a
+  corpus error, with an allow-list) merged to `main` after this release, so the release does not carry it; the
+  v0.1.53 pin on `main` brings the allow-list file.
 
 ## Release notes
 
