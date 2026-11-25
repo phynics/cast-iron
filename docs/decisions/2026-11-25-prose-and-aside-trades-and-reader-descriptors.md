@@ -14,8 +14,9 @@ The reviews of data batch 2 (Advanced Class Guide and Advanced Race Guide, pull 
 batch 3 (pull request 314) gave owner rulings 28, 29, 30 and 33 on #540. They extend the reader
 and the checks of the earlier entries ([reader tolerance](2026-11-24-trade-sentence-reader-tolerance.md),
 [granted-thing subjects](2026-11-24-granted-thing-subjects-in-trade-sentences.md)). No format
-version changes, and no stored entry changes with them: the pinned corpus checks with the same
-output.
+version changes. Rulings 28 to 30 change no stored entry. Ruling 33 adds one problem on the
+current pin: Beast Master lists `class-skills` as a feature. This change merges after a data pin
+that unlists the scaffold variants (data pull requests 313 and 314 list more of them).
 
 ## Ruling 28: prose supports a trade, narrowly
 
@@ -31,7 +32,11 @@ sentence**. Three limits keep it narrow:
 - a trade sentence never counts, so a trade whose op differs from the sentence that names it
   (the book says "alters hunter tactics", the trade says `replaces`) is still drift;
 - the other rules are unchanged: every printed trade sentence must still be covered by trades,
-  and a trade that the feature text never names stays drift under ruling 24's guard.
+  and a trade that the feature text never names stays drift under ruling 24's guard;
+- a printed cross-reference states nothing (ruling 16 keeps it): a parenthesis that starts with
+  "see" ("(see the X ability)", "(see below)", "(see Table ...)") is ignored, and so is the part
+  of a sentence from a comparison on ("functions as the X ability", "works like the X ability",
+  "as the X ability").
 
 ## Ruling 29: a parenthetical names a trade
 
@@ -40,7 +45,8 @@ supports both trades: `replaces` `Swift alchemy`, and `replaces` `Instant alchem
 feature. R9 drops a closing parenthesis of four words or more from the phrase, so coverage is
 unchanged; the reader now keeps the dropped text as `TradeSentence::aside`. A trade whose `by`
 names the feature is stated when its name appears in the aside of a sentence **of the trade's own
-op**.
+op**. The aside follows the same cross-reference rule: an aside that starts with "see" states
+nothing.
 
 ## Ruling 30: clause ends and descriptors
 

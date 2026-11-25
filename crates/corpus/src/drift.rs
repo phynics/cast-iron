@@ -1239,7 +1239,10 @@ fn feature_trade_pairs(entry: &RuleEntry, text: &str) -> Vec<Pair> {
             all.iter().any(|sentence| {
                 sentence.op == trade.op
                     && !sentence.aside.is_empty()
-                    && crate::trade_sentences::name_in_phrase(&name, &sentence.aside)
+                    && crate::trade_sentences::name_in_phrase(
+                        &name,
+                        &crate::trade_sentences::stating_text(&sentence.aside),
+                    )
             })
         };
         // Owner ruling 28 (2026-11-25), Verminous Hunter: the prose of a feature that the trade
@@ -3111,6 +3114,80 @@ mod tests {
             ],
         );
         assert!(find_drift(&entry).is_empty());
+    }
+
+    #[test]
+    fn a_cross_reference_or_a_comparison_does_not_state_a_trade() {
+        // Owner ruling 16 (printed cross-references stay) with rulings 28 and 29.
+        let vermin = |text: &str| {
+            printed_archetype(
+                &[("vermin-companion", text)],
+                vec![
+                    trade_by(TradeOp::Alters, "Animal companion", &["vermin-companion"]),
+                    trade_by(TradeOp::Alters, "Hunter tactics", &["vermin-companion"]),
+                ],
+            )
+        };
+        let base =
+            "At 1st level, a verminous hunter forms a bond. This ability alters animal companion.";
+        for extra in [
+            " This bond grows (see the hunter tactics class ability).",
+            " This ability functions as the hunter tactics class ability.",
+        ] {
+            let entry = vermin(&format!("{base}{extra}"));
+            assert_eq!(
+                find_drift(&entry).len(),
+                1,
+                "{extra}: {:?}",
+                find_drift(&entry)
+            );
+        }
+        let aside = |text: &str| {
+            printed_archetype(
+                &[("deep-bombs", text)],
+                vec![
+                    trade_by(TradeOp::Replaces, "Swift alchemy", &["deep-bombs"]),
+                    trade_by(TradeOp::Replaces, "Instant alchemy", &["deep-bombs"]),
+                ],
+            )
+        };
+        let entry = aside(
+            "At 4th level, a deep bomber gains a bonus. This ability replaces swift alchemy (see the instant alchemy class ability for more).",
+        );
+        assert_eq!(find_drift(&entry).len(), 1, "{:?}", find_drift(&entry));
+    }
+
+    #[test]
+    fn the_aside_of_another_op_states_no_trade() {
+        // The feature prints an `alters` sentence too, so ruling 24 does not excuse the trade;
+        // the aside of the `replaces` sentence names it, but with the wrong op.
+        let entry = printed_archetype(
+            &[(
+                "deep-bombs",
+                "At 4th level, a deep bomber gains a bonus. This ability alters weapon training. This ability replaces swift alchemy (a deep bomber never gains instant alchemy).",
+            )],
+            vec![
+                trade_by(TradeOp::Alters, "Weapon training", &["deep-bombs"]),
+                trade_by(TradeOp::Replaces, "Swift alchemy", &["deep-bombs"]),
+                trade_by(TradeOp::Alters, "Instant alchemy", &["deep-bombs"]),
+            ],
+        );
+        let drift = find_drift(&entry);
+        assert_eq!(drift.len(), 1, "{drift:?}");
+        assert_eq!(drift[0].field_value, "alters: Instant alchemy");
+        // The same aside states a `replaces` trade.
+        let entry = printed_archetype(
+            &[(
+                "deep-bombs",
+                "At 4th level, a deep bomber gains a bonus. This ability alters weapon training. This ability replaces swift alchemy (a deep bomber never gains instant alchemy).",
+            )],
+            vec![
+                trade_by(TradeOp::Alters, "Weapon training", &["deep-bombs"]),
+                trade_by(TradeOp::Replaces, "Swift alchemy", &["deep-bombs"]),
+                trade_by(TradeOp::Replaces, "Instant alchemy", &["deep-bombs"]),
+            ],
+        );
+        assert!(find_drift(&entry).is_empty(), "{:?}", find_drift(&entry));
     }
 
     /// A listed feature, then a heading with the given text and the given paragraphs under it.

@@ -1213,7 +1213,10 @@ block), and compares them with the trades that name the feature in `by`:
   it appears in the closing parenthesis that the reader dropped as an aside from a sentence of the
   trade's own op ("This ability replaces swift alchemy (a deep bomber never gains instant
   alchemy).", Deep Bomber). A trade sentence never counts as prose, so a trade of another op than
-  the sentence that names it stays drift;
+  the sentence that names it stays drift. A printed cross-reference states nothing (ruling 16): a
+  parenthesis that starts with "see" is ignored in prose and in the aside, and so is a sentence
+  from a comparison on ("functions as the X ability", "works like the X ability", "as the X
+  ability");
 - every trade sentence of a listed feature is covered by the trades that name that feature;
 - a trade without `by` is a trade printed outside any feature: its name appears in a trade
   sentence of the opening text (the blocks before the first listed feature) or of a section under a

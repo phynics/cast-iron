@@ -387,7 +387,25 @@ fn drop_aside(phrase: &str) -> (String, String) {
     if inner.contains('(') || inner.split_whitespace().count() < 4 {
         return keep();
     }
-    (trimmed[..open].trim_end().to_string(), inner.to_string())
+    // Ruling 16: a cross-reference ("(see the X ability ...)") is dropped from the phrase and
+    // states nothing, so it leaves no aside.
+    let aside = if is_cross_reference(inner) {
+        String::new()
+    } else {
+        inner.to_string()
+    };
+    (trimmed[..open].trim_end().to_string(), aside)
+}
+
+/// True when `text` starts with the word "see": the inside of a printed cross-reference.
+fn is_cross_reference(text: &str) -> bool {
+    let text = text.trim_start();
+    text.get(..3)
+        .is_some_and(|head| head.eq_ignore_ascii_case("see"))
+        && text[3..]
+            .chars()
+            .next()
+            .is_none_or(|next| !next.is_alphanumeric())
 }
 
 /// The level in an "At Nth level" or "Starting at Nth level" lead at the start of `text`.
@@ -828,13 +846,55 @@ pub fn names_a_trade(sentence: &TradeSentence, trades: &[(TradeOp, String)]) -> 
     })
 }
 
+/// The text of `text` that can state a trade (rulings 28 and 29, with ruling 16): without a
+/// parenthesized cross-reference (a run that starts with "see": "(see the Stealth skill)",
+/// "(see below)", "(see Table 15-4 ...)"), and cut at a comparison ("functions as the X ability",
+/// "works like the X ability", "as the X ability"), which names another ability, not the trade.
+pub(crate) fn stating_text(text: &str) -> String {
+    let mut out = String::new();
+    let mut rest = text;
+    while let Some(open) = rest.find('(') {
+        if is_cross_reference(&rest[open + 1..]) {
+            out.push_str(&rest[..open]);
+            match rest[open..].find(')') {
+                Some(close) => rest = &rest[open + close + 1..],
+                None => rest = "",
+            }
+        } else {
+            out.push_str(&rest[..=open]);
+            rest = &rest[open + 1..];
+        }
+    }
+    out.push_str(rest);
+    let lower = out.to_lowercase();
+    let cut = [
+        "functions as ",
+        "functions like ",
+        "works as ",
+        "works like ",
+        "acts as ",
+        "acts like ",
+        " as the ",
+        " like the ",
+    ]
+    .iter()
+    .filter_map(|marker| lower.find(marker))
+    .min();
+    match cut {
+        Some(at) => out[..at].to_string(),
+        None => out,
+    }
+}
+
 /// Ruling 28 (owner, 2026-11-25): true when `name` is in the text of a sentence of `text` that is
 /// itself no trade sentence: "The hunter tactics class ability allows a verminous hunter to grant
 /// her teamwork feats" names `Hunter tactics`. A trade sentence never counts, so a trade of
-/// another op than the sentence that names it stays drift.
+/// another op than the sentence that names it stays drift. A cross-reference or a comparison
+/// ([`stating_text`]) states nothing.
 pub fn prose_mentions(text: &str, name: &[String]) -> bool {
     sentences(text).iter().any(|sentence| {
-        trade_sentences_headed(sentence, None).is_empty() && name_in_phrase(name, sentence)
+        trade_sentences_headed(sentence, None).is_empty()
+            && name_in_phrase(name, &stating_text(sentence))
     })
 }
 
@@ -1469,6 +1529,54 @@ mod tests {
             &sentence.phrase,
             &names(&["Inspired rage"])
         ));
+    }
+
+    #[test]
+    fn a_cross_reference_or_comparison_states_no_trade() {
+        // Owner ruling 16: printed cross-references stay, and never state a trade.
+        let hunter = name_words("Hunter tactics");
+        assert!(prose_mentions(
+            "The hunter tactics class ability allows a verminous hunter to grant her teamwork feats.",
+            &hunter
+        ));
+        for text in [
+            "A verminous hunter gains a bonus (see the hunter tactics class ability).",
+            "A verminous hunter gains a bonus (See hunter tactics).",
+            "A verminous hunter gains a bonus ( see below for hunter tactics).",
+            "A verminous hunter gains a bonus (see Table 15-4 of the hunter tactics).",
+            "This ability functions as the hunter tactics class ability.",
+            "This ability works like the hunter tactics class ability.",
+            "A verminous hunter uses it as the hunter tactics class ability.",
+        ] {
+            assert!(!prose_mentions(text, &hunter), "{text}");
+        }
+        // A name before the comparison, or outside the cross-reference, still counts.
+        assert!(prose_mentions(
+            "The hunter tactics ability works like the animal focus class ability.",
+            &hunter
+        ));
+        assert!(prose_mentions(
+            "The hunter tactics grant a bonus (see below).",
+            &hunter
+        ));
+        // `see` is a word, not a prefix.
+        assert!(prose_mentions("A bonus (seeking hunter tactics).", &hunter));
+        // The aside of a trade sentence follows the same rule.
+        let instant = name_words("Instant alchemy");
+        for text in [
+            "This ability replaces swift alchemy (see the instant alchemy class ability for more).",
+            "This ability replaces swift alchemy (See below: a deep bomber gains instant alchemy).",
+        ] {
+            let sentence = one(text);
+            assert_eq!(sentence.phrase, "swift alchemy", "{text}");
+            assert!(
+                !name_in_phrase(&instant, &stating_text(&sentence.aside)),
+                "{text}"
+            );
+        }
+        let sentence =
+            one("This ability replaces swift alchemy (a deep bomber never gains instant alchemy).");
+        assert!(name_in_phrase(&instant, &stating_text(&sentence.aside)));
     }
 
     #[test]
