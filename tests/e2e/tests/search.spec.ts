@@ -1332,10 +1332,10 @@ installedTest("Quick search lists own only options, take one name, and the field
   const layer = await openQuickSearch(page);
   const field = quickField(page);
 
-  // The seeded visits load after the layer opens, and the Starters group leaves when they do.
-  // Read aria-controls only once the lists have settled: wait for the viewed list, then for an
-  // attribute whose every id is a list in the page.
-  await expect(layer.getByRole("listbox", { name: "Recently viewed" })).toBeVisible();
+  // The layer reloads the recent searches on every open, so it first shows Starters and then
+  // Recent searches (the "grapple" search above). Read aria-controls only after that swap: wait
+  // for the Recent searches list, then for an attribute whose every id is a list in the page.
+  await expect(layer.getByRole("listbox", { name: "Recent searches" })).toBeVisible();
   const settled = async () => {
     const ids = ((await field.getAttribute("aria-controls")) ?? "").split(" ").filter(Boolean);
     const present = await page.evaluate(
