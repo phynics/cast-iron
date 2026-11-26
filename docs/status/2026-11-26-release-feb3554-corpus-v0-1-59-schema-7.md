@@ -166,15 +166,15 @@ Entries: **31,766, as before** (203 entry files changed, none added, deleted or 
 data PRs, all part of [#540](https://github.com/phynics/cast-iron/issues/540), under owner rulings 45 to 50 on that
 issue ([pin entry](2026-11-26-pin-corpus-v0-1-59.md)).
 
-- **Archetypes as printed prose** (data #338, #339, #340). 157 archetypes of ten books: Blood of the Beast, Heroes
+- **Archetypes as printed prose** (phynics/cast-iron-data#338, #339 and #340). 157 archetypes of ten books: Blood of the Beast, Heroes
   of the High Court and Martial Arts Handbook (41), Inner Sea Magic, Inner Sea Intrigue and Inner Sea Combat (53),
   and Wilderness Origins, Legacy of the First World, People of the Wastes and Healer's Handbook (63). They show
   feature heads with levels and search aliases, and their trades follow print. Some converted entries now hold
   printed bullet lists and tables (ruling 45). The Infiltrator (Advanced Class Guide) regains its flattened Voice
   Mimicry table.
-- **Blood of the Ancients** (data #337) under ruling 26; two entries keep a citation.
-- **Earlier entries** (data #339). Halcyon Druid, Road-Keeper, Storm Druid, Rageshaper and Oozemorph gain level 1 to
-  5 features, as the pin entry records.
+- **Blood of the Ancients** (phynics/cast-iron-data#337) under ruling 26; two entries keep a citation.
+- **Earlier entries** (phynics/cast-iron-data#339). One feature each of Halcyon Druid, Road-Keeper, Storm Druid,
+  Rageshaper and Oozemorph now has `level = 1` (five features in all).
 
 ### For contributors
 
