@@ -1,6 +1,6 @@
 # Status
 
-Updated 2026-11-26. This page holds the current state and nothing else. The history is a log with one file per entry: [`docs/status/`](status/README.md) (pins, releases, acceptance records). Decisions are in [`docs/decisions/`](decisions/README.md). Open work is in [GitHub Issues](https://github.com/phynics/cast-iron/issues).
+Updated 2026-11-27. This page holds the current state and nothing else. The history is a log with one file per entry: [`docs/status/`](status/README.md) (pins, releases, acceptance records). Decisions are in [`docs/decisions/`](decisions/README.md). Open work is in [GitHub Issues](https://github.com/phynics/cast-iron/issues).
 
 Edit this page only where a change makes a line untrue, and add a log file for the event (`docs/status/YYYY-MM-DD-<slug>.md`). Keep local verification, CI and deployment apart.
 
@@ -8,8 +8,8 @@ Edit this page only where a change makes a line untrue, and add a log file for t
 
 | | |
 |---|---|
-| Corpus | `phynics/cast-iron-data` tag `v0.1.60`, commit `60fe4ff54ca170c338256668c40a6cee25ba7fbe` (`sources/corpus.toml`), corpus format 4. Pin entry: [2026-11-26](status/2026-11-26-pin-corpus-v0-1-60.md) |
-| Content version | `v25a2bf2486525a7a` (`cargo xtask content` on `main` at `338c8d6a5` plus the v0.1.60 pin, 2026-11-26). The release serves the same content (the live manifest reads `vaaeb1e4c7340254b`). |
+| Corpus | `phynics/cast-iron-data` tag `v0.1.61`, commit `2eb078173ac19deee2686dda9570dd9a6e896c6e` (`sources/corpus.toml`), corpus format 4. Pin entry: [2026-11-27](status/2026-11-27-pin-corpus-v0-1-61.md) |
+| Content version | `v464ed33579599e94` (`cargo xtask content` on `main` at `844c66cd3` plus #737 and the v0.1.61 pin, 2026-11-27). The release serves the same content (the live manifest reads `vaaeb1e4c7340254b`). |
 | Library | 31,766 entries, 445 publications, 445 books; 0 unreachable entries, 0 broken links |
 | `SCHEMA_VERSION` | 7 (`crates/schema/src/lib.rs`; the client reads 1 to 7). Schema 7 adds the haunt kind ([decision](decisions/2026-11-23-haunts-are-a-kind-schema-7.md)) |
 | `INDEX_FORMAT_VERSION` | 2 (`crates/search/src/lib.rs`) |
