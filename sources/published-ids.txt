@@ -16243,6 +16243,7 @@ ref/feat/inner-light-boa
 ref/feat/inner-light-uw
 ref/feat/innocent-blood
 ref/feat/inscribe-magical-tattoo
+ref/feat/inscribe-rune
 ref/feat/insidious-healing
 ref/feat/insightful-advice
 ref/feat/insightful-delivery
@@ -16769,6 +16770,7 @@ ref/feat/ordered-mind
 ref/feat/oread-burrower
 ref/feat/oread-earth-glider
 ref/feat/osirionology
+ref/feat/osiriontologist
 ref/feat/ostentatious-display
 ref/feat/ostentatious-rager
 ref/feat/ostentatious-weakness
@@ -16787,6 +16789,7 @@ ref/feat/overachiever
 ref/feat/overhead-flip
 ref/feat/overpowering-stare
 ref/feat/overseer-of-the-house-of-truth
+ref/feat/overseer-of-the-two-treasuries
 ref/feat/overwatch-style
 ref/feat/overwatch-tactician
 ref/feat/overwatch-vortex
@@ -31961,6 +31964,7 @@ ref/spell/banish-seeming
 ref/spell/banishing-blade
 ref/spell/banishment
 ref/spell/banshee-blast
+ref/spell/baphomets-blessing
 ref/spell/barbed-chains
 ref/spell/bards-escape
 ref/spell/barghest-feast
@@ -36045,6 +36049,8 @@ ref/template/young
 ref/template/zombie
 ref/template/zombie-lord
 ref/trait/a-shining-beacon
+ref/trait/a-sure-thing-guild-guide-8-0
+ref/trait/a-sure-thing-organized-play-4-3
 ref/trait/aballonian-resilience
 ref/trait/abendego-pilot
 ref/trait/abendego-spellpiercer
@@ -36084,6 +36090,7 @@ ref/trait/affinity-for-the-elements
 ref/trait/against-the-technic-league
 ref/trait/agent-of-chance
 ref/trait/agent-of-the-sultana
+ref/trait/aid-allies
 ref/trait/air-touched
 ref/trait/airship-captain
 ref/trait/akitonian-ferocity
@@ -36118,6 +36125,7 @@ ref/trait/ancestral-armor
 ref/trait/ancestral-grounds
 ref/trait/ancestral-weapon
 ref/trait/ancient-explorer
+ref/trait/ancient-historian
 ref/trait/andolettas-consolation
 ref/trait/andoren-freedom-fighter
 ref/trait/angradds-flame
@@ -36134,6 +36142,7 @@ ref/trait/anxious
 ref/trait/apprentice
 ref/trait/apprentice-devilbinder
 ref/trait/aquatic-survivalist
+ref/trait/arcane-archivist
 ref/trait/arcane-dabbler
 ref/trait/arcane-depth
 ref/trait/arcane-malignancies
@@ -36153,6 +36162,7 @@ ref/trait/arodenite-sword-training
 ref/trait/artifact-hunter-gs
 ref/trait/artifact-hunter-isp
 ref/trait/artisan
+ref/trait/artist-of-battle-in-all-forms
 ref/trait/artistic-dilettante
 ref/trait/ascendant-recollection
 ref/trait/ash-bane
@@ -36164,6 +36174,8 @@ ref/trait/assimilated-native
 ref/trait/athletic
 ref/trait/athletic-champion
 ref/trait/attached
+ref/trait/attuned-to-the-ancestors-guild-guide-8-0
+ref/trait/attuned-to-the-ancestors-organized-play-4-3
 ref/trait/audrahnis-ally
 ref/trait/augmented-disguise
 ref/trait/augmented-spell-poisons
@@ -36181,6 +36193,7 @@ ref/trait/azlanti-scholar-hftf
 ref/trait/azlanti-scholar-roapg
 ref/trait/back-for-more
 ref/trait/backstabber
+ref/trait/bad-reputation
 ref/trait/balanced-determination
 ref/trait/balanced-education
 ref/trait/balancers-banishing
@@ -36207,6 +36220,8 @@ ref/trait/bellflower-tiller
 ref/trait/bellis-axe-master
 ref/trait/bellis-honey-harvester
 ref/trait/bellis-log-roller
+ref/trait/beneficent-touch-guild-guide-8-0
+ref/trait/beneficent-touch-organized-play-4-3
 ref/trait/bent-body
 ref/trait/berserker-of-the-society
 ref/trait/besmaras-blessing
@@ -36322,6 +36337,8 @@ ref/trait/canon-of-coin
 ref/trait/canopy-prowler
 ref/trait/canopy-shooter
 ref/trait/canter
+ref/trait/captains-blade-guild-guide-8-0
+ref/trait/captains-blade-organized-play-4-3
 ref/trait/caravan-drover
 ref/trait/caravan-guard
 ref/trait/caravan-nomad
@@ -36351,6 +36368,7 @@ ref/trait/charau-ka-slayer
 ref/trait/charlatan
 ref/trait/charmed-innocent
 ref/trait/charming
+ref/trait/charming-smile-cunning-soul
 ref/trait/cheap-to-feed
 ref/trait/cheat-death
 ref/trait/chelish-guerrilla
@@ -36411,6 +36429,8 @@ ref/trait/color-thief
 ref/trait/commanding
 ref/trait/commercial-savvy
 ref/trait/community-minded
+ref/trait/comparative-religion-guild-guide-8-0
+ref/trait/comparative-religion-organized-play-4-3
 ref/trait/competitive
 ref/trait/condescending
 ref/trait/confidante-to-the-oppressed
@@ -36453,6 +36473,7 @@ ref/trait/cultist-lineage
 ref/trait/cultivated
 ref/trait/cunning-breed
 ref/trait/cunning-liar
+ref/trait/curator-of-mystic-secrets
 ref/trait/curse-in-the-blood
 ref/trait/curse-queller
 ref/trait/cutting-condescension
@@ -36504,7 +36525,10 @@ ref/trait/demonic-persuasion
 ref/trait/demoralizing-presence
 ref/trait/denial-of-fate
 ref/trait/dependent
+ref/trait/dervish
 ref/trait/desert-child
+ref/trait/desert-nomad
+ref/trait/desert-shadow
 ref/trait/desperate-focus
 ref/trait/desperate-resolve
 ref/trait/desperate-speed
@@ -36515,6 +36539,8 @@ ref/trait/destructive-blows
 ref/trait/detect-disobedience
 ref/trait/devil-fighter
 ref/trait/devilfish-diver
+ref/trait/devils-mark-guild-guide-8-0
+ref/trait/devils-mark-organized-play-4-3
 ref/trait/devoted-healer
 ref/trait/devotee-of-a-dead-god
 ref/trait/devotee-of-kalistrade
@@ -36575,6 +36601,7 @@ ref/trait/dtang-ma-bloodline
 ref/trait/dualborn
 ref/trait/dueling-cloak-adept
 ref/trait/dump-salvager
+ref/trait/dunewalker
 ref/trait/dungeon-dweller
 ref/trait/durable-change
 ref/trait/dusk-dancer
@@ -36590,6 +36617,7 @@ ref/trait/earth-touched
 ref/trait/earthbound
 ref/trait/earthsense
 ref/trait/ease-of-faith
+ref/trait/eastern-mysteries
 ref/trait/easy-way-or-the-hard-way
 ref/trait/ecumenical
 ref/trait/educated-druggist
@@ -36660,10 +36688,13 @@ ref/trait/experimental-escapee
 ref/trait/experimental-rebel
 ref/trait/expert-boarder
 ref/trait/expert-distractor
+ref/trait/expert-duelist-guild-guide-8-0
+ref/trait/expert-duelist-organized-play-4-3
 ref/trait/expert-explorer
 ref/trait/expert-smuggler
 ref/trait/expert-swimmer
 ref/trait/explorer
+ref/trait/explorer-organized-play-4-3
 ref/trait/exposed-to-awfulness
 ref/trait/expressive-pantomime
 ref/trait/extended-toil
@@ -36681,6 +36712,7 @@ ref/trait/failed-apprentice
 ref/trait/failed-aspirant
 ref/trait/failed-winter-witch-apprentice
 ref/trait/faith-healer
+ref/trait/faith-unshakable-and-unassailable
 ref/trait/faithful-arodenite
 ref/trait/faithful-artist
 ref/trait/faithful-feedback
@@ -36692,6 +36724,8 @@ ref/trait/family-ties-rotrl
 ref/trait/family-trade
 ref/trait/fangwood-diplomat
 ref/trait/fangwood-insurgent
+ref/trait/fashionable-guild-guide-8-0
+ref/trait/fashionable-organized-play-4-3
 ref/trait/fast-talker
 ref/trait/fatal-trapper
 ref/trait/fates-favored
@@ -36710,6 +36744,7 @@ ref/trait/fey-taken
 ref/trait/fey-wise
 ref/trait/fiend-blood
 ref/trait/fiendish-confidence
+ref/trait/fiendish-presence
 ref/trait/fiendish-sniper
 ref/trait/fierce-flanker
 ref/trait/fiery-dominance
@@ -36722,6 +36757,7 @@ ref/trait/finish-the-fight
 ref/trait/fire-tongued
 ref/trait/firebug-kobold
 ref/trait/firebug-qac
+ref/trait/fires-of-hell
 ref/trait/first-memories
 ref/trait/fixer-of-odds
 ref/trait/flair-for-destruction
@@ -36745,12 +36781,15 @@ ref/trait/fools-for-friends
 ref/trait/footsteps-of-aganhei
 ref/trait/for-the-money
 ref/trait/forbidden-knowledge
+ref/trait/force-for-good-guild-guide-8-0
+ref/trait/force-for-good-organized-play-4-3
 ref/trait/foreign-opportunist
 ref/trait/foreign-tongued
 ref/trait/forest-senses
 ref/trait/forgetful
 ref/trait/forlorn
 ref/trait/formerly-mind-swapped
+ref/trait/fortified
 ref/trait/fortified-drinker
 ref/trait/fortunate
 ref/trait/fortune-found
@@ -36767,7 +36806,9 @@ ref/trait/freed-slave-andoran
 ref/trait/freed-slave-fg
 ref/trait/freed-slave-katapesh
 ref/trait/freedom-fighter-andoran
+ref/trait/freedom-fighter-guild-guide-8-0
 ref/trait/freedom-fighter-halfling
+ref/trait/freedom-fighter-organized-play-4-3
 ref/trait/freedom-fighter-shokuro
 ref/trait/friend-in-every-town
 ref/trait/friend-of-the-dead
@@ -36822,6 +36863,8 @@ ref/trait/goblin-watcher
 ref/trait/god-scorn
 ref/trait/godclaw-disciple
 ref/trait/godless-resolve
+ref/trait/gold-finger-guild-guide-8-0
+ref/trait/gold-finger-organized-play-4-3
 ref/trait/gold-goblin-regular
 ref/trait/golden-scales
 ref/trait/goldsniffer
@@ -36832,6 +36875,8 @@ ref/trait/good-natured
 ref/trait/good-slip
 ref/trait/gozrehs-sight
 ref/trait/gravelwalker
+ref/trait/greasy-palm-guild-guide-8-0
+ref/trait/greasy-palm-organized-play-4-3
 ref/trait/greater-adept-of-the-society
 ref/trait/greater-link
 ref/trait/greater-purpose
@@ -36909,13 +36954,16 @@ ref/trait/honored-fist-of-the-society
 ref/trait/honored-provider
 ref/trait/horrifying-mind
 ref/trait/horse-lord
+ref/trait/horse-lord-organized-play-4-3
 ref/trait/hot-headed
 ref/trait/house-of-green-mothers-pupil
 ref/trait/huldras-luck
 ref/trait/humble-beginnings
+ref/trait/hunters-eye
 ref/trait/hunters-knack
 ref/trait/hurricane-savvy
 ref/trait/hwan-artist
+ref/trait/i-know-a-guy
 ref/trait/iadaran-illusionist
 ref/trait/ice-walker
 ref/trait/ichimeiyo-champion
@@ -36928,6 +36976,8 @@ ref/trait/impatient
 ref/trait/imperfect-recall
 ref/trait/imperial-soldier
 ref/trait/imposing-scion
+ref/trait/impressive-presence-guild-guide-8-0
+ref/trait/impressive-presence-organized-play-4-3
 ref/trait/improvisational-equipment
 ref/trait/improvised-defense
 ref/trait/in-tune-with-language
@@ -36936,6 +36986,8 @@ ref/trait/inciter-tiefling
 ref/trait/indelible-ire
 ref/trait/indentured-blacksmith
 ref/trait/indomitable-faith
+ref/trait/indomitable-guild-guide-8-0
+ref/trait/indomitable-organized-play-4-3
 ref/trait/industrious
 ref/trait/inexorable-authority
 ref/trait/infamous
@@ -36943,6 +36995,7 @@ ref/trait/infernal-bastard
 ref/trait/infernal-colleague
 ref/trait/infernal-influence
 ref/trait/influence
+ref/trait/influential
 ref/trait/information-overload
 ref/trait/ingratiating
 ref/trait/inhabitant-of-illusion
@@ -36953,6 +37006,8 @@ ref/trait/inoculated
 ref/trait/inquisitive-archaeologist
 ref/trait/inquisitive-banterer
 ref/trait/insatiable
+ref/trait/insider-knowledge-guild-guide-8-0
+ref/trait/insider-knowledge-organized-play-4-3
 ref/trait/insistent-benefactor
 ref/trait/inspired
 ref/trait/inspired-by-greatness
@@ -37043,6 +37098,7 @@ ref/trait/less-effort
 ref/trait/lessons-of-chaldira
 ref/trait/lettered
 ref/trait/liars-tongue
+ref/trait/librarian
 ref/trait/lichblood
 ref/trait/life-of-toil
 ref/trait/light-bringer
@@ -37077,6 +37133,8 @@ ref/trait/lovesick
 ref/trait/low-blow
 ref/trait/loyal-bond
 ref/trait/loyalty-across-lifetimes
+ref/trait/loyalty-guild-guide-8-0
+ref/trait/loyalty-organized-play-4-3
 ref/trait/lucid-dreamer
 ref/trait/lunar-birth
 ref/trait/lycanthropic-bloodlust
@@ -37110,6 +37168,8 @@ ref/trait/martyrs-blood
 ref/trait/masked
 ref/trait/master-messenger
 ref/trait/master-of-peaks
+ref/trait/master-of-pentacles-guild-guide-8-0
+ref/trait/master-of-pentacles-organized-play-4-3
 ref/trait/master-of-the-sudden-strike
 ref/trait/masterful-demeanor
 ref/trait/mastery-of-form
@@ -37117,6 +37177,7 @@ ref/trait/mathematical-prodigy
 ref/trait/mechanical-aptitude
 ref/trait/mechanical-expertise
 ref/trait/mediator
+ref/trait/medic
 ref/trait/meditative-rest
 ref/trait/memorable
 ref/trait/memory-mastery
@@ -37128,13 +37189,16 @@ ref/trait/merchant-family
 ref/trait/merchant-of-katheer
 ref/trait/merchants-child
 ref/trait/merciful-scimitar
+ref/trait/meridian-strike
 ref/trait/methodical-mind
 ref/trait/meticulous
+ref/trait/meticulous-artisan
 ref/trait/meticulous-concoction
 ref/trait/mighty-protector
 ref/trait/militant-merchant
 ref/trait/militia
 ref/trait/militia-veteran
+ref/trait/mind-over-matter
 ref/trait/mind-trapper
 ref/trait/mindlessly-cruel
 ref/trait/minkai-advocate
@@ -37162,6 +37226,7 @@ ref/trait/mothers-rage
 ref/trait/mothers-teeth
 ref/trait/mountain-guide
 ref/trait/mummy-cursed
+ref/trait/mummy-touched
 ref/trait/murky-allegiance
 ref/trait/muscle-of-the-society
 ref/trait/mutabi-qi-explorer
@@ -37224,6 +37289,8 @@ ref/trait/obnoxious
 ref/trait/obscure-traditions
 ref/trait/obsequious-morsel
 ref/trait/observant-archer
+ref/trait/observant-guild-guide-8-0
+ref/trait/observant-organized-play-4-3
 ref/trait/obsessed-with-success
 ref/trait/occult-bargain
 ref/trait/oenopion-alchemist
@@ -37282,6 +37349,7 @@ ref/trait/pearl-diver-xidao
 ref/trait/peg-leg
 ref/trait/perfect-servant
 ref/trait/perfectionists-brew
+ref/trait/performance-artist
 ref/trait/performers-surprise
 ref/trait/permanent-scars
 ref/trait/perpetual-companion
@@ -37340,6 +37408,8 @@ ref/trait/privileged-slave
 ref/trait/prolong-magic
 ref/trait/promising
 ref/trait/promising-peacemaker
+ref/trait/proper-training-guild-guide-8-0
+ref/trait/proper-training-organized-play-4-3
 ref/trait/prophesied
 ref/trait/prophet-of-burrows
 ref/trait/propitiation
@@ -37411,6 +37481,7 @@ ref/trait/rest-for-the-wicked
 ref/trait/restless-hunger
 ref/trait/restless-wayfarer
 ref/trait/resurrected
+ref/trait/reverent-wielder
 ref/trait/reviving-rest
 ref/trait/rice-runner
 ref/trait/rich-parents
@@ -37436,6 +37507,7 @@ ref/trait/roof-racer
 ref/trait/rostlander
 ref/trait/rough-and-ready
 ref/trait/rousing-courage
+ref/trait/rousing-oratory
 ref/trait/roving-range
 ref/trait/rude-songs
 ref/trait/rugged-dragon-hunter
@@ -37495,6 +37567,8 @@ ref/trait/secret-of-the-impossible-kingdom
 ref/trait/secret-revolutionary
 ref/trait/secret-scrolls
 ref/trait/secret-shame
+ref/trait/secrets-of-the-sphinx-guild-guide-8-0
+ref/trait/secrets-of-the-sphinx-organized-play-4-3
 ref/trait/seeker
 ref/trait/seeker-of-brightness
 ref/trait/seeking-adventure
@@ -37521,6 +37595,7 @@ ref/trait/sevenarches-seeker
 ref/trait/shackles-seafarer
 ref/trait/shadow-child
 ref/trait/shadow-dealer
+ref/trait/shadow-diplomat
 ref/trait/shadow-dissident
 ref/trait/shadow-scarred
 ref/trait/shadow-shaman
@@ -37544,6 +37619,7 @@ ref/trait/shift-the-blame
 ref/trait/ship-aptitude
 ref/trait/shipboard-caster
 ref/trait/ships-surgeon
+ref/trait/shiv
 ref/trait/shoanti-spirit-singer
 ref/trait/shoanti-steed
 ref/trait/shoanti-tattoo
@@ -37575,6 +37651,7 @@ ref/trait/slippery
 ref/trait/slippery-step
 ref/trait/slithering-stride
 ref/trait/smoke-resistant
+ref/trait/smuggler
 ref/trait/snake-bleeder
 ref/trait/snake-handler
 ref/trait/snake-hater
@@ -37591,6 +37668,8 @@ ref/trait/soldier-of-the-faith
 ref/trait/solidarity
 ref/trait/solitary
 ref/trait/sophisticated-citizen
+ref/trait/soul-drinker-guild-guide-8-0
+ref/trait/soul-drinker-organized-play-4-3
 ref/trait/soul-eater
 ref/trait/soul-searchers-strength
 ref/trait/sound-of-mind
@@ -37644,6 +37723,7 @@ ref/trait/storied-scars
 ref/trait/storm-hunter
 ref/trait/storm-touched
 ref/trait/stormrunner
+ref/trait/storyteller
 ref/trait/stowaway
 ref/trait/stream-nomad
 ref/trait/street-wary
@@ -37711,6 +37791,8 @@ ref/trait/tar-taargadth-trained
 ref/trait/tarnished-halls-runner
 ref/trait/tattooed-focus
 ref/trait/teachers-pet
+ref/trait/teaching-mistake-guild-guide-8-0
+ref/trait/teaching-mistake-organized-play-4-3
 ref/trait/technic-tinkerer
 ref/trait/technological-brewmaster
 ref/trait/telekinetic-dependence
@@ -37762,10 +37844,13 @@ ref/trait/tiger-brigadier
 ref/trait/tigers-claw
 ref/trait/tight-bonds
 ref/trait/time-lost
+ref/trait/tireless
 ref/trait/tireless-avenger
 ref/trait/tireless-logic
 ref/trait/to-the-last
 ref/trait/toilcrafter
+ref/trait/tomb-raider-guild-guide-8-0
+ref/trait/tomb-raider-organized-play-4-3
 ref/trait/tongue-of-many-towns
 ref/trait/too-many-secrets
 ref/trait/totemist
@@ -37784,6 +37869,7 @@ ref/trait/transmuter-of-korada
 ref/trait/trap-finder
 ref/trait/trap-savvy
 ref/trait/traumatic-shift
+ref/trait/traveler-of-a-hundred-lands
 ref/trait/treasure-mapper
 ref/trait/treerazers-bane
 ref/trait/trench-navigator
@@ -37797,6 +37883,7 @@ ref/trait/trickster-vanara
 ref/trait/trifler
 ref/trait/tropical-botanist
 ref/trait/tropical-upbringing
+ref/trait/trouper
 ref/trait/true-devotion
 ref/trait/true-name-caller
 ref/trait/trunau-native
@@ -37831,6 +37918,7 @@ ref/trait/underlying-principles
 ref/trait/undermarket-smuggler
 ref/trait/undine-loyalty
 ref/trait/unearth-secrets
+ref/trait/unflappable
 ref/trait/unflappable-arrogance
 ref/trait/unflinching-faith
 ref/trait/unhappy-childhood
@@ -37840,6 +37928,8 @@ ref/trait/unintentional-linguist
 ref/trait/unlearned
 ref/trait/unnatural-presence
 ref/trait/unnatural-revenge
+ref/trait/unorthodox-strategy-guild-guide-8-0
+ref/trait/unorthodox-strategy-organized-play-4-3
 ref/trait/unpredictable
 ref/trait/unpredictable-reactions
 ref/trait/unscathed
@@ -37852,6 +37942,7 @@ ref/trait/unswaying-love
 ref/trait/untapped-potential
 ref/trait/untrained-scholar
 ref/trait/unwelcome-business
+ref/trait/upstanding
 ref/trait/urban-acolyte
 ref/trait/urban-sleuth
 ref/trait/uskwood-hunter
@@ -37886,6 +37977,7 @@ ref/trait/vigilante-witch-hunter
 ref/trait/viking-blood
 ref/trait/vile-domain
 ref/trait/vile-kiss
+ref/trait/vindictive
 ref/trait/vindictive-strike
 ref/trait/voice-of-monsters
 ref/trait/voice-of-velvet
@@ -37911,6 +38003,7 @@ ref/trait/wary-potr
 ref/trait/wasp-whisperer
 ref/trait/wasteland-hunter
 ref/trait/wasteland-vargrant
+ref/trait/watchdog
 ref/trait/watching-taldor
 ref/trait/water-brave
 ref/trait/water-lurker
@@ -37921,6 +38014,7 @@ ref/trait/wati-native
 ref/trait/wayang-spellhunter
 ref/trait/wealthy-dabbler
 ref/trait/weapon-of-peace
+ref/trait/weapon-style
 ref/trait/weapon-training
 ref/trait/weather-beaten
 ref/trait/weathered
@@ -37938,6 +38032,7 @@ ref/trait/westcrown-firebrand
 ref/trait/wharf-rat
 ref/trait/whip-specialist
 ref/trait/whisper-woods-hunter
+ref/trait/whistleblower
 ref/trait/whiteout
 ref/trait/whitethrone-gourmand
 ref/trait/whole-hearted

@@ -4967,6 +4967,7 @@ ref/feat/equipment-trick-wondrous-item	feat	Equipment Trick (Wondrous Item)
 ref/feat/extra-mythic-power	feat	Extra Mythic Power
 ref/feat/extra-path-ability	feat	Extra Path Ability
 ref/feat/fabulous-figments	feat	Fabulous Figments
+ref/feat/inscribe-rune	feat	Inscribe Rune
 ref/feat/introspecitve-performance	feat	Introspective Performance
 ref/feat/legendary-teamwork	feat	Legendary Teamwork
 ref/feat/lucky-surge	feat	Lucky Surge
@@ -4974,6 +4975,8 @@ ref/feat/maximize-surge	feat	Maximize Surge
 ref/feat/mythic-crafter	feat	Mythic Crafter
 ref/feat/mythic-paragon	feat	Mythic Paragon
 ref/feat/mythic-spell-lore	feat	Mythic Spell Lore
+ref/feat/osiriontologist	feat	Osiriontologist
+ref/feat/overseer-of-the-two-treasuries	feat	Overseer of the Two Treasuries
 ref/feat/potent-surge	feat	Potent Surge
 ref/feat/spell-trick	feat	Spell Trick
 ref/feat/titan-strike	feat	Titan Strike
@@ -19060,6 +19063,7 @@ ref/skill/swim	skill	Swim
 ref/skill/use-magic-device	skill	Use Magic Device
 ref/carried/advanced-players-guide/rules/new-rules/hero-points/hero-point-spells/malediction	spell	Malediction
 ref/spell/ablative-sphere	spell	Ablative Sphere
+ref/spell/baphomets-blessing	spell	Baphomet's Blessing
 ref/spell/beast-shape	spell	Beast Shape
 ref/spell/breeze	spell	Breeze
 ref/spell/burning-arc	spell	Burning Arc
@@ -19088,44 +19092,135 @@ ref/spell/summon-totem-creature	spell	Summon Totem Creature
 ref/spell/transmute-mud-to-rock	spell	Transmute Mud to Rock
 ref/spell/transmute-rock-to-mud	spell	Transmute Rock to Mud
 ref/spell/unshakeable-zeal	spell	Unshakable Zeal
+ref/trait/a-sure-thing-guild-guide-8-0	trait	A Sure Thing (Guild Guide 8.0)
+ref/trait/a-sure-thing-organized-play-4-3	trait	A Sure Thing (Organized Play 4.3)
+ref/trait/aid-allies	trait	Aid Allies
+ref/trait/ancient-historian	trait	Ancient Historian
+ref/trait/arcane-archivist	trait	Arcane Archivist
 ref/trait/artifact-hunter-isp	trait	Artifact Hunter (ISP)
+ref/trait/artist-of-battle-in-all-forms	trait	Artist of Battle in All Forms
+ref/trait/attuned-to-the-ancestors-guild-guide-8-0	trait	Attuned to the Ancestors (Guild Guide 8.0)
+ref/trait/attuned-to-the-ancestors-organized-play-4-3	trait	Attuned to the Ancestors (Organized Play 4.3)
 ref/trait/azlanti-scholar-hftf	trait	Azlanti Scholar (HFtF)
 ref/trait/azlanti-scholar-roapg	trait	Azlanti Scholar (RoAPG)
+ref/trait/bad-reputation	trait	Bad Reputation
 ref/trait/bastard-uc	trait	Bastard (UC)
+ref/trait/beneficent-touch-guild-guide-8-0	trait	Beneficent Touch (Guild Guide 8.0)
+ref/trait/beneficent-touch-organized-play-4-3	trait	Beneficent Touch (Organized Play 4.3)
 ref/trait/betrayed-cotct	trait	Betrayed (CotCT)
 ref/trait/blessed-mutt	trait	Blessed Mutt
 ref/trait/brastlewark-businessman-ceod	trait	Brastlewark Businessman (CEoD)
 ref/trait/brastlewark-businessman-gog	trait	Brastlewark Businessman (GoG)
 ref/trait/brute-apg	trait	Brute (APG)
+ref/trait/captains-blade-guild-guide-8-0	trait	Captain's Blade (Guild Guide 8.0)
+ref/trait/captains-blade-organized-play-4-3	trait	Captain's Blade (Organized Play 4.3)
+ref/trait/charming-smile-cunning-soul	trait	Charming Smile, Cunning Soul
 ref/trait/child-of-the-crusades-isp	trait	Child of the Crusades (ISP)
 ref/trait/clamber	trait	Clamber
+ref/trait/comparative-religion-guild-guide-8-0	trait	Comparative Religion (Guild Guide 8.0)
+ref/trait/comparative-religion-organized-play-4-3	trait	Comparative Religion (Organized Play 4.3)
+ref/trait/curator-of-mystic-secrets	trait	Curator of Mystic Secrets
 ref/trait/demon-hunter	trait	Asmodean Demon Hunter
+ref/trait/dervish	trait	Dervish
+ref/trait/desert-nomad	trait	Desert Nomad
+ref/trait/desert-shadow	trait	Desert Shadow
+ref/trait/devils-mark-guild-guide-8-0	trait	Devil's Mark (Guild Guide 8.0)
+ref/trait/devils-mark-organized-play-4-3	trait	Devil's Mark (Organized Play 4.3)
 ref/trait/dirty-fighter-apg	trait	Dirty Fighter (APG)
+ref/trait/dunewalker	trait	Dunewalker
+ref/trait/eastern-mysteries	trait	Eastern Mysteries
+ref/trait/expert-duelist-guild-guide-8-0	trait	Expert Duelist (Guild Guide 8.0)
+ref/trait/expert-duelist-organized-play-4-3	trait	Expert Duelist (Organized Play 4.3)
+ref/trait/explorer-organized-play-4-3	trait	Explorer (Organized Play 4.3)
+ref/trait/faith-unshakable-and-unassailable	trait	Faith Unshakable and Unassailable
 ref/trait/family-ties-drawback	trait	Family Ties (Drawback)
+ref/trait/fashionable-guild-guide-8-0	trait	Fashionable (Guild Guide 8.0)
+ref/trait/fashionable-organized-play-4-3	trait	Fashionable (Organized Play 4.3)
 ref/trait/favored-son-or-daughter	trait	Favored Son/Daughter
+ref/trait/fiendish-presence	trait	Fiendish Presence
 ref/trait/firebug-qac	trait	Firebug (QaC)
+ref/trait/fires-of-hell	trait	Fires of Hell
+ref/trait/force-for-good-guild-guide-8-0	trait	Force for Good (Guild Guide 8.0)
+ref/trait/force-for-good-organized-play-4-3	trait	Force for Good (Organized Play 4.3)
+ref/trait/fortified	trait	Fortified
 ref/trait/freed-slave-fg	trait	Freed Slave (FG)
+ref/trait/freedom-fighter-guild-guide-8-0	trait	Freedom Fighter (Guild Guide 8.0)
+ref/trait/freedom-fighter-organized-play-4-3	trait	Freedom Fighter (Organized Play 4.3)
+ref/trait/gold-finger-guild-guide-8-0	trait	Gold Finger (Guild Guide 8.0)
+ref/trait/gold-finger-organized-play-4-3	trait	Gold Finger (Organized Play 4.3)
+ref/trait/greasy-palm-guild-guide-8-0	trait	Greasy Palm (Guild Guide 8.0)
+ref/trait/greasy-palm-organized-play-4-3	trait	Greasy Palm (Organized Play 4.3)
 ref/trait/helpful-cop	trait	Helpful (CoP)
 ref/trait/horse-lord	trait	Horse Lord
+ref/trait/horse-lord-organized-play-4-3	trait	Horse Lord (Organized Play 4.3)
+ref/trait/hunters-eye	trait	Hunter's Eye
+ref/trait/i-know-a-guy	trait	I Know a Guy
+ref/trait/impressive-presence-guild-guide-8-0	trait	Impressive Presence (Guild Guide 8.0)
+ref/trait/impressive-presence-organized-play-4-3	trait	Impressive Presence (Organized Play 4.3)
+ref/trait/indomitable-guild-guide-8-0	trait	Indomitable (Guild Guide 8.0)
+ref/trait/indomitable-organized-play-4-3	trait	Indomitable (Organized Play 4.3)
+ref/trait/influential	trait	Influential
+ref/trait/insider-knowledge-guild-guide-8-0	trait	Insider Knowledge (Guild Guide 8.0)
+ref/trait/insider-knowledge-organized-play-4-3	trait	Insider Knowledge (Organized Play 4.3)
+ref/trait/librarian	trait	Librarian
+ref/trait/loyalty-guild-guide-8-0	trait	Loyalty (Guild Guide 8.0)
+ref/trait/loyalty-organized-play-4-3	trait	Loyalty (Organized Play 4.3)
+ref/trait/master-of-pentacles-guild-guide-8-0	trait	Master of Pentacles (Guild Guide 8.0)
+ref/trait/master-of-pentacles-organized-play-4-3	trait	Master of Pentacles (Organized Play 4.3)
+ref/trait/medic	trait	Medic
+ref/trait/meridian-strike	trait	Meridian Strike
+ref/trait/meticulous-artisan	trait	Meticulous Artisan
+ref/trait/mind-over-matter	trait	Mind over Matter
 ref/trait/mischievous-smile	trait	Mischievous Smite
+ref/trait/mummy-touched	trait	Mummy-Touched
 ref/trait/natural-born-leader-hr	trait	Natural Born Leader (HR)
 ref/trait/natural-born-leader-social	trait	Natural-Born Leader (Social)
 ref/trait/nauseating-spit	trait	Nauseating Spit
+ref/trait/observant-guild-guide-8-0	trait	Observant (Guild Guide 8.0)
+ref/trait/observant-organized-play-4-3	trait	Observant (Organized Play 4.3)
 ref/trait/pearl-diver-pots	trait	Pearl Diver (PotS)
+ref/trait/performance-artist	trait	Performance Artist
 ref/trait/planar-negotiator-boa	trait	Planar Negotiator (BoA)
 ref/trait/planar-negotiator-dhh	trait	Planar Negotiator (DHH)
+ref/trait/proper-training-guild-guide-8-0	trait	Proper Training (Guild Guide 8.0)
+ref/trait/proper-training-organized-play-4-3	trait	Proper Training (Organized Play 4.3)
+ref/trait/reverent-wielder	trait	Reverent Wielder
+ref/trait/rousing-oratory	trait	Rousing Oratory
 ref/trait/running-pig	trait	Running Pig
 ref/trait/secret-keeper	trait	Secret Keeper
 ref/trait/secret-keeper-qac	trait	Secret-Keeper (QaC)
+ref/trait/secrets-of-the-sphinx-guild-guide-8-0	trait	Secrets of the Sphinx (Guild Guide 8.0)
+ref/trait/secrets-of-the-sphinx-organized-play-4-3	trait	Secrets of the Sphinx (Organized Play 4.3)
+ref/trait/shadow-diplomat	trait	Shadow Diplomat
+ref/trait/shiv	trait	Shiv
+ref/trait/smuggler	trait	Smuggler
+ref/trait/soul-drinker-guild-guide-8-0	trait	Soul Drinker (Guild Guide 8.0)
+ref/trait/soul-drinker-organized-play-4-3	trait	Soul Drinker (Organized Play 4.3)
 ref/trait/stargazer-human	trait	Stargazer (Human)
+ref/trait/storyteller	trait	Storyteller
 ref/trait/superstitious-isp	trait	Superstitious (ISP)
+ref/trait/teaching-mistake-guild-guide-8-0	trait	Teaching Mistake (Guild Guide 8.0)
+ref/trait/teaching-mistake-organized-play-4-3	trait	Teaching Mistake (Organized Play 4.3)
 ref/trait/thrill-seeker-isg	trait	Thrill-Seeker (ISG)
 ref/trait/thrill-seeker-rotr	trait	Thrill Seeker (RotR)
+ref/trait/tireless	trait	Tireless
+ref/trait/tomb-raider-guild-guide-8-0	trait	Tomb Raider (Guild Guide 8.0)
+ref/trait/tomb-raider-organized-play-4-3	trait	Tomb Raider (Organized Play 4.3)
+ref/trait/traveler-of-a-hundred-lands	trait	Traveler of a Hundred Lands
 ref/trait/treerazers-bane	trait	Treerazer's Bane
 ref/trait/trickster-gnome	trait	Trickster (Gnome)
+ref/trait/trouper	trait	Trouper
 ref/trait/undead-slayer-bog	trait	Undead Slayer (BoG)
+ref/trait/unflappable	trait	Unflappable
+ref/trait/unorthodox-strategy-guild-guide-8-0	trait	Unorthodox Strategy (Guild Guide 8.0)
+ref/trait/unorthodox-strategy-organized-play-4-3	trait	Unorthodox Strategy (Organized Play 4.3)
+ref/trait/upstanding	trait	Upstanding
+ref/trait/vindictive	trait	Vindictive
 ref/trait/wary-boa	trait	Wary (BoA)
 ref/trait/wary-potr	trait	Wary (PotR)
+ref/trait/watchdog	trait	Watchdog
+ref/trait/weapon-style	trait	Weapon Style
+ref/trait/whistleblower	trait	Whistleblower
 ref/trait/zealous-drawback	trait	Zealous (Drawback)
 ref/carried/bestiary/monsters/ettercap/special-abilities/traps/ettercap-deadfall	trap	Ettercap Deadfall
 ref/carried/bestiary/monsters/ettercap/special-abilities/traps/ettercap-noose	trap	Ettercap Noose
