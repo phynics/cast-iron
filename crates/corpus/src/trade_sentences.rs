@@ -346,17 +346,37 @@ fn second_clause(words: &[&str], index: usize) -> Option<usize> {
     {
         at += 1;
     }
-    verb_at(words, at).map(|_| at)
+    clause_verb(words, at).map(|_| at)
 }
 
-/// True when `words` start a negated clause: "does not", "do not" or "cannot" (case aside).
+/// The verb of a second clause at `at` (see [`second_clause`]): `replaces` or `alters`, and after
+/// an `also` (", and it also changes X") `changes` and `modifies` too. A plain "and it changes"
+/// stays prose (owner ruling 25).
+fn clause_verb(words: &[&str], at: usize) -> Option<TradeOp> {
+    let also = at > 0 && words[at - 1].eq_ignore_ascii_case("also");
+    if also && !is_alter_self(words[at], words.get(at + 1)) {
+        lead_verb_of(words[at])
+    } else {
+        verb_at(words, at)
+    }
+}
+
+/// True when `words` (the words after an `and`) start a negated clause: an optional pronoun of
+/// [`CLAUSE_PRONOUNS`], then "does not", "do not" or "cannot" (case and trailing punctuation
+/// aside): "and does not", "and it does not", "and cannot,".
 fn starts_negated_clause(words: &[&str]) -> bool {
-    let is = |index: usize, text: &str| {
+    let word = |index: usize| {
         words
             .get(index)
-            .is_some_and(|w| w.eq_ignore_ascii_case(text))
+            .map(|w| {
+                w.trim_matches(|ch: char| !ch.is_alphanumeric())
+                    .to_lowercase()
+            })
+            .unwrap_or_default()
     };
-    (is(0, "does") || is(0, "do")) && is(1, "not") || is(0, "cannot")
+    let skip = usize::from(CLAUSE_PRONOUNS.contains(&word(0).as_str()));
+    let first = word(skip);
+    (matches!(first.as_str(), "does" | "do") && word(skip + 1) == "not") || first == "cannot"
 }
 
 /// The depth of parentheses after `word`: `open` more for each `(` and `open` fewer for each `)`.
@@ -534,7 +554,7 @@ pub fn trade_sentences_headed(text: &str, head: Option<&str>) -> Vec<TradeSenten
                     phrase: phrase.join(" ").trim_end_matches(',').to_string(),
                     aside: String::new(),
                 });
-                op = verb_at(&words, verb).expect("a verb was found");
+                op = clause_verb(&words, verb).expect("a verb was found");
                 phrase.clear();
                 index = verb + 1;
                 continue;
@@ -2590,6 +2610,44 @@ mod tests {
         // "and" stays prose (ruling 25).
         let found = trade_sentences("This ability replaces bravery and changes the saving throw.");
         assert_eq!(found.len(), 1, "{found:?}");
+    }
+
+    #[test]
+    fn a_negated_clause_survives_punctuation_and_a_pronoun() {
+        for tail in [
+            "and does not, however, prevent it",
+            "and cannot, however, prevent it",
+            "and do not. ",
+            "and it does not prevent it",
+            "and they do not prevent it",
+            "and she cannot prevent it",
+        ] {
+            let found = trade_sentences(&format!("This ability alters bravery {tail}."));
+            assert_eq!(found.len(), 1, "{tail}: {found:?}");
+            assert_eq!(found[0].phrase, "bravery", "{tail}");
+        }
+        // Not a negation: a pronoun and another word.
+        let found = trade_sentences("This ability alters bravery and it does something.");
+        assert_eq!(found[0].phrase, "bravery and it does something");
+    }
+
+    #[test]
+    fn a_pronoun_clause_with_also_splits_at_changes_and_modifies() {
+        for verb in ["changes", "modifies", "replaces", "alters"] {
+            let found = trade_sentences(&format!(
+                "This ability replaces bravery, and it also {verb} armor training."
+            ));
+            assert_eq!(found.len(), 2, "{verb}: {found:?}");
+            assert_eq!(found[1].phrase, "armor training", "{verb}");
+        }
+        let found =
+            trade_sentences("This ability replaces bravery, and it also modifies armor training.");
+        assert_eq!(found[1].op, TradeOp::Alters);
+        // Without `also`, `changes` after a pronoun stays prose (ruling 25).
+        let found =
+            trade_sentences("This ability replaces bravery, and it changes the saving throw.");
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert_eq!(found[0].phrase, "bravery, and it changes the saving throw");
     }
 
     #[test]

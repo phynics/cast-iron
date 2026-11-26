@@ -17,11 +17,12 @@ use crate::trade_match::{BaseHeading, Verdict, overlaps, resolve};
 use cast_iron_schema::{FeatureRef, Trade, TypedFields};
 use std::collections::{BTreeMap, BTreeSet};
 
-/// True when two printed names are the same words: case and runs of whitespace do not matter,
-/// nothing else is normalized (owner ruling 56 of 2026-11-26, #540).
+/// True when two printed names are the same words: ability tags ("(Ex)", "(Su)"), case and runs
+/// of whitespace do not matter, nothing else is normalized (owner ruling 56 of 2026-11-26, #540).
 fn same_printed_words(a: &str, b: &str) -> bool {
     let words = |text: &str| {
-        text.split_whitespace()
+        crate::trade_sentences::strip_tags(text)
+            .split_whitespace()
             .map(str::to_lowercase)
             .collect::<Vec<_>>()
     };
@@ -406,6 +407,30 @@ mod tests {
         );
         assert!(
             problems(&report).contains("both name feature `bonus-feats`"),
+            "{}",
+            problems(&report)
+        );
+    }
+
+    #[test]
+    fn an_ability_tag_does_not_make_printed_words_differ() {
+        // "Bravery" and "Bravery (Ex)" are the same words: still an overlap error.
+        let report = run(
+            2,
+            vec![
+                fighter(),
+                archetype(
+                    vec![
+                        feature_trade(TradeOp::Replaces, "Bravery", "bravery"),
+                        feature_trade(TradeOp::Replaces, "Bravery (Ex)", "bravery"),
+                    ],
+                    "Bravery, Bravery (Ex)",
+                    "",
+                ),
+            ],
+        );
+        assert!(
+            problems(&report).contains("both name feature `bravery`"),
             "{}",
             problems(&report)
         );
