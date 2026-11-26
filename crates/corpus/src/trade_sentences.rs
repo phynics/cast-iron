@@ -40,6 +40,12 @@
 //! a closing parenthesis of four words or more is an aside; a verb joined by `and` to another
 //! clause is a bare sentence; and the feature's own heading is a subject. `changes` is an `alters`
 //! verb (owner ruling 25), and so is `modifies` (owner ruling 55), only in the sentence position.
+//! After an `alters` verb, "and functions as" shares the object ("This ability modifies and
+//! functions as true judgment." is `alters: true judgment`), and a phrase ends before " and does
+//! not", " and do not" or " and cannot" ("This ability modifies the raging song class feature and
+//! does not prevent a war painter from ..." is `alters: the raging song class feature`). "And
+//! also" before a trade verb (`replaces`, `alters`, `changes`, `modifies` and the plurals) starts a
+//! second trade ("This ability alters sacred weapon and also replaces sacred armor.").
 //!
 //! Owner ruling 22 (a level back-reference trade is renamed to the printed words) adds the
 //! subjects that name a granted thing: `spell`, `skill` and `evolution` join `feat` as subject
@@ -343,6 +349,16 @@ fn second_clause(words: &[&str], index: usize) -> Option<usize> {
     verb_at(words, at).map(|_| at)
 }
 
+/// True when `words` start a negated clause: "does not", "do not" or "cannot" (case aside).
+fn starts_negated_clause(words: &[&str]) -> bool {
+    let is = |index: usize, text: &str| {
+        words
+            .get(index)
+            .is_some_and(|w| w.eq_ignore_ascii_case(text))
+    };
+    (is(0, "does") || is(0, "do")) && is(1, "not") || is(0, "cannot")
+}
+
 /// The depth of parentheses after `word`: `open` more for each `(` and `open` fewer for each `)`.
 fn paren_depth(open: usize, word: &str) -> usize {
     word.chars().fold(open, |depth, ch| match ch {
@@ -479,10 +495,37 @@ pub fn trade_sentences_headed(text: &str, head: Option<&str>) -> Vec<TradeSenten
                 index += 1;
                 continue;
             }
+            // "This ability modifies and functions as true judgment." (Inquisitor, Immolator): the
+            // `alters` verb and "functions as" share one object, so the phrase starts after
+            // "and functions as". Only after an `alters` verb, and only the exact words.
+            if phrase.is_empty()
+                && op == TradeOp::Alters
+                && word.eq_ignore_ascii_case("and")
+                && words
+                    .get(index + 1)
+                    .is_some_and(|next| next.eq_ignore_ascii_case("functions"))
+                && words
+                    .get(index + 2)
+                    .is_some_and(|next| next.eq_ignore_ascii_case("as"))
+            {
+                index += 3;
+                continue;
+            }
             // R13: ", and abilities that modify arcane pool also modify eldritch pool": a clause
             // after ", and" is a remark, not a name (owner ruling 30).
             // R16: a word inside a parenthesis starts no clause.
             let inside = paren_depth(0, &phrase.join(" ")) > 0;
+            // "This ability modifies the raging song class feature and does not prevent a war
+            // painter from performing other raging songs." (Skald, War Painter): " and does
+            // not", " and do not" and " and cannot" start a negated clause, a remark about the
+            // trade and no name, so the phrase ends before the `and`.
+            if !inside
+                && !phrase.is_empty()
+                && word.eq_ignore_ascii_case("and")
+                && starts_negated_clause(&words[index + 1..])
+            {
+                break;
+            }
             if !inside && let Some(verb) = second_clause(&words, index) {
                 // ", and it replaces X": the pronoun and an `also` belong to the new clause.
                 found.push(TradeSentence {
@@ -494,6 +537,28 @@ pub fn trade_sentences_headed(text: &str, head: Option<&str>) -> Vec<TradeSenten
                 op = verb_at(&words, verb).expect("a verb was found");
                 phrase.clear();
                 index = verb + 1;
+                continue;
+            }
+            // "This ability alters sacred weapon and also replaces sacred armor." (Shieldbearer):
+            // "and also" before a trade verb starts a second trade, like "and replaces". Here
+            // `changes` and `modifies` count too, because "also" marks the new clause.
+            if !inside
+                && word.eq_ignore_ascii_case("and")
+                && words
+                    .get(index + 1)
+                    .is_some_and(|next| next.eq_ignore_ascii_case("also"))
+                && let Some(verb) = words.get(index + 2).and_then(|verb| lead_verb_of(verb))
+                && !is_alter_self(words[index + 2], words.get(index + 3))
+            {
+                found.push(TradeSentence {
+                    op,
+                    bare,
+                    phrase: phrase.join(" ").trim_end_matches(',').to_string(),
+                    aside: String::new(),
+                });
+                op = verb;
+                phrase.clear();
+                index += 3;
                 continue;
             }
             if !inside
@@ -2476,6 +2541,90 @@ mod tests {
         let found = trade_sentences("This ability replaces bravery and modifies the saving throw.");
         assert_eq!(found.len(), 1, "{found:?}");
         assert_eq!(found[0].op, TradeOp::Replaces);
+    }
+
+    #[test]
+    fn modifies_and_functions_as_share_one_object() {
+        // Inquisitor, Immolator (Advanced Class Guide).
+        for sentence in [
+            "This ability modifies and functions as true judgment.",
+            "This ability alters and functions as true judgment.",
+        ] {
+            let found = trade_sentences(sentence);
+            assert_eq!(found.len(), 1, "{sentence}: {found:?}");
+            assert_eq!(found[0].op, TradeOp::Alters);
+            assert_eq!(found[0].phrase, "true judgment");
+        }
+        // Only after an `alters` verb: a replacement still names what follows.
+        let found = trade_sentences("This ability replaces and functions as true judgment.");
+        assert_eq!(found[0].phrase, "and functions as true judgment");
+    }
+
+    #[test]
+    fn and_also_before_a_trade_verb_starts_a_second_trade() {
+        // Shieldbearer (Armor Master's Handbook p. 7).
+        let found =
+            trade_sentences("This ability alters sacred weapon and also replaces sacred armor.");
+        let pairs: Vec<_> = found.iter().map(|f| (f.op, f.phrase.as_str())).collect();
+        assert_eq!(
+            pairs,
+            [
+                (TradeOp::Alters, "sacred weapon"),
+                (TradeOp::Replaces, "sacred armor")
+            ]
+        );
+        // With a comma, and with the other verbs.
+        for verb in ["replaces", "alters", "changes", "modifies"] {
+            let found = trade_sentences(&format!(
+                "This ability alters bravery, and also {verb} armor training."
+            ));
+            assert_eq!(found.len(), 2, "{verb}: {found:?}");
+            assert_eq!(found[0].phrase, "bravery", "{verb}");
+            assert_eq!(found[1].phrase, "armor training", "{verb}");
+        }
+        // "and also" before a non-verb splits nothing.
+        let found = trade_sentences("This ability replaces bravery and also armor training.");
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert_eq!(found[0].phrase, "bravery and also armor training");
+        // "also" without "and" before the verb is not this reading; `changes` after plain
+        // "and" stays prose (ruling 25).
+        let found = trade_sentences("This ability replaces bravery and changes the saving throw.");
+        assert_eq!(found.len(), 1, "{found:?}");
+    }
+
+    #[test]
+    fn a_negated_clause_ends_the_phrase() {
+        // Skald, War Painter (Advanced Class Guide).
+        let found = trade_sentences(
+            "This ability modifies the raging song class feature and does not prevent a war painter from performing other raging songs.",
+        );
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert_eq!(found[0].op, TradeOp::Alters);
+        assert_eq!(found[0].phrase, "the raging song class feature");
+        assert!(phrase_is_covered(
+            &found[0].phrase,
+            &names(&["Raging song"])
+        ));
+        for tail in [
+            "do not prevent it",
+            "cannot prevent it",
+            "DOES NOT prevent it",
+        ] {
+            let found = trade_sentences(&format!("This ability replaces bravery and {tail}."));
+            assert_eq!(found.len(), 1, "{tail}: {found:?}");
+            assert_eq!(found[0].phrase, "bravery", "{tail}");
+        }
+        // "and" that joins two real objects keeps both.
+        let found = trade_sentences("This ability modifies bravery and armor training.");
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert_eq!(found[0].phrase, "bravery and armor training");
+        assert!(phrase_is_covered(
+            &found[0].phrase,
+            &names(&["Bravery", "Armor Training"])
+        ));
+        // `do` and `does` without `not` end nothing.
+        let found = trade_sentences("This ability replaces bravery and does something else.");
+        assert_eq!(found[0].phrase, "bravery and does something else");
     }
 
     #[test]

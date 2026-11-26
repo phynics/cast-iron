@@ -1335,7 +1335,14 @@ this place only (owner ruling 25: "This ability changes the Arcane Pool class fe
 the magus arcana gained at 3rd level." is an `alters` trade of `Arcane Pool` and a `replaces` trade
 of the arcana); so do `modifies` and `modify` (owner ruling 55: "This ability modifies bonus feats."
 is an `alters` trade of `bonus feats`; only the whole word is a verb, so "Charisma modifier",
-"modified" and "unmodified" are not); a verb joined later by `and` is read as `replaces` or `alters` only. The feature's own
+"modified" and "unmodified" are not). After an `alters` verb, "and functions as" shares the object
+("This ability modifies and functions as true judgment." is an `alters` trade of `true judgment`),
+and the phrase ends before " and does not", " and do not" or " and cannot" ("This ability modifies
+the raging song class feature and does not prevent a war painter from performing other raging
+songs." is an `alters` trade of `the raging song class feature`). "And also" before a trade verb starts a
+second trade ("This ability alters sacred weapon and also replaces sacred armor." is an `alters`
+trade of `sacred weapon` and a `replaces` trade of `sacred armor`; here `changes` and `modifies`
+count as verbs too, and "and also" before any other word splits nothing); a verb joined later by `and` is read as `replaces` or `alters` only. The feature's own
 heading may stand for the subject: under the feature "Sermonic Performance (Su)" the sentence
 "Sermonic performance replaces the 1st-, 9th-, and 15th-level channel energy abilities." is a
 sentence of an ability (not bare); the heading is compared as a name, so tags and case do not
