@@ -1229,10 +1229,9 @@ A wrong op or a missing trade is reported here. A sentence that names a stored t
   ability"): it names nothing, so the feature needs one trade of its op with `by` = the feature,
   whatever the name.
 
-The rule is a **warning** while the pinned corpus holds printed sentences without a trade
-(`PRINTED_TRADES_ARE_ERRORS` in `crates/corpus/src/check_printed_trades.rs`), and an **error** after
-the pin moves to the data tag that carries the fixes; decision
-`2026-11-25-printed-trade-sentence-needs-a-trade`. A corpus that has not stored a trade for such a
+The rule is an **error** (`PRINTED_TRADES_ARE_ERRORS` in `crates/corpus/src/check_printed_trades.rs`)
+since the pin of corpus v0.1.57, the first tag with no such sentence; it was a warning before;
+decision `2026-11-25-printed-trade-sentence-needs-a-trade`. A corpus that has not stored a trade for such a
 sentence on purpose lists it in `trade-sentence-exceptions.toml`.
 
 ### Trade sentence exceptions

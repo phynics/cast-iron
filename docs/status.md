@@ -1,6 +1,6 @@
 # Status
 
-Updated 2026-11-25. This page holds the current state and nothing else. The history is a log with one file per entry: [`docs/status/`](status/README.md) (pins, releases, acceptance records). Decisions are in [`docs/decisions/`](decisions/README.md). Open work is in [GitHub Issues](https://github.com/phynics/cast-iron/issues).
+Updated 2026-11-26. This page holds the current state and nothing else. The history is a log with one file per entry: [`docs/status/`](status/README.md) (pins, releases, acceptance records). Decisions are in [`docs/decisions/`](decisions/README.md). Open work is in [GitHub Issues](https://github.com/phynics/cast-iron/issues).
 
 Edit this page only where a change makes a line untrue, and add a log file for the event (`docs/status/YYYY-MM-DD-<slug>.md`). Keep local verification, CI and deployment apart.
 
@@ -8,9 +8,9 @@ Edit this page only where a change makes a line untrue, and add a log file for t
 
 | | |
 |---|---|
-| Corpus | `phynics/cast-iron-data` tag `v0.1.56`, commit `79cbe278c580392cb6c80f979232e646364067de` (`sources/corpus.toml`), corpus format 4. Pin entry: [2026-11-25](status/2026-11-25-pin-corpus-v0-1-56.md) |
-| Content version | `v8141c4b774042e5d` (`cargo xtask content` on `main` at `57b4cb6b5` plus the v0.1.56 pin, 2026-11-25). The release serves `vad43d1e1b6e40e61` (corpus v0.1.51, `cargo xtask content` on `main` at `28a96e784`), so it is one pin behind `main`. |
-| Library | 31,671 entries, 443 publications, 443 books; 0 unreachable entries, 0 broken links |
+| Corpus | `phynics/cast-iron-data` tag `v0.1.57`, commit `38c4d4ba735bdf636fec3e343476ee8d3c7fb2ef` (`sources/corpus.toml`), corpus format 4. Pin entry: [2026-11-26](status/2026-11-26-pin-corpus-v0-1-57.md) |
+| Content version | `vd1dd4aeccdc8a81a` (`cargo xtask content` on `main` at `cea17e1b1` plus the v0.1.57 pin, 2026-11-26). The release serves `vad43d1e1b6e40e61` (corpus v0.1.51, `cargo xtask content` on `main` at `28a96e784`), so it is one pin behind `main`. |
+| Library | 31,766 entries, 445 publications, 445 books; 0 unreachable entries, 0 broken links |
 | `SCHEMA_VERSION` | 7 (`crates/schema/src/lib.rs`; the client reads 1 to 7). Schema 7 adds the haunt kind ([decision](decisions/2026-11-23-haunts-are-a-kind-schema-7.md)) |
 | `INDEX_FORMAT_VERSION` | 2 (`crates/search/src/lib.rs`) |
 

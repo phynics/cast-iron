@@ -30,9 +30,9 @@
 //! corpus root (see `docs/corpus-format.md`, "Trade sentence exceptions"). The list only shrinks:
 //! a row that excepts no sentence is an error too (`remove the row`).
 //!
-//! The rule is an error once [`PRINTED_TRADES_ARE_ERRORS`] is true. Until the pinned corpus holds
-//! the data fixes (phynics/cast-iron-data#324) it reports a warning, so that `cargo xtask
-//! content` keeps compiling the pinned corpus.
+//! The rule is an error because [`PRINTED_TRADES_ARE_ERRORS`] is true. It was a warning until the
+//! pin of corpus v0.1.57, the first tag that holds the data fixes (phynics/cast-iron-data#324 and
+//! #329).
 
 use crate::check::{Report, line_of};
 use crate::check_features::{bare_unnamed_sentences_in, feature_part, sections};
@@ -45,10 +45,9 @@ use std::collections::BTreeSet;
 use std::path::Path;
 
 /// Whether a printed trade sentence without a stored trade fails the check (true) or only warns
-/// (false). It is false while the pinned corpus (`sources/corpus.toml`) predates the data fixes
-/// of phynics/cast-iron-data#324; the pull request that moves the pin to the tag that carries
-/// them sets it to true (decision `2026-11-25-printed-trade-sentence-needs-a-trade`).
-pub const PRINTED_TRADES_ARE_ERRORS: bool = false;
+/// (false). True since the pin of corpus v0.1.57, which holds the data fixes of
+/// phynics/cast-iron-data#324 and #329 (decision `2026-11-25-printed-trade-sentence-needs-a-trade`).
+pub const PRINTED_TRADES_ARE_ERRORS: bool = true;
 
 /// The optional file in the corpus root that lists the sentences allowed to state no trade.
 pub const EXCEPTIONS_FILE: &str = "trade-sentence-exceptions.toml";
@@ -470,6 +469,18 @@ mod tests {
             found(stored(TradeOp::Replaces, "natural-leaper")),
             ["This replaces that ability"]
         );
+        // A bare pronoun is anaphoric too.
+        let bare = |by: &str| {
+            archetype(
+                body(
+                    "This otherwise works like the standard hunter's skills class feature and replaces it.",
+                ),
+                &["skilled", "natural-leaper"],
+                vec![trade(TradeOp::Replaces, "Skills", &[by]), track()],
+            )
+        };
+        assert!(found(bare("skilled")).is_empty());
+        assert_eq!(found(bare("natural-leaper")).len(), 1);
     }
 
     #[test]
@@ -489,6 +500,14 @@ mod tests {
             );
             assert!(found(entry).is_empty(), "{sentence}");
         }
+        // With no trade stored at all, the cross-referenced phrase still asks for none: the
+        // reader drops it (ruling 40), so the check cannot pass by naming it.
+        let entry = archetype(
+            body("This replaces specific hunter abilities as indicated below."),
+            &["skilled", "natural-leaper"],
+            vec![track()],
+        );
+        assert!(found(entry).is_empty());
     }
 
     #[test]

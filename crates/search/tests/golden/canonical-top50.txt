@@ -1,8 +1,8 @@
 # Top-50 result ids for the 50 queries of tests/e2e/measure-library.mjs.
 # Regenerate with `cargo xtask search-golden` (after `cargo xtask content`) in every corpus-pin PR.
-# corpus 79cbe278c580392cb6c80f979232e646364067de
-# tag v0.1.56
-# content v8141c4b774042e5d
+# corpus 38c4d4ba735bdf636fec3e343476ee8d3c7fb2ef
+# tag v0.1.57
+# content vd1dd4aeccdc8a81a
 # Format: `query: <text>` starts a block; each other line is a result id.
 query: fire
 ref/subtype/fire
@@ -152,8 +152,8 @@ ref/feat/kudzu-invasion
 ref/feat/greater-whip-mastery
 ref/feat/tatzlwyrm-claw-style
 ref/spell/hungry-earth
-ref/magic-wondrous/quicksand-cloak
 ref/ragepower/suffocating-grip
+ref/magic-wondrous/quicksand-cloak
 ref/feat/unfair-grip
 ref/spell/incorporeal-chains
 ref/rule/umr-attach/attach
@@ -313,6 +313,7 @@ ref/rule/pclass-loremaster/loremaster
 query: turn undead
 ref/feat/turn-undead
 ref/carried/mythic-adventures/feats/turn-undead/mythic
+ref/arc-wizard/hallowed-necromancer
 ref/type/undead
 ref/blrgbloodline/undead
 ref/spell/detect-undead
@@ -328,7 +329,6 @@ ref/feat/eerie-sense
 ref/feat/charge-of-the-righteous
 ref/arc-witch/gravewalker
 ref/rule/high-rp-types
-ref/arc-wizard/hallowed-necromancer
 ref/magic-ioun/amethyst-pyramid
 ref/npc/master-of-undeath
 ref/discovery/boneshard-bomb
@@ -441,8 +441,8 @@ ref/eq-misc/wizards-kit
 ref/rule/wizard-spells-and-borrowed-spellbooks
 ref/magic-armor/wizards-mail
 book-section/advanced-players-guide/2-2-14
-book-section/chronicle-of-legends/1-109
-book-section/chronicle-of-legends/1-109-1
+book-section/chronicle-of-legends/1-114
+book-section/chronicle-of-legends/1-114-1
 book-section/monster-codex/21-1-1-11
 book-section/npc-codex/1-12
 book-section/pathfinder-unchained/1-1002-5
@@ -502,6 +502,7 @@ ref/feat/war-blessing
 ref/magic-staff/staff-of-blessed-relief
 ref/talent/founders-blessing
 ref/arcanedisc/yuelrals-blessing
+ref/spell/baphomets-blessing
 ref/trait/priest-blessed
 ref/magic-wondrous/redemptors-blessing
 ref/feat/sunder-blessing
@@ -513,7 +514,6 @@ ref/feat/destroyers-blessing
 ref/feat/erastils-blessing
 ref/spell/hunters-blessing
 ref/spell/karmic-blessing
-ref/trait/lightning-blessed
 query: invisibility
 ref/rule/invisibility
 ref/spell/invisibility
@@ -641,8 +641,8 @@ ref/monster/goblin-goblin-vulture-pilot
 ref/magic-wondrous/goblin-skull-bomb
 ref/eq-misc/goblinvine
 ref/carried/ultimate-equipment/rules/wondrous-items/slotless/slotless-wondrous-items/goblin-fire-drum
-ref/carried/monster-codex/rules/goblins/goblins
 ref/carried/monster-codex/rules/goblins
+ref/carried/monster-codex/rules/goblins/goblins
 ref/feat/goblin-cleaver
 ref/trait/goblin-watcher
 ref/eq-misc/goblin-fishing-lure
@@ -680,8 +680,8 @@ ref/feat/spring-attack
 ref/carried/mythic-adventures/feats/spring-attack/mythic
 ref/trait/splash-attack
 ref/feat/improved-spring-attack
-ref/rule/standard-actions
 ref/feat/ride-by-attack
+ref/rule/standard-actions
 ref/rule/free-actions
 ref/feat/greater-spring-attack
 ref/rule/miscellaneous-actions
@@ -714,9 +714,9 @@ ref/spell/symbol-of-striking
 ref/magic-enh/fortuitous
 ref/aspect/snake
 ref/magic-wondrous/balm-of-impish-grace
-ref/order/order-of-vengeance
 ref/feat/panther-style
 ref/vigtalent/leave-an-opening
+ref/order/order-of-vengeance
 ref/spell/expeditious-retreat/mythic
 query: ranger
 ref/carried/ultimate-magic/rules/spellcasting-class-options/ranger
@@ -750,8 +750,8 @@ ref/eq-misc/rangers-kit
 ref/class/ranger/teitr
 ref/rule/class-ranger/ranger/teitr
 book-section/advanced-players-guide/2-2-11
-book-section/chronicle-of-legends/1-92
-book-section/chronicle-of-legends/1-92-1
+book-section/chronicle-of-legends/1-97
+book-section/chronicle-of-legends/1-97-1
 book-section/monster-codex/21-1-1-8
 book-section/npc-codex/1-9
 book-section/pathfinder-unchained/1-1000-5
@@ -841,6 +841,7 @@ ref/talent/charmer
 ref/trait/charmed-innocent
 ref/trait/charming
 ref/feat/charming-performance
+ref/trait/charming-smile-cunning-soul
 ref/magic-wondrous/hexbiter-charm
 ref/magic-wondrous/coven-charm
 ref/magic-wondrous/lynx-eye-charm
@@ -870,7 +871,6 @@ ref/magic-wondrous/bracelet-of-friends
 ref/magic-weapon/traitors-blade
 ref/magic-weapon/goad-of-obedience
 ref/arc-monk/monk-of-the-lotus
-ref/trait/tempters-tongue
 query: weapon focus
 ref/feat/weapon-focus/teitr
 ref/feat/weapon-focus
@@ -1240,8 +1240,8 @@ ref/rule/pclass-arcane-archer/arcane-archer
 ref/exploit/arcane-discovery
 ref/feat/arcane-insight
 ref/arcana/arcane-dealer
-ref/arc-wizard/arcane-physician
 ref/trait/arcane-revitalization
+ref/arc-wizard/arcane-physician
 ref/arc-wizard/arcane-warden
 ref/arc-arcanist/arcane-tinkerer
 ref/spell/arcane-disruption
@@ -1417,8 +1417,8 @@ ref/carried/core-rulebook/rules/equipment/goods-and-services/mounts-and-related-
 ref/rule/bardic-college-events
 ref/eq-misc/bards-kit
 book-section/advanced-players-guide/2-2-4
-book-section/chronicle-of-legends/1-71
-book-section/chronicle-of-legends/1-71-1
+book-section/chronicle-of-legends/1-76
+book-section/chronicle-of-legends/1-76-1
 book-section/monster-codex/21-1-1-2
 book-section/npc-codex/1-3
 book-section/pathfinder-unchained/1-291
@@ -1594,6 +1594,7 @@ ref/class/bloodrager
 ref/arc-kineticist/blood-kineticist
 ref/umr/blood-rage
 ref/arc-bloodrager/blood-conduit
+ref/arc-alchemist/blood-alchemist
 ref/spell/blood-biography
 ref/arc-summoner/blood-god-disciple
 ref/magic-enh/blood-hunting
@@ -1609,7 +1610,6 @@ ref/feat/blood-salvage
 ref/arc-summoner/blood-summoner
 ref/eq-misc/blood-neutralizer
 ref/spell/blood-money
-ref/arc-alchemist/blood-alchemist
 ref/monster/golem-blood-golem
 ref/rule/blood-moon
 ref/feat/blood-tide
@@ -1717,8 +1717,8 @@ ref/arc-monk/zen-archer
 ref/eq-weapon/hornbow-orc
 ref/magic-enh/adaptive
 ref/eq-weapon/spear-sling
-ref/eq-weapon/composite-longbow
 ref/trait/toxophilite
+ref/eq-weapon/composite-longbow
 ref/eq-weapon/composite-shortbow
 ref/carried/mythic-adventures/feats/elven-accuracy/mythic
 ref/feat/stabbing-shot
@@ -1867,8 +1867,8 @@ ref/rule/cleric-oracle-words
 ref/eq-misc/clerics-vestments
 ref/eq-misc/clerics-kit
 book-section/advanced-players-guide/2-2-5
-book-section/chronicle-of-legends/1-75
-book-section/chronicle-of-legends/1-75-1
+book-section/chronicle-of-legends/1-80
+book-section/chronicle-of-legends/1-80-1
 book-section/monster-codex/21-1-1-3
 book-section/npc-codex/1-4
 book-section/pathfinder-unchained/1-292
@@ -2024,9 +2024,9 @@ ref/feat/worst-case-jinx
 ref/rule/curse-templates
 ref/disease/crypt-fever
 ref/carried/core-rulebook/rules/glossary/special-abilities/curses/mummy-rot
-ref/magic-wondrous/restorative-ointment
 ref/disease/fungal-flu
 ref/affliction/ubashki-ubashki-swarm/ubashki-fever
+ref/magic-wondrous/restorative-ointment
 ref/eq-misc/alchemical-glue
 ref/affliction/great-old-one-xhamen-dor/seeded-infestation
 ref/rule/wounds-threshold-feats
@@ -2131,8 +2131,8 @@ ref/npc/death-initiate
 ref/spell/death-clutch
 ref/feat/death-roll
 ref/ragepower/deathless-frenzy
-ref/deed/deaths-shot
 ref/spell/death-knell
+ref/deed/deaths-shot
 ref/hex/death-interrupted
 ref/magic-wondrous/deathlurkers-cloak
 ref/monster/death-worm-death-worm-leviathan
@@ -2434,8 +2434,8 @@ ref/magic-weapon/earthcracker
 ref/monster/veela-earth-veela
 ref/magic-wondrous/earth-child-faceguard
 ref/rule/earthquake
-ref/npc/earthfather
 ref/monster/wysp-earth-wysp
+ref/npc/earthfather
 ref/spell/earthquake
 ref/feat/earth-child-binder
 ref/feat/earth-child-topple
