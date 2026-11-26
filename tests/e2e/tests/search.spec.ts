@@ -1332,8 +1332,20 @@ installedTest("Quick search lists own only options, take one name, and the field
   const layer = await openQuickSearch(page);
   const field = quickField(page);
 
-  // Every id in aria-controls is a list in the page.
-  const controls = ((await field.getAttribute("aria-controls")) ?? "").split(" ").filter(Boolean);
+  // The layer reloads the recent searches on every open, so it first shows Starters and then
+  // Recent searches (the "grapple" search above). Read aria-controls only after that swap: wait
+  // for the Recent searches list, then for an attribute whose every id is a list in the page.
+  await expect(layer.getByRole("listbox", { name: "Recent searches" })).toBeVisible();
+  const settled = async () => {
+    const ids = ((await field.getAttribute("aria-controls")) ?? "").split(" ").filter(Boolean);
+    const present = await page.evaluate(
+      (list) => list.filter((id) => document.getElementById(id) !== null).length,
+      ids,
+    );
+    return { ids, missing: ids.length - present };
+  };
+  await expect.poll(async () => (await settled()).missing, { message: "every id in aria-controls is a list" }).toBe(0);
+  const controls = (await settled()).ids;
   expect(controls.length).toBeGreaterThanOrEqual(2);
   for (const id of controls) await expect(page.locator(`[id="${id}"]`)).toHaveCount(1);
   expect(controls).toContain("quick-search-list-viewed");
