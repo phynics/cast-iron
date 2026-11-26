@@ -201,7 +201,7 @@ Publications go from 443 to 445. The pins v0.1.53, v0.1.54 and v0.1.58 add or de
   Secret Vault has 60 days. Durations and components are fixed in seven spells and class levels in 13; 106 class
   levels are added and nine unprinted ones removed. A class level is held only when print states it or a printed
   rule derives it.
-- **One spelling for typed fields** (v0.1.56, #287). `creature_type` (428 entries), lower-case `size` (325),
+- **One spelling for typed fields** (v0.1.56, phynics/cast-iron-data#287). `creature_type` (428 entries), lower-case `size` (325),
   written-out alignments (309), `hit_die` without a trailing period (120), lower-case spell subschools (1,074
   values), `glamer` out of descriptors (82) and bracketed descriptors moved out of `school` (14).
 - **Combat Scabbard** is one entry, `ref/eq-misc/combat-scabbard` (v0.1.56). The weapon id is an alias.
