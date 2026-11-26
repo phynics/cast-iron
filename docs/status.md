@@ -8,8 +8,8 @@ Edit this page only where a change makes a line untrue, and add a log file for t
 
 | | |
 |---|---|
-| Corpus | `phynics/cast-iron-data` tag `v0.1.57`, commit `38c4d4ba735bdf636fec3e343476ee8d3c7fb2ef` (`sources/corpus.toml`), corpus format 4. Pin entry: [2026-11-26](status/2026-11-26-pin-corpus-v0-1-57.md) |
-| Content version | `vd1dd4aeccdc8a81a` (`cargo xtask content` on `main` at `cea17e1b1` plus the v0.1.57 pin, 2026-11-26). The release serves `vad43d1e1b6e40e61` (corpus v0.1.51, `cargo xtask content` on `main` at `28a96e784`), so it is one pin behind `main`. |
+| Corpus | `phynics/cast-iron-data` tag `v0.1.58`, commit `10f42689700375f4e5da3a69821cc9be5aa462e0` (`sources/corpus.toml`), corpus format 4. Pin entry: [2026-11-26](status/2026-11-26-pin-corpus-v0-1-58.md) |
+| Content version | `ve89d8b4c31071512` (`cargo xtask content` on `main` at `1cd31b7da` plus the v0.1.58 pin, 2026-11-26). The release serves `vad43d1e1b6e40e61` (corpus v0.1.51, `cargo xtask content` on `main` at `28a96e784`), so it is one pin behind `main`. |
 | Library | 31,766 entries, 445 publications, 445 books; 0 unreachable entries, 0 broken links |
 | `SCHEMA_VERSION` | 7 (`crates/schema/src/lib.rs`; the client reads 1 to 7). Schema 7 adds the haunt kind ([decision](decisions/2026-11-23-haunts-are-a-kind-schema-7.md)) |
 | `INDEX_FORMAT_VERSION` | 2 (`crates/search/src/lib.rs`) |
