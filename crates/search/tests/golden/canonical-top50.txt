@@ -1,8 +1,8 @@
 # Top-50 result ids for the 50 queries of tests/e2e/measure-library.mjs.
 # Regenerate with `cargo xtask search-golden` (after `cargo xtask content`) in every corpus-pin PR.
-# corpus 1aa2f7c0eadcbbc20cb555f2576a62708ecf94c1
-# tag v0.1.59
-# content vaaeb1e4c7340254b
+# corpus 60fe4ff54ca170c338256668c40a6cee25ba7fbe
+# tag v0.1.60
+# content v25a2bf2486525a7a
 # Format: `query: <text>` starts a block; each other line is a result id.
 query: fire
 ref/subtype/fire
@@ -209,9 +209,9 @@ ref/family/dragon-planar-paradise
 ref/arc-bard/dragon-yapper
 ref/family/dragon-planar-tumult
 query: sword
+ref/arc-wizard/sword-binder
 ref/rule/aff-swordmasters
 ref/trait/sword-scion
-ref/arc-wizard/sword-binder
 ref/arc-samurai/sword-saint
 ref/eq-weapon/sword-cane
 ref/eq-weapon/sword-cane-pistol
@@ -256,9 +256,9 @@ ref/arc-samurai/ironbound-sword
 ref/magic-weapon/talonstrike-sword
 ref/spell/mages-sword
 ref/eq-weapon/temple-sword
+ref/arc-paladin/mind-sword
 ref/eq-weapon/sickle-sword
 ref/magic-weapon/talon-sword
-ref/arc-paladin/mind-sword
 query: armor class
 ref/rule/armor-class
 ref/carried/bestiary/rules/monster-creation/building-the-monster
@@ -308,8 +308,8 @@ ref/rule/class-background-tables
 ref/rule/pclass-shadowdancer/shadowdancer
 ref/rule/class-barbarian/barbarian
 ref/rule/pclass-arcane-archer/arcane-archer
+ref/arc-fighter/scrapper
 ref/rule/pclass-arcane-trickster/arcane-trickster
-ref/rule/pclass-loremaster/loremaster
 query: turn undead
 ref/feat/turn-undead
 ref/carried/mythic-adventures/feats/turn-undead/mythic
@@ -455,8 +455,8 @@ ref/arc-wizard/pact-wizard-ff
 ref/rule/mad-wizard
 ref/arc-wizard/bonded-wizard
 ref/carried/game-mastery-guide/monsters/scholars/hedge-wizard
-ref/feat/improved-flexible-wizardry
 ref/arc-wizard/pact-wizard-hhh
+ref/feat/improved-flexible-wizardry
 ref/npc/investigator-wizard
 ref/npc/thunder-wizard
 ref/rule/preparing-wizard-spells
@@ -914,8 +914,8 @@ ref/feat/elven-battle-focus
 ref/feat/weapon-trick-weapon-and-shield
 ref/feat/weapon-style-mastery
 ref/feat/furious-focus/stamina
-ref/feat/focused-discipline
 ref/feat/weapon-trick-polearm
+ref/feat/focused-discipline
 ref/phrenicamp/dragons-breath
 ref/feat/weapon-of-the-chosen
 ref/ability/advanced-weapon-training
@@ -1523,14 +1523,14 @@ ref/arc-swashbuckler/veiled-blade
 ref/tech-weapon/null-blade
 ref/magic-artifact/final-blade
 ref/arc-slayer/butterfly-blade
+ref/arc-spiritualist/phantom-blade
 ref/arc-warpriest/libertys-blade
 ref/arc-swashbuckler/flying-blade
 ref/pclass/lion-blade
+ref/arc-samurai/sovereign-blade
 ref/magic-weapon/risen-blade
 ref/tech-weapon/plasma-blade
-ref/arc-samurai/sovereign-blade
 ref/rule/scaling-magic-weapons-thirsting-blade
-ref/arc-spiritualist/phantom-blade
 ref/magic-artifact/mantis-blade
 ref/kinetic/kinetic-blade
 ref/magic-weapon/grudge-blade
@@ -1732,8 +1732,8 @@ ref/eq-weapon/shortbow
 ref/monster/giant-jungle-giant
 ref/magic-weapon/oathbow
 ref/magic-weapon/felhart
-ref/rule/dexterity
 ref/feat/erastils-blessing
+ref/rule/dexterity
 ref/magic-enh/endless-ammunition
 ref/monster/wild-hunt-wild-hunt-archer
 ref/vigtalent/signature-arrows
@@ -1825,6 +1825,7 @@ ref/spell/word-of-chaos/mythic
 book-section/mythic-adventures/5-2-199
 book-section/mythic-adventures/5-2-268
 ref/rule/alignment
+ref/arc-warpriest/fist-of-the-godclaw
 ref/ability/domains
 ref/npc/temple-priest
 ref/carried/game-mastery-guide/monsters/temple/priest
@@ -1839,7 +1840,6 @@ ref/inquisition/order
 ref/magic-wondrous/orb-of-pure-law
 ref/faith/apep
 ref/magic-armor/panoply-of-the-fierani-knight-elf
-ref/magic-wondrous/blessed-keepsake
 query: cleric
 ref/carried/npc-codex/rules/core-class-npcs/cleric
 ref/carried/ultimate-combat/rules/class-archetypes/cleric
@@ -2249,20 +2249,20 @@ book-section/mythic-adventures/5-2-70
 book-section/ultimate-magic/4-12-14
 ref/eq-misc/light-detector
 query: divine
+ref/arc-cleric/divine-scourge
 ref/arc-paladin/divine-defender
+ref/arc-oracle/divine-numerologist
 ref/arc-paladin/divine-hunter
 ref/rule/divine-spells
 ref/pclass/divine-scion
 ref/arc-paladin/divine-guardian
 ref/arc-warpriest/divine-commander
-ref/arc-oracle/divine-numerologist
 ref/arc-cleric/divine-strategist
 ref/template/divine-guardian
 ref/carried/bestiary-4/monsters/divine-guardian
 ref/arc-ranger/divine-tracker
 ref/rule/divine-gifts
 ref/feat/divine-deception
-ref/arc-cleric/divine-scourge
 ref/arc-cleric/divine-paragon
 ref/arc-hunter/divine-hunter
 ref/arc-warpriest/divine-champion
@@ -2426,16 +2426,16 @@ ref/kinetic/earth-tongue
 ref/kinetic/earth-child
 ref/spell/earth-glide
 ref/rule/rule-special-abilities-ucp/earth-glide
-ref/monster/oni-earth-yai
 ref/blessing/earthquake
+ref/monster/oni-earth-yai
 ref/eq-weapon/earth-breaker
 ref/magic-weapon/earthenflail
 ref/magic-weapon/earthcracker
 ref/monster/veela-earth-veela
 ref/magic-wondrous/earth-child-faceguard
 ref/rule/earthquake
-ref/monster/wysp-earth-wysp
 ref/npc/earthfather
+ref/monster/wysp-earth-wysp
 ref/spell/earthquake
 ref/feat/earth-child-binder
 ref/feat/earth-child-topple
@@ -2463,7 +2463,9 @@ ref/arc-magus/elemental-knight
 ref/arc-barbarian/elemental-kin
 ref/arc-arcanist/elemental-master
 ref/arc-oracle/elementalist-oracle
+ref/arc-monk/elemental-monk
 ref/arc-shifter/elementalist-shifter
+ref/arc-ranger/elemental-envoy
 ref/arc-kineticist/elemental-ascetic
 ref/spell/elemental-bombardment
 ref/arc-druid/elemental-ally
@@ -2475,8 +2477,6 @@ ref/spell/elemental-bombardment/mythic
 ref/carried/bestiary/monsters/elemental/earth/elder
 ref/carried/bestiary/monsters/elemental/fire/elder
 ref/magic-wondrous/elemental-gem
-ref/arc-monk/elemental-monk
-ref/arc-ranger/elemental-envoy
 ref/ragepower/elemental-blood
 ref/eq-misc/elemental-proofing
 ref/feat/elemental-channel
