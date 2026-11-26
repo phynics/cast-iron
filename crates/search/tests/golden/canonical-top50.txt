@@ -1,8 +1,8 @@
 # Top-50 result ids for the 50 queries of tests/e2e/measure-library.mjs.
 # Regenerate with `cargo xtask search-golden` (after `cargo xtask content`) in every corpus-pin PR.
-# corpus 38c4d4ba735bdf636fec3e343476ee8d3c7fb2ef
-# tag v0.1.57
-# content vd1dd4aeccdc8a81a
+# corpus 10f42689700375f4e5da3a69821cc9be5aa462e0
+# tag v0.1.58
+# content ve89d8b4c31071512
 # Format: `query: <text>` starts a block; each other line is a result id.
 query: fire
 ref/subtype/fire
@@ -1240,9 +1240,9 @@ ref/rule/pclass-arcane-archer/arcane-archer
 ref/exploit/arcane-discovery
 ref/feat/arcane-insight
 ref/arcana/arcane-dealer
+ref/arc-wizard/arcane-warden
 ref/trait/arcane-revitalization
 ref/arc-wizard/arcane-physician
-ref/arc-wizard/arcane-warden
 ref/arc-arcanist/arcane-tinkerer
 ref/spell/arcane-disruption
 ref/feat/arcane-jinxer
@@ -2131,8 +2131,8 @@ ref/npc/death-initiate
 ref/spell/death-clutch
 ref/feat/death-roll
 ref/ragepower/deathless-frenzy
-ref/spell/death-knell
 ref/deed/deaths-shot
+ref/spell/death-knell
 ref/hex/death-interrupted
 ref/magic-wondrous/deathlurkers-cloak
 ref/monster/death-worm-death-worm-leviathan
