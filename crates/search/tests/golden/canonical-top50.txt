@@ -1,8 +1,8 @@
 # Top-50 result ids for the 50 queries of tests/e2e/measure-library.mjs.
 # Regenerate with `cargo xtask search-golden` (after `cargo xtask content`) in every corpus-pin PR.
-# corpus 10f42689700375f4e5da3a69821cc9be5aa462e0
-# tag v0.1.58
-# content ve89d8b4c31071512
+# corpus 1aa2f7c0eadcbbc20cb555f2576a62708ecf94c1
+# tag v0.1.59
+# content vaaeb1e4c7340254b
 # Format: `query: <text>` starts a block; each other line is a result id.
 query: fire
 ref/subtype/fire
@@ -146,6 +146,7 @@ ref/spell/wall-of-thorns/mythic
 ref/rule/escape-from-restraints
 ref/feat/kudzu-takeover
 ref/arc-monk/tetori
+ref/arc-barbarian/deepwater-rager
 ref/skill/escape-artist
 ref/spell/wall-of-bone
 ref/feat/kudzu-invasion
@@ -156,7 +157,6 @@ ref/ragepower/suffocating-grip
 ref/magic-wondrous/quicksand-cloak
 ref/feat/unfair-grip
 ref/spell/incorporeal-chains
-ref/rule/umr-attach/attach
 query: dragon
 ref/type/dragon
 ref/mystery/dragon
@@ -220,9 +220,9 @@ ref/magic-weapon/sword-of-inner-fire
 ref/magic-artifact/sword-of-gluttony-ungarato
 ref/npc/sword-savant
 ref/magic-artifact/sword-of-valor
+ref/arc-paladin/sword-of-valor
 ref/magic-artifact/sword-of-wrath-garvok
 ref/magic-artifact/sword-of-lust-asheia
-ref/arc-paladin/sword-of-valor
 ref/magic-weapon/sword-of-tempests
 ref/magic-weapon/sword-of-vengeance
 ref/magic-weapon/sword-of-subtlety
@@ -340,9 +340,9 @@ ref/spell/veil-of-positive-energy
 ref/spell/undeath-inversion
 ref/feat/lingering-smite
 ref/trait/obsequious-morsel
-ref/arc-inquisitor/vampire-hunter
 ref/eq-misc/necrosalt
 ref/spell/death-knell-aura-greater
+ref/arc-inquisitor/vampire-hunter
 ref/monster/orphne
 ref/feat/consume-essence
 ref/monster/shredskin
@@ -594,6 +594,7 @@ book-section/core-rulebook/15-12
 book-section/core-rulebook/15-29
 book-section/game-mastery-guide/6-5-3
 book-section/ultimate-equipment/7-1-6
+ref/arc-wizard/arcane-physician
 ref/rule/type-d
 ref/magic-wondrous/cauldron-of-fireworks
 ref/magic-wondrous/sipping-jacket
@@ -615,7 +616,6 @@ ref/magic-wondrous/bountiful-bottle
 ref/magic-wondrous/formula-alembic
 ref/trait/liquid-healing
 ref/trait/technological-brewmaster
-ref/trait/perfectionists-brew
 query: goblin
 ref/monster/goblin
 ref/race/goblin
@@ -789,15 +789,16 @@ ref/subtype/goblinoid
 ref/rule/tactics
 ref/feat/diversion-shot
 ref/feat/subtle-devices
+ref/arc-hunter/flood-flourisher
+ref/arc-rogue/kintargo-rebel
 ref/monster/octopus-giant-octopus
 ref/aspect/owl
 ref/npc/pirate-smuggler
 ref/arc-rogue/cat-burglar
 ref/arc-rogue/heister
-ref/arc-rogue/guerrilla
 ref/arc-familiar/pilferer
+ref/arc-rogue/guerrilla
 ref/monster/scorpion-deadfall-scorpion
-ref/arc-hunter/flood-flourisher
 ref/monster/gargoyle-four-armed-gargoyle
 ref/monster/gargoyle-kapoacinth-hunter
 ref/monster/gargoyle-gargoyle-abductor
@@ -819,7 +820,6 @@ ref/carried/advanced-players-guide/rules/races/halflings/alternate-racial-traits
 ref/npc/chernasardo-sniper
 ref/feat/exquisite-sneak
 ref/feat/friendly-shroud
-ref/feat/kobold-sniper
 query: charm
 ref/spelldef/charm
 ref/domain/charm
@@ -1069,12 +1069,12 @@ ref/feat/indigestible
 ref/rule/elemental-influx
 ref/eq-weapon/alkali-flask
 ref/monster/seps
+ref/arc-alchemist/oenopion-researcher
 ref/eq-misc/dragons-gut
 ref/spell/caustic-safeguard
 ref/monster/fleshwarp-halsora
 ref/eq-misc/alkali-salt
 ref/rule/scaling-rings-forest
-ref/monster/myrmecoleon-mythic
 query: angel
 ref/subtype/angel
 ref/family/angel
@@ -1089,8 +1089,8 @@ ref/eq-misc/angelstep
 ref/eq-material/angelskin
 ref/monster/angelic-guardian
 ref/rule/angels
-ref/magic-wondrous/angels-clarion
 ref/arc-cleric/angelfire-apostle
+ref/magic-wondrous/angels-clarion
 ref/spell/angelic-aspect
 ref/kinetic/angelic-protection
 ref/magic-weapon/angelfall-bow
@@ -1241,13 +1241,14 @@ ref/exploit/arcane-discovery
 ref/feat/arcane-insight
 ref/arcana/arcane-dealer
 ref/arc-wizard/arcane-warden
-ref/trait/arcane-revitalization
 ref/arc-wizard/arcane-physician
+ref/trait/arcane-revitalization
 ref/arc-arcanist/arcane-tinkerer
 ref/spell/arcane-disruption
 ref/feat/arcane-jinxer
 ref/feat/arcane-vendetta
 ref/arc-wizard/arcane-bomber
+ref/arc-familiar/arcane-amplifier
 ref/pclass/arcane-trickster
 ref/rule/pclass-arcane-trickster/arcane-trickster
 ref/magic-wondrous/arcane-battery
@@ -1256,7 +1257,6 @@ ref/exploit/arcane-barrier
 ref/arcana/arcane-accuracy
 ref/arcana/arcane-redoubt
 ref/arcana/arcane-cloak
-ref/arc-familiar/arcane-amplifier
 ref/arcana/arcane-edge
 ref/arcana/arcane-deed
 ref/spell/arcane-concordance
@@ -1522,6 +1522,7 @@ ref/arc-swashbuckler/guiding-blade
 ref/arc-swashbuckler/veiled-blade
 ref/tech-weapon/null-blade
 ref/magic-artifact/final-blade
+ref/arc-slayer/butterfly-blade
 ref/arc-warpriest/libertys-blade
 ref/arc-swashbuckler/flying-blade
 ref/pclass/lion-blade
@@ -1529,7 +1530,6 @@ ref/magic-weapon/risen-blade
 ref/tech-weapon/plasma-blade
 ref/arc-samurai/sovereign-blade
 ref/rule/scaling-magic-weapons-thirsting-blade
-ref/arc-slayer/butterfly-blade
 ref/arc-spiritualist/phantom-blade
 ref/magic-artifact/mantis-blade
 ref/kinetic/kinetic-blade
@@ -2333,10 +2333,10 @@ ref/trait/ruthless
 ref/magic-wondrous/gray-gamblers-hat
 ref/trait/goldsniffer
 ref/magic-artifact/axe-of-the-dwarvish-lords
+ref/arc-monk/ouat
 ref/trait/fungal-brewing
 ref/trait/grounded
 ref/trait/spellcasters-anathema
-ref/arc-monk/ouat
 ref/trait/clearheaded
 ref/feat/ironhide
 ref/trait/gunworker
