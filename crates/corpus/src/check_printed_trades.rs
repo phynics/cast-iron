@@ -395,6 +395,35 @@ mod tests {
     }
 
     #[test]
+    fn a_bare_modifies_sentence_is_a_gap() {
+        // Owner ruling 55 of 2026-11-26 (#540): `modifies` is an `alters` verb.
+        for sentence in [
+            "This modifies the hunter's class skills.",
+            "These modify the hunter's class skills.",
+        ] {
+            let entry = archetype(
+                body(sentence),
+                &["skilled", "natural-leaper"],
+                vec![track()],
+            );
+            let gaps = found(entry);
+            assert_eq!(gaps.len(), 1, "{sentence}: {gaps:?}");
+            assert!(gaps[0].ends_with("the hunter's class skills"), "{gaps:?}");
+            assert!(gaps[0].contains("alters"), "{gaps:?}");
+        }
+        // A stored `alters` trade of the feature states it.
+        let entry = archetype(
+            body("This modifies the hunter's class skills."),
+            &["skilled", "natural-leaper"],
+            vec![
+                trade(TradeOp::Alters, "Class skills", &["skilled"]),
+                track(),
+            ],
+        );
+        assert!(found(entry).is_empty());
+    }
+
+    #[test]
     fn a_plural_bare_sentence_is_a_gap() {
         let entry = archetype(
             body("These replace the normal attack roll bonus and AC penalty for charging."),

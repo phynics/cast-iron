@@ -17,6 +17,18 @@ use crate::trade_match::{BaseHeading, Verdict, overlaps, resolve};
 use cast_iron_schema::{FeatureRef, Trade, TypedFields};
 use std::collections::{BTreeMap, BTreeSet};
 
+/// True when two printed names are the same words: ability tags ("(Ex)", "(Su)"), case and runs
+/// of whitespace do not matter, nothing else is normalized (owner ruling 56 of 2026-11-26, #540).
+fn same_printed_words(a: &str, b: &str) -> bool {
+    let words = |text: &str| {
+        crate::trade_sentences::strip_tags(text)
+            .split_whitespace()
+            .map(str::to_lowercase)
+            .collect::<Vec<_>>()
+    };
+    words(a) == words(b)
+}
+
 /// The problem with a trade's `levels`, if any: they run 1 to 20, ascending and unique.
 fn bad_levels(feature: &FeatureRef) -> Option<String> {
     let levels = &feature.levels;
@@ -118,8 +130,13 @@ pub(crate) fn check_trades(
                     continue;
                 };
                 // An archetype may alter a feature and replace one instance of it (`Hexes` and
-                // `6th-level hex`), so only trades of one key compete.
-                if trade.op == later.op && overlaps(feature, other) {
+                // `6th-level hex`), so only trades of one key compete. Owner ruling 56: two
+                // printed conditional variants ("wild shape if ... as her nature bond") may name
+                // one feature at the same levels; only identical printed words are a duplicate.
+                if trade.op == later.op
+                    && overlaps(feature, other)
+                    && same_printed_words(&trade.printed, &later.printed)
+                {
                     let message = format!(
                         "{}: [fields] the {label} trade `{}` and the {label} trade `{}` both name feature `{}` at the same levels{}",
                         at(later),
@@ -356,9 +373,14 @@ mod tests {
                             &[2, 4],
                             None,
                         ),
-                        narrowed("Bonus feats at 4th level", "bonus-feats", &[4], None),
+                        narrowed(
+                            "bonus  feats at 2nd and 4th levels",
+                            "bonus-feats",
+                            &[4],
+                            None,
+                        ),
                     ],
-                    "Bonus feats at 2nd and 4th levels, Bonus feats at 4th level",
+                    "Bonus feats at 2nd and 4th levels, bonus  feats at 2nd and 4th levels",
                     "",
                 ),
             ],
@@ -376,9 +398,84 @@ mod tests {
                 archetype(
                     vec![
                         narrowed("Bonus feats", "bonus-feats", &[], None),
-                        narrowed("Bonus feats at 4th level", "bonus-feats", &[4], None),
+                        narrowed("Bonus feats", "bonus-feats", &[4], None),
                     ],
-                    "Bonus feats, Bonus feats at 4th level",
+                    "Bonus feats, Bonus feats",
+                    "",
+                ),
+            ],
+        );
+        assert!(
+            problems(&report).contains("both name feature `bonus-feats`"),
+            "{}",
+            problems(&report)
+        );
+    }
+
+    #[test]
+    fn an_ability_tag_does_not_make_printed_words_differ() {
+        // "Bravery" and "Bravery (Ex)" are the same words: still an overlap error.
+        let report = run(
+            2,
+            vec![
+                fighter(),
+                archetype(
+                    vec![
+                        feature_trade(TradeOp::Replaces, "Bravery", "bravery"),
+                        feature_trade(TradeOp::Replaces, "Bravery (Ex)", "bravery"),
+                    ],
+                    "Bravery, Bravery (Ex)",
+                    "",
+                ),
+            ],
+        );
+        assert!(
+            problems(&report).contains("both name feature `bravery`"),
+            "{}",
+            problems(&report)
+        );
+    }
+
+    #[test]
+    fn printed_conditional_variants_may_name_one_feature_at_the_same_levels() {
+        // Owner ruling 56 of 2026-11-26 (#540): Fungal Pilgrim prints two conditional
+        // replacements of wild shape. Different printed words are no duplicate.
+        let report = run(
+            2,
+            vec![
+                fighter(),
+                archetype(
+                    vec![
+                        narrowed(
+                            "Wild shape if the pilgrim selected the animal companion as her nature bond",
+                            "bonus-feats",
+                            &[],
+                            None,
+                        ),
+                        narrowed(
+                            "Wild shape if the pilgrim selected a domain as her nature bond",
+                            "bonus-feats",
+                            &[],
+                            None,
+                        ),
+                    ],
+                    "Wild shape if the pilgrim selected the animal companion as her nature bond, Wild shape if the pilgrim selected a domain as her nature bond",
+                    "",
+                ),
+            ],
+        );
+        assert!(report.problems.is_empty(), "{}", problems(&report));
+        // The same printed words, apart from case and spacing, stay an error.
+        let report = run(
+            2,
+            vec![
+                fighter(),
+                archetype(
+                    vec![
+                        narrowed("Wild shape (if a domain)", "bonus-feats", &[], None),
+                        narrowed("wild  SHAPE (if a\tdomain)", "bonus-feats", &[], None),
+                    ],
+                    "Wild shape (if a domain), wild  SHAPE (if a\tdomain)",
                     "",
                 ),
             ],
@@ -426,9 +523,9 @@ mod tests {
                 archetype(
                     vec![
                         feature_trade(TradeOp::Replaces, "Bravery", "bravery"),
-                        feature_trade(TradeOp::Replaces, "Bravery (Ex)", "bravery"),
+                        feature_trade(TradeOp::Replaces, "Bravery", "bravery"),
                     ],
-                    "Bravery, Bravery (Ex)",
+                    "Bravery, Bravery",
                     "",
                 ),
             ],

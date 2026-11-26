@@ -229,7 +229,7 @@ trades = [
 
 The migration of the corpus repository (#452) normalized the step powers that `migrate-trades` wrote (`power = "2"`, `power = "+4"`) into levels, with documented exceptions in its adjustment log (Proselytizer keeps `power = "major"`, because `[10]` would duplicate its alteration of the whole feature). `migrate-trades` itself still writes a step as a `power` (the qualifier rule below) until a later change.
 
-**Two different comparisons.** The duplicate check below compares exactly: two trades of one key overlap only when they name the same anchor, share a level and have the same `power` (no `power` matches only no `power`). It stays exact. The compatibility filter of #170 part D needs a different matcher, for trades of the same base-class feature: keeping the whole feature matches a replacement of any of its levels or named components, and keeping a level or a component also matches a replacement of the whole feature. The client builds that matcher for the class page's archetype list (`crates/web/src/archetypes.rs`; decision `2026-11-22-archetype-list-and-compatibility`).
+**Two different comparisons.** The duplicate check below compares exactly: two trades of one key with the same printed words (ignoring ability tags such as `(Ex)`, case and whitespace runs) overlap only when they name the same anchor, share a level and have the same `power` (no `power` matches only no `power`). It stays exact. Trades with different printed words are printed variants and never duplicate each other (owner ruling 56); the compatibility matcher below reads every trade of an archetype, so it needs no change. The compatibility filter of #170 part D needs a different matcher, for trades of the same base-class feature: keeping the whole feature matches a replacement of any of its levels or named components, and keeping a level or a component also matches a replacement of the whole feature. The client builds that matcher for the class page's archetype list (`crates/web/src/archetypes.rs`; decision `2026-11-22-archetype-list-and-compatibility`).
 
 `corpus-check` holds these rules for the trades:
 
@@ -239,7 +239,7 @@ The migration of the corpus repository (#452) normalized the step powers that `m
 | The printed names of the trades with each key agree with the `**Replaces:**` and `**Alters:**` lines of the normal part, and an entry with such lines has trades for that key. | Drift: fails (see [Drift between fields and body](#drift-between-fields-and-body)). |
 | A `feature` is a heading anchor of a base class, and a `class` is a base class that holds the anchor. | Fails. |
 | `levels` run from 1 to 20, ascending, each once. | Fails. |
-| No two trades of one key (two `replaces`, or two `alters`) name the same anchor with a shared level (no `levels` shares every level) and the same `power`. An archetype may alter a feature and replace one instance of it. | Fails in format 2, warns in format 1. |
+| No two trades of one key (two `replaces`, or two `alters`) with the same printed words name the same anchor with a shared level (no `levels` shares every level) and the same `power`. Printed words are the same when they match ignoring ability tags such as `(Ex)`, case and runs of whitespace (so "Bravery" and "Bravery (Ex)" are one name and still an error); trades with different printed words may overlap (owner ruling 56: the two conditional replacements of wild shape of the Fungal Pilgrim, "wild shape if ... as her nature bond"). An archetype may alter a feature and replace one instance of it. | Fails in format 2, warns in format 1. |
 | A printed name resolves confidently to another anchor than the `feature`. | Warns. |
 | Unresolved trades (no `feature`) are counted. A format 2 trade that is unresolved although [its printed name proves a feature](#migrating-to-format-2) names the feature. | One count per run, and one warning for each provable trade in format 2. A format 1 corpus gets the count and how many trades have a provable match that `migrate-trades` would write, and no per-trade warning, so a format 1 corpus stays green. |
 
@@ -360,7 +360,7 @@ Format 4 changes no existing key and no existing default, so the step from forma
 | `level`, when written, runs from 1 to 20 and agrees with an "At Nth level" or "Starting at Nth level" lead (also "Beginning at") when the first paragraph under the feature's heading has one. A paragraph without a lead states no level. | Fails. |
 | Every `by` names anchors of the same entry's `features`, in body order. | Fails. |
 | No listed feature's heading sits inside another listed feature's section (feature heads are siblings: give them one heading level; a subsection that is not listed may nest). | Fails. |
-| Every section after the opening text (the blocks before the first listed feature) of an archetype or class option that prints a trade sentence is a listed feature, or sits inside one. Exception (owner ruling 13 of 2026-11-24): a section under a scaffold heading (a heading in the closed scaffold list: `Bonus Feats`, `Weapon and Armor Proficiency`, `Skills`, `Alignment`, ...; owner ruling 33 of 2026-11-25 adds `Weapon and Armor Proficiencies`, `Weapon Proficiencies`, `Armor Proficiency`, `Armor Proficiencies`, `Skill Ranks per Level` and `Class Skills`; the heading is compared without case, a trailing colon and an ability tag, so `Bonus Feats (Ex)` is `Bonus Feats`), wherever it sits and unless a listed feature contains it, may print trades; they have no `by`. Any other unlisted heading with a trade sentence stays an error. | Fails. |
+| Every section after the opening text (the blocks before the first listed feature) of an archetype or class option that prints a trade sentence is a listed feature, or sits inside one. Exception (owner ruling 13 of 2026-11-24): a section under a scaffold heading (a heading in the closed scaffold list: `Bonus Feats`, `Weapon and Armor Proficiency`, `Skills`, `Alignment`, ...; owner ruling 33 of 2026-11-25 adds `Weapon and Armor Proficiencies`, `Weapon Proficiencies`, `Armor Proficiency`, `Armor Proficiencies`, `Skill Ranks per Level` and `Class Skills`; the Pearl Seeker (Aquatic Adventures p. 53) adds `Armor Proficiency and Class Skills`; the heading is compared without case, a trailing colon and an ability tag, so `Bonus Feats (Ex)` is `Bonus Feats`), wherever it sits and unless a listed feature contains it, may print trades; they have no `by`. Any other unlisted heading with a trade sentence stays an error. | Fails. |
 | The trades agree with the trade sentences of their features (see [Drift](#drift-between-fields-and-body)). | Drift: fails. |
 
 The feature's section runs from its heading to the next heading of the same or a higher level, so
@@ -1333,7 +1333,16 @@ A trade sentence starts with `This`, `These` or `It`, then only subject words, t
 (the rest is a remark about the trade, not a name). `changes` and `change` read as `alters`, in
 this place only (owner ruling 25: "This ability changes the Arcane Pool class feature and replaces
 the magus arcana gained at 3rd level." is an `alters` trade of `Arcane Pool` and a `replaces` trade
-of the arcana); a verb joined later by `and` is read as `replaces` or `alters` only. The feature's own
+of the arcana); so do `modifies` and `modify` (owner ruling 55: "This ability modifies bonus feats."
+is an `alters` trade of `bonus feats`; only the whole word is a verb, so "Charisma modifier",
+"modified" and "unmodified" are not). After an `alters` verb, "and functions as" shares the object
+("This ability modifies and functions as true judgment." is an `alters` trade of `true judgment`),
+and the phrase ends before " and does not", " and do not" or " and cannot" ("This ability modifies
+the raging song class feature and does not prevent a war painter from performing other raging
+songs." is an `alters` trade of `the raging song class feature`). A negated clause may start with a pronoun ("and it does not ...") and may carry punctuation ("and cannot,"). "And also" (or ", and it also") before a trade verb starts a
+second trade ("This ability alters sacred weapon and also replaces sacred armor." is an `alters`
+trade of `sacred weapon` and a `replaces` trade of `sacred armor`; here `changes` and `modifies`
+count as verbs too, and "and also" before any other word splits nothing); a verb joined later by `and` is read as `replaces` or `alters` only. The feature's own
 heading may stand for the subject: under the feature "Sermonic Performance (Su)" the sentence
 "Sermonic performance replaces the 1st-, 9th-, and 15th-level channel energy abilities." is a
 sentence of an ability (not bare); the heading is compared as a name, so tags and case do not

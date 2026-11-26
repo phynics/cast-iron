@@ -1,8 +1,8 @@
 # Top-50 result ids for the 50 queries of tests/e2e/measure-library.mjs.
 # Regenerate with `cargo xtask search-golden` (after `cargo xtask content`) in every corpus-pin PR.
-# corpus 60fe4ff54ca170c338256668c40a6cee25ba7fbe
-# tag v0.1.60
-# content v25a2bf2486525a7a
+# corpus 2eb078173ac19deee2686dda9570dd9a6e896c6e
+# tag v0.1.61
+# content v464ed33579599e94
 # Format: `query: <text>` starts a block; each other line is a result id.
 query: fire
 ref/subtype/fire
@@ -205,8 +205,8 @@ ref/family/dragon-planar-edict
 ref/family/dragon-planar-bliss
 ref/ragepower/dragon-totem
 ref/arc-skald/dragon-skald
-ref/family/dragon-planar-paradise
 ref/arc-bard/dragon-yapper
+ref/family/dragon-planar-paradise
 ref/family/dragon-planar-tumult
 query: sword
 ref/arc-wizard/sword-binder
@@ -394,7 +394,6 @@ ref/npc/mage-sniper
 ref/arcaneschool/metal
 ref/arc-wizard/spellbinder
 ref/npc/signifer-of-the-nail
-ref/arc-magus/eldritch-archer
 ref/spell/shield
 ref/magic-wondrous/brooch-of-shielding
 ref/monster/formian-formian-queen
@@ -402,6 +401,7 @@ ref/spell/die-for-your-master
 ref/npc/cyphermage
 ref/magic-wondrous/cloak-of-the-hedge-wizard
 ref/rule/spell-damage
+ref/arc-magus/eldritch-archer
 ref/carried/game-mastery-guide/monsters/adventurers/battle-mage
 ref/eq-spellbook/the-last-azlantis-analects
 ref/spell/shock-shield
@@ -793,6 +793,7 @@ ref/arc-hunter/flood-flourisher
 ref/arc-rogue/kintargo-rebel
 ref/monster/octopus-giant-octopus
 ref/aspect/owl
+ref/arc-vigilante/hidden-current
 ref/npc/pirate-smuggler
 ref/arc-rogue/cat-burglar
 ref/arc-rogue/heister
@@ -819,7 +820,6 @@ ref/feat/expert-sniper
 ref/carried/advanced-players-guide/rules/races/halflings/alternate-racial-traits/swift-as-shadows
 ref/npc/chernasardo-sniper
 ref/feat/exquisite-sneak
-ref/feat/friendly-shroud
 query: charm
 ref/spelldef/charm
 ref/domain/charm
@@ -1180,8 +1180,8 @@ ref/ability/companion-tricks
 query: antipaladin
 ref/class/antipaladin
 ref/magic-weapon/bastards-sting
-ref/arc-antipaladin/dread-vanguard
 ref/arc-antipaladin/fearmonger
+ref/arc-antipaladin/dread-vanguard
 ref/spell/widen-auras
 ref/arc-antipaladin/insinuator
 ref/spell/draconic-malice
@@ -1523,9 +1523,9 @@ ref/arc-swashbuckler/veiled-blade
 ref/tech-weapon/null-blade
 ref/magic-artifact/final-blade
 ref/arc-slayer/butterfly-blade
+ref/arc-swashbuckler/flying-blade
 ref/arc-spiritualist/phantom-blade
 ref/arc-warpriest/libertys-blade
-ref/arc-swashbuckler/flying-blade
 ref/pclass/lion-blade
 ref/arc-samurai/sovereign-blade
 ref/magic-weapon/risen-blade
@@ -2461,8 +2461,8 @@ ref/mystery/elemental
 ref/blrgbloodline/elemental
 ref/arc-magus/elemental-knight
 ref/arc-barbarian/elemental-kin
-ref/arc-arcanist/elemental-master
 ref/arc-oracle/elementalist-oracle
+ref/arc-arcanist/elemental-master
 ref/arc-monk/elemental-monk
 ref/arc-shifter/elementalist-shifter
 ref/arc-ranger/elemental-envoy
