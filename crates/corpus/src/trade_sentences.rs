@@ -39,7 +39,7 @@
 //! The sentence side has four more (see [`trade_sentences_headed`]): the phrase ends at ", but ";
 //! a closing parenthesis of four words or more is an aside; a verb joined by `and` to another
 //! clause is a bare sentence; and the feature's own heading is a subject. `changes` is an `alters`
-//! verb (owner ruling 25), only in the sentence position.
+//! verb (owner ruling 25), and so is `modifies` (owner ruling 55), only in the sentence position.
 //!
 //! Owner ruling 22 (a level back-reference trade is renamed to the printed words) adds the
 //! subjects that name a granted thing: `spell`, `skill` and `evolution` join `feat` as subject
@@ -172,10 +172,13 @@ fn verb_at(words: &[&str], index: usize) -> Option<TradeOp> {
 
 /// The verb of the trade-sentence position, the first verb after the subject. Owner ruling 25 of
 /// 2026-11-24 (#540): "This ability changes the Arcane Pool class feature" is an `alters`
-/// sentence. `changes` is read only here, not as a further verb joined by "and".
+/// sentence. Owner ruling 55 of 2026-11-26 adds `modifies`: "This ability modifies bonus feats."
+/// (Legacy of Dragons, Scaled Fist). `changes` and `modifies` are read only here, not as a further
+/// verb joined by "and". Only the whole words count: `modifier` ("Charisma modifier"),
+/// `modified` and `unmodified` are no verb.
 fn lead_verb_of(word: &str) -> Option<TradeOp> {
     match word.to_lowercase().as_str() {
-        "changes" | "change" => Some(TradeOp::Alters),
+        "changes" | "change" | "modifies" | "modify" => Some(TradeOp::Alters),
         _ => verb_of(word),
     }
 }
@@ -418,7 +421,7 @@ pub fn trade_sentences_headed(text: &str, head: Option<&str>) -> Vec<TradeSenten
             continue;
         };
         // "This change to spells doesn't apply ...": after the singular `This`, `change` is a
-        // noun, not the verb of ruling 25 ("These change ...").
+        // noun, not the verb of ruling 25 ("These change ..."). `modify` has no noun reading.
         let noun_change = |word: &str| word.eq_ignore_ascii_case("change") && first == "this";
         let Some(at) = (0..words.len()).find(|&index| {
             lead_verb_of(words[index]).is_some()
@@ -2442,6 +2445,35 @@ mod tests {
         assert!(trade_sentences("This bonus changes the usual bonus.").is_empty());
         // Not as a further verb joined by `and`: "changes" there is prose.
         let found = trade_sentences("This ability replaces bravery and changes the saving throw.");
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert_eq!(found[0].op, TradeOp::Replaces);
+    }
+
+    #[test]
+    fn modifies_is_an_alters_verb_in_the_sentence_position() {
+        // Owner ruling 55 of 2026-11-26 (#540), Scaled Fist (Legacy of Dragons).
+        let found = trade_sentences("This ability modifies bonus feats.");
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert_eq!(found[0].op, TradeOp::Alters);
+        assert!(!found[0].bare);
+        assert_eq!(found[0].phrase, "bonus feats");
+        let plural = one("These abilities modify the bard's performance class feature.");
+        assert_eq!(plural.op, TradeOp::Alters);
+        let both = trade_sentences("This ability modifies bonus feats and replaces bravery.");
+        assert_eq!(both.len(), 2, "{both:?}");
+        assert_eq!(both[0].op, TradeOp::Alters);
+        assert_eq!(both[1].op, TradeOp::Replaces);
+        // Not a noun or another form of the word.
+        assert!(trade_sentences("This ability adds the Charisma modifier to damage.").is_empty());
+        assert!(trade_sentences("This ability modified bonus feats.").is_empty());
+        assert!(trade_sentences("This unmodified ability replaces bravery.").is_empty());
+        assert!(trade_sentences("This ability uses the Charisma modifier.").is_empty());
+        // Not in a prose sentence, a negation or another subject.
+        assert!(trade_sentences("A fighter modifies his weapon.").is_empty());
+        assert!(trade_sentences("This ability does not modify bonus feats.").is_empty());
+        assert!(trade_sentences("This bonus modifies the usual bonus.").is_empty());
+        // Not as a further verb joined by `and`.
+        let found = trade_sentences("This ability replaces bravery and modifies the saving throw.");
         assert_eq!(found.len(), 1, "{found:?}");
         assert_eq!(found[0].op, TradeOp::Replaces);
     }

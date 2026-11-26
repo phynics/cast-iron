@@ -60,6 +60,9 @@ pub const NOT_FEATURE_HEADINGS: &[&str] = &[
     "Armor Proficiencies",
     "Skill Ranks per Level",
     "Class Skills",
+    // Owner ruling 33 of 2026-11-25, extended 2026-11-26 (#540): Pearl Seeker (Aquatic Adventures,
+    // p. 53) prints one heading for both.
+    "Armor Proficiency and Class Skills",
 ];
 
 /// The proficiency scaffold headings whose section may carry an `alters` trade that print does not
@@ -614,6 +617,9 @@ mod tests {
             "Armor Proficiencies:",
             "Skill Ranks per Level",
             "class skills",
+            // Pearl Seeker (Aquatic Adventures p. 53), with an ability tag and a colon.
+            "Armor Proficiency and Class Skills",
+            "armor proficiency and class skills (Ex):",
             // An ability tag does not make a scaffold heading a feature (Disenchanter).
             "Bonus Feats (Ex)",
             "Weapon and Armor Proficiency (Ex)",
@@ -835,6 +841,7 @@ mod tests {
             "Weapon and Armor Proficiencies",
             "Armor Proficiency",
             "Class Skills",
+            "Armor Proficiency and Class Skills",
             "Bonus Feats (Ex)",
         ] {
             let found = problems(archetype(after(name), features(), trades()));
