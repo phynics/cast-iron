@@ -95,6 +95,33 @@ impl AppCtx {
             request_animation_frame(focus_main);
         });
     }
+
+    /// Reopens the Reader on `active` after a write found that the Reader's library (`stale`)
+    /// is no longer the active one (#725). Unlike `activate` this is a background refresh: a
+    /// library that fails to load leaves the Reader that is on screen in place and shows no
+    /// recovery screen, and the result is dropped when the Reader moved while the load ran.
+    pub fn refresh(self, stale: String, active: ActiveLibrary) {
+        spawn_local(async move {
+            let Ok(library) = Library::load(&active).await else {
+                return;
+            };
+            let shown = match self.boot.get_untracked() {
+                Boot::Ready(shown) => Some(shown.version().to_string()),
+                _ => None,
+            };
+            if refresh_applies(shown.as_deref(), &stale, library.version()) {
+                self.boot.set(Boot::Ready(library));
+            }
+        });
+    }
+}
+
+/// Whether a background refresh may replace the Reader: the Reader on screen is still the one
+/// that found itself stale (`stale`), and the library the refresh loaded is another version. A
+/// Settings install that finished while the load was pending has already moved the Reader, and
+/// an older load must not replace it.
+fn refresh_applies(shown: Option<&str>, stale: &str, loaded: &str) -> bool {
+    shown == Some(stale) && loaded != stale
 }
 
 /// Decides between installer and Reader. `active_library` is the only source of "ready".
@@ -720,6 +747,17 @@ pub use install::UpdateCheck;
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_refresh_replaces_only_the_reader_that_found_itself_stale() {
+        assert!(refresh_applies(Some("v1"), "v1", "v2"));
+        // A Settings install moved the Reader to another version while the load ran.
+        assert!(!refresh_applies(Some("v3"), "v1", "v2"));
+        // The load found the version that the Reader already shows.
+        assert!(!refresh_applies(Some("v1"), "v1", "v1"));
+        // The Reader is no longer on screen.
+        assert!(!refresh_applies(None, "v1", "v2"));
+    }
 
     /// The tab of `current` in a library that holds only `core-rulebook`, with book pages.
     fn tab(current: &Route) -> Option<&'static str> {

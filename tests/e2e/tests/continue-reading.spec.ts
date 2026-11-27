@@ -1,5 +1,7 @@
 import { installedTest as test, expect, loadCorpus } from "./fixtures";
 import {
+  activeLibrary,
+  buildUpdatedLibrary,
   bookReadingOrder,
   bookTrees,
   closeQuickSearch,
@@ -183,16 +185,69 @@ test("A saved continue point for a book that does not hold the entry is not offe
   await expect(page.getByTestId("continue-reading")).toContainText(`Continue reading: ${entry.title}`);
   await page.goto(`#/browse/book/${former.source}`);
   await expect(page.getByRole("heading", { level: 1, name: former.title })).toBeVisible();
+  // The book page reads its points after it mounts; the marker says that read is done, so the
+  // absence below is an answer and not a page that has not loaded yet.
+  await expect(page.locator(".book[data-points-loaded]")).toBeVisible();
   await expect(page.getByTestId("continue-reading")).toHaveCount(0);
 
   // An old book-qualified address still opens the entry, but records nothing under the former
   // book. A visit from the book that holds the entry is the barrier: its point moves past the
   // seeded time only after the earlier visit's write would have landed.
   await page.goto(`#/entry/${entry.id}?book=${former.source}`);
-  await expect(page.getByRole("heading", { level: 1, name: entry.title, exact: true })).toBeVisible();
+  await expect(page.getByTestId("entry-title")).toContainText(entry.title);
   await openBookEntry(page, book, entry.id);
   await expect
     .poll(async () => (await storedContinuePoints(page)).find((point) => point.source === book.source)?.read_at)
     .toBeGreaterThan(valid.read_at);
   expect((await storedContinuePoints(page)).find((point) => point.source === former.source)).toEqual(seeded);
+});
+
+test("A tab on the old library records no continue point and reopens on the replacement that another tab activated (#725)", async ({ page, context, server }) => {
+  // The replacement copy of the library takes longer to build, download and verify than the default budget.
+  test.setTimeout(300_000);
+  const { book, entry } = placedEntry();
+  const marker = "CONTINUE-RACE-MARKER";
+  // The replacement no longer lists the entry among the book's members, so a point recorded for
+  // it under that library is exactly the stale point that the old tab must not write.
+  const next = buildUpdatedLibrary(marker, { dropFromBook: { book: book.source, entryId: entry.id } });
+  try {
+    const v1 = (await activeLibrary(page)).content_version;
+    expect(next.version).not.toBe(v1);
+
+    // Tab B reads the entry under the old library, which records the point. Its shard is now
+    // cached in the tab.
+    await openBookEntry(page, book, entry.id);
+    await expect(page.getByTestId("entry-title")).toContainText(entry.title);
+    await expectStoredPoint(page, book.source, entry.id);
+    const recorded = (await storedContinuePoints(page)).find((point) => point.source === book.source)!;
+
+    // Tab A downloads and activates the replacement while B stays open.
+    await server.overlay(next.dir);
+    const updater = await context.newPage();
+    await updater.goto("#/settings");
+    await updater.getByRole("button", { name: "Check now", exact: true }).click();
+    await updater.getByRole("button", { name: "Download update" }).click();
+    await expect
+      .poll(async () => (await activeLibrary(updater))?.content_version, { timeout: 120_000 })
+      .toBe(next.version);
+    await updater.close();
+
+    // B still shows the old library: its legal text has no marker and nothing told it otherwise.
+    await page.goto("#/legal");
+    await expect(page.locator("#community-use + .legal-text")).not.toContainText(marker);
+
+    // B reopens the entry from the book, with its shard already cached. The point it would write
+    // belongs to the old library, so the store refuses it and B reopens on the replacement.
+    await openBookEntry(page, book, entry.id);
+    await expect(page.getByTestId("entry-title")).toContainText(entry.title);
+    await page.goto("#/legal");
+    await expect(page.locator("#community-use + .legal-text")).toContainText(marker, { timeout: 60_000 });
+
+    // The replacement does not list the entry in the book, so nothing records a new point for
+    // it: the stored point is the one from before, unchanged.
+    expect((await storedContinuePoints(page)).find((point) => point.source === book.source)).toEqual(recorded);
+  } finally {
+    await server.overlay(null);
+    next.cleanup();
+  }
 });

@@ -560,9 +560,19 @@ fn EntryView(
     {
         let id = entry.id.clone();
         let library = library.clone();
+        let app = crate::app::use_app();
         spawn_local(async move {
             if library.source(&source).is_some() {
-                let _ = store::record_continue_point(&source, &id, js::now_ms()).await;
+                // Another tab may have activated a replacement since this one loaded its
+                // library. The store writes nothing then, and the Reader reopens on the active
+                // library before it offers Continue links. A library that fails to load leaves
+                // this Reader in place.
+                if let Ok(store::ContinueWrite::Stale(Some(active))) =
+                    store::record_continue_point(&source, &id, js::now_ms(), library.version())
+                        .await
+                {
+                    app.refresh(library.version().to_string(), active);
+                }
             }
         });
     }
