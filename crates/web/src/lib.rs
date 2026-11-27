@@ -29,6 +29,7 @@ pub mod discovery;
 pub mod fmt;
 pub mod focus_guard;
 pub mod graph;
+pub mod gunzip;
 pub mod install;
 pub mod js;
 pub mod library;

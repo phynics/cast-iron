@@ -20,6 +20,10 @@ extern "C" {
     pub fn idb_tx_done(transaction: &IdbTransaction) -> Promise;
     #[wasm_bindgen(js_name = sha256Hex, catch)]
     async fn sha256_hex_js(buffer: &JsValue) -> Result<JsValue, JsValue>;
+    #[wasm_bindgen(js_name = gunzipSupported)]
+    fn gunzip_supported_js() -> bool;
+    #[wasm_bindgen(js_name = cacheReadGunzip, catch)]
+    async fn cache_read_gunzip_js(cache: &web_sys::Cache, url: &str) -> Result<JsValue, JsValue>;
     #[wasm_bindgen(js_name = storagePersist, catch)]
     async fn storage_persist_js() -> Result<JsValue, JsValue>;
     #[wasm_bindgen(js_name = storagePersisted, catch)]
@@ -87,6 +91,30 @@ pub async fn sha256_hex(bytes: &[u8]) -> Result<String, String> {
         .map_err(|e| describe(&e))?
         .as_string()
         .ok_or_else(|| "sha256 returned no text".to_string())
+}
+
+/// Whether the browser has `DecompressionStream`. Probed once per session: `read_file` is the
+/// per-shard hot path, and the answer cannot change while the page lives.
+pub fn gunzip_supported() -> bool {
+    thread_local! {
+        static SUPPORTED: std::cell::OnceCell<bool> = const { std::cell::OnceCell::new() };
+    }
+    SUPPORTED.with(|cell| *cell.get_or_init(gunzip_supported_js))
+}
+
+/// Reads `url` from the cache and gunzips it in the browser. `None` when the cache has no such
+/// file. Call only when [`gunzip_supported`] is true.
+pub async fn cache_read_gunzip(
+    cache: &web_sys::Cache,
+    url: &str,
+) -> Result<Option<Vec<u8>>, String> {
+    let value = cache_read_gunzip_js(cache, url)
+        .await
+        .map_err(|e| describe(&e))?;
+    if value.is_falsy() {
+        return Ok(None);
+    }
+    Ok(Some(Uint8Array::new(&value).to_vec()))
 }
 
 /// Asks for persistent storage. False when unsupported or refused.

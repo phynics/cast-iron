@@ -17,6 +17,8 @@ export interface ManifestFile {
   path: string;
   sha256: string;
   bytes: number;
+  /** Present when the stored bytes are one gzip member: the decoded hash and size. */
+  gzip?: { sha256: string; bytes: number };
 }
 export interface Manifest {
   schema_version: number;

@@ -387,6 +387,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import zlib from "node:zlib";
 import { DIST, GENERATED, distManifest, loadCorpus, type Entry } from "./fixtures";
 
 /**
@@ -614,6 +615,55 @@ export function buildNewerManifest() {
   const manifest = { ...old, content_version: version, files };
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cast-iron-e2e-manifest-"));
   fs.mkdirSync(path.join(dir, "content"), { recursive: true });
+  fs.writeFileSync(path.join(dir, "content/manifest.json"), JSON.stringify(manifest));
+  return { dir, version, manifest, cleanup: () => fs.rmSync(dir, { recursive: true, force: true }) };
+}
+
+/**
+ * An overlay of the served library with every library file gzipped (design 2026-11-27, slice 2).
+ * Each row stores the `.gz` bytes (`path`, `sha256`, `bytes`) and carries the decoded hash and
+ * size under `gzip`. The manifest stays at the schema of dist: slice 1 lets any schema carry
+ * gzip rows. The version follows the documented rule over the stored files, so it differs from
+ * the library of dist, and the gzip bytes need not equal the compiler's (the manifest holds the
+ * hashes). Laid out like `buildUpdatedLibrary`: `<dir>/content/manifest.json` and
+ * `<dir>/content/<version>/<name>.gz`.
+ */
+export function buildGzippedLibrary() {
+  const old = distManifest();
+  const oldPrefix = `${old.content_version}/`;
+  const sha = (b: Buffer) => crypto.createHash("sha256").update(b).digest("hex");
+  const stored = new Map<string, { gz: Buffer; decoded: Buffer }>();
+  for (const f of old.files) {
+    if (f.path === `${oldPrefix}manifest.json`) continue;
+    const read = fs.readFileSync(path.join(DIST, "content", f.path));
+    // A built site that already ships gzip rows: decode to the logical file first.
+    const decoded = f.gzip ? zlib.gunzipSync(read) : read;
+    const name = (f.gzip ? f.path.slice(0, -".gz".length) : f.path).slice(oldPrefix.length);
+    stored.set(`${name}.gz`, { gz: zlib.gzipSync(decoded, { level: 6 }), decoded });
+  }
+  const sorted = [...stored.keys()].sort();
+  const lines = sorted.map((p) => `${p}:${sha(stored.get(p)!.gz)}\n`).join("");
+  const version = `v${crypto.createHash("sha256").update(lines).digest("hex").slice(0, 16)}`;
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cast-iron-e2e-gzip-"));
+  for (const p of sorted) {
+    const target = path.join(dir, "content", version, p);
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.writeFileSync(target, stored.get(p)!.gz);
+  }
+  const manifest = {
+    ...old,
+    content_version: version,
+    total_bytes: sorted.reduce((n, p) => n + stored.get(p)!.gz.length, 0),
+    files: sorted.map((p) => {
+      const { gz, decoded } = stored.get(p)!;
+      return {
+        path: `${version}/${p}`,
+        sha256: sha(gz),
+        bytes: gz.length,
+        gzip: { sha256: sha(decoded), bytes: decoded.length },
+      };
+    }),
+  };
   fs.writeFileSync(path.join(dir, "content/manifest.json"), JSON.stringify(manifest));
   return { dir, version, manifest, cleanup: () => fs.rmSync(dir, { recursive: true, force: true }) };
 }

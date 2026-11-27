@@ -82,6 +82,12 @@ pub async fn read(cache: &Cache, path: &str) -> Result<Option<Vec<u8>>, String> 
     Ok(Some(Uint8Array::new(&buffer).to_vec()))
 }
 
+/// Reads a stored gzip file and decodes it in the browser. `None` when the cache has no such
+/// file. The caller has checked that the browser can ([`crate::js::gunzip_supported`]).
+pub async fn read_gunzip(cache: &Cache, path: &str) -> Result<Option<Vec<u8>>, String> {
+    crate::js::cache_read_gunzip(cache, &url(path)).await
+}
+
 /// True when the cache holds the file. Does not read the body.
 pub async fn contains(cache: &Cache, path: &str) -> Result<bool, String> {
     let found = JsFuture::from(cache.match_with_str(&url(path)))

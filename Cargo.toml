@@ -27,6 +27,7 @@ serde-wasm-bindgen = "0.6"
 console_error_panic_hook = "0.1"
 futures = "0.3"
 send_wrapper = "0.6"
+miniz_oxide = { version = "0.8", default-features = false, features = ["with-alloc"] }
 postcard = { version = "1", default-features = false, features = ["alloc"] }
 
 [workspace.lints.rust]

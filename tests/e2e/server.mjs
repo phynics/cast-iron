@@ -27,6 +27,9 @@ const TYPES = {
   ".svg": "image/svg+xml",
   ".png": "image/png",
   ".bin": "application/octet-stream",
+  // GitHub Pages serves a committed .gz file as application/gzip with no Content-Encoding, so
+  // the browser does not decode it and `fetch` returns the stored bytes (design 2026-11-27, 3).
+  ".gz": "application/gzip",
 };
 
 export function startServer({ dist, port, prefix = "/cast-iron/", host = "127.0.0.1" }) {
