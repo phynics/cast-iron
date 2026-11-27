@@ -316,6 +316,94 @@ never writing a manifest after a failed gate.
 `pages.yml` runs the compile once, outside the three-attempt loop, so a retry repeats only the
 Trunk build and never re-runs a failed gate.
 
+## Schema 7 to 8 upgrade check
+
+Schema 8 ships and stores the library precompressed, as `.gz` files
+(`docs/decisions/2026-11-27-precompressed-library.md`). Run this check before the promotion that
+ships it, from a profile on the previous release, so that a schema-7 library and its saved data meet
+the new shell and the compressed library. Steps 1 to 7 run locally in Chromium and WebKit; step 8
+runs after the deployment. Drive the app by hand
+([verification guide](../.agents/skills/verify/SKILL.md), section 3), and compare each step with its
+expected result.
+
+Keep the previous release's `content/` directory outside `dist/` and `generated/`, as
+`../previous-content/` below, so that the uncompressed library can be installed again
+([verification guide](../.agents/skills/verify/SKILL.md), "Corpus and schema changes").
+
+1. **Install the previous release.** Build the last published release in a detached worktree of
+   `origin/release`, keep its library, and serve it:
+
+   ```sh
+   git worktree add --detach ../cast-iron-release origin/release
+   cd ../cast-iron-release
+   cargo xtask build-site --public-url /cast-iron/
+   cp -R dist/content ../previous-content
+   node tests/e2e/server.mjs
+   ```
+
+   In Chromium and WebKit, open `http://127.0.0.1:4318/cast-iron/` in a fresh profile, install the
+   library, star entries, change the active books, save a section address, and open an entry. The
+   active library is schema 7.
+
+2. **Serve the new build.** From the main checkout, build and serve it on the same origin and port:
+
+   ```sh
+   cd ../cast-iron
+   cargo xtask build-site --public-url /cast-iron/
+   node tests/e2e/server.mjs
+   ```
+
+   Open the same profile and run the update check, explicit and daily. Both checks refuse the
+   schema-8 manifest with the reload message. `curl -s http://127.0.0.1:4318/__test/state` lists
+   `content/manifest.json` and no `.gz` file, and `active_library` stays the schema-7 version.
+
+3. **Apply the shell update.** Reload when the app offers it. The new shell opens the installed,
+   uncompressed schema-7 library before any library update: an entry, a search, the stars and an
+   offline reload all work, and the library stays schema 7.
+
+4. **Interrupt the library update.** Set the `stall` hook on one `.gz` file of the new library, start
+   the update, and close the page once the request stalls:
+
+   ```sh
+   curl -s -X POST http://127.0.0.1:4318/__test/hook \
+     -H 'content-type: application/json' \
+     -d '{"path": "content/<version>/entries/<shard>.json.gz", "mode": "stall"}'
+   ```
+
+   On reopen the old library is active and readable. With #747 merged, Settings shows the paused
+   update. Resume skips the cached `.gz` files (`resumed_files` above 0 in Diagnostics) and fetches
+   only the rest.
+
+5. **Check the activated library.** After activation, the progress total and "Size on this device"
+   read about 44.5 MB, the old cache is gone, and `navigator.storage.estimate()` drops by about
+   170 MB. Stars, active books, the saved address and Continue reading survive. "Verify library"
+   passes, and an offline reload works.
+
+6. **Corrupt one file.** In a fresh profile, set the `corrupt` hook on one `.gz` file (the same
+   request, with `"mode": "corrupt"`) and start a library install. The install stops with an
+   integrity error after its retries, and nothing is activated.
+
+7. **Measure a phone.** On the iPhone simulator (iOS 16.4 or later), install the library and record
+   the `search.bin` read time that Diagnostics shows. A phone is slower than the desktop browsers
+   of the decision's section 4, so this is the real cost of the `DecompressionStream` path.
+
+8. **Check the live `.gz` headers.** After the deployment, request one `.gz` file of the live
+   library:
+
+   ```sh
+   curl -sI https://phynics.github.io/cast-iron/content/<version>/search.bin.gz
+   curl -s https://phynics.github.io/cast-iron/content/<version>/search.bin.gz | sha256sum
+   ```
+
+   The response has `Content-Type: application/gzip`, no `Content-Encoding`, and a length equal to
+   `bytes` of that row in the live `content/manifest.json`. The SHA-256 equals the row's `sha256`.
+
+The result is the release's `docs/status/YYYY-MM-DD-<slug>.md` entry
+([Verify publication](#verify-publication), step 4). It records the schema versions exercised, the
+Chromium and WebKit results of steps 1 to 6, the iPhone simulator reading of step 7, and the live
+header and hash check of step 8, separate from CI and the deployment. Do not promote until steps 1
+to 7 pass.
+
 ## Verify publication
 
 1. Read the **Deploy to GitHub Pages** run and its deployment status. Confirm
