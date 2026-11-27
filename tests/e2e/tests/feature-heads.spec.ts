@@ -283,7 +283,9 @@ async function checkBaseClassFeatures(page: Page, { id, feature: FEATURE }: Base
     await page.goto(`#/entry/${id}`);
     await expect(page.locator("details.article-contents")).toHaveCount(0);
     const stops = page.getByRole("navigation", { name: "Sections" });
-    await expect(stops.getByRole("link", { name: "Features", exact: true })).toBeVisible();
+    const featuresStop = stops.getByRole("link", { name: "Features", exact: true });
+    await expect(featuresStop).toBeVisible();
+    await expect(featuresStop).toHaveAttribute("href", `#/entry/${id}?s=features`);
     await page.goto(`#/entry/${id}?a=${FEATURE.anchor}`);
     await expect(page.locator(`#h-${FEATURE.anchor}`)).toHaveText(heads.get(FEATURE.anchor)!);
     await expect.poll(() => page.evaluate(() => location.hash)).toBe(`#/entry/${id}?a=${FEATURE.anchor}`);
@@ -292,6 +294,12 @@ async function checkBaseClassFeatures(page: Page, { id, feature: FEATURE }: Base
   });
 
   await test.step("a search for a feature name finds the class at that feature", async () => {
+    // Start at the top of the class page, where the feature's head is out of view, so that the
+    // assertions after the click cannot pass on the page that was already open.
+    await page.goto(`#/entry/${id}`);
+    await expect(page.getByRole("heading", { level: 1, name: entry.title })).toBeVisible();
+    await expect(page.locator(`#h-${FEATURE.anchor}`)).not.toBeInViewport();
+    await expect.poll(() => scrollY(page)).toBe(0);
     await quickSearchFor(page, FEATURE.name);
     // Another entry can share the title (the Fighter's `ref/rule/class-fighter/fighter` copy), so the hit is
     // the one whose address is the class page at a feature.
@@ -303,6 +311,8 @@ async function checkBaseClassFeatures(page: Page, { id, feature: FEATURE }: Base
     expect(path).toBe(`#/entry/${id}`);
     expect([FEATURE.name, FEATURE.anchor]).toContain(new URLSearchParams(query).get("a"));
     await hit.click();
+    // The address is the class page at the feature, exactly as the result linked it; only then the page.
+    await expect(page).toHaveURL((url) => url.hash === href);
     await expect(page.getByRole("heading", { level: 1, name: entry.title })).toBeVisible();
     await expect(page.locator(`#h-${FEATURE.anchor}`)).toBeInViewport();
     expect(await settledScrollY(page)).toBeGreaterThan(300);
