@@ -176,7 +176,7 @@ order:
 | `trait` | `category` (required), `detail` |
 | `racial_trait` | `alternate` (required boolean) |
 | `archetype` | `features` (format 4; see [Feature facts](#feature-facts-format-4)), then `trades` (format 2; see [Trades](#trades)). Format 1: `replaces`, `alters` (printed feature names, in print order), `replaces_features`, `alters_features` (heading anchors of the base class, in print order) |
-| `class_option` | `group` (required slug from `option-groups.toml`), then `features` and the same trade keys as `archetype`, with the group's classes as the base classes |
+| `class_option` | `group` (required slug from `option-groups.toml`), then `ability_type` (see [Ability type](#ability-type-of-a-class-option)), `features` and the same trade keys as `archetype`, with the group's classes as the base classes |
 | `none` | none |
 
 `levels`, `effects`, and `attributes` are arrays of inline tables. `cr` is the
@@ -348,6 +348,29 @@ trades = [
 | `trades[].by` | `archetype`, `class_option` | Optional **list** of strings, even for one feature: the `anchor`s of the same entry's `features` whose printed text states the trade, in body order, each once. One trade names every feature that prints it. A trade with no `by` is a trade that the book prints outside any feature: in the opening text, before the first feature (the code of conduct of a tyrant, say), or under a scaffold heading such as "Bonus Feats" wherever it sits (see the checks below). Written last in the trade's inline table (after `feature`, `class`, `levels`, `power`). |
 
 A format 3 corpus holds neither key, and its reader refuses them and says that they need format 4.
+
+### Ability type of a class option
+
+A class option that prints one power has no head of its own (owner ruling Q1 of #540: a head that
+repeats the title adds nothing). Its printed ability tag, the `(Su)` of Agony (Advanced Player's Guide
+p. 67), is a fact of the entry and is stored in `[fields]`:
+
+```toml
+[fields]
+kind = "class_option"
+group = "rage-power"
+ability_type = "Su"
+```
+
+| Key | Kinds | Rule |
+|---|---|---|
+| `ability_type` | `class_option` | Optional string: the printed text **inside** the parentheses of an ability tag, as printed. `Ex`, `Su`, `Sp`, or a combination that the tag reader accepts (`headings::split_heading_tag`, `power::split_ability_tag`): `Ex or Sp`, `Su, Sp`, `Ex and Su`. No parentheses, no space around it. Written after `group`. Not written when absent. |
+
+`corpus-check` refuses a value that is not such a tag text, and refuses the key on any other kind. The key
+is additive and optional, so the corpus format number does not change: a corpus of any format reads it,
+and a reader that does not know it is told by the check, not by a format number. The app shows the tag
+after the title (`Agony (Su)`); the title, its sort key, its search text and its links stay without it
+(decision `2026-11-27-class-option-ability-type`).
 Format 4 changes no existing key and no existing default, so the step from format 3
 (`cargo xtask corpus-migrate-features <dir>`, also part of `corpus-migrate`) rewrites only the
 `format` line of `corpus.toml`, and a rerun finds nothing to do.

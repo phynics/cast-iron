@@ -3,9 +3,10 @@
 //! choice from a group. Everything here is pure, over typed content, and has native tests; the
 //! drawing is `views/option_list.rs`.
 //!
-//! The library holds no typed level, prerequisite or ability tag for a class option: its `fields`
-//! carry the group and nothing else. What it does hold is the printed body, so the rows read three
-//! facts from the printed text and from nothing else (see [`facts_of`]).
+//! The library holds no typed level or prerequisite for a class option, and an ability tag only on
+//! an option that the corpus typed with `ability_type` (owner ruling 63). What it does hold is the
+//! printed body, so the rows read three facts from the printed text, and the tag from the field
+//! first (see [`facts_of`] and [`facts_with_type`]).
 
 use crate::route::OptionChoice;
 use cast_iron_schema::headings::plain_text;
@@ -256,6 +257,18 @@ pub fn facts_of(title: &str, body: &[Block]) -> Facts {
             }
             _ => {}
         }
+    }
+    facts
+}
+
+/// [`facts_of`], with the tag of the entry's typed `ability_type` (owner ruling 63) in place of a
+/// printed one when the entry has it. The field holds the text inside the parentheses; a row
+/// shows it as printed, in them. An option with the field has no head to read a tag from, so the
+/// field is the only source for it.
+pub fn facts_with_type(title: &str, body: &[Block], ability_type: Option<&str>) -> Facts {
+    let mut facts = facts_of(title, body);
+    if let Some(kind) = ability_type {
+        facts.tag = Some(format!("({kind})"));
     }
     facts
 }
@@ -664,6 +677,35 @@ mod tests {
             None
         );
         assert_eq!(facts_of("Empty", &[]), Facts::default());
+    }
+
+    #[test]
+    fn the_typed_ability_type_gives_the_tag_and_wins_over_the_body() {
+        // A single-power option has no head: the field is the tag, in parentheses.
+        let headless = vec![plain("Once per day, the rage...")];
+        assert_eq!(
+            facts_with_type("Agony", &headless, Some("Su"))
+                .tag
+                .as_deref(),
+            Some("(Su)")
+        );
+        assert_eq!(
+            facts_with_type("Agony", &headless, Some("Ex or Sp"))
+                .tag
+                .as_deref(),
+            Some("(Ex or Sp)")
+        );
+        // Without the field the body is read as before.
+        assert_eq!(facts_with_type("Agony", &headless, None).tag, None);
+        let named = vec![bold_name("Agony (Ex)")];
+        assert_eq!(
+            facts_with_type("Agony", &named, None).tag.as_deref(),
+            Some("(Ex)")
+        );
+        assert_eq!(
+            facts_with_type("Agony", &named, Some("Su")).tag.as_deref(),
+            Some("(Su)")
+        );
     }
 
     #[test]

@@ -74,7 +74,8 @@ pub mod validate;
 /// them omits the key, and an older reader ignores an unknown key, so they do not change this
 /// version. So are `features` of [`ArchetypeFields`], [`ClassOptionFields`] and [`ClassFields`]
 /// and `by` of [`Trade`] (corpus format 4, #540): both are omitted when empty, and no reader of
-/// these types denies unknown fields.
+/// these types denies unknown fields. So is `ability_type` of [`ClassOptionFields`] (#540,
+/// owner ruling 63): omitted when absent, ignored by a reader that does not know it.
 pub const SCHEMA_VERSION: u32 = 7;
 
 /// Name of the relation index, relative to the version directory.
@@ -1028,6 +1029,12 @@ pub struct ArchetypeFields {
 pub struct ClassOptionFields {
     /// A slug from the corpus `option-groups.toml`.
     pub group: String,
+    /// The printed ability tag of a single-power option, without parentheses: `Su`, `Ex or Sp`
+    /// (#540, owner ruling 63). The option has no head of its own, so the tag lives on the entry;
+    /// the page header shows it after the title. Always a value that
+    /// [`power::is_ability_tag_text`] accepts.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ability_type: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub trades: Vec<Trade>,
     /// The features the body prints under their own heading (corpus format 4, #540).
@@ -2331,6 +2338,7 @@ mod tests {
         let option = TypedFields::ClassOption(ClassOptionFields {
             features: Default::default(),
             group: "arcane-discovery".into(),
+            ability_type: None,
             trades: vec![
                 Trade {
                     by: Vec::new(),
@@ -2363,6 +2371,42 @@ mod tests {
         let old = r#"{"kind":"archetype","replaces":["Bravery"],"replaces_features":["bravery"]}"#;
         let old: TypedFields = serde_json::from_str(old).unwrap();
         assert!(old.trades().is_empty());
+    }
+
+    #[test]
+    fn ability_type_is_an_additive_optional_key_of_a_class_option() {
+        // Owner ruling 63 (#540): absent when `None`, so a library without it is byte-identical
+        // to one built before the key; present when set; and a reader that does not know the
+        // key ignores it (the same struct without the field reads the same JSON).
+        let mut fields = ClassOptionFields {
+            group: "rage-power".into(),
+            ..Default::default()
+        };
+        let none = serde_json::to_string(&TypedFields::ClassOption(fields.clone())).unwrap();
+        assert_eq!(none, r#"{"kind":"class_option","group":"rage-power"}"#);
+        fields.ability_type = Some("Ex or Sp".into());
+        let option = TypedFields::ClassOption(fields);
+        let json = serde_json::to_string(&option).unwrap();
+        assert_eq!(
+            json,
+            r#"{"kind":"class_option","group":"rage-power","ability_type":"Ex or Sp"}"#
+        );
+        assert_eq!(serde_json::from_str::<TypedFields>(&json).unwrap(), option);
+        // A shard written before the key reads as `None`.
+        let TypedFields::ClassOption(old) = serde_json::from_str::<TypedFields>(&none).unwrap()
+        else {
+            panic!("a class option");
+        };
+        assert_eq!(old.ability_type, None);
+        // An older client's `ClassOptionFields` has no `ability_type` and no `deny_unknown_fields`.
+        #[derive(Deserialize)]
+        struct Before {
+            group: String,
+        }
+        assert_eq!(
+            serde_json::from_str::<Before>(&json).unwrap().group,
+            "rage-power"
+        );
     }
 
     #[test]

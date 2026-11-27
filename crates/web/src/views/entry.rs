@@ -1189,11 +1189,22 @@ fn EntryView(
         kind_crumb: Crumb::new(kind.label(), Route::browse_kind(kind)),
         parents: parent_crumbs,
     };
+    // The printed ability tag of a single-power class option, which has no head of its own (owner
+    // ruling 63, #540): after the title, in parentheses, in the muted italic of a feature head's
+    // tag. It is part of the heading's accessible name ("Agony (Su)"), as the printed name is;
+    // the title itself, the star's name, the page title and every link stay without it.
+    let ability_tag = match &entry.fields {
+        TypedFields::ClassOption(fields) => fields.ability_type.clone(),
+        _ => None,
+    }
+    .map(|kind| {
+        view! { " "<span class="ability-tag" data-testid="entry-ability-type">{format!("({kind})")}</span> }
+    });
     view! {
         <EntryCrumbs library=library.clone() id=entry.id.clone() book=book.clone() facts=trail_facts />
         <header class="entry-head">
             <div class="entry-title-row">
-                <h1 data-testid="entry-title">{entry.title.clone()}</h1>
+                <h1 data-testid="entry-title">{entry.title.clone()}{ability_tag}</h1>
                 <EntryStar id=entry.id.clone() title=plain_title kind bookmark />
             </div>
             <div class="entry-meta">

@@ -358,6 +358,7 @@ fn write_fields(out: &mut String, fields: &TypedFields, format: u32) {
             out.push_str("group = ");
             out.push_str(&tomlutil::string(&fields.group));
             out.push('\n');
+            write_optional_string(out, "ability_type", &fields.ability_type);
             crate::features::write_features(out, &fields.features);
             write_trades(out, &fields.trades, &fields.legacy_features, format);
         }
@@ -647,7 +648,7 @@ fn parse_fields(path: &Path, front: &str, table: &toml::Table, format: u32) -> R
         "trait" => &["kind", "category", "detail"],
         "racial_trait" => &["kind", "alternate"],
         "archetype" => &["kind"],
-        "class_option" => &["kind", "group"],
+        "class_option" => &["kind", "group", "ability_type"],
         "none" => &["kind"],
         other => {
             return Err(Error::new(
@@ -678,6 +679,8 @@ fn parse_fields(path: &Path, front: &str, table: &toml::Table, format: u32) -> R
                     "; `features` needs corpus format {}, and the corpus is format {format}",
                     crate::features::FEATURES_FORMAT
                 )
+            } else if key == "ability_type" {
+                "; `ability_type` is a key of `class_option` only".to_string()
             } else if matches!(kind, "archetype" | "class_option")
                 && crate::trades::field_keys(if format == 1 { 2 } else { 1 })
                     .contains(&key.as_str())
@@ -802,6 +805,7 @@ fn parse_fields(path: &Path, front: &str, table: &toml::Table, format: u32) -> R
             TypedFields::ClassOption(cast_iron_schema::ClassOptionFields {
                 features: crate::features::read_features(path, table, line("features"))?,
                 group: string("group")?,
+                ability_type: ability_type(path, table, line("ability_type"))?,
                 trades,
                 legacy_features,
             })
@@ -809,6 +813,26 @@ fn parse_fields(path: &Path, front: &str, table: &toml::Table, format: u32) -> R
         "none" => TypedFields::None,
         _ => unreachable!("kind was checked above"),
     })
+}
+
+/// Reads `ability_type` of a class option (owner ruling 63, #540): the printed text inside the
+/// parentheses of an ability tag, `Su` or `Ex or Sp`. A value that the tag reader of the schema
+/// would not read as a tag (parentheses, another word, a space around it) is an error.
+fn ability_type(path: &Path, table: &toml::Table, line: usize) -> Result<Option<String>> {
+    let Some(value) = optional_string(path, table, "ability_type", line)? else {
+        return Ok(None);
+    };
+    if cast_iron_schema::power::is_ability_tag_text(&value) {
+        Ok(Some(value))
+    } else {
+        Err(Error::new(
+            path,
+            line,
+            format!(
+                "`ability_type` {value:?} is not a printed ability tag; write the text inside the parentheses: `Ex`, `Su`, `Sp` or a combination such as `Ex or Sp` or `Su, Sp`"
+            ),
+        ))
+    }
 }
 
 fn required_string(path: &Path, table: &toml::Table, key: &str, line: usize) -> Result<String> {
@@ -1360,6 +1384,93 @@ mod tests {
             format,
             ..Config::default()
         }
+    }
+
+    fn class_option_entry(ability_type: Option<&str>) -> RuleEntry {
+        let mut entry = entry();
+        entry.id = EntryId::parse("ref/class-option/agony").unwrap();
+        entry.kind = EntryKind::ClassOption;
+        entry.fields = TypedFields::ClassOption(cast_iron_schema::ClassOptionFields {
+            group: "rage-power".into(),
+            ability_type: ability_type.map(str::to_string),
+            ..Default::default()
+        });
+        entry
+    }
+
+    /// `text` with one `[fields]` line added after the `group` line.
+    fn with_field(text: &str, line: &str) -> String {
+        text.replacen(
+            "group = \"rage-power\"\n",
+            &format!("group = \"rage-power\"\n{line}\n"),
+            1,
+        )
+    }
+
+    #[test]
+    fn ability_type_round_trips_after_group_and_stays_optional() {
+        for value in ["Ex", "Su", "Sp", "Ex or Sp", "Su, Sp", "Ex and Su"] {
+            let text = round_trip_with(&class_option_entry(Some(value)), &Config::default());
+            assert!(
+                text.contains(&format!(
+                    "group = \"rage-power\"\nability_type = \"{value}\"\n"
+                )),
+                "{text}"
+            );
+        }
+        let text = round_trip_with(&class_option_entry(None), &Config::default());
+        assert!(!text.contains("ability_type"), "{text}");
+    }
+
+    #[test]
+    fn ability_type_is_refused_when_it_is_not_a_printed_ability_tag() {
+        let base = write_entry(&class_option_entry(None), &Config::default());
+        let path = entry_path(&class_option_entry(None).id);
+        for bad in [
+            "(Su)",
+            "Su ",
+            "su",
+            "Ex or",
+            "Ex/Su",
+            "Supernatural",
+            "",
+            "Ex or Sp (Su)",
+        ] {
+            let text = with_field(&base, &format!("ability_type = {bad:?}"));
+            let error = read_entry(&path, &text, &Config::default()).unwrap_err();
+            assert!(
+                error.to_string().contains("not a printed ability tag"),
+                "{bad:?}: {error}"
+            );
+        }
+        let text = with_field(&base, "ability_type = 3");
+        let error = read_entry(&path, &text, &Config::default()).unwrap_err();
+        assert!(error.to_string().contains("must be a string"), "{error}");
+    }
+
+    #[test]
+    fn ability_type_is_refused_on_any_other_kind() {
+        let mut entry = archetype_entry(Default::default());
+        let text = write_entry(&entry, &Config::default());
+        let text = text.replacen(
+            "[fields]\nkind = \"archetype\"\n",
+            "[fields]\nkind = \"archetype\"\nability_type = \"Su\"\n",
+            1,
+        );
+        let error = read_entry(&entry_path(&entry.id), &text, &Config::default()).unwrap_err();
+        let message = error.to_string();
+        assert!(
+            message.contains("unexpected field `ability_type`"),
+            "{message}"
+        );
+        assert!(message.contains("`class_option` only"), "{message}");
+        entry.fields = TypedFields::None;
+        let text = write_entry(&entry, &Config::default()).replacen(
+            "[fields]\nkind = \"none\"\n",
+            "[fields]\nkind = \"none\"\nability_type = \"Su\"\n",
+            1,
+        );
+        assert!(read_entry(&entry_path(&entry.id), &text, &Config::default()).is_err());
     }
 
     #[test]

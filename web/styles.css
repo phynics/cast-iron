@@ -1784,6 +1784,17 @@ mark {
   margin-top: 0;
 }
 
+/* The ability type of a single-power class option, "(Su)", after the title: the muted italic of a
+   feature head's tag, in body type, not bold. */
+.entry-head h1 .ability-tag {
+  font-family: var(--font-text);
+  font-size: 1.0625rem; /* the size of `.rich` prose */
+  font-style: italic;
+  font-weight: 400;
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+
 /* Center the 44px star on the title's first line. */
 .entry-title-row .star-btn {
   margin-top: calc((var(--step-3) * var(--leading-tight) - var(--touch)) / 2);

@@ -21,7 +21,7 @@ use crate::views::filter_menu::{
 };
 use crate::views::icons;
 use crate::views::util::{Shared, sort_key};
-use cast_iron_schema::{EntryId, OptionGroup, OptionGroupIndex};
+use cast_iron_schema::{EntryId, OptionGroup, OptionGroupIndex, TypedFields};
 use leptos::prelude::*;
 use std::collections::BTreeMap;
 use std::rc::Rc;
@@ -190,7 +190,11 @@ pub fn group_route(class: &EntryId, book: &Option<String>, arch: ArchFilter, gro
 async fn load(library: &Library, ids: &[EntryId]) -> Result<Vec<OptionRow>, String> {
     let read = library
         .read_entries(ids, |entry| {
-            option_list::facts_of(&entry.title, &entry.body)
+            let ability_type = match &entry.fields {
+                TypedFields::ClassOption(fields) => fields.ability_type.as_deref(),
+                _ => None,
+            };
+            option_list::facts_with_type(&entry.title, &entry.body, ability_type)
         })
         .await
         .map_err(|error| error.to_string())?;

@@ -613,10 +613,19 @@ Powers are not added to `On this page`. The layout applies only to a power that 
 validation, the same check that the corpus runs on class options. A power that fails it renders as
 today's labeled rows.
 
+**Ability type in the header** (owner ruling 63, #540; decision `2026-11-27-class-option-ability-type`). A
+single-power class option in the new form has no head, so its printed ability tag is the entry's typed
+`ability_type` (the text inside the parentheses, `Su`). The `h1` then reads the title, one space and the
+tag with its parentheses, `Agony (Su)`: the tag is an element after the title text (`.ability-tag`, with
+`data-testid="entry-ability-type"`), in body type at 1.0625rem, italic, weight 400, `--ink-muted`, the
+look of the tag of a feature head. The accessible name of the `h1` includes it. The title in the star's
+name, the browser title, the breadcrumb, lists and search results do not carry it. The rows of the
+Options section show the tag from the field when the entry has it and from the printed body otherwise.
+
 **One-power page** (a talent, hex or rage power whose page is the power). The body has exactly one
 candidate power, it passes the validation, its name is the first block, and the name without its
 ability tag is the entry title. The
-power head folds into the title. The `h1` stays the entry title, never with the tag or the level.
+power head folds into the title. The `h1` stays the entry title, never with the tag or the level (an entry with a typed `ability_type`, below, is the exception for the tag).
 One muted `.entry-facts` line sits directly under the metadata line: the tag in words with the
 printed tag, `Level N` from `Gained`, then the action and the uses
 (`Supernatural (Su) · Swift action · Once per rage`). The metadata line keeps kind and book. Only
