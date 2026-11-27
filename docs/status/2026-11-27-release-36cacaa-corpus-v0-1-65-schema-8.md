@@ -100,5 +100,4 @@ Also seen: WebKit once logged a CSP `style-src` refusal of a stylesheet on the n
   same two off as before.
 - **The old library keeps working until the new one is verified.** The new library is activated only after its
   checksums match; before that, the old library stays readable.
-- **A download that stops can be resumed.** Reopen the app and choose Resume in Settings; only the missing files are
-  fetched.
+- **A download that stops can be resumed.** Reopen the app. An update shows "Update paused" with Resume in Settings; a first install shows "An earlier download did not finish" with Download. Files already verified are kept, and only the missing files are fetched.
