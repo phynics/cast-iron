@@ -1077,6 +1077,14 @@ pub fn split_ability_tag(name: &str) -> (&str, Option<&str>) {
     }
 }
 
+/// Whether `value` is the printed text of an ability tag: the text inside the parentheses of
+/// `(Ex)`, `(Su)` or `(Sp)`, or of a combination such as `Ex or Su`, `Su, Sp` or `Ex and Sp`.
+/// Nothing around it: no parentheses, no leading or trailing space. This is the rule of
+/// [`split_ability_tag`], so a value it accepts reads as a tag wherever a tag is read.
+pub fn is_ability_tag_text(value: &str) -> bool {
+    is_tag_list(value)
+}
+
 /// The separators of a combined ability tag, longest first.
 const TAG_SEPARATORS: [&str; 5] = [", or ", ", and ", ", ", " or ", " and "];
 
@@ -1913,6 +1921,42 @@ mod tests {
                 ),
                 Err(ActionGroupProblem::Crosses { what: what.into() })
             );
+        }
+    }
+
+    #[test]
+    fn tag_text_is_the_inside_of_a_tag_and_agrees_with_the_splitter() {
+        for ok in [
+            "Ex",
+            "Su",
+            "Sp",
+            "Ex or Sp",
+            "Su, Sp",
+            "Ex and Su",
+            "Ex, Su, or Sp",
+        ] {
+            assert!(is_ability_tag_text(ok), "{ok}");
+            // What the check accepts is what the splitter reads as a tag.
+            let named = format!("Agony ({ok})");
+            assert_eq!(
+                split_ability_tag(&named),
+                ("Agony", Some(format!("({ok})").as_str()))
+            );
+        }
+        for bad in [
+            "",
+            " ",
+            "(Su)",
+            " Su",
+            "Su ",
+            "su",
+            "Ex or",
+            "Ex/Su",
+            "Ex; Su",
+            "Supernatural",
+            "Ex or Sp (Su)",
+        ] {
+            assert!(!is_ability_tag_text(bad), "{bad:?}");
         }
     }
 

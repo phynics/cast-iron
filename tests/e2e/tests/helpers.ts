@@ -473,6 +473,17 @@ export function buildLibraryWithFeatures(
 }
 
 /**
+ * An overlay of the served library in which one class option has `fields.ability_type` (owner
+ * ruling 63 of #540): no pinned corpus types one yet. Only that entry's shard and the manifest
+ * change; the content version stays the same.
+ */
+export function buildLibraryWithAbilityType(id: string, abilityType: string) {
+  return buildLibraryWithEntryPatch("ability-type", [id], (entry) => {
+    entry.fields = { ...entry.fields, ability_type: abilityType };
+  });
+}
+
+/**
  * Rewrites the shards of the named entries with `patch`, and the manifest hashes with them.
  * With `patchTrades`, `trades.json` is rewritten too.
  */
