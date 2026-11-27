@@ -55,7 +55,7 @@ test("Rogue has an Options stop with a chip for rogue talents and its options as
   // Rogue talents print no level, so the group has no Level menu.
   await expect(page.getByRole("button", { name: /^Level:/ })).toHaveCount(0);
   // Each row names its book on a muted line.
-  await expect(rows(page).first().locator(".arch-meta")).not.toBeEmpty();
+  await expect(rows(page).first().locator(".opt-meta")).not.toBeEmpty();
 
   // An option with a printed ability tag shows it, in italics, after the name.
   await expect(page.locator(".opt-rows .opt-tag").first()).toHaveText(/^\((Ex|Su|Sp)/);
@@ -236,37 +236,41 @@ test("With a book turned off, its options leave the chip count and the list", as
 
 // A jump to something below the Options section must survive the section's rows arriving late: the
 // section grows from one `Loading` line to the whole list, and the page holds what sits below it
-// where it was. The read of the class-option shards is slowed so that the rows arrive well after
-// the page has rendered and jumped.
+// where it was. The test holds the class-option shard reads until it has seen the `Loading` line and
+// measured the jump, then releases them, so the rows always arrive after the jump.
 
 /**
- * Delays each burst of Cache API reads of the class-option shards once, by `ms`. A group spans many
- * shards that the app reads one after another; a delay per read would add up to tens of seconds. The
- * first read after a quiet second opens a new gate, and the reads that follow it pass straight
- * through, so every load of a group (each jump, each new page) arrives `ms` late in total.
+ * Holds every Cache API read of a class-option shard made on a class page until `releaseShards`. A release lets the reads
+ * through for two seconds (a group reads its shards one after another) and then holds new reads
+ * again, so each jump of a test can hold and release once.
  */
-async function slowShards(page: Page, ms: number) {
-  await page.addInitScript((delay) => {
+async function holdShards(page: Page) {
+  await page.addInitScript(() => {
     const match = Cache.prototype.match;
-    let gate: Promise<void> | undefined;
-    let busyUntil = 0;
+    let release = () => {};
+    let gate = new Promise<void>((resolve) => (release = resolve));
+    let open = false;
+    (window as unknown as { __releaseShards: () => void }).__releaseShards = () => {
+      open = true;
+      release();
+      setTimeout(() => {
+        open = false;
+        gate = new Promise<void>((resolve) => (release = resolve));
+      }, 2000);
+    };
     Cache.prototype.match = function (this: Cache, ...args: Parameters<Cache["match"]>) {
       const request = args[0] as Request | string;
       const url = typeof request === "string" ? request : request.url;
-      const found = match.apply(this, args);
-      if (!/\/entries\/class_option-/.test(url)) return found;
-      const now = Date.now();
-      if (!gate || now > busyUntil + 1000) {
-        gate = new Promise<void>((resolve) => setTimeout(resolve, delay));
-        busyUntil = now + delay;
-      }
-      return gate.then(() => {
-        busyUntil = Math.max(busyUntil, Date.now());
-        return found;
-      });
+      // Only on a class page: installing the library reads the same shards, and must not wait.
+      const onClass = location.hash.includes("/entry/ref/class/");
+      if (!/\/entries\/class_option-/.test(url) || open || !onClass) return match.apply(this, args);
+      return gate.then(() => match.apply(this, args));
     };
-  }, ms);
+  });
 }
+
+const releaseShards = (page: Page) =>
+  page.evaluate(() => (window as unknown as { __releaseShards: () => void }).__releaseShards());
 
 const nextFrames = (page: Page) =>
   page.evaluate(() => new Promise<void>((done) => requestAnimationFrame(() => requestAnimationFrame(() => done()))));
@@ -307,7 +311,7 @@ async function expectStays(page: Page, read: () => Promise<number>, before: numb
 const wizardRows = () => groups.find((group) => group.classes.includes(WIZARD))!.entries.length;
 
 test("A jump to a later stop stays put when the section's rows arrive", async ({ page }) => {
-  await slowShards(page, 3000);
+  await holdShards(page);
   for (const target of ["archetypes", "spells"]) {
     await openClass(page, WIZARD, `?s=${target}`);
     // The section is still its `Loading` line when the page has jumped.
@@ -319,13 +323,14 @@ test("A jump to a later stop stays put when the section's rows arrive", async ({
       expect(before, "under the sticky bar").toBeGreaterThanOrEqual(bar - 1);
       expect(before, "near the top").toBeLessThan(bar + 120);
     }
+    await releaseShards(page);
     await expect(rows(page)).toHaveCount(wizardRows());
     await expectStays(page, read, before, target);
   }
 });
 
 test("A heading anchor below the section stays put when the section's rows arrive", async ({ page }) => {
-  await slowShards(page, 3000);
+  await holdShards(page);
   // The Favored Class Bonuses heading comes after Archetypes, so after Options.
   await openClass(page, WIZARD, "?a=sec-favored-class-bonuses");
   await expect(page.locator("#h-sec-favored-class-bonuses")).toBeAttached();
@@ -333,12 +338,13 @@ test("A heading anchor below the section stays put when the section's rows arriv
   const read = () => viewTop(page, "#h-sec-favored-class-bonuses");
   const before = await settled(page, read);
   expect(before, "in the view").toBeGreaterThanOrEqual(0);
+  await releaseShards(page);
   await expect(rows(page)).toHaveCount(wizardRows());
   await expectStays(page, read, before, "anchor");
 });
 
 test("A quick jump to Archetypes before the rows arrive stays put when they do", async ({ page }) => {
-  await slowShards(page, 3000);
+  await holdShards(page);
   await openClass(page, WIZARD);
   await stop(page, "Archetypes").click();
   await expect(countLine(page)).toContainText("Loading");
@@ -347,12 +353,13 @@ test("A quick jump to Archetypes before the rows arrive stays put when they do",
   const bar = await barBottom(page);
   expect(before, "under the sticky bar").toBeGreaterThanOrEqual(bar - 1);
   expect(before, "near the top").toBeLessThan(bar + 120);
+  await releaseShards(page);
   await expect(rows(page)).toHaveCount(wizardRows());
   await expectStays(page, read, before, "quick jump");
 });
 
 test("A reader who has scrolled on is held where they are, not sent back to the jump", async ({ page }) => {
-  await slowShards(page, 3000);
+  await holdShards(page);
   await openClass(page, WIZARD, "?s=archetypes");
   await expect(countLine(page)).toContainText("Loading");
   await settled(page, () => viewTop(page, '[data-class-section="archetypes"]'));
@@ -361,6 +368,7 @@ test("A reader who has scrolled on is held where they are, not sent back to the 
   const read = () => viewTop(page, '[data-class-section="archetypes"]');
   const before = await settled(page, read);
   expect(before).toBeLessThan(0);
+  await releaseShards(page);
   await expect(rows(page)).toHaveCount(wizardRows());
   await expectStays(page, read, before, "scrolled reader");
 });
