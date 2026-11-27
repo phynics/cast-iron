@@ -455,7 +455,10 @@ fn panel_shell(
                 }
             }
         >
-            {find.map(|FindProps { status, none_match }| view! {
+            {find.map(|FindProps { status, none_match }| {
+                // As `Show` did: the button is rebuilt when the answer changes, not on every keystroke.
+                let none_match = Memo::new(move |_| none_match.get());
+                view! {
                 <div class="filter-find">
                     <input
                         id=find_id(&spec)
@@ -471,14 +474,15 @@ fn panel_shell(
                         on:input=move |event| state.query.set(event_target_value(&event))
                     />
                     <p class="filter-find-status" role="status">{move || status.get()}</p>
-                    <Show when=move || none_match.get()>
+                    {move || none_match.get().then(|| view! {
                         <button type="button" class="filter-find-clear"
                             on:click=move |_| {
                                 state.query.set(String::new());
                                 focus_by_id(&find_id(&spec));
                             }>"Clear"</button>
-                    </Show>
+                    })}
                 </div>
+                }
             })}
             <ul class="choice-list" aria-label=spec.list_label>{items}</ul>
         </div>
