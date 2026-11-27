@@ -7,7 +7,11 @@ import { buildLibraryWithAbilityType, firstEntry, installLibrary, waitControlled
 // one `fields.ability_type`. The stored value has no parentheses; the page draws them.
 
 const option = firstEntry("a class option", (entry) => entry.kind === "class_option");
-const control = firstEntry("another class option", (entry) => entry.kind === "class_option" && entry.id !== option.id);
+// The control has no ability type of its own: since v0.1.63 the converted options (#540) have one.
+const control = firstEntry(
+  "another class option without an ability type",
+  (entry) => entry.kind === "class_option" && entry.id !== option.id && !entry.fields.ability_type,
+);
 
 test("A class option with an ability type shows it after the title, in italics", async ({ page, server }) => {
   // The overlay and the first install of the library take longer than the default budget.

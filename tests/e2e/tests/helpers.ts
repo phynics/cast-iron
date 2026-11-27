@@ -484,6 +484,34 @@ export function buildLibraryWithAbilityType(id: string, abilityType: string) {
 }
 
 /**
+ * The v0.1.59 bodies, in the import form (`Flavor:`, `Ability:` and `Gained:` rows), of the hexes
+ * Evil Eye and Flight and the rage power Auspicious Mark, keyed by entry id
+ * (`tests/e2e/fixtures/import-form-options.json`). The pinned corpus prints the hexes as prose
+ * since v0.1.63, and the class-option phase of #540 converts every other option the same way, so a
+ * test of the power layout (`powers::plan`) takes its body from here and not from whichever
+ * entries are still in the import form.
+ */
+export function importFormBodies(): Record<string, any[]> {
+  const file = path.resolve(__dirname, "../fixtures/import-form-options.json");
+  const fixture: Record<string, { body: any[] }> = JSON.parse(fs.readFileSync(file, "utf8"));
+  return Object.fromEntries(Object.entries(fixture).map(([id, entry]) => [id, entry.body]));
+}
+
+/**
+ * An overlay of the served library in which the named class options have the given body in the
+ * import form, and neither `fields.features` nor `fields.ability_type`: the entry goes through the
+ * class-option power layout, as every option did before #540 converted it. `bodies` maps an
+ * entry id to its body. Only those entries' shards and the manifest change.
+ */
+export function buildLibraryWithImportBodies(bodies: Record<string, any[]>) {
+  return buildLibraryWithEntryPatch("import-bodies", Object.keys(bodies), (entry) => {
+    entry.body = bodies[entry.id];
+    const { features: _features, ability_type: _abilityType, ...fields } = entry.fields ?? {};
+    entry.fields = fields;
+  });
+}
+
+/**
  * Rewrites the shards of the named entries with `patch`, and the manifest hashes with them.
  * With `patchTrades`, `trades.json` is rewritten too.
  */
