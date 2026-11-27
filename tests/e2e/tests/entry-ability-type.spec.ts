@@ -3,8 +3,9 @@ import { buildLibraryWithAbilityType, firstEntry, installLibrary, waitControlled
 
 // The ability type of a single-power class option (owner ruling 63 of #540; decision
 // `2026-11-27-class-option-ability-type`): the entry header shows it after the title, "Agony (Su)", in
-// the muted italic of a feature head's tag. No pinned corpus types an option yet, so an overlay gives
-// one `fields.ability_type`. The stored value has no parentheses; the page draws them.
+// the muted italic of a feature head's tag. The test still sets `fields.ability_type` through an
+// overlay, so that it controls the value it checks. The stored value has no parentheses; the page
+// draws them.
 
 const option = firstEntry("a class option", (entry) => entry.kind === "class_option");
 // The control has no ability type of its own: since v0.1.63 the converted options (#540) have one.
