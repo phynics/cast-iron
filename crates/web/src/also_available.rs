@@ -25,14 +25,51 @@ pub fn capstones_id() -> EntryId {
     EntryId::parse(CAPSTONES).expect("the capstones id is well formed")
 }
 
+/// The anchor of the section that prints the capstones in the pinned entry (`### Other Capstones`).
+const CAPSTONE_SECTION: &str = "other-capstones";
+
 /// The printed names of the capstones in the shared entry's `body`, without their ability tag
 /// (`Walking Library (Ex)` is `Walking Library`). They are the power names that the shared
-/// classifier finds, so a block that is not a capstone is never a name.
+/// classifier finds, plus the run-in heads of printed prose (`**Walking Library (Ex):** At 20th
+/// level, …`): the top-level paragraphs of the capstone section (from its heading to the next
+/// heading of the same or a higher level) that open with a bold head that carries an ability tag.
+/// A tagged label outside that section, or inside a list or a quote, is never a name, and neither
+/// is `**Special:**`, which has no tag.
 pub fn names_in(body: &[Block]) -> Vec<String> {
-    candidates(body)
+    let mut names: Vec<String> = candidates(body)
         .into_iter()
         .map(|candidate| split_ability_tag(&candidate.name).0.to_string())
-        .collect()
+        .collect();
+    let mut section: Option<u8> = None;
+    for block in body {
+        match block {
+            Block::Heading { level, anchor, .. } => {
+                if section.is_some_and(|open| *level <= open) {
+                    section = None;
+                }
+                if anchor.as_deref() == Some(CAPSTONE_SECTION) {
+                    section = Some(*level);
+                }
+            }
+            _ if section.is_some() => names.extend(run_in_name(block)),
+            _ => {}
+        }
+    }
+    names
+}
+
+/// The name of a paragraph that opens with a bold, tagged run-in head (`**Name (Ex):** text`).
+fn run_in_name(block: &Block) -> Option<String> {
+    let Block::Paragraph { content, .. } = block else {
+        return None;
+    };
+    let Some(Inline::Strong { c }) = content.first() else {
+        return None;
+    };
+    let text = plain_text(c);
+    let head = text.trim().strip_suffix(':')?;
+    let (name, tag) = split_ability_tag(head);
+    tag.map(|_| name.to_string())
 }
 
 /// Whether `block` is the `Also available:` paragraph.
@@ -267,6 +304,73 @@ mod tests {
         ];
         assert_eq!(names_in(&body), ["Walking Library", "The Boss"]);
         assert!(names_in(&[para(vec![text("None")])]).is_empty());
+    }
+
+    fn heading(level: u8, anchor: &str) -> Block {
+        Block::Heading {
+            level,
+            anchor: Some(anchor.to_string()),
+            content: vec![text(anchor)],
+        }
+    }
+
+    #[test]
+    fn a_run_in_head_with_an_ability_tag_in_the_capstone_section_is_a_name() {
+        let body = vec![
+            para(vec![
+                strong("Requirements (Ex):"),
+                text(" before the section."),
+            ]),
+            heading(3, "other-capstones"),
+            para(vec![text(
+                "The following capstone abilities are for characters...",
+            )]),
+            para(vec![
+                strong("Arch-Familiar (Su):"),
+                text(" At 20th level, the familiar is smarter."),
+            ]),
+            para(vec![strong("Special:"), text(" Not a capstone.")]),
+            para(vec![
+                strong("Old Dog, New Tricks (Ex):"),
+                text(" At 20th level, four combat feats."),
+            ]),
+            para(vec![strong("Deep Magics (Su)"), text(" no colon, no name")]),
+            heading(4, "a-subsection"),
+            para(vec![
+                strong("Great Beast (Su):"),
+                text(" still in the section."),
+            ]),
+            heading(3, "archetypes"),
+            para(vec![
+                strong("Requirements (Ex):"),
+                text(" after the section."),
+            ]),
+        ];
+        assert_eq!(
+            names_in(&body),
+            ["Arch-Familiar", "Old Dog, New Tricks", "Great Beast"]
+        );
+    }
+
+    #[test]
+    fn a_tagged_label_inside_a_capstone_text_or_a_list_is_not_a_name() {
+        let body = vec![
+            heading(3, "other-capstones"),
+            para(vec![
+                strong("The Boss (Ex):"),
+                text(" At 20th level, a leader."),
+            ]),
+            Block::List {
+                ordered: false,
+                items: vec![vec![para(vec![
+                    strong("Requirements (Ex):"),
+                    text(" in a list."),
+                ])]],
+            },
+        ];
+        assert_eq!(names_in(&body), ["The Boss"]);
+        // Without the capstone section no run-in head is read.
+        assert!(names_in(&[para(vec![strong("Requirements (Ex):"), text(" x")])]).is_empty());
     }
 
     #[test]

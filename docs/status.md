@@ -8,16 +8,16 @@ Edit this page only where a change makes a line untrue, and add a log file for t
 
 | | |
 |---|---|
-| Corpus | `phynics/cast-iron-data` tag `v0.1.64`, commit `be094a3c87e85d61779ed010693c2cf3b2003908` (`sources/corpus.toml`), corpus format 4. Pin entry: [2026-11-27](status/2026-11-27-pin-corpus-v0-1-64.md) |
-| Content version | `va78fae22d034e2f4` (`cargo xtask content` on `main` at `e68b854c2` plus the v0.1.64 pin, 2026-11-27). The release serves the same content (the live manifest reads `vaaeb1e4c7340254b`). |
+| Corpus | `phynics/cast-iron-data` tag `v0.1.65`, commit `1d78219f05a18259c44aa8c417f1ce99cc425aee` (`sources/corpus.toml`), corpus format 4. Pin entry: [2026-11-27](status/2026-11-27-pin-corpus-v0-1-65.md) |
+| Content version | `v6c76ae276d557997` (`cargo xtask content` on `main` at `d15b8f2ba` plus the v0.1.65 pin, 2026-11-27). `release` serves an older library (the live manifest reads `vaaeb1e4c7340254b`, corpus `v0.1.59`, schema 7). |
 | Library | 31,766 entries, 445 publications, 445 books; 0 unreachable entries, 0 broken links |
-| `SCHEMA_VERSION` | 7 (`crates/schema/src/lib.rs`; the client reads 1 to 7). Schema 7 adds the haunt kind ([decision](decisions/2026-11-23-haunts-are-a-kind-schema-7.md)) |
+| `SCHEMA_VERSION` | 8 on `main` (`crates/schema/src/lib.rs`): the library is shipped and stored as gzip files ([decision](decisions/2026-11-27-precompressed-library.md)); `release` is still schema 7, which added the haunt kind ([decision](decisions/2026-11-23-haunts-are-a-kind-schema-7.md)) |
 | `INDEX_FORMAT_VERSION` | 2 (`crates/search/src/lib.rs`) |
 
 ## Main and release
 
 - **`release` is at `feb3554`**, published 2026-11-26: corpus `v0.1.59`, schema 7, index format 2 ([release entry](status/2026-11-26-release-feb3554-corpus-v0-1-59-schema-7.md)). That is what Pages serves. The app shell is unchanged from the previous release, `edcb421` ([entry](status/2026-11-26-release-edcb421-corpus-v0-1-58-schema-7.md)).
-- **`main`** is at the release commit plus the record of this release. Nothing else is unpublished. Promotion follows [releasing.md](releasing.md); `main` never publishes by itself.
+- **`main`** is ahead of `release`: it pins corpus `v0.1.65` and builds schema 8, and none of that is published. Nothing is promoted. A promotion needs the schema 7 to 8 upgrade check. Promotion follows [releasing.md](releasing.md); `main` never publishes by itself.
 - **The haunt window and the promotion gate are done.** The haunt kind (schema 7) is published, and the schema upgrade check of [releasing.md](releasing.md) (old library to new shell to new library, an interrupted download, stars including a haunt star made under `rule`) passed before the promotion in Chromium and WebKit.
 - **No open gate** beyond [releasing.md](releasing.md): [#543](https://github.com/phynics/cast-iron/issues/543) (a saved Continue Reading point can name a book that no longer holds the entry) and [#546](https://github.com/phynics/cast-iron/issues/546) (book section anchors followed tree positions) are fixed and released by [#547](https://github.com/phynics/cast-iron/pull/547) and [#549](https://github.com/phynics/cast-iron/pull/549). [#12](https://github.com/phynics/cast-iron/issues/12) (physical-device and accessibility acceptance) was closed by the owner on 2026-11-25 without a real-device check. The class-option power check is an error from the v0.1.35 pin: 0 power errors, 19 powers excepted in `power-exceptions.toml` ([#557](https://github.com/phynics/cast-iron/issues/557)).
 

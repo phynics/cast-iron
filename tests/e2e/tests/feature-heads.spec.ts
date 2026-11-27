@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
-import { test, expect, loadCorpus } from "./fixtures";
-import { buildLibraryWithFeatures, installLibrary, waitControlled } from "./helpers";
+import { test, installedTest, expect, loadCorpus } from "./fixtures";
+import { buildLibraryWithFeatures, installLibrary, quickSearchFor, waitControlled } from "./helpers";
 
 // The feature heads of an archetype in corpus format 4 (#540; decision
 // `2026-11-24-feature-heads-and-search-aliases`): a listed feature renders as the head of a
@@ -59,6 +59,20 @@ async function open(page: Page, id: string, anchor?: string) {
 }
 
 const scrollY = (page: Page) => page.evaluate(() => window.scrollY);
+
+/** The scroll offset once it stops moving: polls until two reads in a row are equal. */
+async function settledScrollY(page: Page) {
+  let previous = Number.NaN;
+  await expect
+    .poll(async () => {
+      const now = await scrollY(page);
+      const stable = now === previous;
+      previous = now;
+      return stable;
+    })
+    .toBe(true);
+  return scrollY(page);
+}
 
 test("an archetype in format 4 shows its features as heads, a trade link and the contents", async ({ page, server }) => {
   // The overlay and the first install of the library take longer than the default budget.
@@ -205,4 +219,80 @@ test("an archetype in format 4 shows its features as heads, a trade link and the
   } finally {
     variant.cleanup();
   }
+});
+
+// A base class of the Advanced Player's Guide in the pinned corpus (v0.1.65, #373) lists its class
+// features: the Inquisitor. The expectations come from the compiled entry, so a later edit of the
+// printed prose does not break the test.
+const INQUISITOR = "ref/class/inquisitor";
+const FEATURE = { anchor: "monster-lore", name: "Monster Lore" };
+
+installedTest("a base class in format 4 shows its features as heads and deep links, and search finds it at one", async ({ page }) => {
+  installedTest.setTimeout(300_000);
+  const entry = corpus.entries.get(INQUISITOR)!;
+  expect(entry, "the compiled library has the Inquisitor").toBeTruthy();
+  const listed: { anchor: string; level?: number }[] = entry.fields.features;
+  expect(listed.length, "the Inquisitor lists class features").toBeGreaterThan(10);
+  const heads = new Map<string, string>();
+  const walk = (blocks: any[]) => {
+    for (const block of blocks) {
+      if (block.t === "heading") heads.set(block.anchor, block.content.map((part: any) => part.v ?? "").join(""));
+    }
+  };
+  walk(entry.body);
+  const shown = listed.filter((feature) => heads.has(feature.anchor));
+  expect(shown.length, "every listed feature has a heading").toBe(listed.length);
+  const monster = listed.find((feature) => feature.anchor === FEATURE.anchor)!;
+  expect(monster.level, "Monster Lore is gained at level 1").toBe(1);
+
+  await installLibrary(page);
+  await waitControlled(page);
+  await page.setViewportSize({ width: 1280, height: 900 });
+
+  await test.step("each listed feature is a head, and one with a level shows it", async () => {
+    await page.goto(`#/entry/${INQUISITOR}`);
+    await expect(page.getByRole("heading", { level: 1, name: entry.title })).toBeVisible();
+    const feature = page.locator(".feature-head");
+    await expect(feature).toHaveCount(listed.length);
+    // Each anchor of the corpus is one head in the DOM, with the printed text and the level.
+    for (const item of listed) {
+      const head = feature.filter({ has: page.locator(`#h-${item.anchor}`) });
+      await expect(head, item.anchor).toHaveCount(1);
+      await expect(head.getByRole("heading"), item.anchor).toHaveText(heads.get(item.anchor)!);
+      if (item.level === undefined) await expect(head.locator(".power-level"), item.anchor).toHaveCount(0);
+      else await expect(head.locator(".power-level"), item.anchor).toHaveText(`Gained at Level ${item.level}`);
+    }
+    // Monster Lore is the one the rest of the test follows: exactly `Level 1`.
+    const lore = feature.filter({ has: page.locator(`#h-${FEATURE.anchor}`) });
+    await expect(lore.locator(".power-level")).toHaveText("Gained at Level 1");
+    await expect(lore.locator(".feature-name")).toHaveText(FEATURE.name);
+  });
+
+  await test.step("the Features stop and the address of a feature reach its head; the switcher replaces On this page", async () => {
+    // A class page has the section switcher in place of the contents list (class-sections.spec.ts).
+    await page.goto(`#/entry/${INQUISITOR}`);
+    await expect(page.locator("details.article-contents")).toHaveCount(0);
+    const stops = page.getByRole("navigation", { name: "Sections" });
+    await expect(stops.getByRole("link", { name: "Features", exact: true })).toBeVisible();
+    await page.goto(`#/entry/${INQUISITOR}?a=${FEATURE.anchor}`);
+    await expect(page.locator(`#h-${FEATURE.anchor}`)).toHaveText(heads.get(FEATURE.anchor)!);
+    await expect.poll(() => page.evaluate(() => location.hash)).toBe(`#/entry/${INQUISITOR}?a=${FEATURE.anchor}`);
+    await expect(page.locator(`#h-${FEATURE.anchor}`)).toBeInViewport();
+    expect(await settledScrollY(page)).toBeGreaterThan(300);
+  });
+
+  await test.step("a search for a feature name finds the class at that feature", async () => {
+    await quickSearchFor(page, FEATURE.name);
+    const hit = page.locator(".results .hit-link").filter({ has: page.locator(".hit-title", { hasText: /^Inquisitor$/ }) });
+    await expect(hit).toHaveCount(1);
+    // The result carries the matched feature in the anchor parameter: its printed name or its anchor.
+    const href = (await hit.getAttribute("href"))!;
+    const [path, query] = href.split("?");
+    expect(path).toBe(`#/entry/${INQUISITOR}`);
+    expect([FEATURE.name, FEATURE.anchor]).toContain(new URLSearchParams(query).get("a"));
+    await hit.click();
+    await expect(page.getByRole("heading", { level: 1, name: entry.title })).toBeVisible();
+    await expect(page.locator(`#h-${FEATURE.anchor}`)).toBeInViewport();
+    expect(await settledScrollY(page)).toBeGreaterThan(300);
+  });
 });
