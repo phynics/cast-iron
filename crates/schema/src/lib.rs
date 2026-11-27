@@ -1447,6 +1447,24 @@ pub struct ManifestFile {
     /// Lowercase hexadecimal.
     pub sha256: String,
     pub bytes: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub gzip: Option<Decoded>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Decoded {
+    pub sha256: String,
+    pub bytes: u64,
+}
+
+impl ManifestFile {
+    pub fn logical_path(&self) -> &str {
+        if self.gzip.is_some() {
+            self.path.strip_suffix(".gz").unwrap_or(&self.path)
+        } else {
+            &self.path
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

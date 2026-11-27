@@ -1315,6 +1315,7 @@ mod tests {
                 path: format!("{version}/{name}"),
                 sha256: hex(&Sha256::digest(data.as_bytes())),
                 bytes: data.len() as u64,
+                gzip: None,
             });
         }
         let manifest = cast_iron_schema::ContentManifest {

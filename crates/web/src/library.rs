@@ -232,7 +232,7 @@ async fn settle_first_run_defaults(
 /// have no relation, spell-list, or book files, and every reader must treat them as absent.
 pub fn manifest_has_file(manifest: &ContentManifest, name: &str) -> bool {
     let path = format!("{}/{name}", manifest.content_version);
-    manifest.files.iter().any(|f| f.path == path)
+    manifest.files.iter().any(|f| f.logical_path() == path)
 }
 
 /// The active library. Cloning is cheap and shares caches. Get it with [`use_library`].
@@ -288,8 +288,15 @@ impl Library {
             let sha256 = manifest
                 .files
                 .iter()
-                .find(|file| file.path == format!("{}/{ALIASES_FILE}", manifest.content_version))
-                .map(|file| file.sha256.clone())
+                .find(|file| {
+                    file.logical_path() == format!("{}/{ALIASES_FILE}", manifest.content_version)
+                })
+                .map(|file| {
+                    file.gzip
+                        .as_ref()
+                        .map(|decoded| decoded.sha256.clone())
+                        .unwrap_or_else(|| file.sha256.clone())
+                })
                 .unwrap_or_default();
             (Rc::new(aliases), sha256)
         } else {
@@ -1263,6 +1270,7 @@ mod tests {
                     path: format!("v1/{p}"),
                     sha256: String::new(),
                     bytes: 0,
+                    gzip: None,
                 })
                 .collect(),
             entry_count: 0,
@@ -1299,6 +1307,7 @@ mod tests {
             path: "v0/relations.json".into(),
             sha256: String::new(),
             bytes: 0,
+            gzip: None,
         });
         assert!(!manifest_has_file(&other, RELATIONS_FILE));
     }

@@ -3,7 +3,7 @@
 //! It reads only the manifest: the schema version, the version string, every path, checksum
 //! and total, and the files the reader cannot work without. It never reads a file.
 
-use crate::{ContentManifest, SCHEMA_VERSION};
+use crate::{ContentManifest, ManifestFile, SCHEMA_VERSION};
 use std::collections::BTreeSet;
 use std::fmt;
 
@@ -100,6 +100,14 @@ pub fn validate_manifest(manifest: &ContentManifest) -> Result<(), PlanError> {
         if !path_is_safe(&file.path, version) {
             return Err(PlanError::BadPath(file.path.clone()));
         }
+        if file.gzip.is_some()
+            && !file
+                .path
+                .strip_suffix(".gz")
+                .is_some_and(|path| path.rsplit('/').next().is_some_and(|name| !name.is_empty()))
+        {
+            return Err(PlanError::BadPath(file.path.clone()));
+        }
         let sha_ok = file.sha256.len() == 64
             && file
                 .sha256
@@ -111,11 +119,29 @@ pub fn validate_manifest(manifest: &ContentManifest) -> Result<(), PlanError> {
         if !seen.insert(file.path.as_str()) {
             return Err(PlanError::DuplicatePath(file.path.clone()));
         }
+        if let Some(decoded) = &file.gzip {
+            let decoded_hash_ok = decoded.sha256.len() == 64
+                && decoded
+                    .sha256
+                    .bytes()
+                    .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b));
+            if !decoded_hash_ok {
+                return Err(PlanError::BadHash(file.path.clone()));
+            }
+        }
         total = total.saturating_add(file.bytes);
+    }
+    let logical_paths: BTreeSet<&str> = manifest
+        .files
+        .iter()
+        .map(ManifestFile::logical_path)
+        .collect();
+    if logical_paths.len() != manifest.files.len() {
+        return Err(PlanError::DuplicatePath("logical path".into()));
     }
     for required in REQUIRED_FILES {
         let path = format!("{version}/{required}");
-        if !seen.contains(path.as_str()) {
+        if !logical_paths.contains(path.as_str()) {
             return Err(PlanError::Missing(path));
         }
     }
@@ -158,6 +184,7 @@ mod tests {
             path: format!("{v}/{name}"),
             sha256: "ab".repeat(32),
             bytes,
+            gzip: None,
         };
         let mut files: Vec<ManifestFile> = REQUIRED_FILES.iter().map(|n| file(n, 100)).collect();
         files.push(file("entries/spell-000.json", 600));
@@ -197,5 +224,73 @@ mod tests {
         assert!(newer.to_string().contains("Reload the app"), "{newer}");
         let zero = validate_manifest(&manifest(0)).unwrap_err();
         assert!(zero.to_string().contains("older"), "{zero}");
+    }
+
+    #[test]
+    fn legacy_manifest_round_trips_without_changing_its_json() {
+        let input = br#"{"schema_version":7,"content_version":"v0123456789abcdef","total_bytes":1000,"files":[{"path":"v0123456789abcdef/catalog.json","sha256":"abababababababababababababababababababababababababababababababab","bytes":100}],"entry_count":0,"datasets":[]}"#;
+        let parsed: ContentManifest = serde_json::from_slice(input).unwrap();
+        assert_eq!(serde_json::to_vec(&parsed).unwrap(), input);
+    }
+
+    #[test]
+    fn valid_gzip_rows_use_logical_paths_for_required_files() {
+        let mut m = manifest(SCHEMA_VERSION);
+        m.files[0].path.push_str(".gz");
+        m.files[0].gzip = Some(crate::Decoded {
+            sha256: "cd".repeat(32),
+            bytes: 200,
+        });
+        assert_eq!(m.files[0].logical_path(), "v0123456789abcdef/catalog.json");
+        assert_eq!(validate_manifest(&m), Ok(()));
+    }
+
+    #[test]
+    fn gzip_path_without_suffix_is_rejected() {
+        let mut m = manifest(SCHEMA_VERSION);
+        m.files[0].gzip = Some(crate::Decoded {
+            sha256: "cd".repeat(32),
+            bytes: 100,
+        });
+        assert!(matches!(validate_manifest(&m), Err(PlanError::BadPath(_))));
+    }
+
+    #[test]
+    fn gzip_path_with_empty_name_is_rejected() {
+        let mut m = manifest(SCHEMA_VERSION);
+        m.files[0].path = "v0123456789abcdef/.gz".into();
+        m.files[0].gzip = Some(crate::Decoded {
+            sha256: "cd".repeat(32),
+            bytes: 100,
+        });
+        assert!(matches!(validate_manifest(&m), Err(PlanError::BadPath(_))));
+    }
+
+    #[test]
+    fn invalid_decoded_hash_is_rejected() {
+        let mut m = manifest(SCHEMA_VERSION);
+        m.files[0].path.push_str(".gz");
+        m.files[0].gzip = Some(crate::Decoded {
+            sha256: "zz".repeat(32),
+            bytes: 100,
+        });
+        assert!(matches!(validate_manifest(&m), Err(PlanError::BadHash(_))));
+    }
+
+    #[test]
+    fn duplicate_logical_paths_are_rejected() {
+        let mut m = manifest(SCHEMA_VERSION);
+        let mut compressed = m.files[0].clone();
+        compressed.path.push_str(".gz");
+        compressed.gzip = Some(crate::Decoded {
+            sha256: "cd".repeat(32),
+            bytes: 100,
+        });
+        m.files.push(compressed);
+        m.total_bytes += 100;
+        assert!(matches!(
+            validate_manifest(&m),
+            Err(PlanError::DuplicatePath(_))
+        ));
     }
 }
