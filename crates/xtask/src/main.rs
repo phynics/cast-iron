@@ -795,6 +795,9 @@ fn build_site(args: &[String]) -> Result {
     run(&trunk, &["build", "--release", "--public-url", &public_url])?;
     let dist = root().join("dist");
     copy_library(&root().join(generated), &dist.join("content"))?;
+    // What the site serves must be the library that was verified: every stored file against the
+    // copied manifest, and nothing else in the directory.
+    verify_published_content(&dist.join("content"))?;
     fs::write(dist.join(".nojekyll"), "").map_err(|e| e.to_string())?;
     content_address_snippets(&dist)?;
     let date = commit_date();
@@ -812,6 +815,41 @@ fn build_site(args: &[String]) -> Result {
 /// compile gates from one that did not: the compiler guarantees that by writing no manifest when
 /// a gate fails.
 fn verify_generated_content(content: &Path) -> Result<usize> {
+    verify_library(content, true)
+}
+
+/// Checks the library as published in `dist/content` against its own `manifest.json`: the same
+/// checks as [`verify_generated_content`] for the stored files, without the decoded layer (the site
+/// ships none), and then that the directory holds no file that the manifest does not list.
+fn verify_published_content(content: &Path) -> Result<usize> {
+    let count = verify_library(content, false)?;
+    let manifest = read_manifest(content)?;
+    let listed: std::collections::BTreeSet<PathBuf> = manifest
+        .files
+        .iter()
+        .map(|file| PathBuf::from(&file.path))
+        .chain([PathBuf::from("manifest.json")])
+        .collect();
+    let mut found = Vec::new();
+    list_files(content, &mut found)?;
+    let unlisted: Vec<String> = found
+        .iter()
+        .filter_map(|path| path.strip_prefix(content).ok())
+        .filter(|relative| !listed.contains(*relative))
+        .map(|relative| relative.display().to_string())
+        .collect();
+    if unlisted.is_empty() {
+        return Ok(count);
+    }
+    Err(format!(
+        "{} holds files that its manifest does not list: {}",
+        content.display(),
+        unlisted.join(", ")
+    ))
+}
+
+/// The checks of both verifiers. `decoded_layer` also checks the decoded file of each gzip row.
+fn verify_library(content: &Path, decoded_layer: bool) -> Result<usize> {
     let manifest_path = content.join("manifest.json");
     let manifest: cast_iron_schema::ContentManifest = serde_json::from_slice(
         &fs::read(&manifest_path)
@@ -835,7 +873,7 @@ fn verify_generated_content(content: &Path) -> Result<usize> {
             file.bytes,
             &file.sha256,
         )?;
-        if let Some(decoded) = &file.gzip {
+        if let Some(decoded) = file.gzip.as_ref().filter(|_| decoded_layer) {
             check_library_file(
                 content,
                 &manifest_path,
@@ -1609,6 +1647,42 @@ mod tests {
         fs::write(to.join("stale.txt"), "x").unwrap();
         copy_library(&from, &to).unwrap();
         assert!(!to.join("stale.txt").exists());
+        fs::remove_dir_all(&from).unwrap();
+        fs::remove_dir_all(to.parent().unwrap()).unwrap();
+    }
+
+    #[test]
+    fn the_published_copy_is_verified_against_its_own_manifest() {
+        let from = temp_tree("publish-from");
+        let to = temp_tree("publish-to").join("content");
+        let manifest = write_gzip_library(&from);
+        copy_library(&from, &to).unwrap();
+        assert_eq!(verify_published_content(&to), Ok(4));
+
+        // A stored file changed after the copy (same length).
+        let stored = to.join(&manifest.files[0].path);
+        let good = fs::read(&stored).unwrap();
+        let mut bad = good.clone();
+        bad[8] ^= 1;
+        fs::write(&stored, &bad).unwrap();
+        let error = verify_published_content(&to).unwrap_err();
+        assert!(error.contains("does not match"), "{error}");
+        fs::write(&stored, &good).unwrap();
+
+        // A file the manifest does not list, such as a decoded file.
+        fs::write(to.join("vabc/catalog.json"), "{}").unwrap();
+        let error = verify_published_content(&to).unwrap_err();
+        assert!(error.contains("vabc/catalog.json"), "{error}");
+        fs::remove_file(to.join("vabc/catalog.json")).unwrap();
+        assert_eq!(verify_published_content(&to), Ok(4));
+
+        // A stored file that is missing.
+        fs::remove_file(&stored).unwrap();
+        assert!(
+            verify_published_content(&to)
+                .unwrap_err()
+                .contains("cannot be read")
+        );
         fs::remove_dir_all(&from).unwrap();
         fs::remove_dir_all(to.parent().unwrap()).unwrap();
     }

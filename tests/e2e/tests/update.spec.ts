@@ -108,8 +108,11 @@ test("Content update keeps user records", async ({ page, context, server }) => {
     await reader.close();
 
     // Activation: the new version is active, the old cache is gone, the records are intact.
+    // Wait for activation itself, then read the label.
+    await expect
+      .poll(async () => (await activeLibrary(page))?.content_version, { timeout: 120_000 })
+      .toBe(next.version);
     await expect(page.getByTestId("library-version")).toHaveText(corpusLabel(next.manifest), { timeout: 120_000 });
-    expect((await activeLibrary(page)).content_version).toBe(next.version);
     // The install panel's status line is gone with the old Reader; focus is on main, not the body.
     await expect.poll(() => page.evaluate(() => document.activeElement?.id)).toBe("main");
     await expect.poll(async () => contentCaches(await cacheContents(page))).toEqual([`cast-iron-content-${next.version}`]);
@@ -390,8 +393,10 @@ test("A library update cut off by a reload shows as paused, waits for Resume, an
 
     // Resume continues from the cache: it fetches only the files that are missing.
     await row.getByRole("button", { name: "Resume", exact: true }).click();
+    await expect
+      .poll(async () => (await activeLibrary(page))?.content_version, { timeout: 120_000 })
+      .toBe(next.version);
     await expect(page.getByTestId("library-version")).toHaveText(corpusLabel(next.manifest), { timeout: 120_000 });
-    expect((await activeLibrary(page)).content_version).toBe(next.version);
     const fetched = (await server.requests()).filter((p) => p.startsWith(`content/${next.version}/`));
     expect(fetched).toHaveLength(total - cached);
     expect(await storedMeta(page, "pending_install")).toBeNull();

@@ -9,6 +9,8 @@ publish.workspace = true
 [dependencies]
 cast-iron-corpus.workspace = true
 cast-iron-schema.workspace = true
+# Decoder only, for `entries-round-trip` on a library that has just the stored .gz files. The
+# compiler is the only crate that compresses (docs/decisions/2026-11-27-precompressed-library.md).
 flate2.workspace = true
 sha2.workspace = true
 serde_json.workspace = true
