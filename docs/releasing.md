@@ -320,9 +320,10 @@ Trunk build and never re-runs a failed gate.
 
 Schema 8 ships and stores the library precompressed, as `.gz` files
 (`docs/decisions/2026-11-27-precompressed-library.md`). Run this check before the promotion that
-ships it, from a profile on the previous release, so that a schema-7 library and its saved data meet
-the new shell and the compressed library. Steps 1 to 7 run locally in Chromium and WebKit; step 8
-runs after the deployment. Drive the app by hand
+ships slice 3 of #746 (the compiler writing schema 8), from a profile on the previous release, so
+that a schema-7 library and its saved data meet the new shell and the compressed library. Steps 1 to
+6 run locally in Chromium and WebKit, step 7 on the iPhone simulator, and step 8 after the
+deployment. Drive the app by hand
 ([verification guide](../.agents/skills/verify/SKILL.md), section 3), and compare each step with its
 expected result.
 
@@ -355,7 +356,9 @@ Keep the previous release's `content/` directory outside `dist/` and `generated/
 
    Open the same profile and run the update check, explicit and daily. Both checks refuse the
    schema-8 manifest with the reload message. `curl -s http://127.0.0.1:4318/__test/state` lists
-   `content/manifest.json` and no `.gz` file, and `active_library` stays the schema-7 version.
+   `content/manifest.json` in its log and no `.gz` file. Settings → Diagnostics, "Device and
+   library", still shows the schema-7 library: the `library:` line reads `content format 7`, and
+   `library id:` names the schema-7 content version.
 
 3. **Apply the shell update.** Reload when the app offers it. The new shell opens the installed,
    uncompressed schema-7 library before any library update: an entry, a search, the stars and an
