@@ -37,7 +37,7 @@ features = [
   "Navigator", "Storage", "Event", "EventTarget", "HashChangeEvent", "ScrollToOptions",
   "ScrollBehavior", "ServiceWorker", "ServiceWorkerContainer", "MessageChannel", "MessagePort",
   "Cache", "CacheStorage", "CacheQueryOptions", "Request", "RequestInit", "RequestCache",
-  "Response", "ResponseInit", "Headers", "AbortSignal",
+  "Response", "ResponseInit", "Headers", "AbortSignal", "AbortController",
   "IdbDatabase", "IdbTransaction", "IdbTransactionMode", "IdbObjectStore", "IdbRequest",
   "IdbOpenDbRequest", "IdbObjectStoreParameters", "FocusOptions", "IdbKeyRange", "DomException", "MediaQueryList", "DomTokenList",
   "Performance", "KeyboardEvent", "HtmlInputElement", "HtmlDetailsElement", "Blob", "File", "FileList", "HtmlAnchorElement", "Url", "HtmlDialogElement", "PopStateEvent", "NodeList", "ScrollIntoViewOptions", "ScrollLogicalPosition", "VisibilityState", "HtmlCollection",

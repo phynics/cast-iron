@@ -10,6 +10,31 @@ pub const CONCURRENCY: usize = 3;
 /// Tries per file before the install fails.
 pub const MAX_ATTEMPTS: u32 = 3;
 
+/// How long a library request may go without a single byte before the installer gives up on it.
+///
+/// The decision is "no progress", not a total time, so a slow but moving download of the 20 MB
+/// search index on a poor link is never cut off. A response that starts and then goes silent,
+/// as in #768, is. Fifteen seconds is far above the gaps of a live connection, even a mobile one
+/// that changes network, and short enough that three attempts end within about two minutes. The
+/// watchdog checks once per window, so a stall is found after 15 to 30 seconds of silence.
+pub const STALL_WINDOW_MS: u32 = 15_000;
+
+/// Watches the number of progress events of one request, once per [`STALL_WINDOW_MS`].
+#[derive(Debug, Default)]
+pub struct StallWatch {
+    seen: u64,
+}
+
+impl StallWatch {
+    /// Call at the end of each window with the progress count so far. True when the request made
+    /// no progress during the whole window.
+    pub fn stalled(&mut self, count: u64) -> bool {
+        let stalled = count == self.seen;
+        self.seen = count;
+        stalled
+    }
+}
+
 /// Why downloaded bytes are not the bytes that the manifest promised.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum VerifyError {
@@ -313,6 +338,35 @@ mod tests {
             datasets: vec![],
             corpus_tag: None,
         }
+    }
+
+    #[test]
+    fn a_request_that_keeps_receiving_bytes_never_stalls() {
+        let mut watch = StallWatch::default();
+        for count in 1..=50 {
+            assert!(!watch.stalled(count), "window {count}");
+        }
+    }
+
+    #[test]
+    fn a_request_with_no_bytes_for_a_whole_window_stalls() {
+        let mut watch = StallWatch::default();
+        // The response started and sent two chunks, then went silent.
+        assert!(!watch.stalled(3));
+        assert!(watch.stalled(3));
+    }
+
+    #[test]
+    fn a_request_that_never_answers_stalls_in_the_first_window() {
+        assert!(StallWatch::default().stalled(0));
+    }
+
+    #[test]
+    fn one_late_chunk_resets_the_watch() {
+        let mut watch = StallWatch::default();
+        assert!(!watch.stalled(2));
+        assert!(!watch.stalled(3));
+        assert!(watch.stalled(3));
     }
 
     #[test]

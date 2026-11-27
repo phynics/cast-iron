@@ -2,12 +2,17 @@
 //! `cast-iron-content-<version>`. Keys are the document-relative `content/<path>` URLs.
 //! The service worker never touches these caches.
 
+use futures::future::Either;
 use js_sys::Uint8Array;
-use wasm_bindgen::{JsCast, JsValue};
+use std::cell::Cell;
+use std::rc::Rc;
+use wasm_bindgen::JsCast;
+use wasm_bindgen::closure::Closure;
 use wasm_bindgen_futures::JsFuture;
-use web_sys::{Cache, CacheStorage, Request, RequestCache, RequestInit, Response};
+use web_sys::{AbortController, Cache, CacheStorage, Request, Response};
 
-use crate::js::describe;
+use crate::install::plan::{STALL_WINDOW_MS, StallWatch};
+use crate::js::{self, describe};
 
 pub const PREFIX: &str = "cast-iron-content-";
 
@@ -138,26 +143,41 @@ impl std::fmt::Display for FetchError {
 
 /// Fetches `content/<path>` from the network, bypassing the HTTP cache. Only the installer
 /// and the update check call this.
+///
+/// A request that gets no bytes for [`STALL_WINDOW_MS`] is aborted and fails as a network error,
+/// so the installer's retries take over (#768). The bridge streams the body so that this side can
+/// count progress; the decision is [`StallWatch`], which is tested natively.
 pub async fn fetch_network(path: &str) -> Result<Vec<u8>, FetchError> {
-    let init = RequestInit::new();
-    init.set_cache(RequestCache::NoStore);
-    let request = Request::new_with_str_and_init(&url(path), &init)
-        .map_err(|e| FetchError::Network(describe(&e)))?;
-    let window = web_sys::window().ok_or_else(|| FetchError::Network("no window".into()))?;
-    let response: Response = JsFuture::from(window.fetch_with_request(&request))
-        .await
-        .map_err(|e| FetchError::Network(describe(&e)))?
-        .dyn_into()
-        .map_err(|_: JsValue| FetchError::Network("not a response".into()))?;
-    if !response.ok() {
-        return Err(FetchError::Status(response.status()));
+    let controller = AbortController::new().map_err(|e| FetchError::Network(describe(&e)))?;
+    let progress = Rc::new(Cell::new(0u64));
+    let on_progress = {
+        let progress = Rc::clone(&progress);
+        Closure::<dyn Fn()>::new(move || progress.set(progress.get() + 1))
+    };
+    let address = url(path);
+    let fetch = js::fetch_bytes(&address, &controller, on_progress.as_ref().unchecked_ref());
+    let watchdog = async {
+        let mut watch = StallWatch::default();
+        loop {
+            js::sleep(STALL_WINDOW_MS).await;
+            if watch.stalled(progress.get()) {
+                return;
+            }
+        }
+    };
+    futures::pin_mut!(fetch, watchdog);
+    let value = match futures::future::select(fetch, watchdog).await {
+        Either::Left((result, _)) => result.map_err(|e| FetchError::Network(describe(&e)))?,
+        Either::Right(((), _)) => {
+            controller.abort();
+            return Err(FetchError::Network(format!(
+                "no data for {} seconds",
+                STALL_WINDOW_MS / 1000
+            )));
+        }
+    };
+    if let Some(status) = value.as_f64() {
+        return Err(FetchError::Status(status as u16));
     }
-    let buffer = JsFuture::from(
-        response
-            .array_buffer()
-            .map_err(|e| FetchError::Network(describe(&e)))?,
-    )
-    .await
-    .map_err(|e| FetchError::Network(describe(&e)))?;
-    Ok(Uint8Array::new(&buffer).to_vec())
+    Ok(Uint8Array::from(value).to_vec())
 }

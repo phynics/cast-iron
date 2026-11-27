@@ -18,6 +18,12 @@ extern "C" {
     pub async fn idb_request(request: &IdbRequest) -> Result<JsValue, JsValue>;
     #[wasm_bindgen(js_name = idbTxDone)]
     pub fn idb_tx_done(transaction: &IdbTransaction) -> Promise;
+    #[wasm_bindgen(js_name = fetchBytes, catch)]
+    pub async fn fetch_bytes(
+        url: &str,
+        controller: &web_sys::AbortController,
+        on_progress: &Function,
+    ) -> Result<JsValue, JsValue>;
     #[wasm_bindgen(js_name = sha256Hex, catch)]
     async fn sha256_hex_js(buffer: &JsValue) -> Result<JsValue, JsValue>;
     #[wasm_bindgen(js_name = gunzipSupported)]
@@ -73,13 +79,29 @@ pub fn now_ms() -> f64 {
     js_sys::Date::now()
 }
 
-pub async fn sleep(ms: u32) {
-    let promise = Promise::new(&mut |resolve, _| {
+/// Clears a browser timer when dropped, so that a `sleep` that loses a race leaves no timer behind.
+struct ClearTimeout(i32);
+
+impl Drop for ClearTimeout {
+    fn drop(&mut self) {
         if let Some(window) = web_sys::window() {
-            let _ =
-                window.set_timeout_with_callback_and_timeout_and_arguments_0(&resolve, ms as i32);
+            window.clear_timeout_with_handle(self.0);
+        }
+    }
+}
+
+/// Resolves after `ms` milliseconds. Dropping the future before then clears the timer.
+pub async fn sleep(ms: u32) {
+    let handle = std::cell::Cell::new(0);
+    let promise = Promise::new(&mut |resolve, _| {
+        if let Some(window) = web_sys::window()
+            && let Ok(id) =
+                window.set_timeout_with_callback_and_timeout_and_arguments_0(&resolve, ms as i32)
+        {
+            handle.set(id);
         }
     });
+    let _clear = ClearTimeout(handle.get());
     let _ = JsFuture::from(promise).await;
 }
 

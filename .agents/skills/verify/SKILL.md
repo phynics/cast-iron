@@ -74,7 +74,7 @@ Find the row for the change. Run the e2e tests in that area with `--grep`, and r
 | Scoped Quick search and kind-list scopes | `scope` (`search.spec.ts`) | `crates/web/src/views/quick_search.rs`, `crates/web/src/views/scope.rs`, `crates/web/src/views/search.rs`, `crates/web/src/route.rs` |
 | Spelling corrections | `correction` (`search.spec.ts`) | `crates/search`, `crates/web/src/views/search.rs`, `crates/web/src/views/quick_search.rs` |
 | Book section search results and saved section and Contents addresses | `book section` (`search.spec.ts`, `mobile.spec.ts`) | `crates/schema/src/books.rs`, `crates/content-compiler/src/pipeline.rs`, `crates/content-compiler/src/legacy_sections.rs`, `crates/web/src/views/search.rs`, `crates/web/src/views/book.rs`, `crates/web/src/library.rs`, `crates/web/src/route.rs`, `sources/legacy-sections.json` |
-| Installer, integrity, recovery | `installs completely\|integrity\|Interrupted\|install screen` (`install.spec.ts`) | `crates/web/src/install.rs`, `crates/web/src/content_cache.rs`, `web/sw.js` |
+| Installer, integrity, recovery | `installs completely\|integrity\|Interrupted\|install screen\|stall window` (`install.spec.ts`) | `crates/web/src/install.rs`, `crates/web/src/content_cache.rs`, `web/sw.js` |
 | Offline launch, no runtime server | `Offline launch\|runtime server` (`offline.spec.ts`) | `web/sw.js`, `crates/web/src/app.rs` |
 | Entry rendering | `complex formatting` (`reference.spec.ts`) | `crates/web/src/views/rich.rs`, `crates/web/src/views/entry.rs` |
 | Footnotes: the Notes group and its markers (#507) | whole file (`footnotes.spec.ts`) | `crates/web/src/views/footnotes.rs`, `crates/web/src/views/rich.rs`, `crates/web/src/views/entry_contents.rs`, `web/styles.css` |

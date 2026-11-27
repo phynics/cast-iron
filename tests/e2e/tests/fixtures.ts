@@ -160,7 +160,7 @@ export class ServerControl {
   reset() {
     return this.post("reset");
   }
-  /** Fault for one path under /cast-iron/: corrupt, stall, abort, slow ({ms}), or status ({status}). */
+  /** Fault for one path under /cast-iron/: corrupt, stall ({once} stalls only the first request), abort, slow ({ms}), or status ({status}). */
   hook(relPath: string, mode: "corrupt" | "stall" | "abort" | "slow" | "status", extra: object = {}) {
     return this.post("hook", { path: relPath, mode, ...extra });
   }
