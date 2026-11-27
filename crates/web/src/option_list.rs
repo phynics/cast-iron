@@ -346,21 +346,47 @@ pub fn narrow(rows: &[OptionRow], choice: &OptionChoice) -> Vec<usize> {
     narrow_by(rows, &choice.find, choice.source.as_deref(), choice.level)
 }
 
+/// The distinct values that `key` reads from `rows`, in order of first appearance, each with how
+/// many of the `kept` rows (indexes into `rows`) carry it. A row whose `key` is `None` has none.
+/// A value that no kept row carries stays listed at nothing.
+fn tally<'a, K: PartialEq>(
+    rows: &'a [OptionRow],
+    kept: &[usize],
+    key: impl Fn(&'a OptionRow) -> Option<K>,
+) -> Vec<(K, usize)> {
+    let mut found: Vec<(K, usize)> = Vec::new();
+    for row in rows {
+        if let Some(value) = key(row)
+            && found.iter().all(|(seen, _)| *seen != value)
+        {
+            found.push((value, 0));
+        }
+    }
+    for &index in kept {
+        if let Some(value) = key(&rows[index])
+            && let Some(entry) = found.iter_mut().find(|(seen, _)| *seen == value)
+        {
+            entry.1 += 1;
+        }
+    }
+    found
+}
+
 /// The books of `rows` with how many rows each keeps under the other two filters, in the order
 /// of their titles. A book that the route chose stays listed with its count, even at nothing, so
 /// the choice can be cleared.
 pub fn book_counts(rows: &[OptionRow], choice: &OptionChoice) -> Vec<(String, String, usize)> {
     let kept = narrow_by(rows, &choice.find, None, choice.level);
-    let mut books: Vec<(String, String, usize)> = Vec::new();
-    for row in rows {
-        if !books.iter().any(|(source, ..)| *source == row.source) {
-            let count = kept
+    let mut books: Vec<(String, String, usize)> = tally(rows, &kept, |row| Some(&row.source))
+        .into_iter()
+        .map(|(source, count)| {
+            let book = rows
                 .iter()
-                .filter(|&&i| rows[i].source == row.source)
-                .count();
-            books.push((row.source.clone(), row.book.clone(), count));
-        }
-    }
+                .find(|row| row.source == *source)
+                .map(|row| &row.book);
+            (source.clone(), book.cloned().unwrap_or_default(), count)
+        })
+        .collect();
     cast_iron_sort::sort_by_key(&mut books, |(_, title, _)| title.to_lowercase());
     books
 }
@@ -369,19 +395,9 @@ pub fn book_counts(rows: &[OptionRow], choice: &OptionChoice) -> Vec<(String, St
 /// the lowest. Empty when no row prints a level: the group has no level menu then.
 pub fn level_counts(rows: &[OptionRow], choice: &OptionChoice) -> Vec<(u8, usize)> {
     let kept = narrow_by(rows, &choice.find, choice.source.as_deref(), None);
-    let mut levels: Vec<u8> = rows.iter().filter_map(|row| row.facts.level).collect();
-    levels.sort_unstable();
-    levels.dedup();
+    let mut levels = tally(rows, &kept, |row| row.facts.level);
+    levels.sort_unstable_by_key(|&(level, _)| level);
     levels
-        .into_iter()
-        .map(|level| {
-            let count = kept
-                .iter()
-                .filter(|&&i| rows[i].facts.level == Some(level))
-                .count();
-            (level, count)
-        })
-        .collect()
 }
 
 /// The group the route shows: the one it names, else the first of the class.
@@ -831,6 +847,25 @@ mod tests {
         // A group whose rows print no level has no level menu.
         let no_levels = vec![option("A", "core", None, None)];
         assert!(level_counts(&no_levels, &OptionChoice::default()).is_empty());
+    }
+
+    #[test]
+    fn a_tally_lists_each_value_once_in_first_seen_order_and_counts_only_kept_rows() {
+        let rows = vec![
+            option("A", "core", Some(2), None),
+            option("B", "apg", None, None),
+            option("C", "core", Some(1), None),
+            option("D", "core", Some(2), None),
+        ];
+        let by_source = |kept: &[usize]| tally(&rows, kept, |row| Some(row.source.as_str()));
+        assert_eq!(by_source(&[0, 1, 2, 3]), [("core", 3), ("apg", 1)]);
+        // A value that nothing kept carries stays listed at nothing.
+        assert_eq!(by_source(&[1]), [("core", 0), ("apg", 1)]);
+        assert_eq!(by_source(&[]), [("core", 0), ("apg", 0)]);
+        // A row with no value is not listed and not counted.
+        let by_level = tally(&rows, &[0, 1, 2, 3], |row| row.facts.level);
+        assert_eq!(by_level, [(2, 2), (1, 1)]);
+        assert!(tally(&[], &[], |row: &OptionRow| Some(row.title.as_str())).is_empty());
     }
 
     #[test]
