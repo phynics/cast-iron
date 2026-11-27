@@ -335,8 +335,10 @@ test("Version & updates holds the app and library versions, and Library and Help
   await expect(page.locator("section[aria-labelledby=set-help]")).not.toContainText("App version");
 });
 
-test("A library update cut off by a reload shows as paused, waits for Resume, and completes from the cache", async ({ page, context, server }) => {
+test("A library update cut off by a reload shows as paused, waits for Resume, and completes from the cache", async ({ page, context, server, guard }) => {
   test.setTimeout(300_000);
+  // The cut file is aborted on purpose.
+  guard.allow(/Failed to load resource|net::ERR|NetworkError|Load failed/);
   const marker = "PAUSED-LIBRARY-MARKER";
   const next = buildUpdatedLibrary(marker);
   try {
@@ -438,7 +440,8 @@ test("A paused update with a missing cache counts nothing, and a stale one is dr
     await expect.poll(() => storedMeta(page, "pending_install")).toBeNull();
     await expect.poll(async () => contentCaches(await cacheContents(page)).includes(`cast-iron-content-${stale}`)).toBe(false);
     await page.goto("#/settings");
-    await expect(page.getByTestId("library-update")).toContainText(other.manifest.corpus_tag ?? other.version);
+    // The record names a version only, so the row shows it and asks for a check first.
+    await expect(page.getByTestId("library-update")).toContainText(other.version);
     await expect(page.getByTestId("update-paused")).toHaveCount(0);
   } finally {
     other.cleanup();
