@@ -461,7 +461,7 @@ fn VersionSection() -> impl IntoView {
                             <dl class="facts">
                                 <div><dt>"Update available"</dt><dd>{value}</dd></div>
                             </dl>
-                            <p class="status" data-testid="update-paused">{paused.label()}</p>
+                            <p class="status" role="status" data-testid="update-paused">{paused.label()}</p>
                             <p class="update-prompt">
                                 <button class="btn btn-primary" type="button" on:click=resume_download
                                     prop:disabled=move || !app.online.get()
