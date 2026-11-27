@@ -239,15 +239,31 @@ test("With a book turned off, its options leave the chip count and the list", as
 // where it was. The read of the class-option shards is slowed so that the rows arrive well after
 // the page has rendered and jumped.
 
-/** Delays the Cache API read of the class-option shards by `ms`. */
+/**
+ * Delays each burst of Cache API reads of the class-option shards once, by `ms`. A group spans many
+ * shards that the app reads one after another; a delay per read would add up to tens of seconds. The
+ * first read after a quiet second opens a new gate, and the reads that follow it pass straight
+ * through, so every load of a group (each jump, each new page) arrives `ms` late in total.
+ */
 async function slowShards(page: Page, ms: number) {
   await page.addInitScript((delay) => {
     const match = Cache.prototype.match;
+    let gate: Promise<void> | undefined;
+    let busyUntil = 0;
     Cache.prototype.match = function (this: Cache, ...args: Parameters<Cache["match"]>) {
       const request = args[0] as Request | string;
       const url = typeof request === "string" ? request : request.url;
       const found = match.apply(this, args);
-      return /\/entries\/class_option-/.test(url) ? new Promise((resolve) => setTimeout(resolve, delay)).then(() => found) : found;
+      if (!/\/entries\/class_option-/.test(url)) return found;
+      const now = Date.now();
+      if (!gate || now > busyUntil + 1000) {
+        gate = new Promise<void>((resolve) => setTimeout(resolve, delay));
+        busyUntil = now + delay;
+      }
+      return gate.then(() => {
+        busyUntil = Math.max(busyUntil, Date.now());
+        return found;
+      });
     };
   }, ms);
 }
@@ -275,19 +291,23 @@ async function settled(page: Page, read: () => Promise<number>): Promise<number>
   return last!;
 }
 
-/** The read equals `before` once the rows are in, and stays equal for several more frames. */
+/**
+ * The read is within 1 px of `before` once the rows are in, and stays there for several more frames.
+ * The hold ignores a drift of up to 1.5 px (`option_list.rs`), so a rounded read may differ by one.
+ */
 async function expectStays(page: Page, read: () => Promise<number>, before: number, label: string) {
-  await expect.poll(read, { message: label }).toBe(before);
+  const near = async () => Math.abs((await read()) - before) <= 1;
+  await expect.poll(near, { message: label }).toBe(true);
   for (let frame = 0; frame < 6; frame++) {
     await nextFrames(page);
-    await expect.poll(read, { message: `${label}, frame ${frame}`, timeout: 2000 }).toBe(before);
+    await expect.poll(near, { message: `${label}, frame ${frame}`, timeout: 2000 }).toBe(true);
   }
 }
 
 const wizardRows = () => groups.find((group) => group.classes.includes(WIZARD))!.entries.length;
 
 test("A jump to a later stop stays put when the section's rows arrive", async ({ page }) => {
-  await slowShards(page, 1500);
+  await slowShards(page, 3000);
   for (const target of ["archetypes", "spells"]) {
     await openClass(page, WIZARD, `?s=${target}`);
     // The section is still its `Loading` line when the page has jumped.
@@ -305,7 +325,7 @@ test("A jump to a later stop stays put when the section's rows arrive", async ({
 });
 
 test("A heading anchor below the section stays put when the section's rows arrive", async ({ page }) => {
-  await slowShards(page, 1500);
+  await slowShards(page, 3000);
   // The Favored Class Bonuses heading comes after Archetypes, so after Options.
   await openClass(page, WIZARD, "?a=sec-favored-class-bonuses");
   await expect(page.locator("#h-sec-favored-class-bonuses")).toBeAttached();
@@ -318,7 +338,7 @@ test("A heading anchor below the section stays put when the section's rows arriv
 });
 
 test("A quick jump to Archetypes before the rows arrive stays put when they do", async ({ page }) => {
-  await slowShards(page, 1500);
+  await slowShards(page, 3000);
   await openClass(page, WIZARD);
   await stop(page, "Archetypes").click();
   await expect(countLine(page)).toContainText("Loading");
@@ -332,7 +352,7 @@ test("A quick jump to Archetypes before the rows arrive stays put when they do",
 });
 
 test("A reader who has scrolled on is held where they are, not sent back to the jump", async ({ page }) => {
-  await slowShards(page, 1500);
+  await slowShards(page, 3000);
   await openClass(page, WIZARD, "?s=archetypes");
   await expect(countLine(page)).toContainText("Loading");
   await settled(page, () => viewTop(page, '[data-class-section="archetypes"]'));
