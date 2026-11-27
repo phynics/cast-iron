@@ -7,8 +7,11 @@ const version = manifest.content_version;
 const cacheName = `cast-iron-content-${version}`;
 const contentPaths = (requests: string[]) =>
   requests.filter((p) => p.startsWith("content/") && !p.endsWith("manifest.json")).map((p) => p.slice("content/".length));
-/** Entry shards of the built library, in manifest order. Both libraries shard by kind. */
-const entryShards = manifest.files.map((f) => f.path).filter((p) => /(^|\/)entries\/[a-z_]+-\d+\.json$/.test(p));
+/**
+ * Entry shards of the built library, in manifest order, as the stored files: `entries/<kind>-NNN.json.gz`
+ * since schema 8, `.json` in a library of schema 7 or older. Both libraries shard by kind.
+ */
+const entryShards = manifest.files.map((f) => f.path).filter((p) => /(^|\/)entries\/[a-z_]+-\d+\.json(\.gz)?$/.test(p));
 const shardName = (index: number) => path.posix.basename(entryShards[index]);
 
 test("From 48rem up the install screen starts at the brand's left edge", async ({ page }) => {

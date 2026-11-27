@@ -388,38 +388,90 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import zlib from "node:zlib";
-import { DIST, GENERATED, distManifest, loadCorpus, type Entry } from "./fixtures";
+import { DIST, GENERATED, distManifest, loadCorpus, logicalPath, type Entry, type ManifestFile } from "./fixtures";
+
+const sha256 = (bytes: Buffer) => crypto.createHash("sha256").update(bytes).digest("hex");
+
+/**
+ * The decoded bytes of a file of the served library (`dist/content`), found by its manifest row.
+ * `dist` holds the stored bytes: a row with `gzip` (schema 8) is gunzipped, a plain row is read
+ * as it is. Every helper that reads library bytes goes through this one.
+ */
+export function readLibraryFile(file: ManifestFile): Buffer {
+  const stored = fs.readFileSync(path.join(DIST, "content", file.path));
+  return file.gzip ? zlib.gunzipSync(stored) : stored;
+}
+
+/** The file of the served library with the logical path `name` (relative to the version directory). */
+export function findLibraryFile(manifest: { content_version: string; files: ManifestFile[] }, name: string): ManifestFile {
+  const wanted = `${manifest.content_version}/${name}`;
+  const file = manifest.files.find((candidate) => logicalPath(candidate) === wanted);
+  if (!file) throw new Error(`the library has no ${name}`);
+  return file;
+}
+
+/**
+ * Writes `decoded` as the new content of the file that `file` describes, under
+ * `<dir>/content/<file.path>`, and returns the manifest row for it. A row with `gzip` is stored
+ * gzipped: the row then holds the new stored hash and size, and the new decoded hash and size
+ * under `gzip`. The gzip bytes need not equal the compiler's, because the manifest holds the hashes.
+ */
+export function writeLibraryFile(dir: string, file: ManifestFile, decoded: Buffer): ManifestFile {
+  const stored = file.gzip ? zlib.gzipSync(decoded, { level: 6 }) : decoded;
+  const target = path.join(dir, "content", file.path);
+  fs.mkdirSync(path.dirname(target), { recursive: true });
+  fs.writeFileSync(target, stored);
+  const row: ManifestFile = { ...file, sha256: sha256(stored), bytes: stored.length };
+  if (file.gzip) row.gzip = { sha256: sha256(decoded), bytes: decoded.length };
+  return row;
+}
 
 /**
  * Builds an alternative library in a temp directory: the served library with legal.json changed.
  * The result is laid out as `<dir>/content/manifest.json` and `<dir>/content/<version>/...`,
  * which the test server overlays on dist. The version follows the compiler's documented rule
- * (sha256 of the sorted "path:sha256" lines), but the client must not depend on that.
+ * (sha256 of the sorted "path:sha256" lines of the stored files), but the client must not depend
+ * on that. Files are read decoded and stored the way their rows store them: gzipped when dist's
+ * rows carry `gzip`, plain for a library of schema 7 or older.
  */
 export function buildUpdatedLibrary(marker: string) {
   const old = distManifest();
   const oldPrefix = `${old.content_version}/`;
-  const files = new Map<string, Buffer>();
-  for (const f of old.files) files.set(f.path.slice(oldPrefix.length), fs.readFileSync(path.join(DIST, "content", f.path)));
-  const legal = JSON.parse(files.get("legal.json")!.toString());
+  // Each file by its logical name, decoded; `gz` keeps the way its row stores it.
+  const files = new Map<string, { decoded: Buffer; gz: boolean }>();
+  for (const f of old.files) files.set(logicalPath(f).slice(oldPrefix.length), { decoded: readLibraryFile(f), gz: !!f.gzip });
+  const legalFile = files.get("legal.json")!;
+  const legal = JSON.parse(legalFile.decoded.toString());
   legal.community_use_notice += ` ${marker}`;
-  files.set("legal.json", Buffer.from(JSON.stringify(legal)));
+  legalFile.decoded = Buffer.from(JSON.stringify(legal));
 
-  const sha = (b: Buffer) => crypto.createHash("sha256").update(b).digest("hex");
-  const sorted = [...files.keys()].sort();
-  const lines = sorted.map((p) => `${p}:${sha(files.get(p)!)}\n`).join("");
+  // The stored files, sorted by stored name: the version hashes these lines, as the compiler does.
+  const stored = [...files]
+    .map(([name, { decoded, gz }]) => ({
+      name: gz ? `${name}.gz` : name,
+      decoded,
+      gz,
+      bytes: gz ? zlib.gzipSync(decoded, { level: 6 }) : decoded,
+    }))
+    .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+  const lines = stored.map((f) => `${f.name}:${sha256(f.bytes)}\n`).join("");
   const version = `v${crypto.createHash("sha256").update(lines).digest("hex").slice(0, 16)}`;
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cast-iron-e2e-v2-"));
-  for (const p of sorted) {
-    const target = path.join(dir, "content", version, p);
+  for (const f of stored) {
+    const target = path.join(dir, "content", version, f.name);
     fs.mkdirSync(path.dirname(target), { recursive: true });
-    fs.writeFileSync(target, files.get(p)!);
+    fs.writeFileSync(target, f.bytes);
   }
   const manifest = {
     ...old,
     content_version: version,
-    total_bytes: sorted.reduce((n, p) => n + files.get(p)!.length, 0),
-    files: sorted.map((p) => ({ path: `${version}/${p}`, sha256: sha(files.get(p)!), bytes: files.get(p)!.length })),
+    total_bytes: stored.reduce((n, f) => n + f.bytes.length, 0),
+    files: stored.map((f): ManifestFile => ({
+      path: `${version}/${f.name}`,
+      sha256: sha256(f.bytes),
+      bytes: f.bytes.length,
+      ...(f.gz ? { gzip: { sha256: sha256(f.decoded), bytes: f.decoded.length } } : {}),
+    })),
   };
   fs.writeFileSync(path.join(dir, "content/manifest.json"), JSON.stringify(manifest));
   return { dir, version, manifest, cleanup: () => fs.rmSync(dir, { recursive: true, force: true }) };
@@ -526,10 +578,11 @@ function buildLibraryWithEntryPatch(
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), `cast-iron-e2e-${label}-`));
   const wanted = new Set(ids);
   const left = new Set(ids);
+  // New decoded bytes by the manifest path of the file (its stored path).
   const changed = new Map<string, Buffer>();
   for (const file of old.files) {
-    if (!/^[^/]+\/entries\/[^/]+\.json$/.test(file.path)) continue;
-    const entries = JSON.parse(fs.readFileSync(path.join(DIST, "content", file.path), "utf8"));
+    if (!/^[^/]+\/entries\/[^/]+\.json$/.test(logicalPath(file))) continue;
+    const entries = JSON.parse(readLibraryFile(file).toString("utf8"));
     let touched = false;
     for (const entry of entries) {
       if (!wanted.has(entry.id)) continue;
@@ -540,24 +593,19 @@ function buildLibraryWithEntryPatch(
     if (touched) changed.set(file.path, Buffer.from(JSON.stringify(entries)));
   }
   if (left.size) throw new Error(`no entry shard holds: ${[...left].join(", ")}`);
-  const tradesFile = old.files.find((file) => file.path.endsWith("/trades.json"));
   if (patchTrades) {
+    const tradesFile = old.files.find((file) => logicalPath(file).endsWith("/trades.json"));
     if (!tradesFile) throw new Error("the library has no trades.json");
-    const trades = JSON.parse(fs.readFileSync(path.join(DIST, "content", tradesFile.path), "utf8"));
+    const trades = JSON.parse(readLibraryFile(tradesFile).toString("utf8"));
     patchTrades(trades);
     changed.set(tradesFile.path, Buffer.from(JSON.stringify(trades)));
   }
-  const sha = (b: Buffer) => crypto.createHash("sha256").update(b).digest("hex");
-  for (const [relative, bytes] of changed) {
-    const target = path.join(dir, "content", relative);
-    fs.mkdirSync(path.dirname(target), { recursive: true });
-    fs.writeFileSync(target, bytes);
-  }
   const files = old.files.map((file) => {
-    const bytes = changed.get(file.path);
-    return bytes ? { ...file, sha256: sha(bytes), bytes: bytes.length } : file;
+    const decoded = changed.get(file.path);
+    return decoded ? writeLibraryFile(dir, file, decoded) : file;
   });
   const total_bytes = files.reduce((n, file) => n + file.bytes, 0);
+  fs.mkdirSync(path.join(dir, "content"), { recursive: true });
   fs.writeFileSync(path.join(dir, "content/manifest.json"), JSON.stringify({ ...old, total_bytes, files }));
   return { dir, cleanup: () => fs.rmSync(dir, { recursive: true, force: true }) };
 }
@@ -570,8 +618,9 @@ function buildLibraryWithEntryPatch(
  */
 export function buildLibraryWithoutBooks() {
   const old = distManifest();
-  const books = old.files.filter((f) => f.path.endsWith("/books.json"));
-  const files = old.files.filter((f) => !f.path.endsWith("/books.json"));
+  const isBooks = (f: ManifestFile) => logicalPath(f).endsWith("/books.json");
+  const books = old.files.filter(isBooks);
+  const files = old.files.filter((f) => !isBooks(f));
   const total_bytes = old.total_bytes - books.reduce((n, f) => n + f.bytes, 0);
   const manifest = { ...old, total_bytes, files };
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cast-iron-e2e-no-books-"));
@@ -587,9 +636,9 @@ export function buildLibraryWithoutBooks() {
  */
 export function buildLibraryWithoutBacklinks() {
   const old = distManifest();
-  const isBacklink = (p: string) => /\/backlinks\.json$/.test(p) || /\/backlinks\//.test(p);
-  const removed = old.files.filter((f) => isBacklink(f.path));
-  const files = old.files.filter((f) => !isBacklink(f.path));
+  const isBacklink = (f: ManifestFile) => /\/backlinks\.json$/.test(logicalPath(f)) || /\/backlinks\//.test(logicalPath(f));
+  const removed = old.files.filter(isBacklink);
+  const files = old.files.filter((f) => !isBacklink(f));
   const total_bytes = old.total_bytes - removed.reduce((n, f) => n + f.bytes, 0);
   const manifest = { ...old, schema_version: 3, total_bytes, files };
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "cast-iron-e2e-no-backlinks-"));
@@ -620,26 +669,26 @@ export function buildNewerManifest() {
 }
 
 /**
- * An overlay of the served library with every library file gzipped (design 2026-11-27, slice 2).
- * Each row stores the `.gz` bytes (`path`, `sha256`, `bytes`) and carries the decoded hash and
- * size under `gzip`. The manifest stays at the schema of dist: slice 1 lets any schema carry
- * gzip rows. The version follows the documented rule over the stored files, so it differs from
- * the library of dist, and the gzip bytes need not equal the compiler's (the manifest holds the
- * hashes). Laid out like `buildUpdatedLibrary`: `<dir>/content/manifest.json` and
+ * An overlay of the served library in which every file is gzipped again with node's zlib
+ * (design 2026-11-27, slice 2). Since schema 8 dist already ships gzip rows, so the overlay holds
+ * the same decoded files as dist under different stored bytes, and so a different content version:
+ * a second library of the same content, for a spec that installs one library over another. Each
+ * row stores the `.gz` bytes (`path`, `sha256`, `bytes`) and carries the decoded hash and size
+ * under `gzip`. The gzip bytes need not equal the compiler's (the manifest holds the hashes). It
+ * also works on a dist of schema 7 or older, whose plain files it gzips: slice 1 lets any schema
+ * carry gzip rows. Laid out like `buildUpdatedLibrary`: `<dir>/content/manifest.json` and
  * `<dir>/content/<version>/<name>.gz`.
  */
 export function buildGzippedLibrary() {
   const old = distManifest();
   const oldPrefix = `${old.content_version}/`;
-  const sha = (b: Buffer) => crypto.createHash("sha256").update(b).digest("hex");
+  const sha = sha256;
   const stored = new Map<string, { gz: Buffer; decoded: Buffer }>();
   for (const f of old.files) {
     if (f.path === `${oldPrefix}manifest.json`) continue;
-    const read = fs.readFileSync(path.join(DIST, "content", f.path));
-    // A built site that already ships gzip rows: decode to the logical file first.
-    const decoded = f.gzip ? zlib.gunzipSync(read) : read;
-    const name = (f.gzip ? f.path.slice(0, -".gz".length) : f.path).slice(oldPrefix.length);
-    stored.set(`${name}.gz`, { gz: zlib.gzipSync(decoded, { level: 6 }), decoded });
+    // Decode to the logical file first: dist already ships gzip rows.
+    const decoded = readLibraryFile(f);
+    stored.set(`${logicalPath(f).slice(oldPrefix.length)}.gz`, { gz: zlib.gzipSync(decoded, { level: 6 }), decoded });
   }
   const sorted = [...stored.keys()].sort();
   const lines = sorted.map((p) => `${p}:${sha(stored.get(p)!.gz)}\n`).join("");

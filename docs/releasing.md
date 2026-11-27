@@ -251,10 +251,22 @@ that sends it to a live entry.
 
 ## Size budget
 
-`sources/size-budget.toml` holds three limits in bytes: the whole library in `generated/content`,
-its largest file (`search.bin`), and the WASM binary in `dist/`. Each is the size measured on
-2026-11-17 plus about 5%. The CI **Build the site** job runs `cargo xtask size-budget` after the
-site build, and the job fails when any measure is over its limit. The message names each overrun.
+`sources/size-budget.toml` holds three limits in bytes. Each is the size measured on a build plus
+about 5%:
+
+- `library_bytes`: what a device downloads and stores. `cargo xtask size-budget` reads it from the
+  manifest of `generated/content`: `total_bytes` (the sum of the stored `.gz` files) plus the size
+  of `manifest.json`. It does not sum the files on disk, because `generated/content` holds both
+  layers (the decoded files and the `.gz` files) and only the `.gz` files are published.
+- `largest_file_bytes`: the largest *decoded* file (`search.bin`), because the decoded size sets
+  the memory peak of a read.
+- `wasm_bytes`: the WASM binary in `dist/`.
+
+`library_bytes` and `largest_file_bytes` were reset on 2026-11-27, when the library became gzip
+files (schema 8, `docs/decisions/2026-11-27-precompressed-library.md`): the library is about
+44.6 MB and `search.bin` about 68.8 MB decoded. The CI **Build the site** job runs
+`cargo xtask size-budget` after the site build, and the job fails when any measure is over its
+limit. The message names each overrun.
 
 To raise a limit, change that one line in the pull request that makes the build larger, and say
 in the description why it grew. A reviewer approves the line. Do not raise a limit to make a build
