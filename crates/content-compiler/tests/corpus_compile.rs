@@ -244,6 +244,66 @@ fn tree(dir: &Path) -> Vec<(String, Vec<u8>)> {
     out
 }
 
+/// Every file of a schema-8 library is stored as one gzip member under `<name>.gz`, with the
+/// decoded file beside it. The manifest hashes both layers, the stored file decodes to the
+/// decoded one, and the content version is the hash of the stored lines.
+fn assert_stored_and_decoded_layers(out: &Path, manifest: &ContentManifest) {
+    use sha2::{Digest, Sha256};
+    use std::io::Read;
+    let hex = |bytes: &[u8]| format!("{:x}", Sha256::digest(bytes));
+    assert_eq!(manifest.schema_version, cast_iron_schema::SCHEMA_VERSION);
+    let prefix = format!("{}/", manifest.content_version);
+    let mut lines = String::new();
+    let mut total = 0;
+    let mut paths: Vec<&str> = Vec::new();
+    for file in &manifest.files {
+        let decoded = file
+            .gzip
+            .as_ref()
+            .unwrap_or_else(|| panic!("{} has no gzip row", file.path));
+        assert!(file.path.ends_with(".gz"), "{}", file.path);
+        let stored = fs::read(out.join(&file.path)).unwrap();
+        assert_eq!(stored.len() as u64, file.bytes, "{}", file.path);
+        assert_eq!(hex(&stored), file.sha256, "{}", file.path);
+        assert_eq!(
+            stored[..10],
+            [0x1f, 0x8b, 0x08, 0x00, 0, 0, 0, 0, 0x00, 0xff],
+            "{}: the gzip header is not the fixed one",
+            file.path
+        );
+        let plain = fs::read(out.join(file.logical_path())).unwrap();
+        assert_eq!(plain.len() as u64, decoded.bytes, "{}", file.path);
+        assert_eq!(hex(&plain), decoded.sha256, "{}", file.path);
+        let mut again = Vec::new();
+        flate2::read::GzDecoder::new(stored.as_slice())
+            .read_to_end(&mut again)
+            .unwrap();
+        assert_eq!(
+            again, plain,
+            "{} does not decode to its decoded file",
+            file.path
+        );
+        lines.push_str(&format!(
+            "{}:{}\n",
+            file.path.strip_prefix(&prefix).unwrap(),
+            file.sha256
+        ));
+        total += file.bytes;
+        paths.push(&file.path);
+    }
+    assert_eq!(total, manifest.total_bytes);
+    assert!(
+        paths.windows(2).all(|pair| pair[0] < pair[1]),
+        "rows are not sorted by path"
+    );
+    assert_eq!(
+        manifest.content_version,
+        format!("v{}", &hex(lines.as_bytes())[..16]),
+        "the content version is not the hash of the stored lines"
+    );
+    assert!(!out.join("manifest.json.gz").exists());
+}
+
 #[test]
 fn a_corpus_compiles_to_a_verified_library_with_the_same_bytes_every_time() {
     let corpus = temp("corpus");
@@ -268,6 +328,7 @@ fn a_corpus_compiles_to_a_verified_library_with_the_same_bytes_every_time() {
         for file in &manifest.files {
             assert!(out.join(&file.path).is_file(), "{}", file.path);
         }
+        assert_stored_and_decoded_layers(&out, &manifest);
         assert!(reports.join("coverage.md").is_file());
         assert!(reports.join("validation.json").is_file());
         assert!(reports.join("reachability.json").is_file());
@@ -276,7 +337,7 @@ fn a_corpus_compiles_to_a_verified_library_with_the_same_bytes_every_time() {
         let derived: Vec<String> = manifest
             .files
             .iter()
-            .map(|file| file.path.clone())
+            .map(|file| file.logical_path().to_string())
             .collect();
         for name in ["relations.json", "option-groups.json", "trades.json"] {
             assert!(
@@ -578,6 +639,21 @@ fn write_entries(corpus: &Path, format: u32, entries: &[RuleEntry]) {
     }
 }
 
+/// The decoded entry shards of a version directory (`entries/*.json`; the `.gz` files beside them
+/// are the stored layer).
+fn decoded_shards(version: &Path) -> Vec<PathBuf> {
+    let mut shards: Vec<PathBuf> = fs::read_dir(version.join("entries"))
+        .unwrap()
+        .map(|item| item.unwrap().path())
+        .filter(|path| {
+            path.extension()
+                .is_some_and(|extension| extension == "json")
+        })
+        .collect();
+    shards.sort();
+    shards
+}
+
 /// Compiles `corpus` and returns the parsed `trades.json` and every entry shard's text.
 fn compile_trades(corpus: &Path, name: &str) -> Result<(serde_json::Value, String), String> {
     let out = temp(&format!("{name}-out"));
@@ -586,8 +662,8 @@ fn compile_trades(corpus: &Path, name: &str) -> Result<(serde_json::Value, Strin
     let version = out.join(&outcome.content_version);
     let trades = serde_json::from_slice(&fs::read(version.join("trades.json")).unwrap()).unwrap();
     let mut shards = String::new();
-    for item in fs::read_dir(version.join("entries")).unwrap() {
-        shards.push_str(&fs::read_to_string(item.unwrap().path()).unwrap());
+    for item in decoded_shards(&version) {
+        shards.push_str(&fs::read_to_string(item).unwrap());
     }
     Ok((trades, shards))
 }
@@ -661,8 +737,8 @@ fn attached_entry_indexes_are_derived_from_the_corpus() {
     );
     // The shards hold no trades; the old file is gone.
     assert!(!version.join("replaces.json").exists());
-    for item in fs::read_dir(version.join("entries")).unwrap() {
-        let shard = fs::read_to_string(item.unwrap().path()).unwrap();
+    for item in decoded_shards(&version) {
+        let shard = fs::read_to_string(item).unwrap();
         assert!(!shard.contains("\"trades\""), "{shard}");
         assert!(!shard.contains("\"printed\""), "{shard}");
     }
@@ -1258,9 +1334,9 @@ fn compiled_books(out: &Path) -> BookIndex {
     let file = manifest
         .files
         .iter()
-        .find(|file| file.path.ends_with("/books.json"))
+        .find(|file| file.logical_path().ends_with("/books.json"))
         .expect("books.json is in the manifest");
-    serde_json::from_slice(&fs::read(out.join(&file.path)).unwrap()).unwrap()
+    serde_json::from_slice(&fs::read(out.join(file.logical_path())).unwrap()).unwrap()
 }
 
 #[test]
@@ -1417,7 +1493,7 @@ fn a_creature_with_several_stat_sets_stores_them_and_a_single_set_stores_none() 
     let files = compile_tree(&corpus, "stat-sets");
     let entries: Vec<RuleEntry> = files
         .iter()
-        .filter(|(path, _)| path.starts_with("entries/"))
+        .filter(|(path, _)| path.starts_with("entries/") && path.ends_with(".json"))
         .flat_map(|(_, bytes)| serde_json::from_slice::<Vec<RuleEntry>>(bytes).unwrap())
         .collect();
     let find = |id: &str| {

@@ -5,6 +5,7 @@ pub mod backlinks;
 pub mod book_slots;
 pub mod corpus_build;
 pub mod corpus_coverage;
+pub mod gzip;
 pub mod legacy_sections;
 pub mod lists;
 pub mod pipeline;

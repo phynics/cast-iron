@@ -30,6 +30,14 @@ export interface Manifest {
   corpus_tag?: string;
 }
 
+/**
+ * The name of a library file to a reader (its logical path): the manifest path without `.gz` when
+ * the row has `gzip`. A row without `gzip` (a library of schema 1 to 7) is its own name.
+ */
+export function logicalPath(file: ManifestFile): string {
+  return file.gzip ? file.path.replace(/\.gz$/, "") : file.path;
+}
+
 /** The manifest of the built site, which is what the test server hands out. */
 export function distManifest(): Manifest {
   return JSON.parse(fs.readFileSync(path.join(DIST, "content/manifest.json"), "utf8"));
@@ -96,7 +104,8 @@ export function loadCorpus(): Corpus {
   }
   const dir = path.join(GENERATED, manifest.content_version, "entries");
   const entries = new Map<string, Entry>();
-  for (const file of fs.readdirSync(dir).sort()) {
+  // GENERATED holds both layers (schema 8): the decoded `<name>.json` and the stored `<name>.json.gz`.
+  for (const file of fs.readdirSync(dir).filter((name) => name.endsWith(".json")).sort()) {
     for (const entry of JSON.parse(fs.readFileSync(path.join(dir, file), "utf8"))) entries.set(entry.id, entry);
   }
   const catalog = JSON.parse(fs.readFileSync(path.join(GENERATED, manifest.content_version, "catalog.json"), "utf8"));

@@ -6,7 +6,6 @@ explicit and incomplete. Named material is allowed only where the entry carries
 the Community Use notice path. Any new book needs a separate licensing review.
 """
 
-import hashlib
 import json
 from pathlib import Path
 import re
@@ -17,17 +16,23 @@ ROOT = Path(__file__).resolve().parents[1]
 license_spec = importlib.util.spec_from_file_location("publication_license", Path(__file__).with_name("publication-license.py"))
 publication_license = importlib.util.module_from_spec(license_spec)
 license_spec.loader.exec_module(publication_license)
+reader_spec = importlib.util.spec_from_file_location("library_reader", Path(__file__).with_name("library-reader.py"))
+library_reader = importlib.util.module_from_spec(reader_spec)
+reader_spec.loader.exec_module(library_reader)
 CONTENT = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "dist/content"
-manifest = json.loads((CONTENT / "manifest.json").read_text())
-library = CONTENT / manifest["content_version"]
-catalog = json.loads((library / "catalog.json").read_text())
-legal = json.loads((library / "legal.json").read_text())
+# The library is read through its manifest: a schema-8 `dist/content` holds only `.gz` files,
+# and every file is named by its logical path (docs/decisions/2026-11-27-precompressed-library.md).
+library = library_reader.Library(CONTENT)
+manifest = library.manifest
 
-issues = []
-for item in manifest["files"]:
-    data = (CONTENT / item["path"]).read_bytes()
-    if len(data) != item["bytes"] or hashlib.sha256(data).hexdigest() != item["sha256"]:
-        issues.append(f"Manifest mismatch: {item['path']}")
+# Every file against its row first: the stored hash, and for a gzip row the decoded hash. A
+# library that does not match is not read any further.
+issues = library.verify()
+if issues:
+    print("\n".join(issues), file=sys.stderr)
+    raise SystemExit(1)
+catalog = library.read_json("catalog.json")
+legal = library.read_json("legal.json")
 
 sources = {source["id"] for source in catalog["sources"]}
 # The sixteen core books that the first release published must stay in the library. Every
@@ -90,9 +95,7 @@ cup_publications = publication_license.cup_publications(legal.get("publication_l
 outbound = re.compile(r"https?://|pathfinderwiki", re.IGNORECASE)
 cup_named = 0
 counts = {}
-entries = []
-for file in sorted((library / "entries").glob("*.json")):
-    entries.extend(json.loads(file.read_text()))
+entries = library.entries()
 for entry in entries:
     counts[entry["kind"]] = counts.get(entry["kind"], 0) + 1
     issues.extend(publication_license.entry_issues(entry, sources, cup_publications))

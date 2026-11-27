@@ -27,8 +27,8 @@ const otherSource = corpus.catalog.sources.find((source) =>
   source.entry_count > 0 && source.id !== placedIn);
 
 test("Content update keeps user records", async ({ page, context, server }) => {
-  // The canonical library is about 220 MB; building the replacement copy and verifying it
-  // take longer than the default test budget on a local disk.
+  // The canonical library is about 220 MB decoded (45 MB stored); building the replacement copy and
+  // verifying it take longer than the default test budget on a local disk.
   test.setTimeout(300_000);
   expect(otherSource, "a second publication in the compiled library").toBeTruthy();
   const marker = "UPDATED-LIBRARY-MARKER";
@@ -63,13 +63,15 @@ test("Content update keeps user records", async ({ page, context, server }) => {
 
     // The server now offers v2. One of its files is slow, so the update is in flight while the
     // open second page is checked below.
-    const slow = next.manifest.files.find((file) =>
-      file.path.includes("/entries/") && file.path.endsWith(".json"))!.path;
+    const slowFile = next.manifest.files.find((file) =>
+      file.path.includes("/entries/") && /\.json(\.gz)?$/.test(file.path))!;
+    const slow = slowFile.path;
     await server.overlay(next.dir);
-    // Keep v2 visibly in flight long enough that every page agrees on v1. The canonical
-    // library's first entries shard is about 400 KB, so 1500 ms per 16 KB chunk holds
-    // activation for roughly 40 s.
-    await server.hook(`content/${slow}`, "slow", { ms: 1500 });
+    // Keep v2 visibly in flight long enough that every page agrees on v1. The server sends the
+    // stored file in 16 KB chunks, `ms` apart. A stored shard is gzip since schema 8, a fifth of
+    // its decoded size, so the delay is sized from the file to hold the download for about 40 s.
+    const chunks = Math.ceil(slowFile.bytes / 16384);
+    await server.hook(`content/${slow}`, "slow", { ms: Math.ceil(40_000 / chunks) });
     await page.getByRole("button", { name: "Check now", exact: true }).click();
     // The update row says each thing once (#584): one size, one button, one reassurance, and
     // nothing that belongs to the first install.
@@ -106,8 +108,11 @@ test("Content update keeps user records", async ({ page, context, server }) => {
     await reader.close();
 
     // Activation: the new version is active, the old cache is gone, the records are intact.
+    // Wait for activation itself, then read the label.
+    await expect
+      .poll(async () => (await activeLibrary(page))?.content_version, { timeout: 120_000 })
+      .toBe(next.version);
     await expect(page.getByTestId("library-version")).toHaveText(corpusLabel(next.manifest), { timeout: 120_000 });
-    expect((await activeLibrary(page)).content_version).toBe(next.version);
     // The install panel's status line is gone with the old Reader; focus is on main, not the body.
     await expect.poll(() => page.evaluate(() => document.activeElement?.id)).toBe("main");
     await expect.poll(async () => contentCaches(await cacheContents(page))).toEqual([`cast-iron-content-${next.version}`]);
@@ -388,8 +393,10 @@ test("A library update cut off by a reload shows as paused, waits for Resume, an
 
     // Resume continues from the cache: it fetches only the files that are missing.
     await row.getByRole("button", { name: "Resume", exact: true }).click();
+    await expect
+      .poll(async () => (await activeLibrary(page))?.content_version, { timeout: 120_000 })
+      .toBe(next.version);
     await expect(page.getByTestId("library-version")).toHaveText(corpusLabel(next.manifest), { timeout: 120_000 });
-    expect((await activeLibrary(page)).content_version).toBe(next.version);
     const fetched = (await server.requests()).filter((p) => p.startsWith(`content/${next.version}/`));
     expect(fetched).toHaveLength(total - cached);
     expect(await storedMeta(page, "pending_install")).toBeNull();

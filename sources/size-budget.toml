@@ -1,10 +1,21 @@
 # Size budget for a build, in bytes. `cargo xtask size-budget` fails CI when the library in
 # generated/content or the WASM binary in dist/ is larger than its line here.
 #
-# library_bytes and largest_file_bytes are the sizes measured on 2026-11-17 (corpus v0.1.23)
-# plus about 5%, rounded up:
-#   library_bytes       223,140,755  every file under generated/content, manifest.json included
-#   largest_file_bytes   68,762,988  search.bin
+# The library is measured from the manifest of generated/content, not from the files on disk:
+# that directory holds both layers (decoded and gzip), and a device downloads and stores only
+# the gzip one (docs/decisions/2026-11-27-precompressed-library.md, section 7).
+#
+# library_bytes and largest_file_bytes were reset on 2026-11-27, when the library became gzip
+# files (schema 8, #746), to the sizes measured on corpus v0.1.64 plus 5%, rounded up to the next
+# 10,000:
+#   library_bytes       46,840,000  what a device downloads and stores: `total_bytes` (the sum of
+#                                   the stored .gz files, 44,533,011) plus manifest.json (67,952).
+#                                   Measured 44,600,963. The old line, 234,300,000, measured the
+#                                   decoded library (214,752,323 on the same corpus)
+#   largest_file_bytes  72,210,000  the largest decoded file, search.bin. It is the decoded size
+#                                   that sets the memory peak of a read, so the line keeps
+#                                   measuring decoded bytes. Measured 68,768,635, unchanged by
+#                                   gzip: the index bytes did not change
 #
 # wasm_bytes was reset on 2026-11-22: the `wasm-release` profile (opt-level "z", the search crate
 # at "s"; docs/decisions/2026-11-21-wasm-built-for-size.md) with the one stable sort helper
@@ -17,6 +28,6 @@
 #
 # To raise a value, change one line in a pull request and say why the build grew. A reviewer
 # approves that line. Never raise it to make a build pass without a reason.
-library_bytes = 234300000
-largest_file_bytes = 72300000
+library_bytes = 46840000
+largest_file_bytes = 72210000
 wasm_bytes = 2750000

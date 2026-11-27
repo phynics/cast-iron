@@ -70,6 +70,13 @@ pub mod validate;
 /// reader fails on the unknown `haunt` kind value, so the version rises and an older shell
 /// refuses a schema-7 library before it downloads one. Nothing else in the library changes.
 ///
+/// 8: gzip files (#746). Every library file except `manifest.json` is stored as `<name>.gz`, one
+/// gzip member per file, and each [`ManifestFile`] row carries the decoded hash and size under
+/// `gzip`. The serialized content of each file is the same as under schema 7. A schema-7 reader
+/// ignores the `gzip` key, would download and verify the `.gz` files, and then fail to parse
+/// them, so the version rises and an older shell refuses a schema-8 manifest before it downloads
+/// anything (`docs/decisions/2026-11-27-precompressed-library.md`).
+///
 /// [`RuleEntry::sources`] and [`RuleEntry::aon`] are additive and optional: a library without
 /// them omits the key, and an older reader ignores an unknown key, so they do not change this
 /// version. So are `features` of [`ArchetypeFields`], [`ClassOptionFields`] and [`ClassFields`]
@@ -77,7 +84,7 @@ pub mod validate;
 /// these types denies unknown fields. So is `ability_type` of [`ClassOptionFields`] (#540,
 /// owner ruling 63): omitted when absent, ignored by a reader that does not know it. So is `feature`
 /// of [`OptionGroup`] (#754): omitted when absent, ignored by a reader that does not know it.
-pub const SCHEMA_VERSION: u32 = 7;
+pub const SCHEMA_VERSION: u32 = 8;
 
 /// Name of the relation index, relative to the version directory.
 pub const RELATIONS_FILE: &str = "relations.json";

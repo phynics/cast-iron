@@ -6,7 +6,7 @@
 //! The compiler writes the whole library into a sibling staging directory, then replaces the
 //! output directory in two renames and one delete:
 //!
-//! 1. write `<out>.staging`, the manifest last;
+//! 1. write `<out>.staging`, the manifest last (the decoded files and the stored `.gz` files both);
 //! 2. rename `<out>` to `<out>.backup`, when `<out>` holds a library;
 //! 3. rename `<out>.staging` to `<out>`;
 //! 4. delete `<out>.backup`.
@@ -204,10 +204,20 @@ fn read_manifest(dir: &Path) -> Option<ContentManifest> {
     serde_json::from_slice(&fs::read(dir.join("manifest.json")).ok()?).ok()
 }
 
+/// Whether the file at `path` under `dir` has the size and SHA-256.
+fn file_matches(dir: &Path, path: &str, bytes: u64, sha256: &str) -> bool {
+    fs::read(dir.join(path)).is_ok_and(|data| {
+        data.len() as u64 == bytes && format!("{:x}", Sha256::digest(&data)) == sha256
+    })
+}
+
 /// A library is whole when its manifest passes the installer's structural check and every file it
-/// lists has the listed size and SHA-256. Recovery uses this before it keeps one copy and discards
-/// the other, so an edited or damaged copy is not chosen over a good one. The writer puts the
-/// manifest last, so a directory without one is partly written.
+/// lists has the listed size and SHA-256. A row with `gzip` lists two files: the stored `.gz` file
+/// at its `path` and the decoded file at its logical path, which the staging directory holds beside
+/// it. Both are checked against their hashes, and neither is decompressed. Recovery uses this
+/// before it keeps one copy and discards the other, so an edited or damaged copy is not chosen
+/// over a good one. The writer puts the manifest last, so a directory without one is partly
+/// written.
 fn is_whole(dir: &Path) -> bool {
     let Some(manifest) = read_manifest(dir) else {
         return false;
@@ -216,10 +226,10 @@ fn is_whole(dir: &Path) -> bool {
         return false;
     }
     manifest.files.iter().all(|file| {
-        fs::read(dir.join(&file.path)).is_ok_and(|bytes| {
-            bytes.len() as u64 == file.bytes
-                && format!("{:x}", Sha256::digest(&bytes)) == file.sha256
-        })
+        file_matches(dir, &file.path, file.bytes, &file.sha256)
+            && file.gzip.as_ref().is_none_or(|decoded| {
+                file_matches(dir, file.logical_path(), decoded.bytes, &decoded.sha256)
+            })
     })
 }
 
@@ -337,14 +347,15 @@ pub fn recover_out(lock: &OutLock) -> Result<(), String> {
 }
 
 /// Writes the whole library into a staging directory beside the output directory, then replaces
-/// the output directory with it. The caller holds the lock.
+/// the output directory with it. The caller holds the lock. `layers` are the files to write, each
+/// map by the path under the version directory: the decoded files and the stored `.gz` files.
 ///
 /// A failure while writing leaves `out` as it was. The manifest is the last file written into the
 /// staging directory, and `out` is touched only by the two renames and the final delete.
 pub fn publish_staged(
     lock: &OutLock,
     content_version: &str,
-    files: &BTreeMap<String, Vec<u8>>,
+    layers: &[&BTreeMap<String, Vec<u8>>],
     manifest: &[u8],
 ) -> Result<(), String> {
     let out = lock.out();
@@ -354,7 +365,7 @@ pub fn publish_staged(
     let backup = backup_dir(out);
     remove_dir(&staging)?;
     let written = (|| {
-        for (path, bytes) in files {
+        for (path, bytes) in layers.iter().flat_map(|layer| layer.iter()) {
             write_file(&staging.join(content_version).join(path), bytes)?;
         }
         write_file(&staging.join("manifest.json"), manifest)
@@ -386,7 +397,7 @@ pub fn publish_staged(
 mod tests {
     use super::*;
     use cast_iron_schema::manifest_check::REQUIRED_FILES;
-    use cast_iron_schema::{ManifestFile, SCHEMA_VERSION};
+    use cast_iron_schema::{Decoded, ManifestFile, SCHEMA_VERSION};
 
     fn temp(name: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("ci-publish-{name}-{}", std::process::id()));
@@ -484,7 +495,7 @@ mod tests {
         let out = base.join("content");
         library(&out, "vold");
         let lock = locked(&out);
-        publish_staged(&lock, "vnew", &files("vnew"), &manifest_bytes("vnew")).unwrap();
+        publish_staged(&lock, "vnew", &[&files("vnew")], &manifest_bytes("vnew")).unwrap();
         assert_eq!(version(&out), "vnew");
         only_out_remains(&out);
         drop(lock);
@@ -613,6 +624,94 @@ mod tests {
         only_out_remains(&out);
     }
 
+    /// A library of schema 8 at `dir`: each required file as a decoded file and a stored `.gz`
+    /// file (its bytes are not real gzip, because `is_whole` hashes and never decodes).
+    fn gzip_library(dir: &Path, version: &str) {
+        let mut rows = Vec::new();
+        for (name, decoded) in files(version) {
+            let stored = [b"stored:".as_slice(), &decoded].concat();
+            write_file(&dir.join(version).join(&name), &decoded).unwrap();
+            write_file(&dir.join(version).join(format!("{name}.gz")), &stored).unwrap();
+            rows.push(ManifestFile {
+                path: format!("{version}/{name}.gz"),
+                sha256: format!("{:x}", Sha256::digest(&stored)),
+                bytes: stored.len() as u64,
+                gzip: Some(Decoded {
+                    sha256: format!("{:x}", Sha256::digest(&decoded)),
+                    bytes: decoded.len() as u64,
+                }),
+            });
+        }
+        let manifest = ContentManifest {
+            schema_version: SCHEMA_VERSION,
+            content_version: version.into(),
+            total_bytes: rows.iter().map(|row| row.bytes).sum(),
+            files: rows,
+            entry_count: 0,
+            datasets: vec![],
+            corpus_tag: None,
+        };
+        write_file(
+            &dir.join("manifest.json"),
+            &serde_json::to_vec(&manifest).unwrap(),
+        )
+        .unwrap();
+    }
+
+    #[test]
+    fn a_library_with_gzip_rows_is_whole_only_when_both_layers_match() {
+        let base = temp("both-layers");
+        let out = base.join("content");
+        gzip_library(&out, "vgz");
+        assert!(is_whole(&out));
+
+        // The stored file is damaged (same length).
+        let stored = out.join("vgz/catalog.json.gz");
+        let mut bytes = fs::read(&stored).unwrap();
+        bytes[9] ^= 1;
+        fs::write(&stored, &bytes).unwrap();
+        assert!(!is_whole(&out), "a damaged stored file passed");
+        bytes[9] ^= 1;
+        fs::write(&stored, &bytes).unwrap();
+        assert!(is_whole(&out));
+
+        // The decoded file is damaged (same length).
+        let decoded = out.join("vgz/catalog.json");
+        let mut bytes = fs::read(&decoded).unwrap();
+        bytes[2] ^= 1;
+        fs::write(&decoded, &bytes).unwrap();
+        assert!(!is_whole(&out), "a damaged decoded file passed");
+
+        // The decoded file is missing.
+        fs::remove_file(&decoded).unwrap();
+        assert!(!is_whole(&out), "a missing decoded file passed");
+    }
+
+    #[test]
+    fn a_publish_writes_both_layers() {
+        let base = temp("write-layers");
+        let out = base.join("content");
+        let decoded = files("vgz");
+        let stored: BTreeMap<String, Vec<u8>> = decoded
+            .iter()
+            .map(|(name, bytes)| {
+                (
+                    format!("{name}.gz"),
+                    [b"stored:".as_slice(), bytes].concat(),
+                )
+            })
+            .collect();
+        let lock = locked(&out);
+        publish_staged(&lock, "vgz", &[&decoded, &stored], b"{}").unwrap();
+        for name in decoded.keys() {
+            assert!(out.join("vgz").join(name).is_file(), "{name}");
+            assert!(
+                out.join("vgz").join(format!("{name}.gz")).is_file(),
+                "{name}.gz"
+            );
+        }
+    }
+
     #[test]
     fn a_publish_after_each_interruption_ends_with_the_new_library() {
         type State = (&'static str, fn(&Path));
@@ -636,7 +735,7 @@ mod tests {
             let out = base.join("content");
             make(&out);
             let lock = locked(&out);
-            publish_staged(&lock, "vnew", &files("vnew"), &manifest_bytes("vnew"))
+            publish_staged(&lock, "vnew", &[&files("vnew")], &manifest_bytes("vnew"))
                 .unwrap_or_else(|e| panic!("{name}: {e}"));
             assert_eq!(version(&out), "vnew", "{name}");
             only_out_remains(&out);
@@ -673,7 +772,7 @@ mod tests {
         fs::create_dir_all(&out).unwrap();
         fs::write(out.join("keep.txt"), "x").unwrap();
         let lock = locked(&out);
-        let error = publish_staged(&lock, "v1", &files("v1"), b"{}").unwrap_err();
+        let error = publish_staged(&lock, "v1", &[&files("v1")], b"{}").unwrap_err();
         assert!(error.contains("refusing"), "{error}");
         assert!(out.join("keep.txt").exists());
         assert!(!staging_dir(&out).exists());
