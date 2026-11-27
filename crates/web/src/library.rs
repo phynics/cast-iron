@@ -1177,31 +1177,28 @@ async fn read_file(
     let bytes = if native {
         content_cache::read_gunzip(cache, &row.path)
             .await
-            .map_err(|e| corrupt(format!("cannot decode the gzip file: {e}")))?
+            .map_err(corrupt)?
             .ok_or_else(missing)?
     } else {
         let stored = content_cache::read(cache, &row.path)
             .await
             .map_err(LibraryError::Storage)?
             .ok_or_else(missing)?;
-        let limit = usize::try_from(decoded.bytes).unwrap_or(usize::MAX);
-        gunzip::gunzip(&stored, limit).map_err(corrupt)?
+        // The fallback inflates into a buffer of exactly the listed size, so it checks the length
+        // itself.
+        let size = usize::try_from(decoded.bytes)
+            .map_err(|_| corrupt("the listed size is too large".into()))?;
+        gunzip::gunzip(&stored, size).map_err(|e| corrupt(e.into()))?
     };
     if bytes.len() as u64 != decoded.bytes {
-        return Err(corrupt(format!(
-            "the decoded file has {} bytes and the manifest lists {}",
-            bytes.len(),
-            decoded.bytes
-        )));
+        return Err(corrupt("the decoded size is not the listed size".into()));
     }
     if !native {
         let sha256 = crate::js::sha256_hex(&bytes)
             .await
             .map_err(LibraryError::Storage)?;
         if sha256 != decoded.sha256 {
-            return Err(corrupt(
-                "the decoded file does not match the manifest hash".to_string(),
-            ));
+            return Err(corrupt("the decoded file does not match its hash".into()));
         }
     }
     Ok(bytes)

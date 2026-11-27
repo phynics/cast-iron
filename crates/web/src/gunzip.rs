@@ -6,7 +6,11 @@
 //! reads. It checks the trailer's size. It does not compute the CRC-32: the caller compares the
 //! SHA-256 of the result with the manifest, which covers every bit the CRC covers.
 
-use miniz_oxide::inflate::decompress_to_vec_with_limit;
+use miniz_oxide::inflate::TINFLStatus;
+use miniz_oxide::inflate::core::inflate_flags::{
+    TINFL_FLAG_IGNORE_ADLER32, TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF,
+};
+use miniz_oxide::inflate::core::{DecompressorOxide, decompress};
 
 const ID1: u8 = 0x1f;
 const ID2: u8 = 0x8b;
@@ -21,67 +25,64 @@ const HEADER: usize = 10;
 const TRAILER: usize = 8;
 
 /// Where the deflate stream starts in a gzip member, and the bytes that it ends before.
-fn deflate_range(member: &[u8]) -> Result<(usize, usize), String> {
-    if member.len() < HEADER + TRAILER {
-        return Err("the gzip data is too short".into());
-    }
-    if member[0] != ID1 || member[1] != ID2 {
-        return Err("the data is not gzip (bad magic)".into());
-    }
-    if member[2] != DEFLATE {
-        return Err(format!("unknown gzip method {}", member[2]));
+fn deflate_range(member: &[u8]) -> Result<(usize, usize), &'static str> {
+    const NOT_GZIP: &str = "not a gzip file";
+    const CUT: &str = "the gzip header is cut off";
+    if member.len() < HEADER + TRAILER || member[..3] != [ID1, ID2, DEFLATE] {
+        return Err(NOT_GZIP);
     }
     let flags = member[3];
     if flags & RESERVED != 0 {
-        return Err("the gzip header sets a reserved flag".into());
+        return Err(NOT_GZIP);
     }
     let end = member.len() - TRAILER;
     let mut at = HEADER;
     if flags & FEXTRA != 0 {
-        let length = member
-            .get(at..at + 2)
-            .map(|b| usize::from(u16::from_le_bytes([b[0], b[1]])))
-            .ok_or("the gzip extra field is cut off")?;
-        at += 2 + length;
+        let length = member.get(at..at + 2).ok_or(CUT)?;
+        at += 2 + usize::from(u16::from_le_bytes([length[0], length[1]]));
     }
     for flag in [FNAME, FCOMMENT] {
         if flags & flag != 0 {
-            let rest = member.get(at..end).ok_or("the gzip header is cut off")?;
-            let nul = rest
-                .iter()
-                .position(|&b| b == 0)
-                .ok_or("a gzip header string has no end")?;
-            at += nul + 1;
+            let rest = member.get(at..end).ok_or(CUT)?;
+            at += rest.iter().position(|&b| b == 0).ok_or(CUT)? + 1;
         }
     }
     if flags & FHCRC != 0 {
         at += 2;
     }
     if at > end {
-        return Err("the gzip header is cut off".into());
+        return Err(CUT);
     }
     Ok((at, end))
 }
 
-/// Inflates one gzip member. `limit` is the most decoded bytes that the caller accepts, so a
-/// bomb cannot grow the WASM memory. The result's length must equal the trailer's size field.
-pub fn gunzip(member: &[u8], limit: usize) -> Result<Vec<u8>, String> {
+/// Inflates one gzip member into exactly `size` bytes, the decoded size that the manifest
+/// lists. The output buffer has that size from the start, so a bomb cannot grow the WASM memory
+/// (it never shrinks) and a large file does not pay for a doubling vector. The member must
+/// inflate to exactly `size` bytes, and the trailer must say the same.
+pub fn gunzip(member: &[u8], size: usize) -> Result<Vec<u8>, &'static str> {
     let (start, end) = deflate_range(member)?;
-    let decoded = decompress_to_vec_with_limit(&member[start..end], limit)
-        .map_err(|e| format!("cannot inflate the gzip data ({:?})", e.status))?;
-    // The trailer is the CRC-32 (not read), then ISIZE.
-    let size = u32::from_le_bytes([
+    let mut decoded = vec![0; size];
+    // One call is the whole member: the input is complete and the output has its full size.
+    let (status, _, written) = decompress(
+        &mut DecompressorOxide::new(),
+        &member[start..end],
+        &mut decoded,
+        0,
+        TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF | TINFL_FLAG_IGNORE_ADLER32,
+    );
+    if status != TINFLStatus::Done {
+        return Err("cannot inflate the gzip data");
+    }
+    // The trailer is the CRC-32 (not read), then ISIZE: the size modulo 2^32.
+    let isize = u32::from_le_bytes([
         member[end + 4],
         member[end + 5],
         member[end + 6],
         member[end + 7],
     ]);
-    // Only the lower 32 bits are stored in the trailer.
-    if decoded.len() as u32 != size {
-        return Err(format!(
-            "the gzip trailer says {size} bytes and the data inflates to {}",
-            decoded.len()
-        ));
+    if written != size || isize != size as u32 {
+        return Err("the gzip data is not the listed size");
     }
     Ok(decoded)
 }
@@ -119,7 +120,7 @@ mod tests {
 
     #[test]
     fn reads_a_compressed_member() {
-        assert_eq!(gunzip(&HELLO_GZ, 64).unwrap(), b"hello hello hello\n");
+        assert_eq!(gunzip(&HELLO_GZ, 18).unwrap(), b"hello hello hello\n");
     }
 
     #[test]
@@ -138,16 +139,16 @@ mod tests {
         optional.extend_from_slice(&[0xaa, 0xbb]); // FHCRC
         let flags = FEXTRA | FNAME | FCOMMENT | FHCRC;
         assert_eq!(
-            gunzip(&member(flags, &optional, b"payload"), 64).unwrap(),
+            gunzip(&member(flags, &optional, b"payload"), 7).unwrap(),
             b"payload"
         );
         // Each field alone.
         assert_eq!(
-            gunzip(&member(FNAME, b"x\0", b"payload"), 64).unwrap(),
+            gunzip(&member(FNAME, b"x\0", b"payload"), 7).unwrap(),
             b"payload"
         );
         assert_eq!(
-            gunzip(&member(FEXTRA, &[0, 0], b"payload"), 64).unwrap(),
+            gunzip(&member(FEXTRA, &[0, 0], b"payload"), 7).unwrap(),
             b"payload"
         );
     }
@@ -177,9 +178,11 @@ mod tests {
         let mut size = member(0, &[], b"abc");
         let last = size.len() - 4;
         size[last] = 4;
-        assert!(gunzip(&size, 8).is_err());
+        assert!(gunzip(&size, 3).is_err());
         let cut = &HELLO_GZ[..HELLO_GZ.len() - 12];
-        assert!(gunzip(cut, 64).is_err());
+        assert!(gunzip(cut, 18).is_err());
+        // A buffer that is too small (a bomb) and one that is too large.
         assert!(gunzip(&HELLO_GZ, 5).is_err());
+        assert!(gunzip(&HELLO_GZ, 40).is_err());
     }
 }

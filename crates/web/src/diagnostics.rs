@@ -527,7 +527,7 @@ pub fn report(snapshot: &Snapshot) -> Report {
     });
     lines.push(match launch.index_load {
         Some(load) => format!(
-            "search index: read {}, decode {}, {}; ready at {}; stored size {} (read includes gunzip)",
+            "search index: read {}, decode {}, {}; ready at {}; stored size {}",
             duration(load.read_ms),
             duration(load.decode_ms),
             fmt::bytes(load.bytes),

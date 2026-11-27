@@ -111,7 +111,7 @@ pub async fn cache_read_gunzip(
     let value = cache_read_gunzip_js(cache, url)
         .await
         .map_err(|e| describe(&e))?;
-    if value.is_null() || value.is_undefined() {
+    if value.is_falsy() {
         return Ok(None);
     }
     Ok(Some(Uint8Array::new(&value).to_vec()))
@@ -175,7 +175,7 @@ pub struct ShellInfo {
 /// The shell version and build date that the controlling service worker reports.
 pub async fn shell_info() -> Option<ShellInfo> {
     let value = shell_info_js().await.ok()?;
-    if value.is_null() || value.is_undefined() {
+    if value.is_falsy() {
         return None;
     }
     let get = |name: &str| Reflect::get(&value, &JsValue::from_str(name)).ok();
