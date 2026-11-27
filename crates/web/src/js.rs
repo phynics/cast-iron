@@ -18,6 +18,12 @@ extern "C" {
     pub async fn idb_request(request: &IdbRequest) -> Result<JsValue, JsValue>;
     #[wasm_bindgen(js_name = idbTxDone)]
     pub fn idb_tx_done(transaction: &IdbTransaction) -> Promise;
+    #[wasm_bindgen(js_name = fetchBytes, catch)]
+    pub async fn fetch_bytes(
+        url: &str,
+        controller: &web_sys::AbortController,
+        on_progress: &Function,
+    ) -> Result<JsValue, JsValue>;
     #[wasm_bindgen(js_name = sha256Hex, catch)]
     async fn sha256_hex_js(buffer: &JsValue) -> Result<JsValue, JsValue>;
     #[wasm_bindgen(js_name = gunzipSupported)]

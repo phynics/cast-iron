@@ -58,6 +58,44 @@ export function gunzipSupported() {
 }
 
 /**
+ * Fetches `url` past the HTTP cache and streams the body, so that Rust can see whether bytes are
+ * still arriving. `onProgress()` runs when the response starts and after every chunk. Rust owns
+ * `controller` and aborts it when no bytes arrive (the stall timeout of the installer).
+ * Resolves the body as a Uint8Array, or the HTTP status as a number when the answer is not ok.
+ */
+export async function fetchBytes(url, controller, onProgress) {
+  const signal = controller.signal;
+  // Rust drops `onProgress` once it aborts: never call it after that.
+  const progress = () => {
+    if (!signal.aborted) onProgress();
+  };
+  const response = await fetch(url, { cache: "no-store", signal });
+  if (!response.ok) {
+    response.body?.cancel().catch(() => {});
+    return response.status;
+  }
+  progress();
+  if (!response.body) return new Uint8Array(await response.arrayBuffer());
+  const reader = response.body.getReader();
+  const chunks = [];
+  let length = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    length += value.length;
+    progress();
+  }
+  const bytes = new Uint8Array(length);
+  let at = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, at);
+    at += chunk.length;
+  }
+  return bytes;
+}
+
+/**
  * Reads a stored gzip file from the cache and decodes it. Resolves the decoded bytes as an
  * ArrayBuffer, or null when the cache has no such file.
  */

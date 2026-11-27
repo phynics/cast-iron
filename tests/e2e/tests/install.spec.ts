@@ -188,3 +188,29 @@ test("Interrupted installation can recover safely", async ({ openProfile, server
   const done = new Set((await cacheContents(page))[cacheName]);
   expect(manifest.files.every((f) => done.has(`content/${f.path}`))).toBe(true);
 });
+
+test("A request that goes silent is aborted after the stall window and retried (#768)", async ({ page, server, guard }) => {
+  guard.allow(/Failed to load resource|net::ERR|NetworkError|Load failed|AbortError|aborted/);
+  // The installer waits `STALL_WINDOW_MS` (15 s) for bytes. Shorten that one timer for this page,
+  // as the test of a browser without DecompressionStream replaces a browser built-in.
+  await page.addInitScript(() => {
+    const setTimeoutReal = window.setTimeout.bind(window);
+    window.setTimeout = ((handler: TimerHandler, ms?: number, ...args: unknown[]) =>
+      setTimeoutReal(handler, ms === 15_000 ? 1_000 : ms, ...args)) as typeof window.setTimeout;
+  });
+  // The first request for this file sends 1 KB and then goes silent; the retry gets the file.
+  const silent = entryShards[1];
+  await server.hook(`content/${silent}`, "stall", { once: true });
+
+  await page.goto("./");
+  await page.getByRole("button", { name: "Download" }).click();
+  await waitReady(page);
+
+  const attempts = (await server.requests()).filter((p) => p === `content/${silent}`).length;
+  expect(attempts).toBe(2);
+  // The aborted response is gone from the server's side too.
+  await expect.poll(async () => (await server.state()).stalled).toBe(0);
+  expect((await activeLibrary(page)).content_version).toBe(version);
+  const cached = new Set((await cacheContents(page))[cacheName]);
+  expect(manifest.files.every((f) => cached.has(`content/${f.path}`))).toBe(true);
+});

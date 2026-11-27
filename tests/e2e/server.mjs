@@ -4,7 +4,7 @@
 //   GET  /__test/state                   request log and counts since the last reset
 //   POST /__test/clear-log               forget the request log, keep hooks
 //   POST /__test/reset                   clear counts, hooks, overlay and the refuse flag
-//   POST /__test/hook    {path, mode...} per-path fault: corrupt | stall | abort | slow | status
+//   POST /__test/hook    {path, mode...} per-path fault: corrupt | stall (once) | abort | slow | status
 //   POST /__test/refuse  {on: bool}      destroy every request (a server that is not there)
 //   POST /__test/overlay {dir}           serve content/* from `dir` first (alternative library)
 //   POST /__test/shell {version}         serve sw.js with an alternative shell version
@@ -139,6 +139,8 @@ export function startServer({ dist, port, prefix = "/cast-iron/", host = "127.0.
     });
     if (hook?.mode === "stall") {
       // Send a first part, then hold the response open until the client leaves or reset().
+      // With `once`, only the first request stalls: a retry gets the file.
+      if (hook.once) state.hooks.delete(rel);
       state.stalled.add(res);
       res.on("close", () => state.stalled.delete(res));
       return res.write(body.subarray(0, Math.min(1024, body.length)));
