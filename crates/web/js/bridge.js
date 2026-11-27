@@ -79,12 +79,17 @@ export async function fetchBytes(url, controller, onProgress) {
   const reader = response.body.getReader();
   const chunks = [];
   let length = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    chunks.push(value);
-    length += value.length;
-    progress();
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      chunks.push(value);
+      length += value.length;
+      progress();
+    }
+  } finally {
+    // Both the end of the body and an abort release the lock.
+    reader.releaseLock();
   }
   const bytes = new Uint8Array(length);
   let at = 0;

@@ -153,6 +153,15 @@ test("Interrupted installation can recover safely", async ({ openProfile, server
   await server.hook(`content/${slow}`, "stall");
 
   let context = await openProfile();
+  // This test closes the session with one request in flight. The installer aborts a silent request
+  // after `STALL_WINDOW_MS` (15 s) and retries it, and a retry would leave `stalled` at 0 for a
+  // moment, or for good once all three attempts have expired on a slow run. Keep the window far
+  // longer than the test, so that the request is still in flight when the context closes.
+  await context.addInitScript(() => {
+    const setTimeoutReal = window.setTimeout.bind(window);
+    window.setTimeout = ((handler: TimerHandler, ms?: number, ...args: unknown[]) =>
+      setTimeoutReal(handler, ms === 15_000 ? 3_600_000 : ms, ...args)) as typeof window.setTimeout;
+  });
   let page = await context.newPage();
   await page.goto("./");
   await page.getByRole("button", { name: "Download" }).click();
