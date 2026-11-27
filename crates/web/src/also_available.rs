@@ -27,12 +27,30 @@ pub fn capstones_id() -> EntryId {
 
 /// The printed names of the capstones in the shared entry's `body`, without their ability tag
 /// (`Walking Library (Ex)` is `Walking Library`). They are the power names that the shared
-/// classifier finds, so a block that is not a capstone is never a name.
+/// classifier finds, plus the run-in heads of printed prose (`**Walking Library (Ex):** At 20th
+/// level, …`) whose name carries an ability tag, so a block that is not a capstone is never a
+/// name: `**Special:**` has no tag.
 pub fn names_in(body: &[Block]) -> Vec<String> {
-    candidates(body)
+    let mut names: Vec<String> = candidates(body)
         .into_iter()
         .map(|candidate| split_ability_tag(&candidate.name).0.to_string())
-        .collect()
+        .collect();
+    names.extend(body.iter().filter_map(run_in_name));
+    names
+}
+
+/// The name of a paragraph that opens with a bold, tagged run-in head (`**Name (Ex):** text`).
+fn run_in_name(block: &Block) -> Option<String> {
+    let Block::Paragraph { content, .. } = block else {
+        return None;
+    };
+    let Some(Inline::Strong { c }) = content.first() else {
+        return None;
+    };
+    let text = plain_text(c);
+    let head = text.trim().strip_suffix(':')?;
+    let (name, tag) = split_ability_tag(head);
+    tag.map(|_| name.to_string())
 }
 
 /// Whether `block` is the `Also available:` paragraph.
@@ -267,6 +285,24 @@ mod tests {
         ];
         assert_eq!(names_in(&body), ["Walking Library", "The Boss"]);
         assert!(names_in(&[para(vec![text("None")])]).is_empty());
+    }
+
+    #[test]
+    fn a_run_in_head_with_an_ability_tag_is_a_name() {
+        let body = vec![
+            para(vec![text("Intro.")]),
+            para(vec![
+                strong("Arch-Familiar (Su):"),
+                text(" At 20th level, the familiar is smarter."),
+            ]),
+            para(vec![strong("Special:"), text(" Not a capstone.")]),
+            para(vec![
+                strong("Old Dog, New Tricks (Ex):"),
+                text(" At 20th level, four combat feats."),
+            ]),
+            para(vec![strong("Deep Magics (Su)"), text(" no colon, no name")]),
+        ];
+        assert_eq!(names_in(&body), ["Arch-Familiar", "Old Dog, New Tricks"]);
     }
 
     #[test]
