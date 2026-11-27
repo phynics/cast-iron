@@ -11,9 +11,8 @@ area: install-offline
 # The library is shipped, verified and stored as gzip files (schema 8), 2026-11-27
 
 Refs [#746](https://github.com/phynics/cast-iron/issues/746). The owner decided on 2026-11-27 that the
-library is shipped and stored precompressed. This entry is the design and the implementation plan. It
-waits for the owner's answers to the questions at the end; the pull request that the owner approves sets
-`status: current`.
+library is shipped and stored precompressed. This entry is the design and the implementation plan. The owner answered
+its questions on 2026-11-27 (see "Owner answers"), so it is current.
 
 ## Summary
 
@@ -229,9 +228,10 @@ export async function cacheReadGunzip(cache, url) {
   size, so the Diagnostics page shows the real cost on a phone.
 - **A browser without `DecompressionStream` (owner, 2026-11-27: add a Rust fallback).** `read_file` decodes
   through `cacheReadGunzip` when `gunzipSupported()` is true, and otherwise reads the stored bytes and
-  inflates them in WASM with `miniz_oxide` (about 14 KB of WASM; no CRC check, because the installer has
-  already verified the SHA-256 of the stored bytes, and the decoded length is checked against
-  `gzip.bytes`). So a browser older than Safari/iOS 16.4 can still install and read a schema 8 library,
+  inflates them in WASM with `miniz_oxide` (about 14 KB of WASM). The fallback checks the decoded length against `gzip.bytes` as a fast fail,
+  then the SHA-256 of the decoded bytes against `gzip.sha256`, because a corrupt inflate of the right
+  length would pass a length check alone. Whether the browser has `DecompressionStream` is probed once per
+  session (a module-level `OnceCell`), not on every read: `read_file` is the per-shard hot path. So a browser older than Safari/iOS 16.4 can still install and read a schema 8 library,
   only slower (section 4 table) and with the higher WASM memory mark. The installer no longer refuses gzip
   rows for lack of `DecompressionStream`. The fallback's size comes out of the WASM budget, which has
   about 33 KB left (#744); slice 2 reports the budget.
@@ -280,11 +280,21 @@ compresses twice and leaves the shipped bytes out of the determinism diff.
 |---|---|
 | `crates/schema` | `Decoded`, `ManifestFile::gzip`, `logical_path()`, the validation rules, `SCHEMA_VERSION` 8 |
 | `content-compiler` | gzip each file (section 2), manifest rows of section 1, both layers into staging. `is_whole` checks both layers, by hash, without compressing |
-| `xtask` `build-site` | `verify_generated_content` checks both layers. It copies only `manifest.json` and the stored files into `dist/content`, not the whole directory |
-| `xtask` `size-budget` | Reads the manifest. `library_bytes` limits `total_bytes` plus `manifest.json`: what a device downloads and stores. `largest_file_bytes` limits the largest *decoded* file (`search.bin`), because the decoded size sets the memory peak of a read. `wasm_bytes` stays. New values: the measurement plus 5% |
+| `xtask` `build-site` | `verify_generated_content` checks both layers (stored hash and decoded hash). `copy_dir` is replaced for `content/` by a copy of `manifest.json` and the stored `.gz` files only, so `dist/content` ships no decoded file |
+| `xtask` `size-budget` | Reads the manifest. `library_bytes` limits `total_bytes` plus `manifest.json`: what a device downloads and stores. `largest_file_bytes` limits the largest *decoded* file (`search.bin`), because the decoded size sets the memory peak of a read. `wasm_bytes` stays. New values: the measurement plus 5%. This changes the implementation, not only the values: today `size-budget` sums every file under `generated/content` (`crates/xtask/src/main.rs`, `size_budget`), which would count both layers; slice 3 makes it read the manifest instead |
 | `scripts/check-publication.py` | Reads files through the manifest: it checks the stored hash, decodes `gzip` rows with Python's `gzip` module and checks the decoded hash, and reads the catalog, legal text and shards by logical path. Today it globs `entries/*.json`, which would find nothing in a `.gz`-only `dist` (it would then report an entry count mismatch, not pass) |
 | `tests/e2e/server.mjs` | `.gz` served as `application/gzip` with no `Content-Encoding`, as Pages does |
-| `tests/e2e` fixtures | A helper pair that reads a library file by logical path from `dist` (gunzip with `node:zlib` when the row has `gzip`) and writes one back (gzip, new stored and decoded hashes). `buildUpdatedLibrary`, `buildLibraryWithEntryPatch` and the other overlays use it. The overlay gzip does not have to equal the compiler's bytes, because the manifest carries the hashes. `buildNewerManifest` and the manifest-only overlays need no change. `canonical-cutover.spec.ts` keeps its uncompressed schema-3 fixture |
+| `tests/e2e` fixtures | A helper pair that reads a library file by logical path from `dist` (gunzip with `node:zlib` when the row has `gzip`) and writes one back (gzip, new stored and decoded hashes). Every helper in `tests/e2e/tests/helpers.ts` that reads or rewrites library bytes uses it: `buildUpdatedLibrary` (including its `legal.json`), the internal `buildLibraryWithEntryPatch` behind `buildLibraryWithFeatures` and `buildLibraryWithExpandedIn`, `buildLibraryWithoutBooks` and `buildLibraryWithoutBacklinks`. The overlay gzip does not have to equal the compiler's bytes, because the manifest carries the hashes. `buildNewerManifest` and the manifest-only overlays need no change. `canonical-cutover.spec.ts` keeps its uncompressed schema-3 fixture |
+
+**Unchanged tools and the paperwork.**
+- `published-ids` keeps working unchanged: it reads the decoded `catalog.json` in `generated/content`,
+  which this design keeps.
+- Slice 2's new `compressed-library.spec.ts` needs its row in the verify skill's feature map
+  (`.agents/skills/verify/SKILL.md`), or `cargo xtask check` fails.
+- Slice 3 runs the verify skill's "Corpus and schema changes" steps: `cargo xtask content` twice from an
+  empty `generated/` with a tree compare, and `scripts/check-publication.py` on the built `dist/`.
+- The release that ships slice 3 adds its `docs/status/` release entry with the upgrade check results, as
+  every release does.
 
 ## 8. The upgrade check for the release
 
@@ -345,8 +355,8 @@ follows `AGENTS.md`, "Test scope".
    `logical_path()`, and the validation rules in `crates/schema`, with unit tests. In `library.rs`,
    `manifest_has_file`, the alias lookup and the alias hash use logical paths and the decoded hash.
    `READABLE_SCHEMAS` stays 1 to 7. Behaviour does not change for today's libraries.
-   *Scope:* `cargo xtask check`; `cargo xtask build-site --public-url /cast-iron/`; one spec,
-   `canonical-cutover.spec.ts`, `--project=chromium` (the feature map row for `library.rs` aliases). No
+   *Scope:* `cargo xtask check`; `cargo xtask content` (a `crates/schema` change); `cargo xtask build-site
+   --public-url /cast-iron/`; one spec, `canonical-cutover.spec.ts`, `--project=chromium` (the feature map row for `library.rs` aliases). No
    full CI.
 2. **The reader decodes.** The bridge functions `gunzipSupported` and `cacheReadGunzip`, and the
    `miniz_oxide` fallback for a browser without `DecompressionStream` (owner answer 1; a new dependency, so
