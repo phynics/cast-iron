@@ -1,8 +1,8 @@
 # Top-50 result ids for the 50 queries of tests/e2e/measure-library.mjs.
 # Regenerate with `cargo xtask search-golden` (after `cargo xtask content`) in every corpus-pin PR.
-# corpus 2eb078173ac19deee2686dda9570dd9a6e896c6e
-# tag v0.1.61
-# content v464ed33579599e94
+# corpus 2ff82b653c2cd54b588bc9618600c69ba3cbc501
+# tag v0.1.62
+# content vf68a2bc3fb8e1fbe
 # Format: `query: <text>` starts a block; each other line is a result id.
 query: fire
 ref/subtype/fire
@@ -1180,8 +1180,8 @@ ref/ability/companion-tricks
 query: antipaladin
 ref/class/antipaladin
 ref/magic-weapon/bastards-sting
-ref/arc-antipaladin/fearmonger
 ref/arc-antipaladin/dread-vanguard
+ref/arc-antipaladin/fearmonger
 ref/spell/widen-auras
 ref/arc-antipaladin/insinuator
 ref/spell/draconic-malice
@@ -1588,6 +1588,7 @@ ref/umr/light-blindness
 query: blood
 ref/arc-arcanist/blood-arcanist
 ref/ability/bloodrager-bloodlines
+ref/arc-summoner/blood-summoner
 ref/arc-bloodrager/bloodrider
 ref/umr/blood-drain
 ref/class/bloodrager
@@ -1607,7 +1608,6 @@ ref/monster/blood-maize
 ref/monster/blood-lily
 ref/spell/blood-scent
 ref/feat/blood-salvage
-ref/arc-summoner/blood-summoner
 ref/eq-misc/blood-neutralizer
 ref/spell/blood-money
 ref/monster/golem-blood-golem
@@ -2086,6 +2086,7 @@ book-section/inner-sea-temples/1-3
 book-section/bestiary-2/2-23
 book-section/bestiary-5/1-360
 book-section/bestiary-5/1-360-1
+ref/arc-sorcerer/umbral-scion
 ref/arc-spiritualist/shadow-caller
 ref/npc/vivisectionist-cleric
 ref/npc/priest-of-oblivion
@@ -2094,7 +2095,6 @@ ref/monster/nihiloi
 ref/feat/umbral-shift
 ref/magic-wondrous/voidlight-lantern
 ref/magic-weapon/umbral-chain
-ref/spell/flickering-lights
 query: death
 ref/spelldef/death
 ref/patron/death
@@ -2460,9 +2460,11 @@ ref/eidolon/elemental
 ref/mystery/elemental
 ref/blrgbloodline/elemental
 ref/arc-magus/elemental-knight
+ref/arc-familiar/elemental-familiar
 ref/arc-barbarian/elemental-kin
 ref/arc-oracle/elementalist-oracle
 ref/arc-arcanist/elemental-master
+ref/arc-companion/elemental-companion
 ref/arc-monk/elemental-monk
 ref/arc-shifter/elementalist-shifter
 ref/arc-ranger/elemental-envoy
@@ -2483,7 +2485,6 @@ ref/feat/elemental-channel
 ref/npc/elemental-priest
 ref/arc-kineticist/elemental-purist
 ref/carried/bestiary-2/monsters/elemental/magma/elder
-ref/arc-familiar/elemental-familiar
 ref/feat/elemental-vigor
 ref/ragepower/elemental-rage
 ref/kipower/elemental-burst
@@ -2492,7 +2493,6 @@ ref/magic-ring/elemental-ring
 ref/carried/bestiary/monsters/elemental/water/elder
 ref/arc-kineticist/elemental-annihilator
 ref/kinetic/elemental-exile
-ref/arc-companion/elemental-companion
 ref/trait/elemental-negotiator
 ref/trait/elemental-caller
 ref/carried/bestiary/monsters/elemental/air/elder

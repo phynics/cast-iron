@@ -627,7 +627,14 @@ headings that are features (`features = [{ anchor, level }]`), and only those re
 1. **The head** is the head of a class-option power: the printed name as a heading (`.power-name`, the
    same type), a dotted `--line` leader and `Level N` on the right (`.power-level`, with the hidden
    prefix "Gained at"). It sits in `div.power-head.feature-head` as a direct child of the body, with the
-   spacing of a power. The heading keeps its own element level, its id and its place in the outline, so
+   spacing of a power. The name is bold in the display serif (`.feature-name`). An ability tag, `(Ex)`,
+   `(Su)`, `(Sp)` or a combination (`headings::split_heading_tag`), is its own element after the name
+   (`.ability-tag`): body type at the body size, italic, `--ink-muted`, not bold. The split is for
+   display only; the printed heading text, id and anchor are unchanged. A hairline rule (`--line`, 1px;
+   `CanvasText` in forced colors) separates one listed feature from the next: it is the top border of a
+   feature head that has an earlier feature head, with padding below it, so the first feature, an
+   unlisted heading and a subheading inside a feature get none. Layout A, print order as heads, is the
+   owner's choice over grouping by level (decision `2026-11-27-features-in-print-order-as-heads`). The heading keeps its own element level, its id and its place in the outline, so
    `#/entry/<id>?a=<anchor>` scrolls to it and the head is a link target. A feature with no `level` (print gives none for some
    features) has the name alone: no leader, no right side.
 2. **The prose** under the head is the body as printed, in body type, with no label and no meta line.

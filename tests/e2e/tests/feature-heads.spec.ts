@@ -92,7 +92,46 @@ test("an archetype in format 4 shows its features as heads, a trade link and the
       ]);
       expect(level!.x).toBeGreaterThan(name!.x + name!.width);
       expect(Math.abs(level!.y - name!.y)).toBeLessThan(name!.height);
-      // A heading that the data does not list renders as before.
+      // The tag is its own element after the name: italic, muted, not bold, and not inside the name.
+      const tag = strike.locator(".ability-tag");
+      await expect(tag).toHaveText("(Ex)");
+      await expect(strike.locator(".feature-name")).toHaveText("Shattering Strike");
+      await expect(strike.locator(".feature-name .ability-tag")).toHaveCount(0);
+      const tagStyle = await tag.evaluate((el) => {
+        const style = getComputedStyle(el);
+        return { fontStyle: style.fontStyle, fontWeight: style.fontWeight, color: style.color, size: style.fontSize };
+      });
+      const nameStyle = await strike.locator(".feature-name").evaluate((el) => {
+        const style = getComputedStyle(el);
+        return { fontWeight: style.fontWeight, color: style.color };
+      });
+      const bodySize = await page.locator(".rich > p").first().evaluate((el) => getComputedStyle(el).fontSize);
+      expect(tagStyle.fontStyle).toBe("italic");
+      expect(Number(tagStyle.fontWeight)).toBeLessThan(600);
+      expect(Number(nameStyle.fontWeight)).toBeGreaterThanOrEqual(600);
+      expect(tagStyle.color).not.toBe(nameStyle.color);
+      expect(tagStyle.size).toBe(bodySize);
+      // Piledriver has a tag, Weapon Training none: no tag element, so no stray space.
+      await expect(heads.nth(1).locator(".ability-tag")).toHaveText("(Ex)");
+      await expect(training.locator(".ability-tag")).toHaveCount(0);
+      // The printed heading text and its accessible name are unchanged.
+      await expect(strike.getByRole("heading")).toHaveText("Shattering Strike (Ex)");
+      // A hairline rule sits between one listed feature and the next, and not above the first.
+      const rule = (head: ReturnType<typeof heads.nth>) =>
+        head.evaluate((el) => {
+          const style = getComputedStyle(el);
+          return { width: style.borderTopWidth, style: style.borderTopStyle };
+        });
+      expect(await rule(heads.nth(0))).toEqual({ width: "0px", style: "none" });
+      expect(await rule(heads.nth(1))).toEqual({ width: "1px", style: "solid" });
+      expect(await rule(heads.nth(2))).toEqual({ width: "1px", style: "solid" });
+      // The rule is above the head, with the name below it, not on it.
+      const [piledriver, piledriverName] = await Promise.all([
+        heads.nth(1).boundingBox(),
+        heads.nth(1).getByRole("heading").boundingBox(),
+      ]);
+      expect(piledriverName!.y).toBeGreaterThan(piledriver!.y + 1);
+      // A heading that the data does not list renders as before, with no hairline of this kind.
       const notes = page.getByRole("heading", { name: "Notes", exact: true });
       await expect(notes).not.toHaveClass(/power-name/);
       await expect(page.locator(".feature-head").getByRole("heading", { name: "Notes" })).toHaveCount(0);
@@ -143,6 +182,13 @@ test("an archetype in format 4 shows its features as heads, a trade link and the
       await open(page, TARGET);
       const strike = page.locator(".feature-head").first();
       await expect(strike.locator(".power-level")).toBeVisible();
+      // The name wraps or fits, and the tag and the level stay readable beside it without overlap.
+      const [nameBox, levelBox] = await Promise.all([
+        strike.getByRole("heading").boundingBox(),
+        strike.locator(".power-level").boundingBox(),
+      ]);
+      expect(levelBox!.x).toBeGreaterThanOrEqual(nameBox!.x + nameBox!.width - 1);
+      await expect(strike.locator(".ability-tag")).toBeVisible();
       const overflow = await page.evaluate(
         () => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth,
       );
