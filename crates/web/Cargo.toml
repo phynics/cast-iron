@@ -28,6 +28,7 @@ serde-wasm-bindgen.workspace = true
 console_error_panic_hook.workspace = true
 futures.workspace = true
 send_wrapper.workspace = true
+miniz_oxide.workspace = true
 
 [dependencies.web-sys]
 workspace = true

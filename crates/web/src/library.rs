@@ -5,6 +5,7 @@ use crate::book_presets::{self, Change};
 use crate::content_cache;
 use crate::diagnostics::{self, IndexLoad};
 use crate::graph::{BookLookup, Relations};
+use crate::gunzip;
 use crate::install;
 use crate::lru::Lru;
 use crate::membership::{self, BookMembership};
@@ -17,10 +18,10 @@ use crate::views::book_tier::{
 use cast_iron_schema::{
     ALIASES_FILE, AliasIndex, BACKLINKS_FILE, BOOKS_FILE, BacklinkIndex, BacklinkSource,
     BacklinkTarget, BookIndex, Catalog, ContentManifest, CoverageReport, EntryId, EntryKind,
-    EntryStub, LEGACY_SECTIONS_FILE, LegacySections, LegalNotices, OPTION_GROUPS_FILE,
-    OptionGroupIndex, RELATIONS_FILE, REPLACES_FILE, RelationIndex, RelationLabel, ReplacesIndex,
-    RetirementReason, RuleEntry, SPELL_LISTS_FILE, SourceInfo, SpellLists, TRADES_FILE, TradeIndex,
-    backlink_shard, backlink_shard_path,
+    EntryStub, LEGACY_SECTIONS_FILE, LegacySections, LegalNotices, ManifestFile,
+    OPTION_GROUPS_FILE, OptionGroupIndex, RELATIONS_FILE, REPLACES_FILE, RelationIndex,
+    RelationLabel, ReplacesIndex, RetirementReason, RuleEntry, SPELL_LISTS_FILE, SourceInfo,
+    SpellLists, TRADES_FILE, TradeIndex, backlink_shard, backlink_shard_path,
 };
 use cast_iron_search::{Hit, Query, SearchIndex};
 use leptos::prelude::*;
@@ -260,7 +261,7 @@ impl Library {
             .await
             .map_err(LibraryError::Storage)?;
         let catalog_started = diagnostics::now();
-        let catalog: Catalog = read_json(&cache, &active.content_version, "catalog.json").await?;
+        let catalog: Catalog = read_json(&cache, &manifest, "catalog.json").await?;
         catalog
             .validate()
             .map_err(|message| LibraryError::Corrupt {
@@ -269,14 +270,14 @@ impl Library {
             })?;
         diagnostics::mark_catalog(diagnostics::now() - catalog_started);
         let books = if manifest_has_file(&manifest, BOOKS_FILE) {
-            let index: BookIndex = read_json(&cache, &active.content_version, BOOKS_FILE).await?;
+            let index: BookIndex = read_json(&cache, &manifest, BOOKS_FILE).await?;
             Some(Rc::new(BookLookup::new(index)))
         } else {
             None
         };
         let (aliases, aliases_sha256) = if manifest_has_file(&manifest, ALIASES_FILE) {
             let path = format!("{}/{ALIASES_FILE}", manifest.content_version);
-            let bytes = read_file(&cache, &active.content_version, ALIASES_FILE).await?;
+            let bytes = read_file(&cache, &manifest, ALIASES_FILE).await?;
             let aliases: AliasIndex =
                 serde_json::from_slice(&bytes).map_err(|e| LibraryError::Corrupt {
                     path: path.clone(),
@@ -738,7 +739,7 @@ impl Library {
         if let Some(hit) = self.0.shards.borrow_mut().get(&path.to_string()) {
             return Ok(hit);
         }
-        let parsed: Vec<RuleEntry> = read_json(&self.0.cache, self.version(), path).await?;
+        let parsed: Vec<RuleEntry> = read_json(&self.0.cache, &self.0.manifest, path).await?;
         let parsed = Rc::new(parsed);
         self.0
             .shards
@@ -753,7 +754,9 @@ impl Library {
             return Ok(index);
         }
         let read_started = diagnostics::now();
-        let bytes = read_file(&self.0.cache, self.version(), "search.bin").await?;
+        let bytes = read_file(&self.0.cache, &self.0.manifest, "search.bin").await?;
+        let stored_bytes = manifest_row(&self.0.manifest, "search.bin")
+            .map_or(bytes.len() as u64, |row| row.bytes);
         let decode_started = diagnostics::now();
         let mut index = SearchIndex::from_bytes(&bytes).map_err(|e| LibraryError::Corrupt {
             path: format!("{}/search.bin", self.version()),
@@ -763,6 +766,7 @@ impl Library {
             read_ms: decode_started - read_started,
             decode_ms: diagnostics::now() - decode_started,
             bytes: bytes.len() as u64,
+            stored_bytes,
         });
         // Equal relevance orders by product line. The ranks come from the catalog, so a library
         // installed before this ranking, or one without categories, still loads and searches.
@@ -805,7 +809,7 @@ impl Library {
         if let Some(legal) = self.0.legal.borrow().clone() {
             return Ok(legal);
         }
-        let legal: LegalNotices = read_json(&self.0.cache, self.version(), "legal.json").await?;
+        let legal: LegalNotices = read_json(&self.0.cache, &self.0.manifest, "legal.json").await?;
         let legal = Rc::new(legal);
         *self.0.legal.borrow_mut() = Some(legal.clone());
         Ok(legal)
@@ -933,11 +937,12 @@ impl Library {
             return Ok(loaded);
         }
         let loaded = if manifest_has_file(&self.0.manifest, TRADES_FILE) {
-            let parsed: TradeIndex = read_json(&self.0.cache, self.version(), TRADES_FILE).await?;
+            let parsed: TradeIndex =
+                read_json(&self.0.cache, &self.0.manifest, TRADES_FILE).await?;
             Some(Rc::new(parsed))
         } else if manifest_has_file(&self.0.manifest, REPLACES_FILE) {
             let older: ReplacesIndex =
-                read_json(&self.0.cache, self.version(), REPLACES_FILE).await?;
+                read_json(&self.0.cache, &self.0.manifest, REPLACES_FILE).await?;
             Some(Rc::new(TradeIndex::from_replaces(older)))
         } else {
             None
@@ -969,7 +974,7 @@ impl Library {
         }
         let loaded = if manifest_has_file(&self.0.manifest, BACKLINKS_FILE) {
             let path = format!("{}/{BACKLINKS_FILE}", self.version());
-            let bytes = read_file(&self.0.cache, self.version(), BACKLINKS_FILE).await?;
+            let bytes = read_file(&self.0.cache, &self.0.manifest, BACKLINKS_FILE).await?;
             let index = parse_backlink_index(&bytes)
                 .map_err(|message| LibraryError::Corrupt { path, message })?;
             Some(Rc::new(index))
@@ -985,7 +990,7 @@ impl Library {
             return Ok(hit);
         }
         let path = backlink_shard_path(shard);
-        let parsed: Vec<BacklinkTarget> = read_json(&self.0.cache, self.version(), &path).await?;
+        let parsed: Vec<BacklinkTarget> = read_json(&self.0.cache, &self.0.manifest, &path).await?;
         let parsed = Rc::new(parsed);
         self.0
             .backlink_shards
@@ -1004,7 +1009,7 @@ impl Library {
             return Ok(loaded);
         }
         let loaded = if manifest_has_file(&self.0.manifest, file) {
-            let parsed: T = read_json(&self.0.cache, self.version(), file).await?;
+            let parsed: T = read_json(&self.0.cache, &self.0.manifest, file).await?;
             Some(Rc::new(build(parsed)))
         } else {
             None
@@ -1018,7 +1023,7 @@ impl Library {
             return Ok(coverage);
         }
         let coverage: CoverageReport =
-            read_json(&self.0.cache, self.version(), "coverage.json").await?;
+            read_json(&self.0.cache, &self.0.manifest, "coverage.json").await?;
         let coverage = Rc::new(coverage);
         *self.0.coverage.borrow_mut() = Some(coverage.clone());
         Ok(coverage)
@@ -1135,12 +1140,71 @@ fn commit_plan(
     (change, next)
 }
 
-async fn read_file(cache: &Cache, version: &str, relative: &str) -> Result<Vec<u8>, LibraryError> {
-    let path = format!("{version}/{relative}");
-    content_cache::read(cache, &path)
-        .await
-        .map_err(LibraryError::Storage)?
-        .ok_or(LibraryError::Missing(path))
+/// The manifest row of a library file, by the name the reader uses (its logical path).
+fn manifest_row<'a>(manifest: &'a ContentManifest, relative: &str) -> Option<&'a ManifestFile> {
+    let logical = format!("{}/{relative}", manifest.content_version);
+    manifest
+        .files
+        .iter()
+        .find(|file| file.logical_path() == logical)
+}
+
+/// Reads one library file by its logical path, decoded. A row without `gzip` is read as stored.
+/// A row with `gzip` is decoded by the browser (`DecompressionStream`) or, when the browser has
+/// none, by `miniz_oxide`. Either way the decoded length must equal `gzip.bytes`. The fallback
+/// also compares the SHA-256 of the decoded bytes, because the browser's decoder checks the
+/// CRC-32 itself and the fallback does not.
+async fn read_file(
+    cache: &Cache,
+    manifest: &ContentManifest,
+    relative: &str,
+) -> Result<Vec<u8>, LibraryError> {
+    let logical = format!("{}/{relative}", manifest.content_version);
+    let row =
+        manifest_row(manifest, relative).ok_or_else(|| LibraryError::Missing(logical.clone()))?;
+    let Some(decoded) = &row.gzip else {
+        return content_cache::read(cache, &row.path)
+            .await
+            .map_err(LibraryError::Storage)?
+            .ok_or(LibraryError::Missing(logical));
+    };
+    let corrupt = |message: String| LibraryError::Corrupt {
+        path: logical.clone(),
+        message,
+    };
+    let missing = || LibraryError::Missing(row.path.clone());
+    let native = crate::js::gunzip_supported();
+    let bytes = if native {
+        content_cache::read_gunzip(cache, &row.path)
+            .await
+            .map_err(|e| corrupt(format!("cannot decode the gzip file: {e}")))?
+            .ok_or_else(missing)?
+    } else {
+        let stored = content_cache::read(cache, &row.path)
+            .await
+            .map_err(LibraryError::Storage)?
+            .ok_or_else(missing)?;
+        let limit = usize::try_from(decoded.bytes).unwrap_or(usize::MAX);
+        gunzip::gunzip(&stored, limit).map_err(corrupt)?
+    };
+    if bytes.len() as u64 != decoded.bytes {
+        return Err(corrupt(format!(
+            "the decoded file has {} bytes and the manifest lists {}",
+            bytes.len(),
+            decoded.bytes
+        )));
+    }
+    if !native {
+        let sha256 = crate::js::sha256_hex(&bytes)
+            .await
+            .map_err(LibraryError::Storage)?;
+        if sha256 != decoded.sha256 {
+            return Err(corrupt(
+                "the decoded file does not match the manifest hash".to_string(),
+            ));
+        }
+    }
+    Ok(bytes)
 }
 
 /// Reads the reverse-index descriptor: valid JSON that names the format this client reads and
@@ -1154,12 +1218,12 @@ fn parse_backlink_index(bytes: &[u8]) -> Result<BacklinkIndex, String> {
 
 async fn read_json<T: DeserializeOwned>(
     cache: &Cache,
-    version: &str,
+    manifest: &ContentManifest,
     relative: &str,
 ) -> Result<T, LibraryError> {
-    let bytes = read_file(cache, version, relative).await?;
+    let bytes = read_file(cache, manifest, relative).await?;
     serde_json::from_slice(&bytes).map_err(|e| LibraryError::Corrupt {
-        path: format!("{version}/{relative}"),
+        path: format!("{}/{relative}", manifest.content_version),
         message: e.to_string(),
     })
 }

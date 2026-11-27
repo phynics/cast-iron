@@ -52,6 +52,21 @@ export async function sha256Hex(buffer) {
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
+/** True when the browser can gunzip a stream (Safari 16.4, Chrome 80, Firefox 113). */
+export function gunzipSupported() {
+  return typeof DecompressionStream === "function";
+}
+
+/**
+ * Reads a stored gzip file from the cache and decodes it. Resolves the decoded bytes as an
+ * ArrayBuffer, or null when the cache has no such file.
+ */
+export async function cacheReadGunzip(cache, url) {
+  const response = await cache.match(url);
+  if (!response) return null;
+  return new Response(response.body.pipeThrough(new DecompressionStream("gzip"))).arrayBuffer();
+}
+
 /** Asks for persistent storage. Resolves false when unsupported or refused. */
 export async function storagePersist() {
   return navigator.storage?.persist ? navigator.storage.persist() : false;

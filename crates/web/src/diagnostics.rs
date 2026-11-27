@@ -52,7 +52,11 @@ pub struct InstallRecord {
 pub struct IndexLoad {
     pub read_ms: f64,
     pub decode_ms: f64,
+    /// The decoded size of `search.bin`: what the index parser reads.
     pub bytes: u64,
+    /// The stored size: the gzip file in the cache, or the same as `bytes` for a library
+    /// whose files are not gzip. `read_ms` includes the gunzip time.
+    pub stored_bytes: u64,
 }
 
 /// One search, from the moment its screen started the run to the results painted: two animation
@@ -523,11 +527,12 @@ pub fn report(snapshot: &Snapshot) -> Report {
     });
     lines.push(match launch.index_load {
         Some(load) => format!(
-            "search index: read {}, decode {}, {}; ready at {}",
+            "search index: read {}, decode {}, {}; ready at {}; stored size {} (read includes gunzip)",
             duration(load.read_ms),
             duration(load.decode_ms),
             fmt::bytes(load.bytes),
-            ms_or(launch.index_ready_ms, "not recorded")
+            ms_or(launch.index_ready_ms, "not recorded"),
+            fmt::bytes(load.stored_bytes)
         ),
         None => "search index: not loaded in this launch".to_string(),
     });
@@ -1075,6 +1080,7 @@ mod tests {
                     read_ms: 180.0,
                     decode_ms: 520.0,
                     bytes: 40_000_000,
+                    stored_bytes: 12_000_000,
                 }),
                 index_ready_ms: Some(3000.0),
                 searches: samples,
