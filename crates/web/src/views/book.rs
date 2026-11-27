@@ -227,6 +227,7 @@ pub fn BookView(source: String) -> impl IntoView {
     // The reader's place in this book, read once per mount. The page remounts when Back returns
     // from an entry, so a visit made there shows here without a reload.
     let saved = RwSignal::new(None::<EntryId>);
+    let points_loaded = RwSignal::new(false);
     {
         let library = library.clone();
         let source = source.clone();
@@ -235,6 +236,7 @@ pub fn BookView(source: String) -> impl IntoView {
             saved.set(
                 continue_reading::for_book(&points, &source).map(|point| point.entry_id.clone()),
             );
+            points_loaded.set(true);
         });
     }
     let current = use_route();
@@ -333,7 +335,7 @@ pub fn BookView(source: String) -> impl IntoView {
         }
     };
     view! {
-        <div class="wide book">
+        <div class="wide book" data-points-loaded=move || points_loaded.get().then_some("")>
             <h1>{title}</h1>
             {meta.map(|line| view! { <p class="muted book-meta-line" data-testid="source-count">{line}</p> })}
             {continue_link}

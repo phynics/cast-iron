@@ -662,11 +662,48 @@ pub async fn continue_points() -> Result<Vec<ContinuePoint>> {
     Ok(points)
 }
 
+/// What `record_continue_point` did.
+#[derive(Debug, Clone, PartialEq)]
+pub enum ContinueWrite {
+    Recorded,
+    /// The Reader's library is not the active one: nothing was written. The active record at the
+    /// time of the check, when there is one, is what the Reader must open.
+    Stale(Option<ActiveLibrary>),
+}
+
+/// Whether a Reader that opened `version` still shows the active library. A point recorded
+/// from a replaced library would name entries and book membership the active one may not have.
+pub fn reader_is_current(active: Option<&ActiveLibrary>, version: &str) -> bool {
+    active.is_some_and(|active| active.content_version == version)
+}
+
 /// Records a visit inside a book in one transaction, so two quick visits cannot drop each
-/// other's point the way a separate read and write could.
-pub async fn record_continue_point(source: &str, entry_id: &EntryId, read_at: f64) -> Result<()> {
+/// other's point the way a separate read and write could. `version` is the content version of
+/// the library the Reader shows. The same transaction compares it with `active_library`, so a
+/// tab that kept its old catalog after another tab activated a replacement writes nothing
+/// (#725).
+pub async fn record_continue_point(
+    source: &str,
+    entry_id: &EntryId,
+    read_at: f64,
+    version: &str,
+) -> Result<ContinueWrite> {
     let tx = Tx::begin(&[META], true).await?;
     let store = tx.store(META)?;
+    let active = from_js::<ActiveLibrary>(
+        request(
+            store
+                .get(&JsValue::from_str(KEY_ACTIVE_LIBRARY))
+                .map_err(Into::into),
+        )
+        .await?,
+    )
+    .ok()
+    .flatten();
+    if !reader_is_current(active.as_ref(), version) {
+        tx.finish().await?;
+        return Ok(ContinueWrite::Stale(active));
+    }
     let stored = from_js::<Vec<ContinuePoint>>(
         request(
             store
@@ -684,7 +721,8 @@ pub async fn record_continue_point(source: &str, entry_id: &EntryId, read_at: f6
             .map_err(Into::into),
     )
     .await?;
-    tx.finish().await
+    tx.finish().await?;
+    Ok(ContinueWrite::Recorded)
 }
 
 /// Removes every continue point, so Quick search's Clear also forgets where the reader stopped.
@@ -1394,6 +1432,20 @@ mod tests {
                 point("core-rulebook", "ref/rule/core", 10.0)
             ]
         );
+    }
+
+    #[test]
+    fn a_reader_is_current_only_while_its_version_is_the_active_one() {
+        let active = |version: &str| ActiveLibrary {
+            content_version: version.into(),
+            schema_version: 8,
+            entry_count: 1,
+            total_bytes: 1,
+            activated_at: 1.0,
+        };
+        assert!(reader_is_current(Some(&active("v1")), "v1"));
+        assert!(!reader_is_current(Some(&active("v2")), "v1"));
+        assert!(!reader_is_current(None, "v1"));
     }
 
     #[test]
