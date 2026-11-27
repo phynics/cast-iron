@@ -357,7 +357,9 @@ fn Reader(library: Library) -> impl IntoView {
             // Typing in the Find a book field of Books or Manage books edits `?q=` of the page.
             || previous.as_ref().is_some_and(|p| views::book_find::same_page(p, &route))
             // So does choosing an archetype filter on the class page that is on screen.
-            || previous.as_ref().is_some_and(|p| p.only_arch_differs(&route));
+            || previous.as_ref().is_some_and(|p| p.only_arch_differs(&route))
+            // So does choosing a group or a filter in the Options section (#739).
+            || previous.as_ref().is_some_and(|p| p.only_options_differ(&route));
         // A jump to another section of the entry page that is on screen, also from an `?a=`
         // address. The page scrolls, and focus stays on the switcher (or moves to the section's
         // heading), not on <main>.

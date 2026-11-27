@@ -2,7 +2,7 @@ import type { Locator, Page } from "@playwright/test";
 import { installedTest as test, expect, loadCorpus } from "./fixtures";
 import { installLibrary } from "./helpers";
 
-// The section switcher of a class page (#170, part A): Overview · (Requirements) · Features · Archetypes · Spells,
+// The section switcher of a class page (#170, part A): Overview · (Requirements) · Features · (Options, #739) · Archetypes · Spells,
 // the stops the class has, as a sticky bar of jump links. The page is one document, so every
 // section is in it; a stop moves the page, records `?s=` in the address, and moves focus to the
 // section's heading. Expectations come from the compiled corpus (docs/decisions.md, "Class pages:
@@ -15,9 +15,9 @@ const WIZARD = "ref/class/wizard";
 const FIGHTER = "ref/class/fighter";
 const ARCANIST = "ref/class/arcanist";
 const CLASSES = [
-  { id: WIZARD, stops: ["Overview", "Features", "Archetypes", "Spells"] },
+  { id: WIZARD, stops: ["Overview", "Features", "Options", "Archetypes", "Spells"] },
   { id: FIGHTER, stops: ["Overview", "Features", "Archetypes"] },
-  { id: ARCANIST, stops: ["Overview", "Features", "Archetypes", "Spells"] },
+  { id: ARCANIST, stops: ["Overview", "Features", "Options", "Archetypes", "Spells"] },
 ];
 const WIDTHS = [390, 1280];
 
@@ -89,7 +89,7 @@ test("The switcher lists the stops a class has and every section stays in the pa
       await expect(section(page, "features"), label).toBeAttached();
       await expect(section(page, "archetypes"), label).toHaveText("Archetypes");
       await expect(section(page, "spells"), label).toHaveCount(stops.includes("Spells") ? 1 : 0);
-      for (const slug of ["features", "archetypes", "spells"]) {
+      for (const slug of ["features", "options", "archetypes", "spells"]) {
         if (await section(page, slug).count()) expect(await section(page, slug).isHidden(), `${label} ${slug}`).toBe(false);
       }
       expect(await overflow(page), label).toBeLessThanOrEqual(0);
@@ -384,6 +384,17 @@ test("A section jump does not move focus to the page, and the switcher works by 
     await stop(page, "Overview").focus();
     await page.keyboard.press("Tab");
     await expect(stop(page, "Features")).toBeFocused();
+    // Options sits between Features and Archetypes (#739): Tab reaches it, and Enter jumps to its
+    // heading with focus there, as it does for Archetypes below.
+    await page.keyboard.press("Tab");
+    await expect(stop(page, "Options")).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect.poll(() => page.evaluate(() => location.hash)).toBe(`#/entry/${WIZARD}?s=options`);
+    await expect(stop(page, "Options")).toHaveAttribute("aria-current", "true");
+    await expect(section(page, "options")).toBeFocused();
+    await expectAtTop(page, "options");
+    await stop(page, "Features").focus();
+    await page.keyboard.press("Tab");
     await page.keyboard.press("Tab");
     await expect(stop(page, "Archetypes")).toBeFocused();
     await page.keyboard.press("Enter");

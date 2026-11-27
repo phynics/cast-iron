@@ -34,6 +34,7 @@ pub mod js;
 pub mod library;
 pub mod lru;
 pub mod membership;
+pub mod option_list;
 pub mod outline;
 pub mod panic_notice;
 pub mod powers;

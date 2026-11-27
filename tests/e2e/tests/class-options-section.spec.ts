@@ -1,0 +1,366 @@
+import fs from "node:fs";
+import path from "node:path";
+import type { Page } from "@playwright/test";
+import { GENERATED, installedTest as test, expect, loadCorpus } from "./fixtures";
+import { installLibrary, openBookGroups, visibleWithout, waitControlled } from "./helpers";
+
+// The Options section of a class page (#739): a stop between Features and Archetypes when the class
+// has an option group, one chip per group, the group's options as rows with a name field and a
+// book menu, and a row under the feature that grants the choice. Expectations come from the
+// compiled corpus (docs/decisions/2026-11-27-class-options-section.md).
+
+const corpus = loadCorpus();
+const groups: { slug: string; label: string; singular: string; classes: string[]; entries: string[] }[] = JSON.parse(
+  fs.readFileSync(path.join(GENERATED, corpus.version, "option-groups.json"), "utf8"),
+).groups;
+const stubs = new Map<string, any>(corpus.catalog.entries.map((stub: any) => [stub.id, stub]));
+
+const ROGUE = "ref/class/rogue";
+const WIZARD = "ref/class/wizard";
+const FIGHTER = "ref/class/fighter";
+const KINETICIST = "ref/class/kineticist";
+const talents = groups.find((group) => group.slug === "rogue-talent")!;
+
+const switcher = (page: Page) => page.getByRole("navigation", { name: "Sections" });
+const stop = (page: Page, name: string) => switcher(page).getByRole("link", { name, exact: true });
+const chips = (page: Page) => page.getByRole("navigation", { name: "Option groups" });
+const rows = (page: Page) => page.locator(".opt-rows > li");
+const countLine = (page: Page) => page.locator(".opt-list .list-count");
+
+async function openClass(page: Page, id: string, query = "", width = 1280) {
+  await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
+  await installLibrary(page);
+  await page.goto(`#/entry/${id}${query}`);
+  await expect(page.getByRole("heading", { level: 1, name: corpus.entries.get(id)!.title })).toBeVisible();
+}
+
+test("Rogue has an Options stop with a chip for rogue talents and its options as rows", async ({ page }) => {
+  await openClass(page, ROGUE);
+  await expect(switcher(page).getByRole("link")).toHaveText(["Overview", "Features", "Options", "Archetypes"]);
+  await expect(stop(page, "Options")).toHaveAttribute("href", `#/entry/${ROGUE}?s=options`);
+  await expect(page.locator('h2[data-class-section="options"]')).toHaveText("Options");
+
+  // One chip, the group's label and its count, marked as the one that is shown.
+  const chip = chips(page).getByRole("link");
+  await expect(chip).toHaveCount(1);
+  await expect(chip).toHaveText(`${talents.label}${talents.entries.length}`);
+  await expect(chip).toHaveAttribute("aria-current", "true");
+
+  // The list: a count line, then a row for each option, A to Z, each opening its own page.
+  await expect(countLine(page)).toHaveText(`${talents.entries.length} rogue talents`);
+  await expect(rows(page)).toHaveCount(talents.entries.length);
+  const titles = talents.entries.map((id) => stubs.get(id).title as string);
+  const first = [...titles].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()))[0];
+  await expect(rows(page).first().locator("a .opt-name")).toHaveText(first);
+  // Rogue talents print no level, so the group has no Level menu.
+  await expect(page.getByRole("button", { name: /^Level:/ })).toHaveCount(0);
+  // Each row names its book on a muted line.
+  await expect(rows(page).first().locator(".arch-meta")).not.toBeEmpty();
+
+  // An option with a printed ability tag shows it, in italics, after the name.
+  await expect(page.locator(".opt-rows .opt-tag").first()).toHaveText(/^\((Ex|Su|Sp)/);
+  await expect(page.locator(".opt-rows .opt-tag").first()).toHaveCSS("font-style", "italic");
+
+  // Typing narrows the list in place, and the text is the address's (`find=`).
+  await page.locator("#opt-find").fill("bleed");
+  const wanted = titles.filter((title) => title.toLowerCase().includes("bleed")).length;
+  expect(wanted).toBeGreaterThan(0);
+  await expect(rows(page)).toHaveCount(wanted);
+  await expect(countLine(page)).toContainText(`${wanted} of ${talents.entries.length} rogue talents`);
+  await expect.poll(() => page.evaluate(() => location.hash)).toContain("find=bleed");
+  await expect.poll(() => page.evaluate(() => location.hash)).toContain("group=rogue-talent");
+
+  // The book menu narrows by one book, and its count is the library's.
+  const sources = new Map<string, number>();
+  for (const id of talents.entries) sources.set(stubs.get(id).source, (sources.get(stubs.get(id).source) ?? 0) + 1);
+  await countLine(page).getByRole("button", { name: "Show all" }).click();
+  await expect(rows(page)).toHaveCount(talents.entries.length);
+  await page.getByRole("button", { name: "Book: All books" }).click();
+  const [book, expected] = [...sources.entries()].find(([, n]) => n > 1)!;
+  const bookTitle = corpus.catalog.sources.find((source: any) => source.id === book).title as string;
+  await page.getByRole("link", { name: `${bookTitle}, ${expected}`, exact: true }).click();
+  await expect(rows(page)).toHaveCount(expected);
+  await expect.poll(() => page.evaluate(() => location.hash)).toContain(`source=${book}`);
+
+  // A row opens the option's page.
+  await countLine(page).getByRole("button", { name: "Show all" }).click();
+  const row = rows(page).first();
+  const name = (await row.locator(".opt-name").textContent())!;
+  await row.locator("a").click();
+  await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
+});
+
+test("The feature that grants rogue talents has a row that opens the section at that group", async ({ page }) => {
+  await openClass(page, ROGUE);
+  const link = page.locator(".opt-link a");
+  await expect(link).toHaveCount(1);
+  await expect(link).toContainText(`${talents.label} · ${talents.entries.length}`);
+  // The row sits under the text of the feature it belongs to.
+  const heading = page.getByRole("heading", { name: /^Rogue Talents/ }).first();
+  const headingBox = (await heading.boundingBox())!;
+  const linkBox = (await link.boundingBox())!;
+  expect(linkBox.y).toBeGreaterThan(headingBox.y);
+
+  await link.click();
+  await expect.poll(() => page.evaluate(() => location.hash)).toBe(`#/entry/${ROGUE}?s=options&group=rogue-talent`);
+  await expect(stop(page, "Options")).toHaveAttribute("aria-current", "true");
+  await expect(chips(page).getByRole("link")).toHaveAttribute("aria-current", "true");
+  await expect(page.locator('h2[data-class-section="options"]')).toBeInViewport();
+});
+
+test("A class with two groups has a chip each, and the address names the group that is shown", async ({ page }) => {
+  const wizard = groups.filter((group) => group.classes.includes(WIZARD));
+  expect(wizard.length).toBe(2);
+  await openClass(page, WIZARD, `?s=options&group=${wizard[1].slug}`);
+  await expect(chips(page).getByRole("link")).toHaveCount(2);
+  await expect(chips(page).getByRole("link", { name: new RegExp(`^${wizard[1].label}`) })).toHaveAttribute(
+    "aria-current",
+    "true",
+  );
+  await expect(rows(page)).toHaveCount(wizard[1].entries.length);
+
+  // The other chip shows its own list, resets the filters, and is one more history entry.
+  await chips(page).getByRole("link", { name: new RegExp(`^${wizard[0].label}`) }).click();
+  await expect(rows(page)).toHaveCount(wizard[0].entries.length);
+  await expect.poll(() => page.evaluate(() => location.hash)).toContain(`group=${wizard[0].slug}`);
+  await page.goBack();
+  await expect(rows(page)).toHaveCount(wizard[1].entries.length);
+
+  // An unknown group shows the class's first.
+  await page.goto(`#/entry/${WIZARD}?s=options&group=nope`);
+  await expect(chips(page).getByRole("link").first()).toHaveAttribute("aria-current", "true");
+});
+
+test("A class with no option group has no Options stop and drops an address that names it", async ({ page }) => {
+  expect(groups.some((group) => group.classes.includes(FIGHTER))).toBe(false);
+  await openClass(page, FIGHTER, "?s=options");
+  await expect(switcher(page).getByRole("link")).toHaveText(["Overview", "Features", "Archetypes"]);
+  await expect(page.locator('[data-class-section="options"]')).toHaveCount(0);
+  await expect(page.locator(".opt-section")).toHaveCount(0);
+  await expect.poll(() => page.evaluate(() => location.hash)).toBe(`#/entry/${FIGHTER}`);
+});
+
+test("At 390 px the chips and the list fit the screen", async ({ page }) => {
+  await openClass(page, ROGUE, "?s=options&group=rogue-talent", 390);
+  await expect(rows(page).first()).toBeVisible();
+  const overflow = await page.evaluate(
+    () => Math.max(document.documentElement.scrollWidth, document.body.scrollWidth) - window.innerWidth,
+  );
+  expect(overflow).toBeLessThanOrEqual(0);
+  // Four stops share one row, so the sticky bar keeps the height every section's scroll margin assumes.
+  expect((await switcher(page).boundingBox())!.height).toBeLessThan(64);
+  // The chips are one row that scrolls sideways, not a page that does.
+  const chip = (await chips(page).getByRole("link").first().boundingBox())!;
+  expect(chip.height).toBeGreaterThanOrEqual(44);
+  expect(chip.x + chip.width).toBeLessThanOrEqual(390);
+});
+
+/** The number of an option's `Level:` row, or undefined when it prints none. */
+function printedLevel(id: string): number | undefined {
+  for (const block of corpus.entries.get(id)!.body as any[]) {
+    const first = block.t === "paragraph" ? block.content[0] : undefined;
+    if (first?.t !== "strong") continue;
+    const label = first.c.map((item: any) => item.v ?? "").join("").trim();
+    if (label !== "Level:") continue;
+    const rest = block.content
+      .slice(1)
+      .map((item: any) => item.v ?? "")
+      .join("")
+      .trim();
+    return /^\d+$/.test(rest) ? Number(rest) : undefined;
+  }
+  return undefined;
+}
+
+test("Kineticist wild talents print a level, so the list has a Level menu that narrows it", async ({ page }) => {
+  const wild = groups.find((group) => group.slug === "kineticist-wild-talent")!;
+  expect(wild.classes).toContain(KINETICIST);
+  const levels = new Map<number, number>();
+  for (const id of wild.entries) {
+    const level = printedLevel(id);
+    if (level !== undefined) levels.set(level, (levels.get(level) ?? 0) + 1);
+  }
+  expect(levels.size).toBeGreaterThan(1);
+  await openClass(page, KINETICIST, "?s=options");
+  await expect(rows(page)).toHaveCount(wild.entries.length);
+  // The right of a row shows the level it prints.
+  await expect(page.locator(".opt-rows .opt-aside").first()).toHaveText(/^Level \d+$/);
+
+  const [level, expected] = [...levels.entries()].find(([, n]) => n > 1)!;
+  await page.getByRole("button", { name: "Level: All levels" }).click();
+  await page.getByRole("link", { name: `${level}, ${expected}`, exact: true }).click();
+  await expect(rows(page)).toHaveCount(expected);
+  await expect(countLine(page)).toContainText(`${expected} of ${wild.entries.length} kineticist wild talents`);
+  await expect.poll(() => page.evaluate(() => location.hash)).toContain(`level=${level}`);
+  await expect(page.getByRole("button", { name: `Level: ${level}` })).toBeVisible();
+  for (const text of await page.locator(".opt-rows .opt-aside").allTextContents()) expect(text).toBe(`Level ${level}`);
+
+  // Show all clears it.
+  await countLine(page).getByRole("button", { name: "Show all" }).click();
+  await expect(rows(page)).toHaveCount(wild.entries.length);
+});
+
+test("With a book turned off, its options leave the chip count and the list", async ({ page }) => {
+  // A book that holds some rogue talents and not all of them, and that no talent shares with another book.
+  const bySource = new Map<string, string[]>();
+  for (const id of talents.entries) {
+    const stub = stubs.get(id);
+    bySource.set(stub.source, [...(bySource.get(stub.source) ?? []), id]);
+  }
+  const book = [...bySource.entries()].find(
+    ([source, ids]) => ids.length > 1 && ids.every((id) => !visibleWithout(stubs.get(id), [source])),
+  )![0];
+  const bookTitle = corpus.catalog.sources.find((source: any) => source.id === book).title as string;
+  const kept = talents.entries.filter((id) => visibleWithout(stubs.get(id), [book]));
+  expect(kept.length).toBeLessThan(talents.entries.length);
+
+  await installLibrary(page);
+  await waitControlled(page);
+  await page.goto("#/books/manage");
+  await openBookGroups(page);
+  const toggle = page
+    .locator(`.book-directory-item[data-book-id="${book}"]`)
+    .getByRole("checkbox", { name: `Active ${bookTitle}`, exact: true });
+  await toggle.uncheck();
+  await expect(toggle).not.toBeChecked();
+
+  await page.goto(`#/entry/${ROGUE}?s=options`);
+  await expect(chips(page).getByRole("link")).toHaveText(`${talents.label}${kept.length}`);
+  await expect(countLine(page)).toHaveText(`${kept.length} rogue talents`);
+  await expect(rows(page)).toHaveCount(kept.length);
+  // The link row counts the same, and the book is not in the book menu.
+  await expect(page.locator(".opt-link a")).toContainText(`${talents.label} · ${kept.length}`);
+  await page.getByRole("button", { name: "Book: All books" }).click();
+  await expect(page.getByRole("link", { name: new RegExp(`^${bookTitle}, `) })).toHaveCount(0);
+});
+
+// A jump to something below the Options section must survive the section's rows arriving late: the
+// section grows from one `Loading` line to the whole list, and the page holds what sits below it
+// where it was. The read of the class-option shards is slowed so that the rows arrive well after
+// the page has rendered and jumped.
+
+/**
+ * Delays each burst of Cache API reads of the class-option shards once, by `ms`. A group spans many
+ * shards that the app reads one after another; a delay per read would add up to tens of seconds. The
+ * first read after a quiet second opens a new gate, and the reads that follow it pass straight
+ * through, so every load of a group (each jump, each new page) arrives `ms` late in total.
+ */
+async function slowShards(page: Page, ms: number) {
+  await page.addInitScript((delay) => {
+    const match = Cache.prototype.match;
+    let gate: Promise<void> | undefined;
+    let busyUntil = 0;
+    Cache.prototype.match = function (this: Cache, ...args: Parameters<Cache["match"]>) {
+      const request = args[0] as Request | string;
+      const url = typeof request === "string" ? request : request.url;
+      const found = match.apply(this, args);
+      if (!/\/entries\/class_option-/.test(url)) return found;
+      const now = Date.now();
+      if (!gate || now > busyUntil + 1000) {
+        gate = new Promise<void>((resolve) => setTimeout(resolve, delay));
+        busyUntil = now + delay;
+      }
+      return gate.then(() => {
+        busyUntil = Math.max(busyUntil, Date.now());
+        return found;
+      });
+    };
+  }, ms);
+}
+
+const nextFrames = (page: Page) =>
+  page.evaluate(() => new Promise<void>((done) => requestAnimationFrame(() => requestAnimationFrame(() => done()))));
+
+/** The top of an element in the view, and the bottom of the sticky bar. */
+const viewTop = (page: Page, selector: string) =>
+  page.locator(selector).evaluate((el) => Math.round(el.getBoundingClientRect().top));
+const barBottom = (page: Page) => switcher(page).evaluate((el) => Math.round(el.getBoundingClientRect().bottom));
+
+/** Waits until two reads a frame apart agree, and returns that read. */
+async function settled(page: Page, read: () => Promise<number>): Promise<number> {
+  let last: number | undefined;
+  await expect
+    .poll(async () => {
+      await nextFrames(page);
+      const now = await read();
+      const same = now === last;
+      last = now;
+      return same;
+    })
+    .toBe(true);
+  return last!;
+}
+
+/**
+ * The read is within 1 px of `before` once the rows are in, and stays there for several more frames.
+ * The hold ignores a drift of up to 1.5 px (`option_list.rs`), so a rounded read may differ by one.
+ */
+async function expectStays(page: Page, read: () => Promise<number>, before: number, label: string) {
+  const near = async () => Math.abs((await read()) - before) <= 1;
+  await expect.poll(near, { message: label }).toBe(true);
+  for (let frame = 0; frame < 6; frame++) {
+    await nextFrames(page);
+    await expect.poll(near, { message: `${label}, frame ${frame}`, timeout: 2000 }).toBe(true);
+  }
+}
+
+const wizardRows = () => groups.find((group) => group.classes.includes(WIZARD))!.entries.length;
+
+test("A jump to a later stop stays put when the section's rows arrive", async ({ page }) => {
+  await slowShards(page, 3000);
+  for (const target of ["archetypes", "spells"]) {
+    await openClass(page, WIZARD, `?s=${target}`);
+    // The section is still its `Loading` line when the page has jumped.
+    await expect(countLine(page)).toContainText("Loading");
+    const read = () => viewTop(page, `[data-class-section="${target}"]`);
+    const before = await settled(page, read);
+    if (target === "archetypes") {
+      const bar = await barBottom(page);
+      expect(before, "under the sticky bar").toBeGreaterThanOrEqual(bar - 1);
+      expect(before, "near the top").toBeLessThan(bar + 120);
+    }
+    await expect(rows(page)).toHaveCount(wizardRows());
+    await expectStays(page, read, before, target);
+  }
+});
+
+test("A heading anchor below the section stays put when the section's rows arrive", async ({ page }) => {
+  await slowShards(page, 3000);
+  // The Favored Class Bonuses heading comes after Archetypes, so after Options.
+  await openClass(page, WIZARD, "?a=sec-favored-class-bonuses");
+  await expect(page.locator("#h-sec-favored-class-bonuses")).toBeAttached();
+  await expect(countLine(page)).toContainText("Loading");
+  const read = () => viewTop(page, "#h-sec-favored-class-bonuses");
+  const before = await settled(page, read);
+  expect(before, "in the view").toBeGreaterThanOrEqual(0);
+  await expect(rows(page)).toHaveCount(wizardRows());
+  await expectStays(page, read, before, "anchor");
+});
+
+test("A quick jump to Archetypes before the rows arrive stays put when they do", async ({ page }) => {
+  await slowShards(page, 3000);
+  await openClass(page, WIZARD);
+  await stop(page, "Archetypes").click();
+  await expect(countLine(page)).toContainText("Loading");
+  const read = () => viewTop(page, '[data-class-section="archetypes"]');
+  const before = await settled(page, read);
+  const bar = await barBottom(page);
+  expect(before, "under the sticky bar").toBeGreaterThanOrEqual(bar - 1);
+  expect(before, "near the top").toBeLessThan(bar + 120);
+  await expect(rows(page)).toHaveCount(wizardRows());
+  await expectStays(page, read, before, "quick jump");
+});
+
+test("A reader who has scrolled on is held where they are, not sent back to the jump", async ({ page }) => {
+  await slowShards(page, 3000);
+  await openClass(page, WIZARD, "?s=archetypes");
+  await expect(countLine(page)).toContainText("Loading");
+  await settled(page, () => viewTop(page, '[data-class-section="archetypes"]'));
+  // The reader moves on to the Archetypes list and stays on what they chose to look at.
+  await page.mouse.wheel(0, 400);
+  const read = () => viewTop(page, '[data-class-section="archetypes"]');
+  const before = await settled(page, read);
+  expect(before).toBeLessThan(0);
+  await expect(rows(page)).toHaveCount(wizardRows());
+  await expectStays(page, read, before, "scrolled reader");
+});

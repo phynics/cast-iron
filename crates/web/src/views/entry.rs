@@ -10,6 +10,7 @@ use crate::focus_guard::{FocusTicket, Verdict};
 use crate::js;
 use crate::library::{Library, Resolution, use_library};
 use crate::membership::preferred_book;
+use crate::option_list;
 use crate::powers;
 use crate::printings;
 use crate::revisions::{self, ActiveRevision, RevisionLabel};
@@ -25,6 +26,7 @@ use crate::views::crumbs::{Crumb, EntryCrumbs, EntryFacts};
 use crate::views::entry_contents::{ArticleContents, JumpLink, lists_contents, resolve_anchor};
 use crate::views::fresh::IntoFresh as _;
 use crate::views::icons;
+use crate::views::option_list::{self as option_view, OptionsLink, OptionsSection};
 use crate::views::recent;
 use crate::views::related::{Indexes, Related, needs};
 use crate::views::rich::{RELATED_ANCHOR, RichBody, blocks, muted_line, muted_parts, plain_text};
@@ -949,7 +951,9 @@ fn EntryView(
     // A class page opens with its summary card. The printed paragraphs that the card replaces
     // leave the body, so no fact shows twice; every other paragraph stays.
     let is_class = matches!(kind, EntryKind::Class | EntryKind::PrestigeClass);
-    let (class_card, rendered_body, class_sections, archetype_slot) = match is_class && !hide_body {
+    let (class_card, rendered_body, class_sections, archetype_slot, class_inserts) = match is_class
+        && !hide_body
+    {
         true => {
             let read = class_summary::read(&entry.fields, &entry.body);
             let list = indexes
@@ -1003,7 +1007,22 @@ fn EntryView(
                 Some((folded, key)) => (folded, Some(key)),
                 None => (body, None),
             };
-            let sections = Some(Sections::read(&body, has_list)).filter(Sections::worth_a_switcher);
+            // A base class with an option group has the Options stop, between Features and
+            // Archetypes (#739).
+            let option_groups = match (kind == EntryKind::Class, indexes.option_groups.as_deref()) {
+                (true, Some(index)) => option_view::groups_of(&library, index, &entry.id),
+                _ => Vec::new(),
+            };
+            let sections =
+                Some(Sections::read(&body, has_list).with_options(!option_groups.is_empty()))
+                    .filter(Sections::worth_a_switcher);
+            let inserts = match sections
+                .as_ref()
+                .filter(|sections| sections.has(Section::Options))
+            {
+                Some(sections) => options_inserts(&body, sections, &entry, &book, option_groups),
+                None => Vec::new(),
+            };
             let slot = folded_key.map(|key| {
                 let (class, book) = (entry.id.clone(), book.clone());
                 let section = sections
@@ -1027,9 +1046,15 @@ fn EntryView(
                 (key, list)
             });
             indexes.archetypes_in_page = slot.is_some();
-            (class_card(&read.summary, list), body, sections, slot)
+            (
+                class_card(&read.summary, list),
+                body,
+                sections,
+                slot,
+                inserts,
+            )
         }
-        false => (None, rendered_body, None, None),
+        false => (None, rendered_body, None, None, Vec::new()),
     };
     // The class features that the entry lists print under their own heading (corpus format 4,
     // #540) and render as feature heads. Such an entry is converted: it has no power rows, so
@@ -1193,7 +1218,7 @@ fn EntryView(
         {switcher}
         {stat_sets}
         {contents}
-        <RichBody body=rendered_body anchor=live_anchor changed=changed_labels marks=section_marks entry=entry.id.clone() book=live_book power_title archetype_list=archetype_slot features />
+        <RichBody body=rendered_body anchor=live_anchor changed=changed_labels marks=section_marks entry=entry.id.clone() book=live_book power_title archetype_list=archetype_slot features inserts=class_inserts />
         {source_line(&body_sources, &library, None)}
         {expanded_line(&entry.expanded_in, &library)}
         {printings_line(&indexes.printings)}
@@ -1226,6 +1251,56 @@ fn EntryView(
             })}
         </footer>
     }
+}
+
+/// The views that a class page draws among the blocks of its body for the Options section (#739):
+/// the row under each feature that grants a choice from a group, then the section itself, before
+/// the Archetypes heading (at the end of the body when the page has none). A group that no feature
+/// names has no row, and its chip in the section works all the same.
+fn options_inserts(
+    body: &[Block],
+    sections: &Sections,
+    entry: &RuleEntry,
+    book: &Option<String>,
+    groups: Vec<cast_iron_schema::OptionGroup>,
+) -> Vec<(usize, Callback<(), AnyView>)> {
+    let named: Vec<&cast_iron_schema::OptionGroup> = groups.iter().collect();
+    let mut inserts: Vec<(usize, Callback<(), AnyView>)> = Vec::new();
+    for link in option_list::option_links(body, &entry.title, &named) {
+        let Some(group) = groups.iter().find(|group| group.slug == link.group) else {
+            continue;
+        };
+        let (class, book) = (entry.id.clone(), book.clone());
+        let (slug, label, count) = (group.slug.clone(), group.label.clone(), group.entries.len());
+        inserts.push((
+            link.before,
+            Callback::new(move |()| {
+                view! {
+                    <OptionsLink class=class.clone() book=book.clone() slug=slug.clone()
+                        label=label.clone() count />
+                }
+                .into_any()
+            }),
+        ));
+    }
+    let at = sections
+        .archetypes_key()
+        .and_then(|key| {
+            cast_iron_schema::headings::keyed_headings(body)
+                .into_iter()
+                .find(|(_, found)| found.as_deref() == Some(key))
+        })
+        .and_then(|(heading, _)| body.iter().position(|block| std::ptr::eq(block, heading)))
+        .unwrap_or(body.len());
+    let (class, book) = (entry.id.clone(), book.clone());
+    inserts.push((
+        at,
+        Callback::new(move |()| {
+            view! { <OptionsSection class=class.clone() book=book.clone() groups=groups.clone() /> }
+                .into_any()
+        }),
+    ));
+    inserts
 }
 
 /// The kind link of the metadata line: where it goes and what it says. A trait names its

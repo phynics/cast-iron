@@ -137,6 +137,11 @@ struct Renderer {
     /// A view that takes its place right after the class page's Archetypes heading, before the
     /// section's introduction, so the list is the first thing a reader finds there (#170, part D).
     slot: Option<(String, Callback<(), AnyView>)>,
+    /// Views that go in before a top-level block of the body, by the block (#739: the Options
+    /// section, and the row under a feature that grants a choice from a group).
+    before: BTreeMap<*const Block, Vec<Callback<(), AnyView>>>,
+    /// Views that go in after the last top-level block.
+    at_end: Vec<Callback<(), AnyView>>,
     /// True when the Archetypes heading has just been rendered and the slot is next.
     slot_open: bool,
     /// The entry whose body this is. An `entry-link` row names the listed entry's book, unless
@@ -217,10 +222,32 @@ impl Renderer {
             marks: BTreeMap::new(),
             notes: None,
             slot: None,
+            before: BTreeMap::new(),
+            at_end: Vec::new(),
             slot_open: false,
             hub: None,
             features: Vec::new(),
         }
+    }
+
+    /// Views that the page draws among the blocks of `body`: each goes before the block at its
+    /// index, and one at `body.len()` goes after the last block.
+    fn with_inserts(
+        mut self,
+        body: &[Block],
+        inserts: Vec<(usize, Callback<(), AnyView>)>,
+    ) -> Self {
+        for (index, view) in inserts {
+            match body.get(index) {
+                Some(block) => self
+                    .before
+                    .entry(std::ptr::from_ref(block))
+                    .or_default()
+                    .push(view),
+                None => self.at_end.push(view),
+            }
+        }
+        self
     }
 
     /// The level of the feature that a heading with this explicit anchor prints: `None` when the
@@ -342,6 +369,13 @@ impl Renderer {
                 covered -= 1;
                 continue;
             }
+            if top && let Some(views) = self.before.remove(&std::ptr::from_ref(item)) {
+                if !run.is_empty() {
+                    let list = std::mem::take(&mut run);
+                    out.push(view! { <ul class="entry-links">{list}</ul> }.into_any());
+                }
+                out.extend(views.into_iter().map(|view| view.run(())));
+            }
             if let Some(placed) = plan.and_then(|plan| plan.at(item)) {
                 if !run.is_empty() {
                     let list = std::mem::take(&mut run);
@@ -366,6 +400,13 @@ impl Renderer {
         }
         if !run.is_empty() {
             out.push(view! { <ul class="entry-links">{run}</ul> }.into_any());
+        }
+        if top {
+            out.extend(
+                std::mem::take(&mut self.at_end)
+                    .into_iter()
+                    .map(|view| view.run(())),
+            );
         }
         out
     }
@@ -1031,6 +1072,10 @@ pub fn RichBody(
     /// feature heads.
     #[prop(optional)]
     features: Vec<FeatureFact>,
+    /// Views that the page draws among the top-level blocks: each goes before the block at its
+    /// index, and one at `body.len()` goes at the end (#739).
+    #[prop(optional_no_strip)]
+    inserts: Vec<(usize, Callback<(), AnyView>)>,
 ) -> impl IntoView {
     let changed: BTreeSet<_> = cast_iron_sort::set_of(changed);
     let plan = power_title
@@ -1040,6 +1085,7 @@ pub fn RichBody(
         .with_changed(changed)
         .with_marks(marks)
         .with_features(&features)
+        .with_inserts(&body, inserts)
         .with_slot(archetype_list);
     let content = match entry {
         Some(entry) => renderer.entry_body(&body, entry, book, &plan),

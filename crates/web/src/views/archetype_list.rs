@@ -134,6 +134,8 @@ pub fn ArchetypeList(
         let features = features.clone();
         Memo::new(move |_| {
             let mut arch = route.with(Route::arch);
+            // The Options section's typing is not this list's choice: the memo stays put for it.
+            arch.options = Default::default();
             arch.keep
                 .retain(|anchor| features.iter().any(|feature| &feature.anchor == anchor));
             arch
@@ -143,13 +145,18 @@ pub fn ArchetypeList(
     let with = Memo::new(move |_| choice.with(|choice| choice.with.clone()));
     let route_for = {
         let (class, book) = (class.clone(), book.clone());
+        // The Options section's choices ride along unchanged: the class page has both lists.
         Shared::new(
             move |keep: Vec<String>, with: Option<EntryId>| Route::Entry {
                 id: class.clone(),
                 anchor: None,
                 book: book.clone(),
                 section,
-                arch: ArchFilter { keep, with },
+                arch: ArchFilter {
+                    keep,
+                    with,
+                    options: route.with(|route| route.arch().options),
+                },
             },
         )
     };
