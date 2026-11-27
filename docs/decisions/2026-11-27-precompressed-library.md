@@ -4,7 +4,7 @@ date: 2026-11-27
 status: proposed
 superseded_by: []
 issues: [744, 746, 747]
-prs: []
+prs: [748]
 area: install-offline
 ---
 
