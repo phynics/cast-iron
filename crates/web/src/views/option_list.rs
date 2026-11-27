@@ -592,7 +592,7 @@ pub fn OptionsSection(
                     {move || has_levels.get().then(|| menu_button(LEVEL, level_menu, level_text, level_on))}
                 </div>
                 {book_panel}
-                {move || has_levels.get().then(|| level_panel())}
+                {move || has_levels.get().then(&level_panel)}
                 <p class="list-count" role="status">
                     {count_line}
                     {move || narrowed().then(|| view! {
