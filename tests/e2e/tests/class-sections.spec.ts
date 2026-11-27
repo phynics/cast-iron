@@ -384,6 +384,17 @@ test("A section jump does not move focus to the page, and the switcher works by 
     await stop(page, "Overview").focus();
     await page.keyboard.press("Tab");
     await expect(stop(page, "Features")).toBeFocused();
+    // Options sits between Features and Archetypes (#739): Tab reaches it, and Enter jumps to its
+    // heading with focus there, as it does for Archetypes below.
+    await page.keyboard.press("Tab");
+    await expect(stop(page, "Options")).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect.poll(() => page.evaluate(() => location.hash)).toBe(`#/entry/${WIZARD}?s=options`);
+    await expect(stop(page, "Options")).toHaveAttribute("aria-current", "true");
+    await expect(section(page, "options")).toBeFocused();
+    await expectAtTop(page, "options");
+    await stop(page, "Features").focus();
+    await page.keyboard.press("Tab");
     await page.keyboard.press("Tab");
     await expect(stop(page, "Archetypes")).toBeFocused();
     await page.keyboard.press("Enter");

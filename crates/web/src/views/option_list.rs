@@ -49,6 +49,16 @@ const LEVEL: MenuSpec = MenuSpec {
 /// The id of the name field, for the focus that `Show all` returns to.
 const FIND_ID: &str = "opt-find";
 
+/// The rows of one option group, read before the page rendered: its slug and its rows.
+#[derive(Clone)]
+pub struct Preloaded(pub String, pub Shared<Vec<OptionRow>>);
+
+/// The group that an address shows: the one it names, else the class's first.
+pub fn shown_slug(groups: &[OptionGroup], choice: &OptionChoice) -> Option<String> {
+    option_list::shown_group(groups, |group| &group.slug, choice.group.as_deref())
+        .map(|group| group.slug.clone())
+}
+
 /// The option groups of `class`, each with only the options that the active books keep (its
 /// `entries`), and without a group that has none left.
 pub fn groups_of(library: &Library, index: &OptionGroupIndex, class: &EntryId) -> Vec<OptionGroup> {
@@ -103,7 +113,7 @@ pub fn group_route(class: &EntryId, book: &Option<String>, arch: ArchFilter, gro
 
 /// The row of one group's options, read from the shards that hold them: the title, the facts of
 /// the printed text and the book the reader's active books give it.
-async fn load(library: &Library, ids: &[EntryId]) -> Result<Vec<OptionRow>, String> {
+pub async fn load(library: &Library, ids: &[EntryId]) -> Result<Vec<OptionRow>, String> {
     let read = library
         .read_entries(ids, |entry| {
             option_list::facts_of(&entry.title, &entry.body)
@@ -163,6 +173,9 @@ pub fn OptionsSection(
     class: EntryId,
     book: Option<String>,
     groups: Vec<OptionGroup>,
+    /// The rows of one group, read with the entry (see [`Preloaded`]).
+    #[prop(optional_no_strip)]
+    preloaded: Option<Preloaded>,
 ) -> impl IntoView {
     let route = use_route();
     let library = crate::library::use_library();
@@ -200,10 +213,20 @@ pub fn OptionsSection(
         })
     };
 
-    // The rows of the shown group: read once per group, kept for the page's life.
-    let (rows, set_rows) = signal_local(None::<Result<Rc<Vec<OptionRow>>, String>>);
+    // The rows of the shown group: read once per group, kept for the page's life. Rows that came
+    // with the entry are in the first render, so the section has its height before anything below
+    // it is jumped to.
+    let mut seeded = BTreeMap::new();
+    if let Some(Preloaded(slug, found)) = preloaded {
+        seeded.insert(slug, Rc::new((*found).clone()));
+    }
+    let first = seeded
+        .get(&groups[shown.get_untracked()].slug)
+        .cloned()
+        .map(Ok);
+    let (rows, set_rows) = signal_local(first);
     let cache: StoredValue<BTreeMap<String, Rc<Vec<OptionRow>>>, LocalStorage> =
-        StoredValue::new_local(BTreeMap::new());
+        StoredValue::new_local(seeded);
     {
         let groups = groups.clone();
         let library = library.clone();

@@ -233,3 +233,22 @@ test("With a book turned off, its options leave the chip count and the list", as
   await page.getByRole("button", { name: "Book: All books" }).click();
   await expect(page.getByRole("link", { name: new RegExp(`^${bookTitle}, `) })).toHaveCount(0);
 });
+
+test("A jump past the Options section stays put when the section's rows arrive", async ({ page }) => {
+  // The rows load with the entry for an address that jumps to or past the section, so the content
+  // above Archetypes and Spells does not grow after the jump.
+  const wizard = groups.filter((group) => group.classes.includes(WIZARD));
+  for (const target of ["archetypes", "spells"]) {
+    await openClass(page, WIZARD, `?s=${target}`);
+    await expect(rows(page)).toHaveCount(wizard[0].entries.length);
+    const heading = page.locator(`[data-class-section="${target}"]`);
+    const place = async () => [
+      await heading.evaluate((el) => Math.round(el.getBoundingClientRect().top)),
+      await page.evaluate(() => Math.round(window.scrollY)),
+    ];
+    await expect.poll(place).toEqual(await place());
+    const before = await place();
+    await page.waitForTimeout(600);
+    expect(await place(), target).toEqual(before);
+  }
+});

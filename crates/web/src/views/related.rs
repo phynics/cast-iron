@@ -112,6 +112,10 @@ pub struct Indexes {
     /// True when the class page lists its archetypes in its Archetypes section (#170, part D), so
     /// the panel below the text does not list them again.
     pub archetypes_in_page: bool,
+    /// The rows of the option group that a class page's Options section shows first, when the
+    /// address jumps to or past the section: they load with the entry, so the section does not grow
+    /// after the jump (#739).
+    pub option_rows: Option<crate::views::option_list::Preloaded>,
     /// The other printings of the entry, newest first, for the `Other printings:` line (#650).
     /// Empty for a creature, for an entry no other book prints and for a library without the
     /// relation index.
