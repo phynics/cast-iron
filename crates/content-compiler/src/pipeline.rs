@@ -4,6 +4,7 @@
 //! [`crate::corpus_build`] reads the corpus and fills a [`Library`]. [`package`] holds no
 //! knowledge of where the records came from.
 
+use crate::gzip;
 use crate::publish;
 use crate::reachability::{self, Report as ReachabilityReport};
 use crate::text::{blocks_text, inline_text};
@@ -11,7 +12,7 @@ use cast_iron_schema::headings::feature_heads;
 use cast_iron_schema::validate::{ValidationError, validate_derived, validate_library};
 use cast_iron_schema::{
     BACKLINKS_DIR, BACKLINKS_FILE, BOOKS_FILE, Block, BookIndex, Catalog, ContentManifest,
-    CoverageReport, DatasetRef, EntryId, EntryKind, EntryStub, LegalNotices, ManifestFile,
+    CoverageReport, DatasetRef, Decoded, EntryId, EntryKind, EntryStub, LegalNotices, ManifestFile,
     OPTION_GROUPS_FILE, OptionGroupIndex, RELATIONS_FILE, Rejection, RelationIndex, RelationKind,
     RuleEntry, SCHEMA_VERSION, SPELL_LISTS_FILE, SourceInfo, SpellLists, TRADES_FILE, TradeIndex,
     TypedFields,
@@ -302,26 +303,42 @@ pub fn package(
     for (path, bytes) in shard_files {
         files.insert(path, bytes);
     }
-    let hashed: Vec<(String, String, u64)> = files
+    // Every file is stored as one gzip member. The manifest lists the stored bytes (`path`,
+    // `sha256`, `bytes`) and the decoded hash and size under `gzip`; the content version hashes
+    // the stored lines, so one version means one set of stored bytes.
+    let stored = gzip::gzip_all(&files)?;
+    let mut rows: Vec<(String, ManifestFile)> = files
         .iter()
-        .map(|(p, b)| (p.clone(), sha256_hex(b), b.len() as u64))
+        .map(|(name, _)| {
+            let path = format!("{name}{}", gzip::SUFFIX);
+            let gz = &stored[&path];
+            let row = ManifestFile {
+                path: path.clone(),
+                sha256: sha256_hex(gz),
+                bytes: gz.len() as u64,
+                gzip: Some(Decoded {
+                    sha256: sha256_hex(&files[name]),
+                    bytes: files[name].len() as u64,
+                }),
+            };
+            (path, row)
+        })
         .collect();
-    let version_lines: String = hashed
+    rows.sort_by(|a, b| a.0.cmp(&b.0));
+    let version_lines: String = rows
         .iter()
-        .map(|(p, h, _)| format!("{p}:{h}\n"))
+        .map(|(path, row)| format!("{path}:{}\n", row.sha256))
         .collect();
     let content_version = format!("v{}", &hex(&Sha256::digest(version_lines.as_bytes()))[..16]);
     let manifest = ContentManifest {
         schema_version: SCHEMA_VERSION,
         content_version: content_version.clone(),
-        total_bytes: hashed.iter().map(|(_, _, n)| n).sum(),
-        files: hashed
-            .iter()
-            .map(|(p, h, n)| ManifestFile {
-                path: format!("{content_version}/{p}"),
-                sha256: h.clone(),
-                bytes: *n,
-                gzip: None,
+        total_bytes: rows.iter().map(|(_, row)| row.bytes).sum(),
+        files: rows
+            .into_iter()
+            .map(|(_, row)| ManifestFile {
+                path: format!("{content_version}/{}", row.path),
+                ..row
             })
             .collect(),
         entry_count: entries.len() as u32,
@@ -329,14 +346,25 @@ pub fn package(
         corpus_tag,
     };
 
-    publish::publish_staged(lock, &content_version, &files, &json_bytes(&manifest)?)?;
+    publish::publish_staged(
+        lock,
+        &content_version,
+        &[&files, &stored],
+        &json_bytes(&manifest)?,
+    )?;
 
     let largest_shard = manifest
         .files
         .iter()
         .filter(|f| f.path.contains("/entries/"))
-        .max_by(|a, b| a.bytes.cmp(&b.bytes).then(b.path.cmp(&a.path)))
-        .map(|f| (f.path.clone(), f.bytes))
+        .map(|f| {
+            (
+                f.logical_path(),
+                f.gzip.as_ref().map_or(f.bytes, |d| d.bytes),
+            )
+        })
+        .max_by(|a, b| a.1.cmp(&b.1).then(b.0.cmp(a.0)))
+        .map(|(path, bytes)| (path.to_string(), bytes))
         .unwrap_or_default();
     Ok(Outcome {
         content_version,

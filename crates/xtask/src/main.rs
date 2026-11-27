@@ -7,6 +7,7 @@ mod legacy_sections;
 
 use sha2::{Digest, Sha256};
 use std::fs;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::process::{Command, ExitCode};
 
@@ -37,14 +38,17 @@ cargo xtask <command>
                              generated/content) with the client's reader, write it again and
                              fail unless the bytes match. `content` runs it after the compile
   build-site [--public-url P]
-                             Build dist/ from generated/content. The default public URL is
+                             Build dist/ from generated/content (dist/content gets the manifest
+                             and the stored .gz files only). The default public URL is
                              /cast-iron/, the GitHub Pages project path
   search-golden              Regenerate crates/search/tests/golden/canonical-top50.txt (the top-50
                              ranking of 50 queries) from generated/content, for the pinned
                              corpus. Run it in every corpus-pin PR, after `content`, and read the
                              diff for ranking regressions. The queries are the file's `query:` lines
-  size-budget                Fail when generated/content or the WASM binary in dist/ is larger than
-                             sources/size-budget.toml allows (run after build-site)
+  size-budget                Fail when the library (measured from the manifest of generated/content:
+                             the stored size, and the largest decoded file) or the WASM binary in
+                             dist/ is larger than sources/size-budget.toml allows (run after
+                             build-site)
   stamp-shell                Stamp dist/sw.js with the app shell file list and version
   corpus-check <dir> [--drift-report <file>]
                              Read a plain-text corpus and validate ids, paths, sources,
@@ -393,6 +397,30 @@ fn content(args: &[String]) -> Result {
     entries_round_trip(&root().join("generated/content"))
 }
 
+/// The decoded bytes of the library file that `file` lists in `content`.
+///
+/// A plain row is the file at its path. A gzip row (schema 8) has its decoded file at the logical
+/// path in `generated/content`, which holds both layers; a library that has only the stored file
+/// (a copy of `dist/content`, or of a released site) is decoded from the `.gz` file. Neither
+/// result is checked against the manifest here: `verify_generated_content` does that.
+fn read_library_file(content: &Path, file: &cast_iron_schema::ManifestFile) -> Result<Vec<u8>> {
+    let read = |path: &str| {
+        let path = content.join(path);
+        fs::read(&path).map_err(|e| format!("cannot read {}: {e}", path.display()))
+    };
+    if file.gzip.is_none() {
+        return read(&file.path);
+    }
+    if content.join(file.logical_path()).is_file() {
+        return read(file.logical_path());
+    }
+    let mut decoded = Vec::new();
+    flate2::read::GzDecoder::new(read(&file.path)?.as_slice())
+        .read_to_end(&mut decoded)
+        .map_err(|e| format!("{}: cannot decode the gzip file: {e}", file.path))?;
+    Ok(decoded)
+}
+
 /// Reads every `entries/*.json` shard of the library in `content` as the client does
 /// (`Vec<RuleEntry>`), writes it again, and fails unless the bytes are the same.
 ///
@@ -412,12 +440,11 @@ fn entries_round_trip(content: &Path) -> Result {
     let mut shards = 0usize;
     let mut entries = 0usize;
     for file in &manifest.files {
-        if !file.path.contains("/entries/") {
+        if !file.logical_path().contains("/entries/") {
             continue;
         }
-        let path = content.join(&file.path);
-        let written =
-            fs::read(&path).map_err(|e| format!("cannot read {}: {e}", path.display()))?;
+        let path = content.join(file.logical_path());
+        let written = read_library_file(content, file)?;
         let read: Vec<cast_iron_schema::RuleEntry> = serde_json::from_slice(&written)
             .map_err(|e| format!("{}: the entry reader refuses it: {e}", path.display()))?;
         let again = serde_json::to_vec(&read).map_err(|e| e.to_string())?;
@@ -767,7 +794,7 @@ fn build_site(args: &[String]) -> Result {
     let trunk = trunk_program();
     run(&trunk, &["build", "--release", "--public-url", &public_url])?;
     let dist = root().join("dist");
-    copy_dir(&root().join(generated), &dist.join("content"))?;
+    copy_library(&root().join(generated), &dist.join("content"))?;
     fs::write(dist.join(".nojekyll"), "").map_err(|e| e.to_string())?;
     content_address_snippets(&dist)?;
     let date = commit_date();
@@ -798,22 +825,101 @@ fn verify_generated_content(content: &Path) -> Result<usize> {
         )
     })?;
     for file in &manifest.files {
-        let data = fs::read(content.join(&file.path)).map_err(|e| {
-            format!(
-                "{} lists {}, which cannot be read ({e}); run `cargo xtask content` again",
-                manifest_path.display(),
-                file.path
-            )
-        })?;
-        if data.len() as u64 != file.bytes || hex(&Sha256::digest(&data)) != file.sha256 {
-            return Err(format!(
-                "{} does not match {}; the library is partly written or changed after the compile. Run `cargo xtask content` again",
-                file.path,
-                manifest_path.display()
-            ));
+        // The stored file, and for a gzip row the decoded file beside it. The decoded layer is
+        // checked by its hash and size, never by decompressing: the compiler wrote both from the
+        // same bytes, and the hashes tie them to the manifest.
+        check_library_file(
+            content,
+            &manifest_path,
+            &file.path,
+            file.bytes,
+            &file.sha256,
+        )?;
+        if let Some(decoded) = &file.gzip {
+            check_library_file(
+                content,
+                &manifest_path,
+                file.logical_path(),
+                decoded.bytes,
+                &decoded.sha256,
+            )?;
         }
     }
     Ok(manifest.files.len())
+}
+
+/// Fails unless the file at `path` under `content` has the size and SHA-256 that the manifest lists.
+fn check_library_file(
+    content: &Path,
+    manifest_path: &Path,
+    path: &str,
+    bytes: u64,
+    sha256: &str,
+) -> Result {
+    let data = fs::read(content.join(path)).map_err(|e| {
+        format!(
+            "{} lists {path}, which cannot be read ({e}); run `cargo xtask content` again",
+            manifest_path.display(),
+        )
+    })?;
+    if data.len() as u64 != bytes || hex(&Sha256::digest(&data)) != sha256 {
+        return Err(format!(
+            "{path} does not match {}; the library is partly written or changed after the compile. Run `cargo xtask content` again",
+            manifest_path.display()
+        ));
+    }
+    Ok(())
+}
+
+/// Copies what a visitor downloads from the library in `generated` into `to` (`dist/content`):
+/// `manifest.json` and every stored file the manifest lists, which are the `.gz` files of a schema-8
+/// library. The decoded files of `generated/content` stay behind, so the site ships no decoded
+/// file. The caller has verified the library with [`verify_generated_content`].
+fn copy_library(generated: &Path, to: &Path) -> Result {
+    let manifest = read_manifest(generated)?;
+    if to.exists() {
+        fs::remove_dir_all(to).map_err(|e| e.to_string())?;
+    }
+    let copy = |relative: &str| -> Result {
+        let target = to.join(relative);
+        if let Some(parent) = target.parent() {
+            fs::create_dir_all(parent).map_err(|e| format!("{}: {e}", parent.display()))?;
+        }
+        fs::copy(generated.join(relative), &target)
+            .map(drop)
+            .map_err(|e| format!("cannot copy {relative}: {e}"))
+    };
+    copy("manifest.json")?;
+    for file in &manifest.files {
+        copy(&file.path)?;
+    }
+    Ok(())
+}
+
+fn read_manifest(content: &Path) -> Result<cast_iron_schema::ContentManifest> {
+    let path = content.join("manifest.json");
+    serde_json::from_slice(
+        &fs::read(&path).map_err(|e| format!("cannot read {}: {e}", path.display()))?,
+    )
+    .map_err(|e| format!("{} is not a content manifest: {e}", path.display()))
+}
+
+/// The two library sizes of the budget, from the manifest and the size of `manifest.json`:
+/// what a device downloads and stores (the stored files and the manifest), and the largest
+/// decoded file, which sets the memory peak of a read.
+fn library_sizes(manifest: &cast_iron_schema::ContentManifest, manifest_bytes: u64) -> (u64, u64) {
+    let stored = manifest.files.iter().map(|file| file.bytes).sum::<u64>();
+    let largest_decoded = manifest
+        .files
+        .iter()
+        .map(|file| {
+            file.gzip
+                .as_ref()
+                .map_or(file.bytes, |decoded| decoded.bytes)
+        })
+        .max()
+        .unwrap_or(0);
+    (stored + manifest_bytes, largest_decoded)
 }
 
 /// The size limits in `sources/size-budget.toml`.
@@ -852,7 +958,6 @@ fn compare_budget(
     }
 }
 
-/// Measures `generated/content` and the WASM binary in `dist/` against `sources/size-budget.toml`.
 const SEARCH_GOLDEN: &str = "crates/search/tests/golden/canonical-top50.txt";
 
 /// Rewrites the canonical top-50 ranking golden from the compiled library. The queries stay: they
@@ -916,23 +1021,23 @@ fn search_golden(args: &[String]) -> Result {
     Ok(())
 }
 
+/// Measures the library of `generated/content` (by its manifest) and the WASM binary in `dist/`
+/// against `sources/size-budget.toml`.
 fn size_budget(args: &[String]) -> Result {
     if let Some(argument) = args.first() {
         return Err(format!(
             "unknown argument {argument:?} for size-budget\nusage: size-budget"
         ));
     }
-    let mut library = Vec::new();
-    list_files(&root().join("generated/content"), &mut library)
-        .map_err(|e| format!("{e}; run `cargo xtask content` first"))?;
-    let sizes = library
-        .iter()
-        .map(|path| {
-            fs::metadata(path)
-                .map(|meta| meta.len())
-                .map_err(|e| format!("{}: {e}", path.display()))
-        })
-        .collect::<Result<Vec<u64>>>()?;
+    // The library is measured from its manifest, not from the files on disk: `generated/content`
+    // holds both layers (decoded and stored), and only the stored one is downloaded and kept.
+    let content = root().join("generated/content");
+    let manifest =
+        read_manifest(&content).map_err(|e| format!("{e}; run `cargo xtask content` first"))?;
+    let manifest_bytes = fs::metadata(content.join("manifest.json"))
+        .map_err(|e| format!("cannot read generated/content/manifest.json: {e}"))?
+        .len();
+    let (library_bytes, largest_file_bytes) = library_sizes(&manifest, manifest_bytes);
     let mut wasm = Vec::new();
     for item in fs::read_dir(root().join("dist"))
         .map_err(|e| format!("cannot read dist: {e}; run `cargo xtask build-site` first"))?
@@ -956,11 +1061,8 @@ fn size_budget(args: &[String]) -> Result {
     let report = compare_budget(
         &budget,
         &[
-            ("library_bytes", sizes.iter().sum()),
-            (
-                "largest_file_bytes",
-                sizes.iter().copied().max().unwrap_or(0),
-            ),
+            ("library_bytes", library_bytes),
+            ("largest_file_bytes", largest_file_bytes),
             ("wasm_bytes", wasm_bytes),
         ],
     )?;
@@ -1049,23 +1151,6 @@ fn content_address_snippets(dist: &Path) -> Result {
     }
     if !renames.is_empty() && rewritten == 0 {
         return Err("snippet directories were renamed but no file referenced them".into());
-    }
-    Ok(())
-}
-
-fn copy_dir(from: &Path, to: &Path) -> Result {
-    if to.exists() {
-        fs::remove_dir_all(to).map_err(|e| e.to_string())?;
-    }
-    fs::create_dir_all(to).map_err(|e| e.to_string())?;
-    for item in fs::read_dir(from).map_err(|e| format!("{}: {e}", from.display()))? {
-        let item = item.map_err(|e| e.to_string())?;
-        let path = item.path();
-        if path.is_dir() {
-            copy_dir(&path, &to.join(item.file_name()))?;
-        } else {
-            fs::copy(&path, to.join(item.file_name())).map_err(|e| e.to_string())?;
-        }
     }
     Ok(())
 }
@@ -1418,6 +1503,160 @@ mod tests {
                 .unwrap_err()
                 .contains("content format")
         );
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A schema-8 library on disk: each required file as a decoded file and a stored `.gz` file
+    /// (not real gzip: the checks hash both layers and decode neither).
+    fn write_gzip_library(dir: &Path) -> cast_iron_schema::ContentManifest {
+        let version = "vabc";
+        let mut files = Vec::new();
+        for name in cast_iron_schema::manifest_check::REQUIRED_FILES {
+            let decoded = format!("{{\"{name}\":1}}");
+            let stored = format!("stored:{decoded}");
+            fs::create_dir_all(dir.join(version)).unwrap();
+            fs::write(dir.join(version).join(name), &decoded).unwrap();
+            fs::write(dir.join(version).join(format!("{name}.gz")), &stored).unwrap();
+            files.push(cast_iron_schema::ManifestFile {
+                path: format!("{version}/{name}.gz"),
+                sha256: hex(&Sha256::digest(stored.as_bytes())),
+                bytes: stored.len() as u64,
+                gzip: Some(cast_iron_schema::Decoded {
+                    sha256: hex(&Sha256::digest(decoded.as_bytes())),
+                    bytes: decoded.len() as u64,
+                }),
+            });
+        }
+        let manifest = cast_iron_schema::ContentManifest {
+            schema_version: cast_iron_schema::SCHEMA_VERSION,
+            content_version: version.into(),
+            total_bytes: files.iter().map(|f| f.bytes).sum(),
+            files,
+            entry_count: 0,
+            datasets: vec![],
+            corpus_tag: None,
+        };
+        write_manifest(dir, &manifest);
+        manifest
+    }
+
+    #[test]
+    fn both_layers_of_a_gzip_library_are_checked() {
+        let dir = temp_tree("verify-gzip");
+        let manifest = write_gzip_library(&dir);
+        assert_eq!(verify_generated_content(&dir), Ok(4));
+
+        // The stored layer, same length.
+        let stored = dir.join(&manifest.files[0].path);
+        let good = fs::read(&stored).unwrap();
+        let mut bad = good.clone();
+        bad[8] ^= 1;
+        fs::write(&stored, &bad).unwrap();
+        let error = verify_generated_content(&dir).unwrap_err();
+        assert!(error.contains(&manifest.files[0].path), "{error}");
+        fs::write(&stored, &good).unwrap();
+        assert_eq!(verify_generated_content(&dir), Ok(4));
+
+        // The decoded layer, same length, then missing.
+        let decoded = dir.join(manifest.files[0].logical_path());
+        let good = fs::read(&decoded).unwrap();
+        let mut bad = good.clone();
+        bad[2] ^= 1;
+        fs::write(&decoded, &bad).unwrap();
+        let error = verify_generated_content(&dir).unwrap_err();
+        assert!(
+            error.contains("does not match") && error.contains(manifest.files[0].logical_path()),
+            "{error}"
+        );
+        fs::remove_file(&decoded).unwrap();
+        let error = verify_generated_content(&dir).unwrap_err();
+        assert!(error.contains("cannot be read"), "{error}");
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn the_site_gets_the_manifest_and_the_stored_files_only() {
+        let from = temp_tree("copy-from");
+        let to = temp_tree("copy-to").join("content");
+        let manifest = write_gzip_library(&from);
+        copy_library(&from, &to).unwrap();
+        let mut copied = Vec::new();
+        list_files(&to, &mut copied).unwrap();
+        let mut copied: Vec<String> = copied
+            .iter()
+            .map(|path| {
+                path.strip_prefix(&to)
+                    .unwrap()
+                    .to_string_lossy()
+                    .into_owned()
+            })
+            .collect();
+        copied.sort();
+        let mut expected: Vec<String> = manifest
+            .files
+            .iter()
+            .map(|file| file.path.clone())
+            .chain(["manifest.json".to_string()])
+            .collect();
+        expected.sort();
+        assert_eq!(copied, expected);
+        assert!(
+            copied
+                .iter()
+                .all(|path| path == "manifest.json" || path.ends_with(".gz"))
+        );
+        // A second copy replaces the first.
+        fs::write(to.join("stale.txt"), "x").unwrap();
+        copy_library(&from, &to).unwrap();
+        assert!(!to.join("stale.txt").exists());
+        fs::remove_dir_all(&from).unwrap();
+        fs::remove_dir_all(to.parent().unwrap()).unwrap();
+    }
+
+    #[test]
+    fn the_library_budget_counts_stored_bytes_and_the_largest_decoded_file() {
+        let dir = temp_tree("sizes");
+        let manifest = write_gzip_library(&dir);
+        let stored: u64 = manifest.files.iter().map(|file| file.bytes).sum();
+        let largest = manifest
+            .files
+            .iter()
+            .map(|file| file.gzip.as_ref().unwrap().bytes)
+            .max()
+            .unwrap();
+        assert!(largest < manifest.files.iter().map(|f| f.bytes).max().unwrap());
+        assert_eq!(library_sizes(&manifest, 100), (stored + 100, largest));
+        // A row without gzip counts as stored and decoded alike.
+        let plain = write_library(&dir);
+        let plain_total: u64 = plain.files.iter().map(|file| file.bytes).sum();
+        let plain_largest = plain.files.iter().map(|file| file.bytes).max().unwrap();
+        assert_eq!(library_sizes(&plain, 7), (plain_total + 7, plain_largest));
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn a_library_with_only_stored_files_is_read_decoded_for_the_round_trip() {
+        use std::io::Write;
+        let dir = temp_tree("decode");
+        let decoded = br#"[{"a":1}]"#;
+        let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::new(6));
+        encoder.write_all(decoded).unwrap();
+        let stored = encoder.finish().unwrap();
+        fs::create_dir_all(dir.join("vabc")).unwrap();
+        fs::write(dir.join("vabc/x.json.gz"), &stored).unwrap();
+        let row = cast_iron_schema::ManifestFile {
+            path: "vabc/x.json.gz".into(),
+            sha256: hex(&Sha256::digest(&stored)),
+            bytes: stored.len() as u64,
+            gzip: Some(cast_iron_schema::Decoded {
+                sha256: hex(&Sha256::digest(decoded)),
+                bytes: decoded.len() as u64,
+            }),
+        };
+        assert_eq!(read_library_file(&dir, &row).unwrap(), decoded);
+        // With the decoded file beside it, that file is read.
+        fs::write(dir.join("vabc/x.json"), b"[]").unwrap();
+        assert_eq!(read_library_file(&dir, &row).unwrap(), b"[]");
         fs::remove_dir_all(&dir).unwrap();
     }
 

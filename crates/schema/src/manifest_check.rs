@@ -72,9 +72,10 @@ impl std::error::Error for PlanError {}
 /// the member books of each catalog stub (a schema-4 stub has no `books`, and the entry then
 /// belongs to its `source` alone). Schema 6 moves the trades of archetypes and class options into
 /// `trades.json`; a schema-4 or schema-5 library keeps `replaces.json`, and the reader falls back
-/// to it. Schema 7 adds the haunt kind and changes nothing else, so every older library opens as it
-/// is.
-pub const READABLE_SCHEMAS: [u32; 7] = [1, 2, 3, 4, 5, 6, SCHEMA_VERSION];
+/// to it. Schema 7 adds the haunt kind and changes nothing else. Schema 8 stores every file but the
+/// manifest as gzip and adds the `gzip` key to each manifest row; a row without it is read as
+/// stored, so every older library opens as it is.
+pub const READABLE_SCHEMAS: [u32; 8] = [1, 2, 3, 4, 5, 6, 7, SCHEMA_VERSION];
 
 /// Checks a manifest and says what is wrong with it, before any download starts.
 pub fn validate_manifest(manifest: &ContentManifest) -> Result<(), PlanError> {
@@ -204,9 +205,9 @@ mod tests {
     #[test]
     fn the_current_schema_and_every_older_one_validate() {
         // Schema 4 and 5 are the formats of libraries that are installed today; they must keep
-        // validating and opening after the reader moves to schema 7.
-        assert_eq!(SCHEMA_VERSION, 7);
-        for version in [1, 2, 3, 4, 5, 6, 7] {
+        // validating and opening after the reader moves to schema 8.
+        assert_eq!(SCHEMA_VERSION, 8);
+        for version in [1, 2, 3, 4, 5, 6, 7, 8] {
             assert_eq!(
                 validate_manifest(&manifest(version)),
                 Ok(()),
