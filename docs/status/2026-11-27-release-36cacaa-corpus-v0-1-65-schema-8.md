@@ -87,3 +87,18 @@ Also seen: WebKit once logged a CSP `style-src` refusal of a stylesheet on the n
 - [#766](https://github.com/phynics/cast-iron/issues/766): the upgrade-check text of the daily check.
 - [#767](https://github.com/phynics/cast-iron/issues/767): a WebKit CSP `style-src` refusal of a stylesheet on the new shell.
 - [#768](https://github.com/phynics/cast-iron/issues/768): the installer has no timeout for a request that hangs.
+
+## Release notes
+
+### Upgrading
+
+- **The library is now about 42.5 MB on the device**, down from about 207 MB for the schema 6 library of the owner's
+  default browser profile.
+- **On first open, the app offers an app update (Reload), then a library update (Download update).** "Check now"
+  offered v0.1.65 at 42.5 MB.
+- **Stars, book choices and Continue reading survive.** The owner's default profile kept 443 of 445 books active, the
+  same two off as before.
+- **The old library keeps working until the new one is verified.** The new library is activated only after its
+  checksums match; before that, the old library stays readable.
+- **A download that stops can be resumed.** Reopen the app and choose Resume in Settings; only the missing files are
+  fetched.
