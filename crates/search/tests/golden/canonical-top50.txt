@@ -1,8 +1,8 @@
 # Top-50 result ids for the 50 queries of tests/e2e/measure-library.mjs.
 # Regenerate with `cargo xtask search-golden` (after `cargo xtask content`) in every corpus-pin PR.
-# corpus 1d78219f05a18259c44aa8c417f1ce99cc425aee
-# tag v0.1.65
-# content v6c76ae276d557997
+# corpus 4d635089edcd34ad0c6d5a1e30b61d1e5fe728f1
+# tag v0.1.66
+# content vdfca03aaa4a17a38
 # Format: `query: <text>` starts a block; each other line is a result id.
 query: fire
 ref/subtype/fire
@@ -73,9 +73,9 @@ ref/carried/game-mastery-guide/monsters/heretics/cult-leader
 ref/magic-wondrous/first-aid-gloves
 ref/magic-rod/rod-of-the-alicorn
 ref/feat/improvisational-healer
+ref/shamanhex/healing
 ref/feat/healing-potion
 ref/hex/healing
-ref/shamanhex/healing
 ref/feat/curative-mastery
 ref/carried/core-rulebook/rules/spells/spell-names
 ref/magic-wondrous/gossamer-amberstone
@@ -153,8 +153,8 @@ ref/feat/kudzu-invasion
 ref/feat/greater-whip-mastery
 ref/feat/tatzlwyrm-claw-style
 ref/spell/hungry-earth
-ref/ragepower/suffocating-grip
 ref/magic-wondrous/quicksand-cloak
+ref/ragepower/suffocating-grip
 ref/feat/unfair-grip
 ref/spell/incorporeal-chains
 query: dragon
@@ -297,6 +297,7 @@ ref/rule/pclass-mystic-theurge/mystic-theurge
 ref/rule/pclass-eldritch-knight/eldritch-knight
 ref/rule/npcclass-expert/expert
 ref/rule/npcclass-commoner/commoner
+ref/class/fighter
 ref/rule/npcclass-warrior/warrior
 ref/rule/npcclass-aristocrat/aristocrat
 ref/rule/pclass-duelist/duelist
@@ -306,7 +307,6 @@ ref/rule/feats-mastery
 ref/rule/pclass-assassin/assassin
 ref/rule/class-background-tables
 ref/rule/pclass-shadowdancer/shadowdancer
-ref/rule/class-barbarian/barbarian
 ref/rule/pclass-arcane-archer/arcane-archer
 ref/arc-fighter/scrapper
 ref/rule/pclass-arcane-trickster/arcane-trickster
@@ -641,8 +641,8 @@ ref/monster/goblin-goblin-vulture-pilot
 ref/magic-wondrous/goblin-skull-bomb
 ref/eq-misc/goblinvine
 ref/carried/ultimate-equipment/rules/wondrous-items/slotless/slotless-wondrous-items/goblin-fire-drum
-ref/carried/monster-codex/rules/goblins
 ref/carried/monster-codex/rules/goblins/goblins
+ref/carried/monster-codex/rules/goblins
 ref/feat/goblin-cleaver
 ref/trait/goblin-watcher
 ref/eq-misc/goblin-fishing-lure
@@ -715,16 +715,16 @@ ref/magic-enh/fortuitous
 ref/aspect/snake
 ref/magic-wondrous/balm-of-impish-grace
 ref/feat/panther-style
-ref/vigtalent/leave-an-opening
 ref/order/order-of-vengeance
 ref/spell/expeditious-retreat/mythic
+ref/feat/combat-reflexes
 query: ranger
 ref/carried/ultimate-magic/rules/spellcasting-class-options/ranger
 ref/carried/ultimate-combat/rules/class-archetypes/ranger
 ref/carried/npc-codex/rules/core-class-npcs/ranger
-ref/rule/teitr-ranger
 ref/class/ranger
 ref/rule/class-ranger/ranger
+ref/rule/teitr-ranger
 ref/rule/ranger
 ref/rule/rule-class-background-tables/ranger
 ref/template/ranger
@@ -780,8 +780,8 @@ ref/feat/stealth-synergy
 ref/trait/stealthy-escape
 book-section/pathfinder-unchained/1-223
 ref/feat/hellcat-stealth
-ref/talent/fast-stealth
 ref/ninjatrick/fast-stealth
+ref/talent/fast-stealth
 ref/rule/perception-and-stealth
 ref/magic-staff/staff-of-stealth
 book-section/ultimate-intrigue/1-428
@@ -896,11 +896,11 @@ ref/magic-wondrous/focusing-flask
 ref/feat/weapon-specialization
 ref/feat/weapon-specialization/teitr
 ref/feat/weapon-versatility
-ref/talent/weapon-training
 ref/vigtalent/weapon-familiarity
 ref/magic-enh/ki-focus
 ref/magic-rod/backbiters-focus
 ref/magic-wondrous/headband-of-ki-focus
+ref/talent/weapon-training
 ref/ninjatrick/weapon-training
 ref/arc-monk/weapon-adept
 ref/feat/ancestral-weapon-mastery
@@ -1039,8 +1039,8 @@ ref/eq-weapon/acid-neutralizer
 ref/spell/acid-pit
 ref/rangertrap/acid-trap
 ref/spell/acid-arrow
-ref/npc/acid-terror
 ref/exploit/acid-jet
+ref/npc/acid-terror
 ref/magic-plant/acidic-lemon-tree
 ref/spell/acidic-spray
 ref/carried/monster-codex/rules/kobolds/new-rules/kobold-traps/acid-drop-trap
@@ -1172,11 +1172,11 @@ ref/ability/companion-tricks
 ref/vigtalent/animal-patron
 ref/trait/animal-spirit-vitality
 ref/trait/animalistic-affliction
-ref/ragepower/animal-fury
 ref/eq-misc/animal-disguise-kit
 ref/eq-misc/animals
 ref/spell/animal-trance
 ref/magic-tattoo/animal-totem-tattoo
+ref/carried/ultimate-equipment/rules/gear/animals/mounts/and-related-gear
 query: antipaladin
 ref/class/antipaladin
 ref/magic-weapon/bastards-sting
@@ -1253,11 +1253,10 @@ ref/pclass/arcane-trickster
 ref/rule/pclass-arcane-trickster/arcane-trickster
 ref/magic-wondrous/arcane-battery
 ref/arc-bard/arcane-healer
-ref/exploit/arcane-barrier
-ref/arcana/arcane-deed
 ref/spell/arcane-concordance
 ref/carried/advanced-race-guide/races/elves/alternate-racial-rules/alternate-racial-traits/arcane-focus
 ref/spell/arcane-mark
+ref/exploit/arcane-barrier
 ref/feat/arcane-strike
 ref/haunt/arcane-storm
 ref/spell/arcane-sight
@@ -1276,9 +1275,10 @@ ref/ninjatrick/arcane-backfire
 ref/carried/advanced-players-guide/rules/races/half-elves/alternate-racial-traits/arcane-training
 ref/carried/advanced-race-guide/races/half-elves/alternate-racial-rules/alternate-racial-traits/arcane-training
 ref/trait/arcane-dabbler
+ref/arcana/arcane-deed
 ref/feat/arcane-blast
-ref/exploit/arcane-weapon
 ref/npc/arcane-pretender
+ref/carried/mythic-adventures/feats/arcane-strike/mythic
 query: armor
 ref/carried/advanced-players-guide/rules/gear/armor
 ref/carried/ultimate-equipment/rules/arms-and-armor/armor
@@ -1317,9 +1317,9 @@ ref/carried/ultimate-equipment/rules/magic-arms-and-armor/armor-special-abilitie
 ref/magic-armor/armor-of-grim-triumph-orc
 ref/feat/armor-focus
 ref/eq-misc/armor-truss
-ref/vigtalent/armor-skin
 ref/feat/armor-adept
 ref/rule/armor-class
+ref/vigtalent/armor-skin
 ref/rule/armor-attunement
 ref/trait/armor-expert
 ref/talent/armor-piercer
@@ -1537,10 +1537,10 @@ ref/magic-weapon/grudge-blade
 query: blind
 ref/carried/ultimate-magic/rules/words-of-power/effect-words
 ref/trait/blind-zeal
-ref/vigtalent/blind-spot
 ref/feat/blind-fight
 ref/magic-wondrous/blind-helm
 ref/magic-wondrous/blind-mans-fold
+ref/vigtalent/blind-spot
 ref/carried/mythic-adventures/feats/blind-fight/mythic
 ref/feat/blinded-master
 ref/rule/blindsight-and-blindsense
@@ -1553,7 +1553,6 @@ ref/misc/blinded
 ref/umr/blindsight
 ref/umr/blindsense
 ref/unchevolution/blindsight
-ref/invtalent/blinding-strike
 ref/feat/blinding-flash
 ref/carried/bestiary/rules/universal-monster-rules/blindsight
 ref/spell/blinding-ray
@@ -1563,6 +1562,7 @@ ref/carried/bestiary/rules/universal-monster-rules/blindsense
 ref/feat/blinding-critical/stamina
 ref/unchevolution/blindsense
 ref/mercy/blinded
+ref/invtalent/blinding-strike
 ref/feat/blinding-sneak-attack
 ref/ninjatrick/blinding-bomb
 ref/magic-enh/blinding
@@ -1732,8 +1732,8 @@ ref/eq-weapon/shortbow
 ref/monster/giant-jungle-giant
 ref/magic-weapon/oathbow
 ref/magic-weapon/felhart
-ref/rule/dexterity
 ref/feat/erastils-blessing
+ref/rule/dexterity
 ref/magic-enh/endless-ammunition
 ref/monster/wild-hunt-wild-hunt-archer
 ref/vigtalent/signature-arrows
@@ -1758,7 +1758,6 @@ ref/feat/burning-spell
 ref/rangertrap/burning-trap
 ref/trait/burnished-skin
 ref/spell/burning-arc
-ref/exploit/burning-flame
 ref/magic-poison/burning-heart
 ref/eq-armorenh/burnished
 ref/carried/ultimate-equipment/rules/rings/rods-and-staves/rods/metamagic-rods/burning-metamagic-rod
@@ -1768,6 +1767,7 @@ ref/feat/burning-amplification
 ref/spell/burning-gaze/mythic
 ref/rule/burned-at-the-stake
 ref/trap/burning-hands-trap
+ref/exploit/burning-flame
 ref/spell/burning-hands/mythic
 ref/carried/core-rulebook/rules/glossary/special-abilities/poison/burnt-othur-fumes
 ref/eq-poison/burnt-othur-fumes
@@ -1844,9 +1844,9 @@ query: cleric
 ref/carried/npc-codex/rules/core-class-npcs/cleric
 ref/carried/ultimate-combat/rules/class-archetypes/cleric
 ref/rule/class-cleric/cleric
+ref/class/cleric
 ref/rule/cleric
 ref/template/cleric
-ref/class/cleric
 ref/rule/rule-class-grafts-2/cleric
 ref/carried/ultimate-magic/rules/spellcasting-class-options/cleric
 ref/rule/rule-class-background-tables/cleric
@@ -1953,18 +1953,17 @@ ref/vigtalent/combat-expertise
 ref/carried/advanced-players-guide/rules/new-rules/combat-maneuvers
 ref/rule/combat-maneuvers
 ref/feat/combat-stamina
-ref/talent/combat-trick
 ref/hex/combat-hypnosis
 ref/ability/combat-styles
 ref/rule/combat-stamina
 ref/feat/combat-meditation
-ref/vigtalent/combat-skill
 ref/ninjatrick/combat-trick
+ref/talent/combat-trick
 ref/feat/combat-patrol
 ref/rule/combat-statistics
 ref/talent/combat-swipe
 ref/misc/combat-maneuver
-ref/invtalent/combat-inspiration
+ref/vigtalent/combat-skill
 ref/eq-misc/combat-scabbard
 ref/feat/combat-advice
 ref/feat/combat-reflexes
@@ -1984,6 +1983,7 @@ ref/misc/combat-maneuver-defense
 ref/talent/combat-swipe-unchained-rogue
 ref/feat/combat-casting
 ref/feat/combat-expertise/teitr
+ref/invtalent/combat-inspiration
 ref/feat/combat-medic
 ref/rule/combat-modifiers
 ref/feat/combat-rhythm
@@ -2480,7 +2480,6 @@ ref/spell/elemental-bombardment/mythic
 ref/carried/bestiary/monsters/elemental/earth/elder
 ref/carried/bestiary/monsters/elemental/fire/elder
 ref/magic-wondrous/elemental-gem
-ref/ragepower/elemental-blood
 ref/eq-misc/elemental-proofing
 ref/feat/elemental-channel
 ref/npc/elemental-priest
@@ -2503,14 +2502,15 @@ ref/eq-weapon/elemental-brine
 ref/trait/elemental-apprentice
 ref/feat/elemental-spell/teitr
 ref/feat/elemental-spell
+ref/eq-misc/elemental-breath
 query: energy
 ref/umr/energy-drain
 ref/arc-alchemist/energy-scientist
 ref/exploit/energy-absorption
 ref/unchevolution/energy-attacks
-ref/exploit/energy-shield
 ref/feat/energy-channel
 ref/magic-enh/energy-resistance
+ref/exploit/energy-shield
 ref/evolution/energy-attacks
 ref/ragepower/energy-resistance
 ref/spell/energy-hack
