@@ -1,8 +1,8 @@
 # Top-50 result ids for the 50 queries of tests/e2e/measure-library.mjs.
 # Regenerate with `cargo xtask search-golden` (after `cargo xtask content`) in every corpus-pin PR.
-# corpus be094a3c87e85d61779ed010693c2cf3b2003908
-# tag v0.1.64
-# content va78fae22d034e2f4
+# corpus 1d78219f05a18259c44aa8c417f1ce99cc425aee
+# tag v0.1.65
+# content v6c76ae276d557997
 # Format: `query: <text>` starts a block; each other line is a result id.
 query: fire
 ref/subtype/fire
@@ -203,11 +203,11 @@ ref/trait/dragon-friend
 ref/monster/dragon-horse
 ref/family/dragon-planar-edict
 ref/family/dragon-planar-bliss
-ref/ragepower/dragon-totem
 ref/arc-skald/dragon-skald
 ref/arc-bard/dragon-yapper
 ref/family/dragon-planar-paradise
 ref/family/dragon-planar-tumult
+ref/family/dragon-planar-rift
 query: sword
 ref/arc-wizard/sword-binder
 ref/rule/aff-swordmasters
@@ -780,8 +780,8 @@ ref/feat/stealth-synergy
 ref/trait/stealthy-escape
 book-section/pathfinder-unchained/1-223
 ref/feat/hellcat-stealth
-ref/ninjatrick/fast-stealth
 ref/talent/fast-stealth
+ref/ninjatrick/fast-stealth
 ref/rule/perception-and-stealth
 ref/magic-staff/staff-of-stealth
 book-section/ultimate-intrigue/1-428
@@ -897,11 +897,11 @@ ref/feat/weapon-specialization
 ref/feat/weapon-specialization/teitr
 ref/feat/weapon-versatility
 ref/talent/weapon-training
-ref/ninjatrick/weapon-training
 ref/vigtalent/weapon-familiarity
 ref/magic-enh/ki-focus
 ref/magic-rod/backbiters-focus
 ref/magic-wondrous/headband-of-ki-focus
+ref/ninjatrick/weapon-training
 ref/arc-monk/weapon-adept
 ref/feat/ancestral-weapon-mastery
 ref/feat/modified-weapon-proficiency
@@ -915,8 +915,8 @@ ref/feat/elven-battle-focus
 ref/feat/weapon-trick-weapon-and-shield
 ref/feat/weapon-style-mastery
 ref/feat/furious-focus/stamina
-ref/feat/weapon-trick-polearm
 ref/feat/focused-discipline
+ref/feat/weapon-trick-polearm
 ref/phrenicamp/dragons-breath
 ref/feat/weapon-of-the-chosen
 ref/ability/advanced-weapon-training
@@ -1016,6 +1016,7 @@ ref/spell/summon-monster-3
 ref/rule/summoning-words
 ref/spell/summon-totem-creature
 ref/hkdiscipline/summon-devil
+ref/class/summoner
 ref/spell/summon-kami
 ref/spell/summon-natures-ally-2
 ref/spell/summon-natures-ally-4
@@ -1023,7 +1024,6 @@ ref/spell/summon-natures-ally-9
 ref/spell/summon-natures-ally-7
 ref/spell/summon-natures-ally-8
 ref/spell/summon-natures-ally-5
-ref/spell/summon-natures-ally-6
 query: acid
 ref/spelldef/acid
 ref/eq-reagent/acid
@@ -1135,7 +1135,6 @@ ref/carried/bestiary/rules/creature-types/creature-types
 ref/arc-familiar/animal-exemplar
 ref/ability/animal-tricks
 ref/sidekick/animal-companion
-ref/ability/animal-foci
 ref/arc-bard/animal-speaker
 ref/rule/animal-words
 ref/eq-misc/animal-call
@@ -1162,12 +1161,14 @@ ref/carried/advanced-players-guide/rules/core-classes/druid/druid-archetypes/ani
 ref/feat/animal-disguise
 ref/feat/animal-soul
 ref/spell/animal-shapes
+ref/ability/animal-foci
 ref/spell/animal-purpose-training
 ref/hex/animal-skin
 ref/eq-misc/animal-glue
 ref/eq-misc/animal-repellant-sack
 ref/magic-wondrous/animal-mask
 ref/hex/animal-servant
+ref/ability/companion-tricks
 ref/vigtalent/animal-patron
 ref/trait/animal-spirit-vitality
 ref/trait/animalistic-affliction
@@ -1176,7 +1177,6 @@ ref/eq-misc/animal-disguise-kit
 ref/eq-misc/animals
 ref/spell/animal-trance
 ref/magic-tattoo/animal-totem-tattoo
-ref/ability/companion-tricks
 query: antipaladin
 ref/class/antipaladin
 ref/magic-weapon/bastards-sting
@@ -1254,9 +1254,6 @@ ref/rule/pclass-arcane-trickster/arcane-trickster
 ref/magic-wondrous/arcane-battery
 ref/arc-bard/arcane-healer
 ref/exploit/arcane-barrier
-ref/arcana/arcane-redoubt
-ref/arcana/arcane-cloak
-ref/arcana/arcane-edge
 ref/arcana/arcane-deed
 ref/spell/arcane-concordance
 ref/carried/advanced-race-guide/races/elves/alternate-racial-rules/alternate-racial-traits/arcane-focus
@@ -1270,7 +1267,10 @@ ref/rule/arcane-spells
 ref/spell/arcane-eye
 ref/spell/arcane-cannon
 ref/arcana/arcane-accuracy
+ref/arcana/arcane-cloak
+ref/arcana/arcane-redoubt
 ref/spell/arcane-pocket
+ref/arcana/arcane-edge
 ref/feat/arcane-shield
 ref/ninjatrick/arcane-backfire
 ref/carried/advanced-players-guide/rules/races/half-elves/alternate-racial-traits/arcane-training
@@ -1417,8 +1417,8 @@ ref/carried/core-rulebook/rules/equipment/goods-and-services/mounts-and-related-
 ref/rule/bardic-college-events
 ref/eq-misc/bards-kit
 book-section/advanced-players-guide/2-2-4
-book-section/chronicle-of-legends/1-76
-book-section/chronicle-of-legends/1-76-1
+book-section/chronicle-of-legends/1-77
+book-section/chronicle-of-legends/1-77-1
 book-section/monster-codex/21-1-1-2
 book-section/npc-codex/1-3
 book-section/pathfinder-unchained/1-291
@@ -1561,10 +1561,10 @@ ref/evolution/blindsight
 ref/magic-fleshcraft/blinding-spittle-glands
 ref/carried/bestiary/rules/universal-monster-rules/blindsense
 ref/feat/blinding-critical/stamina
-ref/ninjatrick/blinding-bomb
 ref/unchevolution/blindsense
 ref/mercy/blinded
 ref/feat/blinding-sneak-attack
+ref/ninjatrick/blinding-bomb
 ref/magic-enh/blinding
 ref/discovery/blinding-bomb
 ref/evolution/blindsense
@@ -1601,9 +1601,9 @@ ref/arc-summoner/blood-god-disciple
 ref/magic-enh/blood-hunting
 ref/eq-material/blood-crystal
 ref/spell/blood-salvation
-ref/ability/bloodline-mutations
 ref/spell/blood-blaze
 ref/disease/blood-veil
+ref/ability/bloodline-mutations
 ref/monster/blood-maize
 ref/monster/blood-lily
 ref/spell/blood-scent
@@ -1732,8 +1732,8 @@ ref/eq-weapon/shortbow
 ref/monster/giant-jungle-giant
 ref/magic-weapon/oathbow
 ref/magic-weapon/felhart
-ref/feat/erastils-blessing
 ref/rule/dexterity
+ref/feat/erastils-blessing
 ref/magic-enh/endless-ammunition
 ref/monster/wild-hunt-wild-hunt-archer
 ref/vigtalent/signature-arrows
@@ -1954,12 +1954,12 @@ ref/carried/advanced-players-guide/rules/new-rules/combat-maneuvers
 ref/rule/combat-maneuvers
 ref/feat/combat-stamina
 ref/talent/combat-trick
-ref/ninjatrick/combat-trick
 ref/hex/combat-hypnosis
 ref/ability/combat-styles
 ref/rule/combat-stamina
 ref/feat/combat-meditation
 ref/vigtalent/combat-skill
+ref/ninjatrick/combat-trick
 ref/feat/combat-patrol
 ref/rule/combat-statistics
 ref/talent/combat-swipe
@@ -2132,7 +2132,6 @@ ref/feat/death-roll
 ref/ragepower/deathless-frenzy
 ref/hex/death-curse
 ref/spell/death-knell
-ref/deed/deaths-shot
 ref/hex/death-interrupted
 ref/magic-wondrous/deathlurkers-cloak
 ref/monster/death-worm-death-worm-leviathan
@@ -2145,6 +2144,7 @@ ref/rule/death-of-a-hero
 ref/magic-wondrous/deathbalm-talisman
 ref/magic-wondrous/deathwatch-eyes
 ref/feat/deathless-zealot
+ref/deed/deaths-shot
 ref/feat/deaths-host
 query: demon
 ref/subtype/demon
