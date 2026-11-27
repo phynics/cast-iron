@@ -234,21 +234,113 @@ test("With a book turned off, its options leave the chip count and the list", as
   await expect(page.getByRole("link", { name: new RegExp(`^${bookTitle}, `) })).toHaveCount(0);
 });
 
-test("A jump past the Options section stays put when the section's rows arrive", async ({ page }) => {
-  // The rows load with the entry for an address that jumps to or past the section, so the content
-  // above Archetypes and Spells does not grow after the jump.
-  const wizard = groups.filter((group) => group.classes.includes(WIZARD));
+// A jump to something below the Options section must survive the section's rows arriving late: the
+// section grows from one `Loading` line to the whole list, and the page holds what sits below it
+// where it was. The read of the class-option shards is slowed so that the rows arrive well after
+// the page has rendered and jumped.
+
+/** Delays the Cache API read of the class-option shards by `ms`. */
+async function slowShards(page: Page, ms: number) {
+  await page.addInitScript((delay) => {
+    const match = Cache.prototype.match;
+    Cache.prototype.match = function (this: Cache, ...args: Parameters<Cache["match"]>) {
+      const request = args[0] as Request | string;
+      const url = typeof request === "string" ? request : request.url;
+      const found = match.apply(this, args);
+      return /\/entries\/class_option-/.test(url) ? new Promise((resolve) => setTimeout(resolve, delay)).then(() => found) : found;
+    };
+  }, ms);
+}
+
+const nextFrames = (page: Page) =>
+  page.evaluate(() => new Promise<void>((done) => requestAnimationFrame(() => requestAnimationFrame(() => done()))));
+
+/** The top of an element in the view, and the bottom of the sticky bar. */
+const viewTop = (page: Page, selector: string) =>
+  page.locator(selector).evaluate((el) => Math.round(el.getBoundingClientRect().top));
+const barBottom = (page: Page) => switcher(page).evaluate((el) => Math.round(el.getBoundingClientRect().bottom));
+
+/** Waits until two reads a frame apart agree, and returns that read. */
+async function settled(page: Page, read: () => Promise<number>): Promise<number> {
+  let last: number | undefined;
+  await expect
+    .poll(async () => {
+      await nextFrames(page);
+      const now = await read();
+      const same = now === last;
+      last = now;
+      return same;
+    })
+    .toBe(true);
+  return last!;
+}
+
+/** The read equals `before` once the rows are in, and stays equal for several more frames. */
+async function expectStays(page: Page, read: () => Promise<number>, before: number, label: string) {
+  await expect.poll(read, { message: label }).toBe(before);
+  for (let frame = 0; frame < 6; frame++) {
+    await nextFrames(page);
+    await expect.poll(read, { message: `${label}, frame ${frame}`, timeout: 2000 }).toBe(before);
+  }
+}
+
+const wizardRows = () => groups.find((group) => group.classes.includes(WIZARD))!.entries.length;
+
+test("A jump to a later stop stays put when the section's rows arrive", async ({ page }) => {
+  await slowShards(page, 1500);
   for (const target of ["archetypes", "spells"]) {
     await openClass(page, WIZARD, `?s=${target}`);
-    await expect(rows(page)).toHaveCount(wizard[0].entries.length);
-    const heading = page.locator(`[data-class-section="${target}"]`);
-    const place = async () => [
-      await heading.evaluate((el) => Math.round(el.getBoundingClientRect().top)),
-      await page.evaluate(() => Math.round(window.scrollY)),
-    ];
-    await expect.poll(place).toEqual(await place());
-    const before = await place();
-    await page.waitForTimeout(600);
-    expect(await place(), target).toEqual(before);
+    // The section is still its `Loading` line when the page has jumped.
+    await expect(countLine(page)).toContainText("Loading");
+    const read = () => viewTop(page, `[data-class-section="${target}"]`);
+    const before = await settled(page, read);
+    if (target === "archetypes") {
+      const bar = await barBottom(page);
+      expect(before, "under the sticky bar").toBeGreaterThanOrEqual(bar - 1);
+      expect(before, "near the top").toBeLessThan(bar + 120);
+    }
+    await expect(rows(page)).toHaveCount(wizardRows());
+    await expectStays(page, read, before, target);
   }
+});
+
+test("A heading anchor below the section stays put when the section's rows arrive", async ({ page }) => {
+  await slowShards(page, 1500);
+  // The Favored Class Bonuses heading comes after Archetypes, so after Options.
+  await openClass(page, WIZARD, "?a=sec-favored-class-bonuses");
+  await expect(page.locator("#h-sec-favored-class-bonuses")).toBeAttached();
+  await expect(countLine(page)).toContainText("Loading");
+  const read = () => viewTop(page, "#h-sec-favored-class-bonuses");
+  const before = await settled(page, read);
+  expect(before, "in the view").toBeGreaterThanOrEqual(0);
+  await expect(rows(page)).toHaveCount(wizardRows());
+  await expectStays(page, read, before, "anchor");
+});
+
+test("A quick jump to Archetypes before the rows arrive stays put when they do", async ({ page }) => {
+  await slowShards(page, 1500);
+  await openClass(page, WIZARD);
+  await stop(page, "Archetypes").click();
+  await expect(countLine(page)).toContainText("Loading");
+  const read = () => viewTop(page, '[data-class-section="archetypes"]');
+  const before = await settled(page, read);
+  const bar = await barBottom(page);
+  expect(before, "under the sticky bar").toBeGreaterThanOrEqual(bar - 1);
+  expect(before, "near the top").toBeLessThan(bar + 120);
+  await expect(rows(page)).toHaveCount(wizardRows());
+  await expectStays(page, read, before, "quick jump");
+});
+
+test("A reader who has scrolled on is held where they are, not sent back to the jump", async ({ page }) => {
+  await slowShards(page, 1500);
+  await openClass(page, WIZARD, "?s=archetypes");
+  await expect(countLine(page)).toContainText("Loading");
+  await settled(page, () => viewTop(page, '[data-class-section="archetypes"]'));
+  // The reader moves on to the Archetypes list and stays on what they chose to look at.
+  await page.mouse.wheel(0, 400);
+  const read = () => viewTop(page, '[data-class-section="archetypes"]');
+  const before = await settled(page, read);
+  expect(before).toBeLessThan(0);
+  await expect(rows(page)).toHaveCount(wizardRows());
+  await expectStays(page, read, before, "scrolled reader");
 });

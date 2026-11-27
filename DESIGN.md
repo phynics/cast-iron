@@ -560,6 +560,14 @@ the rule and the list holds the 234 rogue talents (#739; decision
   that names no stop). The link row below scrolls to the section itself, and a stop of the switcher is a
   section jump that keeps the choices. The archetype list's `?keep=` and `?with=` keep their meaning and
   ride along.
+- **Late rows hold the page.** The rows of a group are read from their shards after the page has
+  rendered, so for a moment the section is one `Loading …` line. When they arrive and the section
+  lies wholly above the top of the view (below the sticky bar), the page is scrolled by the distance
+  that the element after the section moved, so whatever a jump or the reader has put in view stays
+  where it is: a stop, a heading anchor below the section, a quick jump to Archetypes before the rows
+  arrive. A reader who has scrolled on keeps their place and is not sent back to the jump's target; a
+  reader at or above the section is not moved. The page does not wait for the shard: the title, the
+  text and the jump never depend on it.
 - **Link row.** The class feature that grants a choice from a group ends with `p.opt-link`: a
   `.page-link` (accent text, chevron) such as `Rogue talents · 234 ›` that opens the section with that
   group chosen. A feature is matched to a group by name: the printed heading (or the bold name that

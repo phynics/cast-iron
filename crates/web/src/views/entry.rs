@@ -35,7 +35,7 @@ use crate::views::section_switcher::SectionSwitcher;
 use crate::views::sources::{aon_line, expanded_line, printings_line, source_line};
 use crate::views::stat_sets::{self, StatSetList};
 use crate::views::util::{
-    Shared, addon_base_phrase, kind_name, local_resource, recovery_details, set_title,
+    addon_base_phrase, kind_name, local_resource, recovery_details, set_title,
 };
 use cast_iron_schema::headings::{FeatureHead, feature_heads};
 use cast_iron_schema::{
@@ -368,11 +368,6 @@ pub fn Entry(id: EntryId, anchor: Option<String>, book: Option<String>) -> impl 
     set_title(stub_title.as_deref().unwrap_or("Entry"));
     let fetch_id = id.clone();
     let fetch_library = library.clone();
-    // An address that jumps to the Options section, or past it, needs the section at its full
-    // height before the jump, so its first group's rows load with the entry.
-    let live_route = route::use_route().get_untracked();
-    let preload_options = jumps_to_or_past_options(&live_route);
-    let live_choice = live_route.arch().options;
     // The index files that this kind of entry shows panels from load with it, so that the panels
     // arrive with the text and nothing above the body moves afterwards. A file that is missing
     // or damaged only costs the panels.
@@ -430,22 +425,6 @@ pub fn Entry(id: EntryId, anchor: Option<String>, book: Option<String>) -> impl 
                 match fetch_library.entry(&shared).await {
                     Ok(found) => indexes.capstone_names = also_available::names_in(&found.body),
                     Err(error) => leptos::logging::warn!("capstone links are off: {error}"),
-                }
-            }
-        }
-        if preload_options
-            && entry.kind == EntryKind::Class
-            && let Some(index) = indexes.option_groups.as_deref()
-        {
-            let groups = option_view::groups_of(&fetch_library, index, &entry.id);
-            if let Some(slug) = option_view::shown_slug(&groups, &live_choice)
-                && let Some(group) = groups.iter().find(|group| group.slug == slug)
-            {
-                match option_view::load(&fetch_library, &group.entries).await {
-                    Ok(rows) => {
-                        indexes.option_rows = Some(option_view::Preloaded(slug, Shared::new(rows)));
-                    }
-                    Err(error) => leptos::logging::warn!("the options are read later: {error}"),
                 }
             }
         }
@@ -1041,14 +1020,7 @@ fn EntryView(
                 .as_ref()
                 .filter(|sections| sections.has(Section::Options))
             {
-                Some(sections) => options_inserts(
-                    &body,
-                    sections,
-                    &entry,
-                    &book,
-                    option_groups,
-                    indexes.option_rows.clone(),
-                ),
+                Some(sections) => options_inserts(&body, sections, &entry, &book, option_groups),
                 None => Vec::new(),
             };
             let slot = folded_key.map(|key| {
@@ -1281,16 +1253,6 @@ fn EntryView(
     }
 }
 
-/// Whether an address jumps to the Options section or to something after it: the Options, Archetypes
-/// or Spells stop, or a heading anchor (which may be in the Archetypes section). Content that grows
-/// above such a target after the jump would push it down, so the section's rows load with the entry.
-fn jumps_to_or_past_options(route: &Route) -> bool {
-    matches!(
-        route.section(),
-        Some(Section::Options | Section::Archetypes | Section::Spells)
-    ) || route.anchor().is_some()
-}
-
 /// The views that a class page draws among the blocks of its body for the Options section (#739):
 /// the row under each feature that grants a choice from a group, then the section itself, before
 /// the Archetypes heading (at the end of the body when the page has none). A group that no feature
@@ -1301,7 +1263,6 @@ fn options_inserts(
     entry: &RuleEntry,
     book: &Option<String>,
     groups: Vec<cast_iron_schema::OptionGroup>,
-    preloaded: Option<option_view::Preloaded>,
 ) -> Vec<(usize, Callback<(), AnyView>)> {
     let named: Vec<&cast_iron_schema::OptionGroup> = groups.iter().collect();
     let mut inserts: Vec<(usize, Callback<(), AnyView>)> = Vec::new();
@@ -1335,11 +1296,8 @@ fn options_inserts(
     inserts.push((
         at,
         Callback::new(move |()| {
-            view! {
-                <OptionsSection class=class.clone() book=book.clone() groups=groups.clone()
-                    preloaded=preloaded.clone() />
-            }
-            .into_any()
+            view! { <OptionsSection class=class.clone() book=book.clone() groups=groups.clone() /> }
+                .into_any()
         }),
     ));
     inserts

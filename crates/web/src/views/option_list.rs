@@ -25,6 +25,7 @@ use cast_iron_schema::{EntryId, OptionGroup, OptionGroupIndex};
 use leptos::prelude::*;
 use std::collections::BTreeMap;
 use std::rc::Rc;
+use wasm_bindgen::JsCast;
 
 const BOOK: MenuSpec = MenuSpec {
     field: "source",
@@ -49,14 +50,87 @@ const LEVEL: MenuSpec = MenuSpec {
 /// The id of the name field, for the focus that `Show all` returns to.
 const FIND_ID: &str = "opt-find";
 
-/// The rows of one option group, read before the page rendered: its slug and its rows.
-#[derive(Clone)]
-pub struct Preloaded(pub String, pub Shared<Vec<OptionRow>>);
+/// The page position that a late list must not move.
+///
+/// The rows of a group arrive after the page has rendered, and the section grows from one
+/// `Loading` line to the whole list. When a jump (a stop, an `?a=` anchor, a first load at
+/// `?s=archetypes`) has put something below the section at the top of the view, that growth would
+/// push it down. The rule: when the rows arrive and the section lies wholly above the top of the
+/// view (below the sticky bar), the element after the section is held where it was by scrolling
+/// the page by the distance it moved. The reader's own place is kept the same way, so a reader who
+/// has scrolled since the jump is not moved back to its target; a reader who is at or above the
+/// section is not moved at all. The browser's scroll anchoring is not relied on: the measure is
+/// taken after a forced layout, so it counts only what anchoring left over.
+pub struct Hold {
+    below: web_sys::HtmlElement,
+    /// Where the element sits in the view, in pixels from its top.
+    in_view: f64,
+}
 
-/// The group that an address shows: the one it names, else the class's first.
-pub fn shown_slug(groups: &[OptionGroup], choice: &OptionChoice) -> Option<String> {
-    option_list::shown_group(groups, |group| &group.slug, choice.group.as_deref())
-        .map(|group| group.slug.clone())
+/// The top of an element in the document, from the offsets of its parents. (`getBoundingClientRect`
+/// needs a `web-sys` feature that the crate does not enable, and the offsets read the same layout.)
+fn document_top(element: &web_sys::HtmlElement) -> f64 {
+    let mut top = 0.0;
+    let mut current = Some(element.clone());
+    while let Some(element) = current {
+        top += f64::from(element.offset_top());
+        current = element
+            .offset_parent()
+            .and_then(|parent| parent.dyn_into::<web_sys::HtmlElement>().ok());
+    }
+    top
+}
+
+fn scrolled() -> f64 {
+    web_sys::window()
+        .and_then(|window| window.scroll_y().ok())
+        .unwrap_or(0.0)
+}
+
+/// How far down the page the sticky bar of a class page covers the view: the masthead and the
+/// switcher.
+fn covered_to() -> f64 {
+    let Some(document) = web_sys::window().and_then(|window| window.document()) else {
+        return 0.0;
+    };
+    ["header.app-header", ".section-switcher"]
+        .iter()
+        .filter_map(|selector| document.query_selector(selector).ok().flatten())
+        .filter_map(|element| element.dyn_into::<web_sys::HtmlElement>().ok())
+        .map(|element| f64::from(element.offset_height()))
+        .sum()
+}
+
+impl Hold {
+    /// The element after the section and its place in the view, when the section is above it.
+    fn take(section: NodeRef<leptos::html::Section>) -> Option<Hold> {
+        let section = section.get_untracked()?;
+        let bottom = document_top(&section) + f64::from(section.offset_height());
+        if bottom > scrolled() + covered_to() {
+            return None;
+        }
+        let below = section
+            .next_element_sibling()?
+            .dyn_into::<web_sys::HtmlElement>()
+            .ok()?;
+        let in_view = document_top(&below) - scrolled();
+        Some(Hold { below, in_view })
+    }
+
+    /// Scrolls the page by what the held element has moved in the view since [`Self::take`]. The
+    /// read forces layout, so the browser's own anchoring has been applied and only what it left is
+    /// counted.
+    fn settle(self) {
+        if !self.below.is_connected() {
+            return;
+        }
+        let moved = document_top(&self.below) - scrolled() - self.in_view;
+        if moved.abs() > 1.5
+            && let Some(window) = web_sys::window()
+        {
+            window.scroll_by_with_x_and_y(0.0, moved);
+        }
+    }
 }
 
 /// The option groups of `class`, each with only the options that the active books keep (its
@@ -113,7 +187,7 @@ pub fn group_route(class: &EntryId, book: &Option<String>, arch: ArchFilter, gro
 
 /// The row of one group's options, read from the shards that hold them: the title, the facts of
 /// the printed text and the book the reader's active books give it.
-pub async fn load(library: &Library, ids: &[EntryId]) -> Result<Vec<OptionRow>, String> {
+async fn load(library: &Library, ids: &[EntryId]) -> Result<Vec<OptionRow>, String> {
     let read = library
         .read_entries(ids, |entry| {
             option_list::facts_of(&entry.title, &entry.body)
@@ -173,9 +247,6 @@ pub fn OptionsSection(
     class: EntryId,
     book: Option<String>,
     groups: Vec<OptionGroup>,
-    /// The rows of one group, read with the entry (see [`Preloaded`]).
-    #[prop(optional_no_strip)]
-    preloaded: Option<Preloaded>,
 ) -> impl IntoView {
     let route = use_route();
     let library = crate::library::use_library();
@@ -213,20 +284,11 @@ pub fn OptionsSection(
         })
     };
 
-    // The rows of the shown group: read once per group, kept for the page's life. Rows that came
-    // with the entry are in the first render, so the section has its height before anything below
-    // it is jumped to.
-    let mut seeded = BTreeMap::new();
-    if let Some(Preloaded(slug, found)) = preloaded {
-        seeded.insert(slug, Rc::new((*found).clone()));
-    }
-    let first = seeded
-        .get(&groups[shown.get_untracked()].slug)
-        .cloned()
-        .map(Ok);
-    let (rows, set_rows) = signal_local(first);
+    let section_ref = NodeRef::<leptos::html::Section>::new();
+    // The rows of the shown group: read once per group, kept for the page's life.
+    let (rows, set_rows) = signal_local(None::<Result<Rc<Vec<OptionRow>>, String>>);
     let cache: StoredValue<BTreeMap<String, Rc<Vec<OptionRow>>>, LocalStorage> =
-        StoredValue::new_local(seeded);
+        StoredValue::new_local(BTreeMap::new());
     {
         let groups = groups.clone();
         let library = library.clone();
@@ -248,7 +310,13 @@ pub fn OptionsSection(
                 }
                 // A newer group has been chosen since: its own read answers for it.
                 if shown.try_get_untracked() == Some(index) {
+                    let held = Hold::take(section_ref);
                     set_rows.set(Some(result));
+                    request_animation_frame(move || {
+                        if let Some(held) = held {
+                            held.settle();
+                        }
+                    });
                 }
             });
         });
@@ -506,7 +574,7 @@ pub fn OptionsSection(
     };
 
     view! {
-        <section class="opt-section" aria-labelledby="opt-section">
+        <section class="opt-section" aria-labelledby="opt-section" node_ref=section_ref>
             <h2 id="opt-section" data-class-section=Section::Options.slug() data-printed-level="3" tabindex="-1">
                 "Options"
             </h2>
