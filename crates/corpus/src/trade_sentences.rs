@@ -47,6 +47,14 @@
 //! also" before a trade verb (`replaces`, `alters`, `changes`, `modifies` and the plurals) starts a
 //! second trade ("This ability alters sacred weapon and also replaces sacred armor.").
 //!
+//! Owner ruling 58 of 2026-11-27 (#540): "replaces and modifies X" ("replace and modify X") is one
+//! `replaces` trade of X, because replacing covers the modifying ("This ability replaces and
+//! modifies spellstrike.", Harrow Handbook, Card Caster). The words "and modifies" right after a
+//! `replaces` verb, before the object, are dropped. This is not ruling 49 ("alters and replaces
+//! X" keeps both verbs), and it does not apply to "replaces X and modifies Y", where `modifies`
+//! is no joined verb (ruling 55) and the words stay in the phrase. "Replaces and alters X" is not
+//! covered by the ruling and is read as before.
+//!
 //! Owner ruling 22 (a level back-reference trade is renamed to the printed words) adds the
 //! subjects that name a granted thing: `spell`, `skill` and `evolution` join `feat` as subject
 //! words that name no ability (the sentence is bare), and `bonus` is a subject word right before a
@@ -529,6 +537,22 @@ pub fn trade_sentences_headed(text: &str, head: Option<&str>) -> Vec<TradeSenten
                     .is_some_and(|next| next.eq_ignore_ascii_case("as"))
             {
                 index += 3;
+                continue;
+            }
+            // Owner ruling 58 (2026-11-27): "This ability replaces and modifies spellstrike."
+            // (Harrow Handbook, Card Caster) is one `replaces` trade of the shared object,
+            // because replacing covers the modifying, so the phrase starts after "and modifies".
+            // Only after a `replaces` verb, only `modifies` and `modify`, and only before the
+            // object: "replaces bravery and modifies the saving throw" is not this case, and
+            // "alters and replaces X" (ruling 49) and "replaces and alters X" are read as before.
+            if phrase.is_empty()
+                && op == TradeOp::Replaces
+                && word.eq_ignore_ascii_case("and")
+                && words.get(index + 1).is_some_and(|next| {
+                    next.eq_ignore_ascii_case("modifies") || next.eq_ignore_ascii_case("modify")
+                })
+            {
+                index += 2;
                 continue;
             }
             // R13: ", and abilities that modify arcane pool also modify eldritch pool": a clause
@@ -2578,6 +2602,61 @@ mod tests {
         // Only after an `alters` verb: a replacement still names what follows.
         let found = trade_sentences("This ability replaces and functions as true judgment.");
         assert_eq!(found[0].phrase, "and functions as true judgment");
+    }
+
+    #[test]
+    fn replaces_and_modifies_is_one_replaces_trade() {
+        // Owner ruling 58 of 2026-11-27 (#540), Card Caster (Harrow Handbook).
+        for (sentence, phrase) in [
+            (
+                "This ability replaces and modifies spellstrike.",
+                "spellstrike",
+            ),
+            (
+                "These abilities replace and modify the magus's spellstrike class feature.",
+                "the magus's spellstrike class feature",
+            ),
+            (
+                "This ability replaces and modifies spellstrike and spell recall.",
+                "spellstrike and spell recall",
+            ),
+        ] {
+            let found = trade_sentences(sentence);
+            assert_eq!(found.len(), 1, "{sentence}: {found:?}");
+            assert_eq!(found[0].op, TradeOp::Replaces, "{sentence}");
+            assert!(!found[0].bare, "{sentence}");
+            assert_eq!(found[0].phrase, phrase, "{sentence}");
+        }
+        // The reading holds when another trade follows.
+        let found =
+            trade_sentences("This ability replaces and modifies spellstrike and alters bravery.");
+        let pairs: Vec<_> = found.iter().map(|f| (f.op, f.phrase.as_str())).collect();
+        assert_eq!(
+            pairs,
+            [
+                (TradeOp::Replaces, "spellstrike"),
+                (TradeOp::Alters, "bravery")
+            ]
+        );
+        // "and modifies" after an object is no joined verb: the words stay in the phrase
+        // (ruling 55), the same as before ruling 58.
+        let found = trade_sentences("This ability replaces bravery and modifies the saving throw.");
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert_eq!(found[0].op, TradeOp::Replaces);
+        assert_eq!(found[0].phrase, "bravery and modifies the saving throw");
+        // Only after `replaces`: "alters and modifies X" is not touched.
+        let found = trade_sentences("This ability alters and modifies spellstrike.");
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert_eq!(found[0].op, TradeOp::Alters);
+        assert_eq!(found[0].phrase, "and modifies spellstrike");
+        // "replaces and alters X" is outside ruling 58 and reads as before: an `alters` trade.
+        let found = trade_sentences("This ability replaces and alters spellstrike.");
+        let pairs: Vec<_> = found.iter().map(|f| (f.op, f.phrase.as_str())).collect();
+        assert_eq!(pairs, [(TradeOp::Alters, "spellstrike")]);
+        // Ruling 49, "alters and replaces X": the verbs are not merged into the `replaces` one.
+        let found = trade_sentences("This alters and replaces all improvements to bravery.");
+        let pairs: Vec<_> = found.iter().map(|f| (f.op, f.phrase.as_str())).collect();
+        assert_eq!(pairs, [(TradeOp::Replaces, "all improvements to bravery")]);
     }
 
     #[test]
