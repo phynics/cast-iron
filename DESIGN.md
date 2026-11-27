@@ -460,8 +460,10 @@ class page is one column with no side panel. Below 64 rem every entry folds them
 #### Class section switcher
 
 A class page with at least three stops (Overview and two more) has `nav.section-switcher` under the
-summary card: **Overview · Requirements · Features · Archetypes · Spells**, only the stops the class
-has (Wizard and Arcanist four, Fighter three). Requirements starts at the top-level `Requirements`
+summary card: **Overview · Requirements · Features · Options · Archetypes · Spells**, only the stops the
+class has (Wizard and Arcanist five, Fighter three). At 390 px four stops take the tighter padding and
+five also `--step--2` type, so the sticky bar stays one row. Options is the stop of a base class that has an
+option group (see "Options section"). Requirements starts at the top-level `Requirements`
 heading, so a prestige class has Overview, Requirements and Features and gets the bar (#443): its
 introduction can run past 2,000 px at 390 px before the Requirements. The bar replaces the
 `On this page` disclosure on base classes, whose list was 40 or more headings. A prestige class keeps
@@ -474,7 +476,7 @@ spell level links). It is `position: sticky` under the masthead (`top: var(--hea
 opaque `--bg` that runs out to the page gutters, with a short fade under its edge. The whole page
 stays one document, so Find in page and a screen reader's heading list reach every section. A link
 moves the page to the start of its section and focus to that section's heading; the address
-records the stop as `?s=requirements`, `?s=features`, `?s=archetypes` or `?s=spells` (Overview has no value), which
+records the stop as `?s=requirements`, `?s=features`, `?s=options`, `?s=archetypes` or `?s=spells` (Overview has no value), which
 makes the stop a history entry. A section starts below the masthead and the bar
 (`scroll-margin-top`). On a wide screen a class page that has the switcher is one block column in
 document order, because a sticky grid item cannot leave its grid row.
@@ -514,6 +516,57 @@ Feature` matrix, and the `Archetypes` panel that used to close the page. The int
   no trades row) is never counted as compatible. While a choice is active it is listed apart under a
   `Not checked` heading with a hint that says what is missing, never among the compatible rows. When the
   chosen archetype cannot be checked, nothing is compatible: every other row stands under `Not checked`.
+
+#### Options section
+
+A base class that has at least one option group (rogue talents, domains, hexes; `option-groups.json`, a
+group belongs to the classes in its `classes`) has the **Options** stop of the switcher and a section of
+its own, between Features and Archetypes: the page draws it before the `Archetypes` heading (at the end of
+the body when a class has none). It lists the selectable abilities of the class, so the Features text keeps
+the rule and the list holds the 234 rogue talents (#739; decision
+`docs/decisions/2026-11-27-class-options-section.md`). A prestige class has none.
+
+- **Head.** An `h2` named `Options` with `data-class-section="options"`, in the look of the other
+  stops' headings. No lede: the chips and the list are the section.
+- **Chips.** One per group of the class, in `nav[aria-label="Option groups"]`: the group's label and its
+  count in the reader's active books, in the Navigation form (`.jump`, a rectangle of the card radius,
+  never a pill). The chip that is shown is filled with `--accent` and marked `aria-current="true"`, the
+  form of the switcher. The row is one line that scrolls sideways at 390 px (`.opt-chips`); the page
+  itself never does. A group with no option in the active books has no chip.
+- **List.** The form of the archetype list, one column at every width: a find field (`Filter this list
+  by name`), a filter row, a count line and `li.arch-row.opt-row` rows.
+  - *Filters.* `Book: All books` (the single-choice menu of "Filter menu", a find field above ten books;
+    the count of each book is under the other filters). `Level: All levels` appears only for a group
+    whose options print a level (the Kineticist's wild talents print `Level:`); no other group has the
+    menu, and no level is ever worked out.
+  - *Count line.* `234 rogue talents`, or `12 of 234 rogue talents · Show all` once a filter narrows it
+    (a live region). `Show all` clears the name, book and level and keeps the group.
+  - *Row.* The option's name as the link (display serif, bold), its ability tag beside the link in italics and
+    the muted colour when the printed text gives one (`(Ex)`, `(Su)`, `(Sp)`, `(Ex or Su)`), and at the
+    right the `Level N` it prints, or else a short prerequisite (24 characters or fewer, such as
+    `9th-level magus`); a longer prerequisite goes on the muted line. Under them one muted line names
+    the book (`Core Rulebook`), with `· Prerequisite: …` after it when the prerequisite did not fit at
+    the right. The library has no typed level, prerequisite or tag for a class option: the row reads them
+    from the printed body (a bold name, a `Level:` row, a `Prereq:` row), and shows nothing for what the
+    text does not print. The tag counts only when the first line of the body is the option's own name.
+  - *Empty and loading.* `Loading rogue talents…` while the one or two shards that hold the group are
+    read; `No rogue talents match "xyz".` (or `match those choices.`) with `Show all`; a hint when the
+    shards cannot be read.
+- **State is route state**: `?s=options&group=<slug>&find=<text>&source=<book id>&level=<n>`. `group`
+  names the chip (none or an unknown slug is the class's first group); a chip resets the three filters.
+  A chip or a menu choice is a history entry, Back undoes it, typing replaces the entry, and the page is
+  not rebuilt (the frame leaves scroll and focus alone for a choice, also the first one from an address
+  that names no stop). The link row below scrolls to the section itself, and a stop of the switcher is a
+  section jump that keeps the choices. The archetype list's `?keep=` and `?with=` keep their meaning and
+  ride along.
+- **Link row.** The class feature that grants a choice from a group ends with `p.opt-link`: a
+  `.page-link` (accent text, chevron) such as `Rogue talents · 234 ›` that opens the section with that
+  group chosen. A feature is matched to a group by name: the printed heading (or the bold name that
+  opens a paragraph) with its ability tag, a trailing colon and any possessive `'s` removed, compared
+  without regard to case with the group's label or singular, each also without the leading words that
+  only name the class (`Witch hex` is `Hex`). A heading's row goes after all the text under it; a bold
+  name's row goes right after its paragraph. It reads the printed names, so it is the same on an
+  imported body and on a converted one. A group that no feature names has a chip and no row.
 
 #### Heading levels in an entry body (#12, L3)
 

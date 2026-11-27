@@ -22,7 +22,9 @@
 //! #/feats/chains                     feats that unlock others
 //! #/entry/<entry id>?a=<anchor>&book=<source>&s=<section>   an entry, with the book it was
 //!                                    read from; `s` is a class page's section (`features`,
-//!                                    `archetypes`, `spells`), which jumps to it (#170)
+//!                                    `options`, `archetypes`, `spells`), which jumps to it (#170).
+//!                                    On `s=options` (#739): `group=<option group slug>`,
+//!                                    `find=<name text>`, `source=<book id>`, `level=<n>`
 //! #/bookmarks                        #/collection/<id>   old addresses: they open Home
 //! #/quick                            Quick reference: the rules a table looks up mid-play
 //! #/settings[?section=updates]       #/settings/diagnostics       #/legal
@@ -35,20 +37,47 @@ use leptos::prelude::*;
 use crate::book_source::{Retirement, aliased_book_source, retirement};
 use crate::class_sections::Section;
 
-/// The archetype list's choices on a class page (`?keep=arcane-bond&with=ref/arc-wizard/x`): the
-/// features to keep, in the order chosen, and the one archetype to combine with. They are the
-/// route's, like the schools of a spell list: a choice is a history entry that the page reads
-/// without being rebuilt (#170, part D).
+/// The choices of a class page's lists. The archetype list's (`?keep=arcane-bond&with=ref/arc-wizard/x`)
+/// are the features to keep, in the order chosen, and the one archetype to combine with. The
+/// Options section's are in [`OptionChoice`]. They are the route's, like the schools of a spell
+/// list: a choice is a history entry that the page reads without being rebuilt (#170, part D;
+/// #739).
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ArchFilter {
     /// Heading anchors of the class's features, as the corpus writes them.
     pub keep: Vec<String>,
     pub with: Option<EntryId>,
+    /// The Options section's group and filters. Boxed: a route is copied everywhere, and the
+    /// choices are used on one page.
+    pub options: Box<OptionChoice>,
 }
 
 impl ArchFilter {
+    /// Whether the archetype list has no choice. The Options section's choices are no part of it.
     pub fn is_empty(&self) -> bool {
         self.keep.is_empty() && self.with.is_none()
+    }
+}
+
+/// The Options section's choices (`?s=options&group=rogue-talent&find=bleed&source=core-rulebook`):
+/// the option group that is shown, the text of the name field, one book and one level. All empty
+/// is the class's first group with nothing narrowed (#739).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct OptionChoice {
+    /// The slug of the group in `option-groups.json`. An unknown slug shows the first group.
+    pub group: Option<String>,
+    /// The name field, as typed.
+    pub find: String,
+    /// The publication id of the one book the list is narrowed to.
+    pub source: Option<String>,
+    /// The one printed level the list is narrowed to, for a group whose options print one.
+    pub level: Option<u8>,
+}
+
+impl OptionChoice {
+    /// Whether a filter narrows the list. The group is a place, not a filter.
+    pub fn narrows(&self) -> bool {
+        !self.find.trim().is_empty() || self.source.is_some() || self.level.is_some()
     }
 }
 
@@ -427,12 +456,28 @@ impl Route {
                 let with = query
                     .and_then(|q| query_pairs(q).find(|(k, _)| k == "with"))
                     .and_then(|(_, v)| EntryId::parse(v).ok());
+                let text = |name: &str| {
+                    query
+                        .and_then(|q| query_pairs(q).find(|(k, _)| k == name))
+                        .map(|(_, v)| v)
+                        .filter(|v| !v.is_empty())
+                };
+                let options = OptionChoice {
+                    group: text("group"),
+                    find: text("find").unwrap_or_default(),
+                    source: text("source").map(|v| aliased_book_source(&v).to_string()),
+                    level: text("level").and_then(|v| v.parse().ok()),
+                };
                 Route::Entry {
                     id,
                     anchor,
                     book,
                     section,
-                    arch: ArchFilter { keep, with },
+                    arch: ArchFilter {
+                        keep,
+                        with,
+                        options: Box::new(options),
+                    },
                 }
             }
             // Legacy saved-entry URLs now land on Home, where all stars are listed.
@@ -587,6 +632,19 @@ impl Route {
                 if let Some(with) = &arch.with {
                     pairs.push(format!("with={}", percent_encode(with.as_str())));
                 }
+                let options = &arch.options;
+                if let Some(group) = &options.group {
+                    pairs.push(format!("group={}", percent_encode(group)));
+                }
+                if !options.find.trim().is_empty() {
+                    pairs.push(format!("find={}", percent_encode(&options.find)));
+                }
+                if let Some(source) = &options.source {
+                    pairs.push(format!("source={}", percent_encode(source)));
+                }
+                if let Some(level) = options.level {
+                    pairs.push(format!("level={level}"));
+                }
                 if pairs.is_empty() {
                     format!("#/entry/{id}")
                 } else {
@@ -642,6 +700,29 @@ impl Route {
                         || *other_section == Some(Section::Archetypes)
                         || (*section == Some(Section::Archetypes) && other_section.is_none()))
             }
+            _ => false,
+        }
+    }
+
+    /// Whether `other` is a choice of the Options section on the entry page that `self` shows: the
+    /// same entry and book, no heading anchor, the Options stop, and other options choices (a
+    /// group chip, a filter or a typed name). The reader is looking at the list, so the frame
+    /// leaves scroll and focus alone, also for the first choice from an address that names no
+    /// stop (the reader scrolled to the chips by hand). A link that opens the section scrolls to
+    /// it itself, and a stop of the switcher keeps the choices, so it is a section jump. Back from
+    /// the section is no such choice and returns to where the reader was (#739).
+    pub fn only_options_differ(&self, other: &Route) -> bool {
+        match (self, other) {
+            (
+                Route::Entry { id, book, arch, .. },
+                Route::Entry {
+                    id: other_id,
+                    anchor: None,
+                    book: other_book,
+                    section: Some(Section::Options),
+                    arch: other_arch,
+                },
+            ) => id == other_id && book == other_book && arch.options != other_arch.options,
             _ => false,
         }
     }
@@ -1941,6 +2022,7 @@ mod tests {
             arch: ArchFilter {
                 keep: vec!["arcane-bond".into(), "scribe-scroll".into()],
                 with: Some(physician.clone()),
+                ..Default::default()
             },
         };
         assert_eq!(
@@ -1959,6 +2041,7 @@ mod tests {
             arch: ArchFilter {
                 keep: vec!["cantrips".into()],
                 with: None,
+                ..Default::default()
             },
         };
         assert_eq!(
@@ -1975,6 +2058,7 @@ mod tests {
             arch: ArchFilter {
                 keep: Vec::new(),
                 with: Some(physician),
+                ..Default::default()
             },
         };
         round_trip(with_only);
@@ -2034,6 +2118,7 @@ mod tests {
             arch: ArchFilter {
                 keep: keep.iter().map(|k| k.to_string()).collect(),
                 with: None,
+                ..Default::default()
             },
         };
         let archetypes = Some(Section::Archetypes);
@@ -2095,6 +2180,7 @@ mod tests {
             arch: ArchFilter {
                 keep: vec!["cantrips".into()],
                 with: None,
+                ..Default::default()
             },
         };
         assert!(!at(&[], archetypes, None).only_arch_differs(&in_book));
@@ -2571,6 +2657,74 @@ mod tests {
         ] {
             assert!(!wants_updates_section(hash), "{hash}");
         }
+    }
+
+    #[test]
+    fn the_options_section_choices_ride_in_the_entry_address() {
+        let rogue = EntryId::parse("ref/class/rogue").unwrap();
+        let route = Route::Entry {
+            id: rogue.clone(),
+            anchor: None,
+            book: None,
+            section: Some(Section::Options),
+            arch: ArchFilter {
+                options: Box::new(OptionChoice {
+                    group: Some("rogue-talent".into()),
+                    find: "bleed ing".into(),
+                    source: Some("core-rulebook".into()),
+                    level: Some(2),
+                }),
+                ..Default::default()
+            },
+        };
+        let href = route.href();
+        assert_eq!(
+            href,
+            "#/entry/ref/class/rogue?s=options&group=rogue-talent&find=bleed%20ing&source=core-rulebook&level=2"
+        );
+        assert_eq!(Route::parse(&href), route);
+        // A bare `s=options` is the class's first group with nothing narrowed.
+        let bare = Route::parse("#/entry/ref/class/rogue?s=options");
+        assert_eq!(bare.section(), Some(Section::Options));
+        assert_eq!(*bare.arch().options, OptionChoice::default());
+        assert!(!bare.arch().options.narrows());
+        // A blank name and a level that is no number read as nothing.
+        let odd = Route::parse("#/entry/ref/class/rogue?s=options&find=&level=x&group=");
+        assert_eq!(*odd.arch().options, OptionChoice::default());
+    }
+
+    #[test]
+    fn a_choice_in_the_options_section_leaves_scroll_alone_but_a_stop_and_back_do_not() {
+        let at = |section, group: Option<&str>, find: &str| Route::Entry {
+            id: EntryId::parse("ref/class/rogue").unwrap(),
+            anchor: None,
+            book: None,
+            section,
+            arch: ArchFilter {
+                options: Box::new(OptionChoice {
+                    group: group.map(String::from),
+                    find: find.into(),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            },
+        };
+        let options = Some(Section::Options);
+        // Another chip, and typed text, on the section that is open.
+        assert!(at(options, None, "").only_options_differ(&at(options, Some("a"), "")));
+        assert!(at(options, Some("a"), "").only_options_differ(&at(options, Some("a"), "bl")));
+        // A chip or typing from an address that names no stop is a choice too; the link under a
+        // feature scrolls to the section itself.
+        assert!(at(None, None, "").only_options_differ(&at(options, Some("a"), "")));
+        assert!(at(None, None, "").only_options_differ(&at(options, None, "bl")));
+        // A stop of the switcher keeps the choices: it is a jump. Back from the section returns to
+        // where the reader was.
+        assert!(!at(None, None, "").only_options_differ(&at(options, None, "")));
+        assert!(!at(options, Some("a"), "").only_options_differ(&at(None, None, "")));
+        assert!(at(None, None, "").is_section_jump(&at(options, Some("a"), "")));
+        // The same address, another entry and an anchor are no such choice.
+        assert!(!at(options, Some("a"), "").only_options_differ(&at(options, Some("a"), "")));
+        assert!(!at(options, None, "").only_options_differ(&Route::Home));
     }
 
     #[test]

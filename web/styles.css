@@ -2722,6 +2722,19 @@ mark {
   }
 }
 
+/* Four and five stops (Options, #739) must still share one row at 390 px, because the bar is sticky
+   and its height is the scroll margin of every section: four take the tighter padding, five also
+   the smaller type. At larger text the row wraps, as it always has. */
+@media (max-width: 30rem) {
+  .section-switcher:has(li:nth-child(4)) a {
+    padding: 0 var(--space-1);
+  }
+
+  .section-switcher:has(li:nth-child(5)) a {
+    font-size: var(--step--2);
+  }
+}
+
 /* A section starts below the masthead and the bar. The page already pads its scroll by the
    masthead, so this adds the bar's own height. */
 .entry [data-class-section] {
@@ -5779,6 +5792,79 @@ label.choice-row {
 .arch-unchecked {
   margin: var(--space-4) 0 var(--space-1);
   font-size: var(--step-0);
+}
+
+/* The Options section of a class page (#739): one chip per option group, then the group's list in
+   the archetype list's form. The chips are Navigation (rectangles, never pills) and scroll
+   sideways on a phone, so a class with several long group names keeps one row. */
+.opt-chips {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: var(--space-2);
+  margin: var(--space-2) 0 var(--space-3);
+  padding: 0 0 var(--space-1);
+  list-style: none;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+.opt-chips li {
+  flex: none;
+}
+
+.opt-chips .jump {
+  white-space: nowrap;
+}
+
+.opt-chips .jump[aria-current="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+
+.opt-chips .jump[aria-current="true"] .jump-count {
+  color: inherit;
+}
+
+.opt-list .list-filter {
+  margin-top: 0;
+}
+
+.opt-name {
+  font-family: var(--font-display);
+  font-weight: 700;
+}
+
+.opt-title {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+/* The tag sits beside the link, not in it: it is a fact about the option, not part of the target. */
+.opt-tag {
+  color: var(--ink-muted);
+  font-weight: 400;
+  font-style: italic;
+}
+
+/* The level or short prerequisite at the right of a row. */
+.opt-aside {
+  margin-inline-start: auto;
+  color: var(--ink-muted);
+  font-size: var(--step--1);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* The row under a feature that grants a choice from a group. */
+.opt-link {
+  margin: var(--space-2) 0 var(--space-3);
+}
+
+.opt-link .page-link {
+  margin-left: 0;
 }
 
 /* The counts of a current row sit before its check mark. */

@@ -2,14 +2,15 @@
 //!
 //! A class page is one long document. The switcher is a sticky bar of links that jump to the
 //! start of a section; the whole page stays in the document (Find in page, screen readers). The
-//! five stops are **Overview · Requirements · Features · Archetypes · Spells**, and a class shows
-//! only the stops it has:
+//! six stops are **Overview · Requirements · Features · Options · Archetypes · Spells**, and a
+//! class shows only the stops it has:
 //!
 //! | Stop | Where it starts |
 //! |---|---|
 //! | Overview | the top of the page: title, summary card, introduction |
 //! | Requirements | the top-level heading `Requirements` (a prestige class; #443) |
 //! | Features | the first top-level heading that begins `Class Features` |
+//! | Options | the section that the page draws before Archetypes, when the class has an option group (#739) |
 //! | Archetypes | the top-level heading `Archetypes` |
 //! | Spells | the `Spell list` panel, which exists when the class has a spell list |
 //!
@@ -24,15 +25,19 @@ use cast_iron_schema::{Block, headings::keyed_headings, headings::plain_text};
 pub enum Section {
     Requirements,
     Features,
+    /// The selectable abilities of the class's option groups (#739). It has no body heading: the
+    /// page draws the section, so the stop exists when the class has a group.
+    Options,
     Archetypes,
     Spells,
 }
 
 impl Section {
     /// The stops in the order the switcher shows them, after Overview.
-    pub const ALL: [Section; 4] = [
+    pub const ALL: [Section; 5] = [
         Section::Requirements,
         Section::Features,
+        Section::Options,
         Section::Archetypes,
         Section::Spells,
     ];
@@ -42,6 +47,7 @@ impl Section {
         match self {
             Section::Requirements => "requirements",
             Section::Features => "features",
+            Section::Options => "options",
             Section::Archetypes => "archetypes",
             Section::Spells => "spells",
         }
@@ -51,6 +57,7 @@ impl Section {
         match self {
             Section::Requirements => "Requirements",
             Section::Features => "Features",
+            Section::Options => "Options",
             Section::Archetypes => "Archetypes",
             Section::Spells => "Spells",
         }
@@ -75,6 +82,8 @@ pub struct Sections {
     archetypes: Option<String>,
     /// Whether the page has a `Spell list` panel to jump to.
     spells: bool,
+    /// Whether the class has an option group, and so the page draws the Options section.
+    options: bool,
 }
 
 /// How many stops, Overview included, a switcher needs. A class with only Overview and Features
@@ -109,7 +118,14 @@ impl Sections {
             features: top_level(&|title| title.trim().starts_with("class features")),
             archetypes: top_level(&|title| title.trim() == "archetypes"),
             spells: has_spell_list,
+            options: false,
         }
+    }
+
+    /// The same stops, plus Options when the class has at least one option group.
+    pub fn with_options(mut self, has_option_group: bool) -> Self {
+        self.options = has_option_group;
+        self
     }
 
     /// The heading key of the Archetypes section, whether or not the page has a switcher.
@@ -121,6 +137,7 @@ impl Sections {
         match section {
             Section::Requirements => self.requirements.is_some(),
             Section::Features => self.features.is_some(),
+            Section::Options => self.options,
             Section::Archetypes => self.archetypes.is_some(),
             Section::Spells => self.spells,
         }
@@ -317,11 +334,47 @@ mod tests {
     }
 
     #[test]
+    fn options_is_a_stop_between_features_and_archetypes_when_the_class_has_a_group() {
+        let sections = Sections::read(&wizard(), true).with_options(true);
+        assert_eq!(
+            sections.present(),
+            [
+                Section::Features,
+                Section::Options,
+                Section::Archetypes,
+                Section::Spells
+            ]
+        );
+        // It has no body heading to mark: the page draws the section.
+        assert_eq!(sections.body_marks().len(), 2);
+        let without = Sections::read(&wizard(), true);
+        assert!(!without.has(Section::Options));
+        assert_eq!(
+            without.present(),
+            [Section::Features, Section::Archetypes, Section::Spells]
+        );
+    }
+
+    #[test]
+    fn options_counts_towards_the_three_stops_a_switcher_needs() {
+        // Overview, Features and Options are three stops: the page gets a bar. Without the group
+        // the same page has two and keeps its contents disclosure.
+        let body = vec![h(2, "Class Features", Some("class-features"))];
+        assert!(!Sections::read(&body, false).worth_a_switcher());
+        assert!(
+            Sections::read(&body, false)
+                .with_options(true)
+                .worth_a_switcher()
+        );
+    }
+
+    #[test]
     fn slugs_round_trip_and_overview_is_no_section() {
         for section in Section::ALL {
             assert_eq!(Section::from_slug(section.slug()), Some(section));
         }
         assert_eq!(Section::from_slug("Archetypes"), Some(Section::Archetypes));
+        assert_eq!(Section::from_slug("OPTIONS"), Some(Section::Options));
         assert_eq!(Section::from_slug("overview"), None);
         assert_eq!(Section::from_slug(""), None);
         assert_eq!(Section::from_slug("nope"), None);

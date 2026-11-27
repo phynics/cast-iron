@@ -27,6 +27,7 @@ pub mod installer;
 pub mod legal;
 pub mod list_order;
 pub mod not_found;
+pub mod option_list;
 pub mod progression;
 pub mod quick;
 pub mod quick_rows;

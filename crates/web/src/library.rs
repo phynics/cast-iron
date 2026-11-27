@@ -697,6 +697,36 @@ impl Library {
             })
     }
 
+    /// What `read` makes of each entry of `ids`, in the order of `ids`. The entries are read from
+    /// their shards, each shard once, so the options of one group cost the one or two shards that
+    /// hold them (#739). An id the catalog does not know is left out.
+    pub async fn read_entries<T>(
+        &self,
+        ids: &[EntryId],
+        read: impl Fn(&RuleEntry) -> T,
+    ) -> Result<Vec<(EntryId, T)>, LibraryError> {
+        let mut paths: Vec<&str> = ids
+            .iter()
+            .filter_map(|id| self.stub(id).map(|stub| stub.shard.as_str()))
+            .collect();
+        paths.sort_unstable();
+        paths.dedup();
+        let wanted: BTreeSet<&EntryId> = ids.iter().collect();
+        let mut found: BTreeMap<EntryId, T> = BTreeMap::new();
+        for path in paths {
+            let shard = self.shard(path).await?;
+            for entry in shard.iter() {
+                if wanted.contains(&entry.id) {
+                    found.insert(entry.id.clone(), read(entry));
+                }
+            }
+        }
+        Ok(ids
+            .iter()
+            .filter_map(|id| found.remove(id).map(|value| (id.clone(), value)))
+            .collect())
+    }
+
     async fn shard(&self, path: &str) -> Result<Rc<Vec<RuleEntry>>, LibraryError> {
         if let Some(hit) = self.0.shards.borrow_mut().get(&path.to_string()) {
             return Ok(hit);

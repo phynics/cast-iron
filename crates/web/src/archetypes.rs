@@ -217,6 +217,7 @@ pub fn compatible_with(rows: &[Row], row: &Row) -> usize {
         &ArchFilter {
             keep: Vec::new(),
             with: Some(row.id.clone()),
+            ..Default::default()
         },
     )
     .compatible
@@ -509,6 +510,7 @@ mod tests {
             &ArchFilter {
                 keep: vec!["arcane-bond".into()],
                 with: None,
+                ..Default::default()
             },
         );
         assert_eq!(titles(&all, &shown.compatible), ["Other"]);
@@ -540,6 +542,7 @@ mod tests {
         let with = |value: &str| ArchFilter {
             keep: Vec::new(),
             with: Some(id(value)),
+            ..Default::default()
         };
         // An unresolved trade: every other row is not checked, none is compatible.
         let odd = all.iter().find(|r| r.title == "Odd One").unwrap();
@@ -619,6 +622,7 @@ mod tests {
         let keep = |anchors: &[&str]| ArchFilter {
             keep: anchors.iter().map(|a| a.to_string()).collect(),
             with: None,
+            ..Default::default()
         };
         let shown = narrow(&rows, &keep(&["arcane-bond"]));
         assert_eq!(
@@ -650,6 +654,7 @@ mod tests {
                     .id
                     .clone(),
             ),
+            ..Default::default()
         };
         let shown = narrow(&rows, &with("Arcane Physician"));
         // Bonded Wizard replaces Scribe Scroll too; the chosen archetype is not listed.
@@ -668,6 +673,7 @@ mod tests {
         let both = ArchFilter {
             keep: vec!["cantrips".into()],
             with: with("Arcane Physician").with,
+            ..Default::default()
         };
         let shown = narrow(&rows, &both);
         assert_eq!(titles(&rows, &shown.compatible), ["Chronomancer"]);
@@ -690,6 +696,7 @@ mod tests {
             &ArchFilter {
                 keep: vec!["cantrips".into()],
                 with: None,
+                ..Default::default()
             },
         );
         assert!(shown.unchecked.contains(&5));
