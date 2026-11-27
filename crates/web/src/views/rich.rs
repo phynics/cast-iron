@@ -20,7 +20,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 
 pub use cast_iron_schema::headings::{
     RELATED_ANCHOR, RESERVED_ANCHOR_KEYS, heading_keys, headings_in_order, keyed_headings,
-    plain_text, slugify,
+    plain_text, slugify, split_heading_tag,
 };
 
 /// The DOM id for a heading key. The prefix keeps content ids away from app ids.
@@ -399,7 +399,7 @@ impl Renderer {
                 }
                 let level = self.level_of(item, *level);
                 match self.feature_of(explicit.as_deref()) {
-                    Some(gained) => feature_head(level, id, section, gained, inlines(content)),
+                    Some(gained) => feature_head(level, id, section, gained, content),
                     None => heading(level, id, section, None, inlines(content)),
                 }
             }
@@ -577,8 +577,18 @@ fn feature_head(
     id: Option<String>,
     section: Option<Section>,
     gained: Option<u8>,
-    content: Vec<AnyView>,
+    content: &[Inline],
 ) -> AnyView {
+    // The printed text is unchanged: the name, one space and the tag read as the heading did.
+    let (name, tag) = split_heading_tag(content);
+    let content: Vec<AnyView> = match tag {
+        Some(tag) => vec![
+            view! { <span class="feature-name">{inlines(&name)}</span> }.into_any(),
+            " ".into_any(),
+            view! { <span class="ability-tag">{tag}</span> }.into_any(),
+        ],
+        None => inlines(&name),
+    };
     let heading = heading(level, id, section, Some("power-name"), content);
     view! { <div class="power-head feature-head">{heading}{level_tail(gained)}</div> }.into_any()
 }

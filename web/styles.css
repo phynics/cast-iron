@@ -2065,6 +2065,33 @@ mark {
   margin-top: 0;
 }
 
+/* One block per listed feature: a hairline rule between one feature and the next (#739). The rule
+   is the top border of every feature head that has an earlier feature head in the same body, so the
+   first feature of an entry and a heading that the corpus does not list get none. The padding puts
+   the head below the rule, not on it. Unlisted subheadings inside a feature are not feature heads. */
+.rich > .feature-head ~ .feature-head {
+  margin-top: var(--space-5);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--line);
+}
+
+/* The ability tag, (Ex), (Su) or (Sp), is not part of the bold name: body type at the body size,
+   italic, in the muted ink. */
+.rich .power-name .ability-tag {
+  font-family: var(--font-text);
+  font-size: 1.0625rem; /* the size of `.rich` prose */
+  font-style: italic;
+  font-weight: 400;
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+
+@media (forced-colors: active) {
+  .rich > .feature-head ~ .feature-head {
+    border-top-color: CanvasText;
+  }
+}
+
 .rich .power-name {
   flex: 0 1 auto;
   min-width: 0;
