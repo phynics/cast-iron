@@ -788,6 +788,32 @@ mod tests {
     }
 
     #[test]
+    fn a_feature_key_with_a_suffix_finds_the_second_of_two_equal_anchors() {
+        // Two headings print the same anchor; `keyed_headings` keeps `domain` for the first and
+        // gives the second `domain-2`. The group names the second, so the row goes under it.
+        let body = vec![
+            heading(3, "Class Features"),
+            anchored(4, "domain", "Domain"),
+            plain("first"),
+            anchored(4, "domain", "Domain"),
+            plain("second"),
+            heading(3, "Archetypes"),
+        ];
+        let first = with_feature(
+            group("inquisition", "Inquisitions", "Inquisition"),
+            "domain",
+        );
+        assert_eq!(option_links(&body, "Inquisitor", &[&first])[0].before, 3);
+        let second = with_feature(
+            group("inquisition", "Inquisitions", "Inquisition"),
+            "domain-2",
+        );
+        let links = option_links(&body, "Inquisitor", &[&second]);
+        assert_eq!(links.len(), 1);
+        assert_eq!(links[0].before, 5);
+    }
+
+    #[test]
     fn a_feature_row_can_sit_outside_the_features_section_and_keeps_group_order_in_one_place() {
         // No `Class Features` head: only the explicit key finds the place.
         let body = vec![

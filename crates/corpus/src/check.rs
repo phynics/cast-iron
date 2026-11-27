@@ -5812,6 +5812,22 @@ mod tests {
             "{text}"
         );
 
+        // Two equal explicit anchors: the second heading's key is `domain-2`, and it counts.
+        let two = Block::Heading {
+            level: 2,
+            anchor: Some("domain".into()),
+            content: vec![Inline::text("Domain")],
+        };
+        let mut c = feature_corpus(Some("domain-2"), heading(Some("domain"), "Domain"));
+        c.entries
+            .get_mut("ref/class/inquisitor")
+            .unwrap()
+            .entry
+            .body
+            .push(two);
+        let report = check(&c);
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
+
         // A heading that only gets the key from its text has no explicit anchor.
         let text = check(&feature_corpus(Some("domain"), heading(None, "Domain")))
             .problems
