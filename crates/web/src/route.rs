@@ -722,7 +722,14 @@ impl Route {
                     section: Some(Section::Options),
                     arch: other_arch,
                 },
-            ) => id == other_id && book == other_book && arch.options != other_arch.options,
+            ) => {
+                id == other_id
+                    && book == other_book
+                    && arch.options != other_arch.options
+                    // A change of the archetype list's choices on the way is not a choice here.
+                    && arch.keep == other_arch.keep
+                    && arch.with == other_arch.with
+            }
             _ => false,
         }
     }
@@ -2725,6 +2732,12 @@ mod tests {
         // The same address, another entry and an anchor are no such choice.
         assert!(!at(options, Some("a"), "").only_options_differ(&at(options, Some("a"), "")));
         assert!(!at(options, None, "").only_options_differ(&Route::Home));
+        // A move that also changes the archetype list's choices is not only a choice here.
+        let mut kept = at(options, Some("a"), "");
+        if let Route::Entry { arch, .. } = &mut kept {
+            arch.keep = vec!["arcane-bond".into()];
+        }
+        assert!(!at(options, None, "").only_options_differ(&kept));
     }
 
     #[test]

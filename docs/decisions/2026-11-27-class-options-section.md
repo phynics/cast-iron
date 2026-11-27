@@ -4,7 +4,7 @@ date: 2026-11-27
 status: current
 superseded_by: []
 issues: [540, 739]
-prs: []
+prs: [742]
 area: ui
 ---
 
@@ -16,7 +16,7 @@ Refs [#739](https://github.com/phynics/cast-iron/issues/739) (part 2) and [#540]
 - **No new data.** The groups come from `option-groups.json`, the books from the active-book snapshot and the catalog, and a group's options from the one or two shards that hold them, read when the group is shown and kept for the page's life (`Library::read_entries`). No schema, index or compiled file changed. The shards are the ones that open when the reader opens an option, so the offline cache already has them.
 - **What a row can say.** A class option's typed `fields` hold the group and nothing else, so a row reads three facts from the printed body, and shows none that the text does not print:
   - the **ability tag**, when the first line of the body is the option's own name (`Accurate Poisoner (Ex)`; the first heading of an option that prints several powers is a power, not the option, and lends no tag);
-  - the **level** of a `Level:` row (278 Kineticist wild talents print one, no other group does, so only that group has a level menu and a level at the right of its rows);
+  - the **level** of a `Level:` row (278 Kineticist wild talents print one, no other group does, so only that group has a level at the right of its rows and a level menu; the menu needs two or more distinct levels, because a single uniform level is nothing to filter);
   - the **prerequisite** of a `Prereq:` or `Prerequisite:` row (961 options). One of 24 characters or fewer sits at the right of the row (`9th-level magus`), a longer one on the muted line.
 
   Nothing is inferred: an option with no `Level:` row has no level, so the level filter of the issue exists only where the data prints a level. A typed level, prerequisite and tag for every option is a corpus change; it follows #540's conversion of class options to format 4, when a feature head carries the tag and the level.
@@ -29,7 +29,7 @@ Refs [#739](https://github.com/phynics/cast-iron/issues/739) (part 2) and [#540]
   5. A group that no candidate names has no row, and its chip works.
 
   The rule reads printed names only, so it is the same on the imported pages (bold names and plain headings; every base class is imported today) and on converted format 4 pages (headings that list `features`): both are the same heading text. Ranger combat styles are feat lists inside the class feature, not an option group (owner), so they get no chip.
-- **Coverage on the pinned corpus** (v0.1.61, `2eb078173`): 54 groups of 39 base classes, 42 with a row and 12 with a chip only. The headings are those of the compiled library.
+- **Coverage on the pinned corpus** (v0.1.62, `2ff82b653`): 54 groups of 39 base classes, 42 with a row and 12 with a chip only. The headings are those of the compiled library.
 
   | Class | Option group (options) | Feature that grants the choice |
   |---|---|---|

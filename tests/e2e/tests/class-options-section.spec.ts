@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { Page } from "@playwright/test";
 import { GENERATED, installedTest as test, expect, loadCorpus } from "./fixtures";
-import { installLibrary } from "./helpers";
+import { installLibrary, openBookGroups, visibleWithout, waitControlled } from "./helpers";
 
 // The Options section of a class page (#739): a stop between Features and Archetypes when the class
 // has an option group, one chip per group, the group's options as rows with a name field and a
@@ -18,6 +18,7 @@ const stubs = new Map<string, any>(corpus.catalog.entries.map((stub: any) => [st
 const ROGUE = "ref/class/rogue";
 const WIZARD = "ref/class/wizard";
 const FIGHTER = "ref/class/fighter";
+const KINETICIST = "ref/class/kineticist";
 const talents = groups.find((group) => group.slug === "rogue-talent")!;
 
 const switcher = (page: Page) => page.getByRole("navigation", { name: "Sections" });
@@ -51,6 +52,8 @@ test("Rogue has an Options stop with a chip for rogue talents and its options as
   const titles = talents.entries.map((id) => stubs.get(id).title as string);
   const first = [...titles].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()))[0];
   await expect(rows(page).first().locator("a .opt-name")).toHaveText(first);
+  // Rogue talents print no level, so the group has no Level menu.
+  await expect(page.getByRole("button", { name: /^Level:/ })).toHaveCount(0);
   // Each row names its book on a muted line.
   await expect(rows(page).first().locator(".arch-meta")).not.toBeEmpty();
 
@@ -150,4 +153,83 @@ test("At 390 px the chips and the list fit the screen", async ({ page }) => {
   const chip = (await chips(page).getByRole("link").first().boundingBox())!;
   expect(chip.height).toBeGreaterThanOrEqual(44);
   expect(chip.x + chip.width).toBeLessThanOrEqual(390);
+});
+
+/** The number of an option's `Level:` row, or undefined when it prints none. */
+function printedLevel(id: string): number | undefined {
+  for (const block of corpus.entries.get(id)!.body as any[]) {
+    const first = block.t === "paragraph" ? block.content[0] : undefined;
+    if (first?.t !== "strong") continue;
+    const label = first.c.map((item: any) => item.v ?? "").join("").trim();
+    if (label !== "Level:") continue;
+    const rest = block.content
+      .slice(1)
+      .map((item: any) => item.v ?? "")
+      .join("")
+      .trim();
+    return /^\d+$/.test(rest) ? Number(rest) : undefined;
+  }
+  return undefined;
+}
+
+test("Kineticist wild talents print a level, so the list has a Level menu that narrows it", async ({ page }) => {
+  const wild = groups.find((group) => group.slug === "kineticist-wild-talent")!;
+  expect(wild.classes).toContain(KINETICIST);
+  const levels = new Map<number, number>();
+  for (const id of wild.entries) {
+    const level = printedLevel(id);
+    if (level !== undefined) levels.set(level, (levels.get(level) ?? 0) + 1);
+  }
+  expect(levels.size).toBeGreaterThan(1);
+  await openClass(page, KINETICIST, "?s=options");
+  await expect(rows(page)).toHaveCount(wild.entries.length);
+  // The right of a row shows the level it prints.
+  await expect(page.locator(".opt-rows .opt-aside").first()).toHaveText(/^Level \d+$/);
+
+  const [level, expected] = [...levels.entries()].find(([, n]) => n > 1)!;
+  await page.getByRole("button", { name: "Level: All levels" }).click();
+  await page.getByRole("link", { name: `${level}, ${expected}`, exact: true }).click();
+  await expect(rows(page)).toHaveCount(expected);
+  await expect(countLine(page)).toContainText(`${expected} of ${wild.entries.length} kineticist wild talents`);
+  await expect.poll(() => page.evaluate(() => location.hash)).toContain(`level=${level}`);
+  await expect(page.getByRole("button", { name: `Level: ${level}` })).toBeVisible();
+  for (const text of await page.locator(".opt-rows .opt-aside").allTextContents()) expect(text).toBe(`Level ${level}`);
+
+  // Show all clears it.
+  await countLine(page).getByRole("button", { name: "Show all" }).click();
+  await expect(rows(page)).toHaveCount(wild.entries.length);
+});
+
+test("With a book turned off, its options leave the chip count and the list", async ({ page }) => {
+  // A book that holds some rogue talents and not all of them, and that no talent shares with another book.
+  const bySource = new Map<string, string[]>();
+  for (const id of talents.entries) {
+    const stub = stubs.get(id);
+    bySource.set(stub.source, [...(bySource.get(stub.source) ?? []), id]);
+  }
+  const book = [...bySource.entries()].find(
+    ([source, ids]) => ids.length > 1 && ids.every((id) => !visibleWithout(stubs.get(id), [source])),
+  )![0];
+  const bookTitle = corpus.catalog.sources.find((source: any) => source.id === book).title as string;
+  const kept = talents.entries.filter((id) => visibleWithout(stubs.get(id), [book]));
+  expect(kept.length).toBeLessThan(talents.entries.length);
+
+  await installLibrary(page);
+  await waitControlled(page);
+  await page.goto("#/books/manage");
+  await openBookGroups(page);
+  const toggle = page
+    .locator(`.book-directory-item[data-book-id="${book}"]`)
+    .getByRole("checkbox", { name: `Active ${bookTitle}`, exact: true });
+  await toggle.uncheck();
+  await expect(toggle).not.toBeChecked();
+
+  await page.goto(`#/entry/${ROGUE}?s=options`);
+  await expect(chips(page).getByRole("link")).toHaveText(`${talents.label}${kept.length}`);
+  await expect(countLine(page)).toHaveText(`${kept.length} rogue talents`);
+  await expect(rows(page)).toHaveCount(kept.length);
+  // The link row counts the same, and the book is not in the book menu.
+  await expect(page.locator(".opt-link a")).toContainText(`${talents.label} · ${kept.length}`);
+  await page.getByRole("button", { name: "Book: All books" }).click();
+  await expect(page.getByRole("link", { name: new RegExp(`^${bookTitle}, `) })).toHaveCount(0);
 });

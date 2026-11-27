@@ -537,8 +537,9 @@ the rule and the list holds the 234 rogue talents (#739; decision
   by name`), a filter row, a count line and `li.arch-row.opt-row` rows.
   - *Filters.* `Book: All books` (the single-choice menu of "Filter menu", a find field above ten books;
     the count of each book is under the other filters). `Level: All levels` appears only for a group
-    whose options print a level (the Kineticist's wild talents print `Level:`); no other group has the
-    menu, and no level is ever worked out.
+    whose options print two or more distinct levels (the Kineticist's wild talents print `Level:`); a
+    group with one level, or none, has no menu, because a single uniform level is nothing to filter, and
+    no level is ever worked out.
   - *Count line.* `234 rogue talents`, or `12 of 234 rogue talents · Show all` once a filter narrows it
     (a live region). `Show all` clears the name, book and level and keeps the group.
   - *Row.* The option's name as the link (display serif, bold), its ability tag beside the link in italics and
