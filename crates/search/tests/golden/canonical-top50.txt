@@ -1,8 +1,8 @@
 # Top-50 result ids for the 50 queries of tests/e2e/measure-library.mjs.
 # Regenerate with `cargo xtask search-golden` (after `cargo xtask content`) in every corpus-pin PR.
-# corpus 2ff82b653c2cd54b588bc9618600c69ba3cbc501
-# tag v0.1.62
-# content vf68a2bc3fb8e1fbe
+# corpus 6a5d55841ba2e7d0e3a7dffe0281f29ac84e6c34
+# tag v0.1.63
+# content v8f423ddc4f444e5e
 # Format: `query: <text>` starts a block; each other line is a result id.
 query: fire
 ref/subtype/fire
@@ -14,8 +14,8 @@ ref/domain/fire
 ref/blessing/fire
 ref/ability/elements
 ref/carried/ultimate-magic/rules/spellcasting-class-options/cleric
-ref/eq-weapon/firework-fire-wheel
 ref/arc-gunslinger/firebrand
+ref/eq-weapon/firework-fire-wheel
 ref/eq-siegeengine/firewyrm
 ref/rule/fire-words
 ref/eq-weapon/firework-firecracker-spirit
@@ -74,9 +74,9 @@ ref/magic-wondrous/first-aid-gloves
 ref/magic-rod/rod-of-the-alicorn
 ref/feat/improvisational-healer
 ref/feat/healing-potion
+ref/hex/healing
 ref/shamanhex/healing
 ref/feat/curative-mastery
-ref/hex/healing
 ref/carried/core-rulebook/rules/spells/spell-names
 ref/magic-wondrous/gossamer-amberstone
 ref/magic-armor/milanite-armor
@@ -182,6 +182,7 @@ ref/family/dragon-red
 ref/family/dragon-esoteric
 ref/family/dragon-imperial
 ref/family/dragon-primal
+ref/arc-bard/dragon-herald
 ref/family/dragon-outer
 ref/family/dragon-planar
 ref/feat/dragoncrafting
@@ -198,7 +199,6 @@ ref/magic-staff/dragon-staff
 ref/feat/dragon-touched
 ref/npc/dragon-smiter
 ref/trait/dragon-tracker
-ref/arc-bard/dragon-herald
 ref/trait/dragon-friend
 ref/monster/dragon-horse
 ref/family/dragon-planar-edict
@@ -884,6 +884,7 @@ ref/feat/gnome-weapon-focus
 book-section/pathfinder-unchained/1-811
 ref/feat/gnome-weapon-focus/stamina
 ref/arc-magus/kensai
+ref/arc-magus/kapenia-dancer
 book-section/pathfinder-unchained/1-503
 book-section/pathfinder-unchained/1-533
 ref/feat/aquadynamic-focus
@@ -921,7 +922,6 @@ ref/feat/weapon-of-the-chosen
 ref/ability/advanced-weapon-training
 ref/carried/ultimate-equipment/rules/magic-arms-and-armor/weapon-special-abilities
 ref/feat/greater-weapon-of-the-chosen
-ref/feat/improved-weapon-of-the-chosen
 query: fly
 ref/skill/fly
 ref/spell/fly
@@ -1189,8 +1189,8 @@ ref/feat/champion-of-malevolence
 ref/faith/hei-feng
 ref/carried/monster-codex/rules/bugbears/new-rules
 ref/spell/shared-suffering
-ref/ability/channel-energy
 ref/arc-antipaladin/iron-tyrant
+ref/ability/channel-energy
 ref/arc-antipaladin/knight-of-the-sepulcher
 ref/spell/defile-armor
 ref/spell/inflict-serious-wounds
@@ -1291,10 +1291,10 @@ ref/carried/ultimate-equipment/rules/arms-and-armor/arms-and-armor
 ref/carried/technology-guide/rules/equipment/introduction
 ref/arc-barbarian/armored-hulk
 ref/companion/armorfish
+ref/arc-magus/armored-battlemage
 ref/eq-armor/armored-kilt
 ref/eq-armor/armored-coat
 ref/misc/armory
-ref/arc-magus/armored-battlemage
 ref/slayertalent/armored-swiftness
 ref/slayertalent/armored-marauder
 ref/feat/armored-athlete
@@ -1552,22 +1552,22 @@ ref/feat/blinding-critical
 ref/misc/blinded
 ref/umr/blindsight
 ref/umr/blindsense
-ref/evolution/blindsight
 ref/unchevolution/blindsight
 ref/invtalent/blinding-strike
 ref/feat/blinding-flash
 ref/carried/bestiary/rules/universal-monster-rules/blindsight
 ref/spell/blinding-ray
+ref/evolution/blindsight
 ref/magic-fleshcraft/blinding-spittle-glands
 ref/carried/bestiary/rules/universal-monster-rules/blindsense
 ref/feat/blinding-critical/stamina
 ref/discovery/blinding-bomb
 ref/ninjatrick/blinding-bomb
 ref/unchevolution/blindsense
-ref/evolution/blindsense
 ref/mercy/blinded
 ref/feat/blinding-sneak-attack
 ref/magic-enh/blinding
+ref/evolution/blindsense
 ref/spell/blinding-ray/mythic
 ref/talent/blinding-strike
 ref/disease/blinding-sickness
@@ -1793,9 +1793,9 @@ query: chaos
 ref/domain/chaos
 ref/blessing/chaos
 ref/arc-paladin/chaos-knight
-ref/ragepower/chaos-totem
 ref/magic-wondrous/chaos-emerald
 ref/magic-wondrous/chaos-cutter
+ref/ragepower/chaos-totem
 ref/magic-weapon/chaos-hammer
 ref/monster/chaos-beast
 ref/npc/chaos-arrow
@@ -1805,10 +1805,10 @@ ref/spell/chaos-hammer/mythic
 ref/hkdiscipline/dispel-chaos
 ref/spell/detect-chaos
 ref/spell/maw-of-chaos
-ref/ragepower/greater-chaos-totem
 ref/oath/chaos
-ref/ragepower/lesser-chaos-totem
 ref/spell/word-of-chaos
+ref/ragepower/lesser-chaos-totem
+ref/ragepower/greater-chaos-totem
 ref/spell/protection-from-chaos
 ref/spell/shard-of-chaos
 ref/spell/protection-from-chaos-communal
@@ -1824,6 +1824,9 @@ ref/spell/protection-from-chaos/mythic
 ref/spell/word-of-chaos/mythic
 book-section/mythic-adventures/5-2-199
 book-section/mythic-adventures/5-2-268
+ref/arc-summoner/morphic-savant
+ref/arc-unchained-summoner/morphic-savant
+ref/arc-paladin/iomedaen-enforcer
 ref/rule/alignment
 ref/arc-warpriest/fist-of-the-godclaw
 ref/ability/domains
@@ -1833,13 +1836,10 @@ ref/arc-unchained-summoner/devil-binder
 ref/magic-ring/ring-of-entropy-and-order
 ref/spelldef/chaotic
 ref/magic-staff/lawful-staff
-ref/arc-paladin/iomedaen-enforcer
 ref/rule/limbo
 ref/magic-staff/chaotic-staff
 ref/inquisition/order
 ref/magic-wondrous/orb-of-pure-law
-ref/faith/apep
-ref/magic-armor/panoply-of-the-fierani-knight-elf
 query: cleric
 ref/carried/npc-codex/rules/core-class-npcs/cleric
 ref/carried/ultimate-combat/rules/class-archetypes/cleric
@@ -2124,15 +2124,15 @@ ref/spell/death-ward
 ref/spell/deathwine
 ref/magic-wondrous/death-mask
 ref/spell/death-candle
-ref/hex/death-curse
 ref/spell/deathless
 ref/magic-wondrous/deathgag-elixir
 ref/npc/death-initiate
 ref/spell/death-clutch
 ref/feat/death-roll
 ref/ragepower/deathless-frenzy
-ref/deed/deaths-shot
+ref/hex/death-curse
 ref/spell/death-knell
+ref/deed/deaths-shot
 ref/hex/death-interrupted
 ref/magic-wondrous/deathlurkers-cloak
 ref/monster/death-worm-death-worm-leviathan
@@ -2250,12 +2250,13 @@ book-section/ultimate-magic/4-12-14
 ref/eq-misc/light-detector
 query: divine
 ref/arc-cleric/divine-scourge
+ref/arc-cleric/divine-paragon
 ref/arc-paladin/divine-defender
 ref/arc-oracle/divine-numerologist
+ref/arc-paladin/divine-guardian
 ref/arc-paladin/divine-hunter
 ref/rule/divine-spells
 ref/pclass/divine-scion
-ref/arc-paladin/divine-guardian
 ref/arc-warpriest/divine-commander
 ref/arc-cleric/divine-strategist
 ref/template/divine-guardian
@@ -2263,10 +2264,9 @@ ref/carried/bestiary-4/monsters/divine-guardian
 ref/arc-ranger/divine-tracker
 ref/rule/divine-gifts
 ref/feat/divine-deception
-ref/arc-cleric/divine-paragon
 ref/arc-hunter/divine-hunter
-ref/arc-warpriest/divine-champion
 ref/rule/divine-intervention
+ref/arc-warpriest/divine-champion
 ref/feat/divine-denouncer
 ref/feat/divine-dignity
 ref/trait/divine-denier
@@ -2459,18 +2459,19 @@ ref/sorcbloodline/elemental
 ref/eidolon/elemental
 ref/mystery/elemental
 ref/blrgbloodline/elemental
+ref/arc-druid/elemental-ally
 ref/arc-magus/elemental-knight
 ref/arc-familiar/elemental-familiar
 ref/arc-barbarian/elemental-kin
 ref/arc-oracle/elementalist-oracle
 ref/arc-arcanist/elemental-master
 ref/arc-companion/elemental-companion
+ref/arc-kineticist/elemental-purist
 ref/arc-monk/elemental-monk
 ref/arc-shifter/elementalist-shifter
 ref/arc-ranger/elemental-envoy
 ref/arc-kineticist/elemental-ascetic
 ref/spell/elemental-bombardment
-ref/arc-druid/elemental-ally
 ref/spell/elemental-swarm
 ref/discovery/elemental-destabilizers
 ref/trait/elemental-ties
@@ -2483,7 +2484,6 @@ ref/ragepower/elemental-blood
 ref/eq-misc/elemental-proofing
 ref/feat/elemental-channel
 ref/npc/elemental-priest
-ref/arc-kineticist/elemental-purist
 ref/carried/bestiary-2/monsters/elemental/magma/elder
 ref/feat/elemental-vigor
 ref/ragepower/elemental-rage
@@ -2505,20 +2505,20 @@ ref/feat/elemental-spell/teitr
 ref/feat/elemental-spell
 query: energy
 ref/umr/energy-drain
-ref/exploit/energy-absorption
-ref/evolution/energy-attacks
-ref/unchevolution/energy-attacks
 ref/arc-alchemist/energy-scientist
-ref/ragepower/energy-resistance
+ref/exploit/energy-absorption
+ref/unchevolution/energy-attacks
 ref/exploit/energy-shield
-ref/ragepower/energy-absorption
 ref/feat/energy-channel
 ref/magic-enh/energy-resistance
-ref/ragepower/energy-eruption
+ref/evolution/energy-attacks
+ref/ragepower/energy-resistance
 ref/spell/energy-hack
+ref/ragepower/energy-absorption
 ref/rule/energy-drained
 ref/carried/bestiary/rules/universal-monster-rules/energy-drain
 ref/feat/energy-mastery
+ref/ragepower/energy-eruption
 ref/spell/energy-drain
 ref/rule/rc-energy-overload
 ref/spell/energy-siege-shot
@@ -2540,11 +2540,11 @@ ref/spell/resist-energy/mythic
 ref/rule/positive-energy-plane
 ref/spell/protection-from-energy
 ref/carried/bestiary/rules/universal-monster-rules/negative-energy-affinity
-ref/ragepower/greater-energy-resistance
 ref/spell/quell-energy
 ref/magic-enh/energy-resistance-greater
 ref/magic-enh/energy-resistance-improved
 ref/rule/negative-energy-plane-oa
+ref/ragepower/greater-energy-resistance
 ref/rule/positive-energy-plane-oa
 ref/spell/resist-energy-communal
 ref/magic-ring/ring-of-energy-shroud
