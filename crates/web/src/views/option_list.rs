@@ -589,12 +589,10 @@ pub fn OptionsSection(
                 </form>
                 <div class="filter-row">
                     {menu_button(BOOK, book_menu, book_text, book_on)}
-                    <Show when=move || has_levels.get()>
-                        {menu_button(LEVEL, level_menu, level_text, level_on)}
-                    </Show>
+                    {move || has_levels.get().then(|| menu_button(LEVEL, level_menu, level_text, level_on))}
                 </div>
                 {book_panel}
-                <Show when=move || has_levels.get()>{level_panel.clone()}</Show>
+                {move || has_levels.get().then(|| level_panel())}
                 <p class="list-count" role="status">
                     {count_line}
                     {move || narrowed().then(|| view! {
