@@ -175,7 +175,7 @@ pub struct ShellInfo {
 /// The shell version and build date that the controlling service worker reports.
 pub async fn shell_info() -> Option<ShellInfo> {
     let value = shell_info_js().await.ok()?;
-    if value.is_falsy() {
+    if value.is_null() || value.is_undefined() {
         return None;
     }
     let get = |name: &str| Reflect::get(&value, &JsValue::from_str(name)).ok();

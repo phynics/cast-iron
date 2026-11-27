@@ -59,19 +59,22 @@ fn deflate_range(member: &[u8]) -> Result<(usize, usize), &'static str> {
 /// Inflates one gzip member into exactly `size` bytes, the decoded size that the manifest
 /// lists. The output buffer has that size from the start, so a bomb cannot grow the WASM memory
 /// (it never shrinks) and a large file does not pay for a doubling vector. The member must
-/// inflate to exactly `size` bytes, and the trailer must say the same.
+/// inflate to exactly `size` bytes, the trailer must say the same, and nothing may follow the
+/// member (one member only).
 pub fn gunzip(member: &[u8], size: usize) -> Result<Vec<u8>, &'static str> {
     let (start, end) = deflate_range(member)?;
     let mut decoded = vec![0; size];
     // One call is the whole member: the input is complete and the output has its full size.
-    let (status, _, written) = decompress(
+    let (status, consumed, written) = decompress(
         &mut DecompressorOxide::new(),
         &member[start..end],
         &mut decoded,
         0,
         TINFL_FLAG_USING_NON_WRAPPING_OUTPUT_BUF | TINFL_FLAG_IGNORE_ADLER32,
     );
-    if status != TINFLStatus::Done {
+    // The stream must end exactly where the trailer starts: bytes after it (a second member,
+    // or junk) are refused, because `DecompressionStream` and this reader would disagree on them.
+    if status != TINFLStatus::Done || consumed != end - start {
         return Err("cannot inflate the gzip data");
     }
     // The trailer is the CRC-32 (not read), then ISIZE: the size modulo 2^32.
@@ -81,7 +84,7 @@ pub fn gunzip(member: &[u8], size: usize) -> Result<Vec<u8>, &'static str> {
         member[end + 6],
         member[end + 7],
     ]);
-    if written != size || isize != size as u32 {
+    if written != size || !u32::try_from(size).is_ok_and(|s| s == isize) {
         return Err("the gzip data is not the listed size");
     }
     Ok(decoded)
@@ -171,6 +174,19 @@ mod tests {
         let mut long_extra = member(FEXTRA, &[0xff, 0xff], b"abc");
         long_extra.truncate(20);
         assert!(gunzip(&long_extra, 8).is_err());
+    }
+
+    #[test]
+    fn refuses_a_second_member_and_trailing_bytes() {
+        let one = member(0, &[], b"abc");
+        // Two members: `DecompressionStream` would decode both, so this reader refuses them.
+        let two = [one.clone(), one.clone()].concat();
+        assert!(gunzip(&two, 3).is_err());
+        assert!(gunzip(&two, 6).is_err());
+        // Junk after the trailer.
+        let junk = [one.clone(), vec![0u8; 5]].concat();
+        assert!(gunzip(&junk, 3).is_err());
+        assert_eq!(gunzip(&one, 3).unwrap(), b"abc");
     }
 
     #[test]
