@@ -221,18 +221,32 @@ test("an archetype in format 4 shows its features as heads, a trade link and the
   }
 });
 
-// A base class of the Advanced Player's Guide in the pinned corpus (v0.1.65, #373) lists its class
-// features: the Inquisitor. The expectations come from the compiled entry, so a later edit of the
-// printed prose does not break the test.
-const INQUISITOR = "ref/class/inquisitor";
-const FEATURE = { anchor: "monster-lore", name: "Monster Lore" };
+// A base class in the pinned corpus lists its class features: the Inquisitor (Advanced Player's Guide,
+// v0.1.65, #373) and the Fighter (Core Rulebook, v0.1.66, #389). The expectations come from the
+// compiled entry, so a later edit of the printed prose does not break the test.
+interface BaseClassCase {
+  id: string;
+  /** The feature the test follows: its anchor, its printed name and the level the data gives it. */
+  feature: { anchor: string; name: string; level: number };
+  /** The title of the page's hit in a search for the feature name. */
+  hit: RegExp;
+}
+const INQUISITOR_CASE: BaseClassCase = {
+  id: "ref/class/inquisitor",
+  feature: { anchor: "monster-lore", name: "Monster Lore", level: 1 },
+  hit: /^Inquisitor$/,
+};
+const FIGHTER_CASE: BaseClassCase = {
+  id: "ref/class/fighter",
+  feature: { anchor: "weapon-mastery", name: "Weapon Mastery", level: 20 },
+  hit: /^Fighter$/,
+};
 
-installedTest("a base class in format 4 shows its features as heads and deep links, and search finds it at one", async ({ page }) => {
-  installedTest.setTimeout(300_000);
-  const entry = corpus.entries.get(INQUISITOR)!;
-  expect(entry, "the compiled library has the Inquisitor").toBeTruthy();
+async function checkBaseClassFeatures(page: Page, { id, feature: FEATURE, hit: hitTitle }: BaseClassCase) {
+  const entry = corpus.entries.get(id)!;
+  expect(entry, `the compiled library has ${id}`).toBeTruthy();
   const listed: { anchor: string; level?: number }[] = entry.fields.features;
-  expect(listed.length, "the Inquisitor lists class features").toBeGreaterThan(10);
+  expect(listed.length, `${id} lists class features`).toBeGreaterThan(4);
   const heads = new Map<string, string>();
   const walk = (blocks: any[]) => {
     for (const block of blocks) {
@@ -242,15 +256,15 @@ installedTest("a base class in format 4 shows its features as heads and deep lin
   walk(entry.body);
   const shown = listed.filter((feature) => heads.has(feature.anchor));
   expect(shown.length, "every listed feature has a heading").toBe(listed.length);
-  const monster = listed.find((feature) => feature.anchor === FEATURE.anchor)!;
-  expect(monster.level, "Monster Lore is gained at level 1").toBe(1);
+  const followed = listed.find((feature) => feature.anchor === FEATURE.anchor)!;
+  expect(followed.level, `${FEATURE.name} is gained at level ${FEATURE.level}`).toBe(FEATURE.level);
 
   await installLibrary(page);
   await waitControlled(page);
   await page.setViewportSize({ width: 1280, height: 900 });
 
   await test.step("each listed feature is a head, and one with a level shows it", async () => {
-    await page.goto(`#/entry/${INQUISITOR}`);
+    await page.goto(`#/entry/${id}`);
     await expect(page.getByRole("heading", { level: 1, name: entry.title })).toBeVisible();
     const feature = page.locator(".feature-head");
     await expect(feature).toHaveCount(listed.length);
@@ -262,37 +276,47 @@ installedTest("a base class in format 4 shows its features as heads and deep lin
       if (item.level === undefined) await expect(head.locator(".power-level"), item.anchor).toHaveCount(0);
       else await expect(head.locator(".power-level"), item.anchor).toHaveText(`Gained at Level ${item.level}`);
     }
-    // Monster Lore is the one the rest of the test follows: exactly `Level 1`.
-    const lore = feature.filter({ has: page.locator(`#h-${FEATURE.anchor}`) });
-    await expect(lore.locator(".power-level")).toHaveText("Gained at Level 1");
-    await expect(lore.locator(".feature-name")).toHaveText(FEATURE.name);
+    // The feature that the rest of the test follows shows exactly its level.
+    const followedHead = feature.filter({ has: page.locator(`#h-${FEATURE.anchor}`) });
+    await expect(followedHead.locator(".power-level")).toHaveText(`Gained at Level ${FEATURE.level}`);
+    await expect(followedHead.locator(".feature-name")).toHaveText(FEATURE.name);
   });
 
   await test.step("the Features stop and the address of a feature reach its head; the switcher replaces On this page", async () => {
     // A class page has the section switcher in place of the contents list (class-sections.spec.ts).
-    await page.goto(`#/entry/${INQUISITOR}`);
+    await page.goto(`#/entry/${id}`);
     await expect(page.locator("details.article-contents")).toHaveCount(0);
     const stops = page.getByRole("navigation", { name: "Sections" });
     await expect(stops.getByRole("link", { name: "Features", exact: true })).toBeVisible();
-    await page.goto(`#/entry/${INQUISITOR}?a=${FEATURE.anchor}`);
+    await page.goto(`#/entry/${id}?a=${FEATURE.anchor}`);
     await expect(page.locator(`#h-${FEATURE.anchor}`)).toHaveText(heads.get(FEATURE.anchor)!);
-    await expect.poll(() => page.evaluate(() => location.hash)).toBe(`#/entry/${INQUISITOR}?a=${FEATURE.anchor}`);
+    await expect.poll(() => page.evaluate(() => location.hash)).toBe(`#/entry/${id}?a=${FEATURE.anchor}`);
     await expect(page.locator(`#h-${FEATURE.anchor}`)).toBeInViewport();
     expect(await settledScrollY(page)).toBeGreaterThan(300);
   });
 
   await test.step("a search for a feature name finds the class at that feature", async () => {
     await quickSearchFor(page, FEATURE.name);
-    const hit = page.locator(".results .hit-link").filter({ has: page.locator(".hit-title", { hasText: /^Inquisitor$/ }) });
+    const hit = page.locator(".results .hit-link").filter({ has: page.locator(".hit-title", { hasText: hitTitle }) });
     await expect(hit).toHaveCount(1);
     // The result carries the matched feature in the anchor parameter: its printed name or its anchor.
     const href = (await hit.getAttribute("href"))!;
     const [path, query] = href.split("?");
-    expect(path).toBe(`#/entry/${INQUISITOR}`);
+    expect(path).toBe(`#/entry/${id}`);
     expect([FEATURE.name, FEATURE.anchor]).toContain(new URLSearchParams(query).get("a"));
     await hit.click();
     await expect(page.getByRole("heading", { level: 1, name: entry.title })).toBeVisible();
     await expect(page.locator(`#h-${FEATURE.anchor}`)).toBeInViewport();
     expect(await settledScrollY(page)).toBeGreaterThan(300);
   });
+}
+
+installedTest("a base class in format 4 shows its features as heads and deep links, and search finds it at one", async ({ page }) => {
+  installedTest.setTimeout(300_000);
+  await checkBaseClassFeatures(page, INQUISITOR_CASE);
+});
+
+installedTest("a Core Rulebook base class shows its features as heads and deep links, and search finds it at one", async ({ page }) => {
+  installedTest.setTimeout(300_000);
+  await checkBaseClassFeatures(page, FIGHTER_CASE);
 });
