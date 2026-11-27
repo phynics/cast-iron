@@ -16,8 +16,7 @@ use crate::library::Library;
 use crate::option_list::{self, OptionRow};
 use crate::route::{ArchFilter, OptionChoice, Route, push, replace, use_route};
 use crate::views::filter_menu::{
-    FilterMenuButton, FilterMenuPanel, MenuOption, MenuSpec, MenuState, dismiss_on_change,
-    focus_by_id,
+    MenuOption, MenuSpec, MenuState, dismiss_on_change, focus_by_id, menu_button, menu_panel,
 };
 use crate::views::icons;
 use crate::views::util::{Shared, sort_key};
@@ -453,8 +452,7 @@ pub fn OptionsSection(
                     })
                     .collect();
                 let all_href = with_group(&|next| next.source = None).href();
-                view! { <FilterMenuPanel spec=BOOK state=book_menu options current=current.source all_href /> }
-                    .into_any()
+                menu_panel(BOOK, book_menu, options, current.source, all_href)
             })
         }
     };
@@ -498,8 +496,7 @@ pub fn OptionsSection(
                     .collect();
                 let all_href = with_group(&|next| next.level = None).href();
                 let level = current.level.map(|level| level.to_string());
-                view! { <FilterMenuPanel spec=LEVEL state=level_menu options current=level all_href /> }
-                    .into_any()
+                menu_panel(LEVEL, level_menu, options, level, all_href)
             })
         }
     };
@@ -591,13 +588,9 @@ pub fn OptionsSection(
                     />
                 </form>
                 <div class="filter-row">
-                    <div class="filter-menu">
-                        <FilterMenuButton spec=BOOK state=book_menu text=book_text narrowed=book_on focus=false />
-                    </div>
+                    {menu_button(BOOK, book_menu, book_text, book_on)}
                     <Show when=move || has_levels.get()>
-                        <div class="filter-menu">
-                            <FilterMenuButton spec=LEVEL state=level_menu text=level_text narrowed=level_on focus=false />
-                        </div>
+                        {menu_button(LEVEL, level_menu, level_text, level_on)}
                     </Show>
                 </div>
                 {book_panel}

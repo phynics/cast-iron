@@ -14,8 +14,8 @@ use crate::graph::Relations;
 use crate::library::Library;
 use crate::route::{ArchFilter, Route, push, use_route};
 use crate::views::filter_menu::{
-    FilterMenuButton, FilterMenuPanel, MenuOption, MenuSpec, MenuState, MultiFilterMenuPanel,
-    MultiOption, button_id, dismiss_on_change, focus_by_id, multi_trigger_text,
+    MenuOption, MenuSpec, MenuState, MultiFilterMenuPanel, MultiOption, button_id,
+    dismiss_on_change, focus_by_id, menu_button, menu_panel, multi_trigger_text,
 };
 use crate::views::related::source_title;
 use crate::views::util::{Shared, sort_key};
@@ -267,9 +267,7 @@ pub fn ArchetypeList(
                 .collect();
             let all_href = route_for(keep_now, None).href();
             let current = with_now.map(|id| id.to_string());
-            view! {
-                <FilterMenuPanel spec=WITH state=with_menu options current all_href />
-            }
+            menu_panel(WITH, with_menu, options, current, all_href)
         }
     };
 
@@ -336,14 +334,8 @@ pub fn ArchetypeList(
     view! {
         <div class="arch-list">
             <div class="filter-row">
-                {has_features.then(|| view! {
-                    <div class="filter-menu">
-                        <FilterMenuButton spec=KEEP state=keep_menu text=keep_text narrowed=keep_narrowed focus=false />
-                    </div>
-                })}
-                <div class="filter-menu">
-                    <FilterMenuButton spec=WITH state=with_menu text=with_text narrowed=with_narrowed focus=false />
-                </div>
+                {has_features.then(|| menu_button(KEEP, keep_menu, keep_text, keep_narrowed))}
+                {menu_button(WITH, with_menu, with_text, with_narrowed)}
             </div>
             {has_features.then(keep_panel)}
             {with_panel}

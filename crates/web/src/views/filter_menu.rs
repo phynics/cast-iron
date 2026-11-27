@@ -300,6 +300,33 @@ pub fn FilterMenuButton(
     }
 }
 
+/// A menu's button in its `filter-menu` cell of the filter row, with no focus request. A list page
+/// builds each of its buttons through this one function.
+pub fn menu_button(
+    spec: MenuSpec,
+    state: MenuState,
+    text: Signal<Option<String>>,
+    narrowed: Signal<bool>,
+) -> AnyView {
+    view! {
+        <div class="filter-menu">
+            <FilterMenuButton spec state text narrowed focus=false />
+        </div>
+    }
+    .into_any()
+}
+
+/// A single-choice panel of a list page, from the choices that the page worked out.
+pub fn menu_panel(
+    spec: MenuSpec,
+    state: MenuState,
+    options: Vec<MenuOption>,
+    current: Option<String>,
+    all_href: String,
+) -> AnyView {
+    view! { <FilterMenuPanel spec state options current all_href /> }.into_any()
+}
+
 /// The panel under the filter row: the find field above ten options, then the choices.
 #[component]
 pub fn FilterMenuPanel(
