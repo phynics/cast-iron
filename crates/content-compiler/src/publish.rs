@@ -420,6 +420,7 @@ mod tests {
                     path: format!("{version}/{name}"),
                     sha256: format!("{:x}", Sha256::digest(bytes)),
                     bytes: bytes.len() as u64,
+                    gzip: None,
                 })
                 .collect(),
             entry_count: 0,

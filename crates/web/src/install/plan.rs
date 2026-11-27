@@ -296,6 +296,7 @@ mod tests {
             path: format!("{version}/{name}"),
             sha256: "ab".repeat(32),
             bytes,
+            gzip: None,
         }
     }
 

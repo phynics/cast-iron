@@ -321,6 +321,7 @@ pub fn package(
                 path: format!("{content_version}/{p}"),
                 sha256: h.clone(),
                 bytes: *n,
+                gzip: None,
             })
             .collect(),
         entry_count: entries.len() as u32,
