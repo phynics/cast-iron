@@ -79,9 +79,10 @@ test("Content update keeps user records", async ({ page, context, server }) => {
     await expect(offer.locator(".install-panel .facts")).toHaveCount(0);
     await expect(updates.getByText("On iPhone?")).toHaveCount(0);
     await expect(updates.getByTestId("download-size")).toHaveCount(0);
-    const text = (await updates.innerText()).replace(/\s+/g, " ");
+    // The section also names the installed library's size, so the offer is counted by itself.
+    const text = (await offer.innerText()).replace(/\s+/g, " ");
     expect(text.match(/\d+(\.\d+)? [MG]B/g) ?? [], "the size appears once").toHaveLength(1);
-    expect(text.match(/Your stars/g) ?? [], "the reassurance appears once").toHaveLength(1);
+    expect((await updates.innerText()).match(/Your stars/g) ?? [], "the reassurance appears once").toHaveLength(1);
     await expect(offer).toContainText("Your stars and book choices stay. The current library keeps working until the new one is verified.");
     await page.getByRole("button", { name: "Download update" }).click();
     await expect(page.getByTestId("install-status")).toContainText(/Downloading/);
@@ -152,7 +153,7 @@ test("The daily check surfaces a newer library, and Settings puts Updates first"
     const sections = page.locator("main section.settings-section");
     await expect(sections.first()).toHaveAttribute("id", "set-updates");
     const row = page.getByTestId("library-update");
-    await expect(row.getByText("Rules library", { exact: true })).toBeVisible();
+    await expect(row.getByText("Update available", { exact: true })).toBeVisible();
     await expect(row).toContainText(next.manifest.corpus_tag ?? next.version);
     await expect(page.getByTestId("last-checked")).toContainText("Last checked:");
     await expect(page.getByRole("button", { name: "Check now", exact: true })).toBeVisible();
@@ -204,7 +205,7 @@ test("A stored newer library mounts no installer until the reader asks", async (
   // Opening Settings must not fetch the manifest just because a record names a newer library.
   await page.goto("#/settings");
   const row = page.getByTestId("library-update");
-  await expect(row.getByText("Rules library", { exact: true })).toBeVisible();
+  await expect(row.getByText("Update available", { exact: true })).toBeVisible();
   await expect(row).toContainText("v0000000000000000");
   await expect(row.locator(".install-panel")).toHaveCount(0);
   await expect(row.getByRole("button", { name: "Check now", exact: true })).toBeVisible();
@@ -257,7 +258,7 @@ test("Offline, the automatic check asks for nothing and Settings still works", a
 });
 
 /** The `h2` texts of Settings, in page order (#584). */
-const SECTIONS = ["Updates", "Appearance", "Books", "Library", "Install", "Storage", "Help"];
+const SECTIONS = ["Version & updates", "Appearance", "Books", "Library", "Install", "Storage", "Help"];
 
 async function expectSettingsPage(page: import("@playwright/test").Page) {
   await expect(page.getByRole("heading", { level: 1, name: "Settings", exact: true })).toBeVisible();
@@ -277,7 +278,7 @@ async function expectSettingsPage(page: import("@playwright/test").Page) {
   await expect(page.getByTestId("shell-version")).not.toHaveText("Checking…");
 }
 
-test("Settings has seven sections in a fixed order, Help links out, and Verify writes a status", async ({ page }) => {
+test("Settings has seven sections in a fixed order, Version & updates holds both versions, Help links out, and Verify writes a status", async ({ page }) => {
   await installLibrary(page);
   await waitControlled(page);
   await page.goto("#/settings");
@@ -310,5 +311,136 @@ test("The sections keep their order while an update waits", async ({ page, serve
     await expectSettingsPage(page);
   } finally {
     next.cleanup();
+  }
+});
+
+// #747: one Version & updates section holds both versions; the old homes of the rows keep none.
+test("Version & updates holds the app and library versions, and Library and Help keep none", async ({ page }) => {
+  await installLibrary(page);
+  await waitControlled(page);
+  await page.goto("#/settings");
+  const section = page.locator("#set-updates");
+  await expect(section.getByRole("heading", { level: 2, name: "Version & updates", exact: true })).toBeVisible();
+  for (const id of ["shell-version", "library-version", "library-size", "library-books"]) {
+    await expect(section.getByTestId(id)).toBeVisible();
+  }
+  await expect(section.getByTestId("library-version")).toHaveText(corpusLabel(distManifest()));
+  await expect(section.getByTestId("shell-version")).not.toHaveText("Checking…");
+  await expect(section.getByRole("checkbox", { name: "Check for updates automatically" })).toBeVisible();
+  await expect(section.getByRole("button", { name: "Check now", exact: true })).toBeVisible();
+  for (const id of ["shell-version", "library-version", "library-size"]) {
+    await expect(page.locator(`section[aria-labelledby=set-library] [data-testid=${id}], section[aria-labelledby=set-help] [data-testid=${id}]`)).toHaveCount(0);
+  }
+  await expect(page.locator("section[aria-labelledby=set-library]")).not.toContainText("Rules library");
+  await expect(page.locator("section[aria-labelledby=set-help]")).not.toContainText("App version");
+});
+
+test("A library update cut off by a reload shows as paused, waits for Resume, and completes from the cache", async ({ page, context, server }) => {
+  test.setTimeout(300_000);
+  const marker = "PAUSED-LIBRARY-MARKER";
+  const next = buildUpdatedLibrary(marker);
+  try {
+    await installLibrary(page);
+    await waitControlled(page);
+    await server.overlay(next.dir);
+    // One early file never arrives, so the download stops after the others that were in flight.
+    const cut = next.manifest.files[3].path;
+    await server.hook(`content/${cut}`, "abort");
+    await page.goto("#/settings");
+    await page.getByRole("button", { name: "Check now", exact: true }).click();
+    await page.getByRole("button", { name: "Download update" }).click();
+    await expect(page.getByTestId("library-update").locator(".error")).toBeVisible({ timeout: 60_000 });
+
+    // The reader closes the app: the page forgets, the cache and the marker stay.
+    const total = next.manifest.files.length;
+    const cacheName = `cast-iron-content-${next.version}`;
+    const cached = ((await cacheContents(page))[cacheName] ?? []).length;
+    expect(cached).toBeGreaterThan(0);
+    expect(cached).toBeLessThan(total);
+    expect((await storedMeta(page, "pending_install")).content_version).toBe(next.version);
+    await server.unhook(`content/${cut}`);
+    await server.clearLog();
+    await page.reload();
+    await waitReady(page);
+
+    // The header and Settings say paused, with the count of files in the cache.
+    const action = page
+      .locator("header.app-header")
+      .getByRole("button", { name: "Library update paused. Open Settings" });
+    await expect(action).toBeVisible();
+    await expect(action).toContainText("Update paused");
+    await action.click();
+    await expect(page.locator("#set-updates")).toBeFocused();
+    const row = page.getByTestId("library-update");
+    await expect(row.getByTestId("update-paused")).toHaveText(`Update paused · ${cached} of ${total} files`);
+    await expect(row.getByRole("button", { name: "Resume", exact: true })).toBeEnabled();
+    await expect(row.locator(".install-panel")).toHaveCount(0);
+
+    // Rule 1: nothing is fetched until Resume. Offline, Resume gives its reason and stays off.
+    await context.setOffline(true);
+    await expect(row.getByRole("button", { name: "Resume", exact: true })).toBeDisabled();
+    await expect(row).toContainText("Connect to resume.");
+    await context.setOffline(false);
+    await expect(row.getByRole("button", { name: "Resume", exact: true })).toBeEnabled();
+    expect((await server.requests()).filter((p) => p.startsWith("content/"))).toEqual([]);
+
+    // Resume continues from the cache: it fetches only the files that are missing.
+    await row.getByRole("button", { name: "Resume", exact: true }).click();
+    await expect(page.getByTestId("library-version")).toHaveText(corpusLabel(next.manifest), { timeout: 120_000 });
+    expect((await activeLibrary(page)).content_version).toBe(next.version);
+    const fetched = (await server.requests()).filter((p) => p.startsWith(`content/${next.version}/`));
+    expect(fetched).toHaveLength(total - cached);
+    expect(await storedMeta(page, "pending_install")).toBeNull();
+    await expect.poll(async () => contentCaches(await cacheContents(page))).toEqual([cacheName]);
+  } finally {
+    next.cleanup();
+  }
+});
+
+test("A paused update with a missing cache counts nothing, and a stale one is dropped", async ({ page, server }) => {
+  const other = buildNewerManifest();
+  try {
+    await installLibrary(page);
+    await waitControlled(page);
+    const known = "v1111111111111111";
+    // The marker names a version whose cache is gone.
+    await writeMeta(page, "auto_update_check", false);
+    await writeMeta(page, "pending_install", { content_version: known, started_at: Date.now(), files_total: 12 });
+    await writeMeta(page, "update_check", { last_checked: Date.now(), known_version: known, known_bytes: 5000 });
+    await waitHomeIdle(page);
+    await server.clearLog();
+    await page.reload();
+    await waitReady(page);
+    await page.goto("#/settings");
+    const row = page.getByTestId("library-update");
+    await expect(row.getByTestId("update-paused")).toHaveText("Update paused · 0 of 12 files");
+
+    // Resume reads the manifest. It names another version, so the marker is stale: the paused
+    // update goes, the newest is offered, and nothing downloads.
+    await server.overlay(other.dir);
+    await row.getByRole("button", { name: "Resume", exact: true }).click();
+    await expect(row.getByRole("button", { name: "Download update" })).toBeVisible();
+    await expect(row.getByTestId("update-paused")).toHaveCount(0);
+    await expect(row).toContainText(other.manifest.corpus_tag ?? other.version);
+    expect(await storedMeta(page, "pending_install")).toBeNull();
+    expect((await server.requests()).filter((p) => p.startsWith(`content/${other.version}/`))).toEqual([]);
+
+    // A marker that the last check already contradicts is dropped at start, with its partial cache.
+    const stale = "v2222222222222222";
+    await page.evaluate(async (name) => {
+      const cache = await caches.open(name);
+      await cache.put("content/x/file.json", new Response("{}"));
+    }, `cast-iron-content-${stale}`);
+    await writeMeta(page, "pending_install", { content_version: stale, started_at: Date.now(), files_total: 12 });
+    await writeMeta(page, "update_check", { last_checked: Date.now(), known_version: other.version, known_bytes: 5000 });
+    await page.reload();
+    await waitReady(page);
+    await expect.poll(() => storedMeta(page, "pending_install")).toBeNull();
+    await expect.poll(async () => contentCaches(await cacheContents(page)).includes(`cast-iron-content-${stale}`)).toBe(false);
+    await page.goto("#/settings");
+    await expect(page.getByTestId("library-update")).toContainText(other.manifest.corpus_tag ?? other.version);
+    await expect(page.getByTestId("update-paused")).toHaveCount(0);
+  } finally {
+    other.cleanup();
   }
 });

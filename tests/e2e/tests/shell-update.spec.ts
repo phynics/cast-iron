@@ -53,7 +53,7 @@ test("App update waits for reload and keeps the installed library and Home bookm
   await expect.poll(async () => Object.keys(await cacheContents(page))).toContain(`cast-iron-shell-${nextShell}`);
   expect(Object.keys(await cacheContents(page))).toContain(`cast-iron-shell-${previousShell}`);
 
-  // The header action opens Settings → Updates, in view and focused, and does not reload.
+  // The header action opens Settings → Version & updates, in view and focused, and does not reload.
   await page.goto(`#/entry/${spell.id}`);
   await expect(update).toBeVisible();
   await page.evaluate(() => {
@@ -62,7 +62,7 @@ test("App update waits for reload and keeps the installed library and Home bookm
   await update.click();
   await expect(page.getByRole("heading", { name: "Settings", exact: true, level: 1 })).toBeVisible();
   await expect(page.locator("#set-updates")).toBeFocused();
-  await expect(page.getByRole("heading", { name: "Updates", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Version & updates", exact: true })).toBeVisible();
   expect(await page.evaluate(() => (window as any).__castIronNoReload)).toBe(true);
   await expect(shell).toContainText(`(${previousShell.slice(0, 8)}…)`);
   await expect(page.getByTestId("library-version")).toHaveText(previousLabel);

@@ -90,6 +90,20 @@ pub async fn contains(cache: &Cache, path: &str) -> Result<bool, String> {
     Ok(!found.is_undefined())
 }
 
+/// The paths of the files a cache holds, without reading any body. Fewer than the real count is
+/// possible only when the browser dropped entries; the caller treats the answer as progress, not
+/// proof, because the installer re-verifies every file before it uses one.
+pub async fn cached_paths(cache: &Cache) -> Result<Vec<String>, String> {
+    let keys = JsFuture::from(cache.keys())
+        .await
+        .map_err(|e| describe(&e))?;
+    Ok(js_sys::Array::from(&keys)
+        .iter()
+        .filter_map(|request| request.dyn_into::<Request>().ok())
+        .map(|request| request.url())
+        .collect())
+}
+
 pub async fn put(cache: &Cache, path: &str, bytes: &[u8]) -> Result<(), String> {
     let mut body = bytes.to_vec();
     let response = Response::new_with_opt_u8_array(Some(&mut body)).map_err(|e| describe(&e))?;
