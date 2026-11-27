@@ -1,8 +1,8 @@
 # Top-50 result ids for the 50 queries of tests/e2e/measure-library.mjs.
 # Regenerate with `cargo xtask search-golden` (after `cargo xtask content`) in every corpus-pin PR.
-# corpus 6a5d55841ba2e7d0e3a7dffe0281f29ac84e6c34
-# tag v0.1.63
-# content v8f423ddc4f444e5e
+# corpus be094a3c87e85d61779ed010693c2cf3b2003908
+# tag v0.1.64
+# content va78fae22d034e2f4
 # Format: `query: <text>` starts a block; each other line is a result id.
 query: fire
 ref/subtype/fire
@@ -330,8 +330,8 @@ ref/feat/charge-of-the-righteous
 ref/arc-witch/gravewalker
 ref/rule/high-rp-types
 ref/magic-ioun/amethyst-pyramid
-ref/npc/master-of-undeath
 ref/discovery/boneshard-bomb
+ref/npc/master-of-undeath
 ref/oraclecurse/lich
 ref/feat/cleansing-burst
 ref/arc-inquisitor/expulsionist
@@ -365,8 +365,8 @@ query: magic missile
 ref/spell/magic-missile
 ref/spell/magic-missile/mythic
 book-section/mythic-adventures/5-2-163
-ref/evolution/minor-magic
 ref/magic-weapon/quarterstaff-of-entwined-serpents
+ref/evolution/minor-magic
 ref/magic-ring/ring-of-forcefangs
 ref/magic-ring/ring-of-stairs-and-stars
 ref/magic-wondrous/scarves-of-the-stinging-dancer
@@ -611,9 +611,9 @@ ref/carried/ultimate-equipment/rules/wondrous-items/slotless/slotless-wondrous-i
 ref/magic-wondrous/cauldron-of-transmutation
 ref/magic-wondrous/flask-of-endless-sake
 ref/spell/deathwine
-ref/hex/witchs-brew
 ref/magic-wondrous/bountiful-bottle
 ref/magic-wondrous/formula-alembic
+ref/hex/witchs-brew
 ref/trait/liquid-healing
 ref/trait/technological-brewmaster
 query: goblin
@@ -773,8 +773,8 @@ query: stealth
 ref/rule/stealth-dex
 ref/skill/stealth
 ref/carried/mythic-adventures/feats/stealthy/mythic
-ref/talent/stealthy-sniper
 ref/feat/stealthy
+ref/talent/stealthy-sniper
 ref/talent/stealth-stunt
 ref/feat/stealth-synergy
 ref/trait/stealthy-escape
@@ -837,8 +837,8 @@ ref/magic-wondrous/charm-of-fate
 ref/magic-wondrous/charm-of-aluum-control
 ref/magic-wondrous/charmers-kiss
 ref/exploit/charmer
-ref/talent/charmer
 ref/trait/charmed-innocent
+ref/talent/charmer
 ref/trait/charming
 ref/feat/charming-performance
 ref/trait/charming-smile-cunning-soul
@@ -1254,7 +1254,6 @@ ref/rule/pclass-arcane-trickster/arcane-trickster
 ref/magic-wondrous/arcane-battery
 ref/arc-bard/arcane-healer
 ref/exploit/arcane-barrier
-ref/arcana/arcane-accuracy
 ref/arcana/arcane-redoubt
 ref/arcana/arcane-cloak
 ref/arcana/arcane-edge
@@ -1270,15 +1269,16 @@ ref/spell/arcane-lock
 ref/rule/arcane-spells
 ref/spell/arcane-eye
 ref/spell/arcane-cannon
+ref/arcana/arcane-accuracy
 ref/spell/arcane-pocket
 ref/feat/arcane-shield
 ref/ninjatrick/arcane-backfire
 ref/carried/advanced-players-guide/rules/races/half-elves/alternate-racial-traits/arcane-training
 ref/carried/advanced-race-guide/races/half-elves/alternate-racial-rules/alternate-racial-traits/arcane-training
 ref/trait/arcane-dabbler
-ref/arcanedisc/arcane-builder
 ref/feat/arcane-blast
 ref/exploit/arcane-weapon
+ref/npc/arcane-pretender
 query: armor
 ref/carried/advanced-players-guide/rules/gear/armor
 ref/carried/ultimate-equipment/rules/arms-and-armor/armor
@@ -1561,12 +1561,12 @@ ref/evolution/blindsight
 ref/magic-fleshcraft/blinding-spittle-glands
 ref/carried/bestiary/rules/universal-monster-rules/blindsense
 ref/feat/blinding-critical/stamina
-ref/discovery/blinding-bomb
 ref/ninjatrick/blinding-bomb
 ref/unchevolution/blindsense
 ref/mercy/blinded
 ref/feat/blinding-sneak-attack
 ref/magic-enh/blinding
+ref/discovery/blinding-bomb
 ref/evolution/blindsense
 ref/spell/blinding-ray/mythic
 ref/talent/blinding-strike
@@ -2069,12 +2069,12 @@ ref/feat/improved-fiendish-darkness
 ref/spell/shield-of-darkness
 ref/rule/umr-see-in-darkness/see-in-darkness
 ref/carried/bestiary/rules/universal-monster-rules/see-in-darkness
-ref/evolution/see-in-darkness
 ref/magic-wondrous/dust-of-darkness
 ref/talent/pierce-the-darkness
 ref/spell/shroud-of-darkness
 ref/talent/see-in-darkness
 ref/trick/see-in-darkness
+ref/evolution/see-in-darkness
 ref/magic-wondrous/lenses-of-darkness
 ref/trait/blessing-of-darkness
 ref/spell/call-the-darkness
@@ -2181,8 +2181,8 @@ ref/carried/mythic-adventures/monsters/demon/marilith/mythic
 ref/disease/demon-fever
 ref/feat/demonic-nemesis
 ref/trait/demonic-persuasion
-ref/magic-implant/demonhide
 ref/rule/demonic
+ref/magic-implant/demonhide
 ref/feat/demonic-obedience
 ref/trait/demonblight-reistance
 ref/npc/demonologist

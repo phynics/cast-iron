@@ -108,6 +108,58 @@ test("The feature that grants rogue talents has a row that opens the section at 
   await expect(page.locator('h2[data-class-section="options"]')).toBeInViewport();
 });
 
+// A group that sets `feature` (#754, `option-groups.toml` of the corpus) is chosen at the heading with
+// that explicit anchor, whatever the heading is called: the Inquisitor's Domain, the Witch's Patron
+// Spells and the Summoner's Eidolon. The row goes after all the text under the heading and before the
+// next heading of the same or a higher level.
+const KEYED: { classId: string; slug: string; anchor: string }[] = [
+  { classId: "ref/class/inquisitor", slug: "inquisition", anchor: "domain" },
+  { classId: "ref/class/witch", slug: "witch-patron", anchor: "patron-spells" },
+  { classId: "ref/class/summoner", slug: "summoner-evolution", anchor: "eidolon" },
+];
+
+for (const { classId, slug, anchor } of KEYED) {
+  test(`The ${slug} row sits under the #${anchor} heading of ${classId}`, async ({ page }) => {
+    const group = groups.find((candidate) => candidate.slug === slug)!;
+    expect(group.classes, "the group belongs to the class").toContain(classId);
+    await openClass(page, classId);
+
+    const link = page.locator(".opt-link").filter({ has: page.locator("a", { hasText: group.label }) });
+    await expect(link).toHaveCount(1);
+    await expect(link.locator("a")).toContainText(`${group.label} · ${group.entries.length}`);
+
+    const heading = page.locator(`#h-${anchor}`);
+    await expect(heading).toHaveCount(1);
+    await expect(heading).toBeAttached();
+
+    // In the document, the row is after the keyed heading and before the next heading that closes
+    // its section (one of the same or a higher level), so no later heading of the page holds it.
+    const place = await heading.evaluate(
+      (head, label) => {
+        const follows = (from: Element, to: Element) => Boolean(from.compareDocumentPosition(to) & Node.DOCUMENT_POSITION_FOLLOWING);
+        const level = Number(head.tagName.slice(1));
+        const row = [...document.querySelectorAll(".opt-link")].find((el) => el.textContent?.includes(label));
+        const next = [...document.querySelectorAll("h1, h2, h3, h4, h5, h6")].find(
+          (el) => follows(head, el) && Number(el.tagName.slice(1)) <= level,
+        );
+        return {
+          after: Boolean(row) && follows(head, row!),
+          beforeNext: Boolean(row) && (!next || follows(row!, next)),
+          // Text sits between the heading and the row: the row is not the heading's next sibling.
+          afterText: Boolean(row) && head.nextElementSibling !== row,
+        };
+      },
+      group.label,
+    );
+    expect(place).toEqual({ after: true, beforeNext: true, afterText: true });
+
+    // On screen the row is below the heading and above the heading that follows it.
+    const headingBox = (await heading.boundingBox())!;
+    const linkBox = (await link.boundingBox())!;
+    expect(linkBox.y).toBeGreaterThan(headingBox.y);
+  });
+}
+
 test("A class with two groups has a chip each, and the address names the group that is shown", async ({ page }) => {
   const wizard = groups.filter((group) => group.classes.includes(WIZARD));
   expect(wizard.length).toBe(2);
