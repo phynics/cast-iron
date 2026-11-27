@@ -9,7 +9,7 @@
 //! first (see [`facts_of`] and [`facts_with_type`]).
 
 use crate::route::OptionChoice;
-use cast_iron_schema::headings::plain_text;
+use cast_iron_schema::headings::{keyed_headings, plain_text};
 use cast_iron_schema::power::{split_ability_tag, straight_apostrophe};
 use cast_iron_schema::{Block, EntryId, Inline, OptionGroup};
 
@@ -118,16 +118,76 @@ struct Candidate {
     before: usize,
 }
 
-/// Where each of `groups` is chosen in the Features section of `body`, one row per group at most.
-/// A group is chosen where a heading of the section is named for it (see [`group_names`]); a
-/// class that prints no such heading (the Wizard's `Arcane Discoveries:` is a bold name inside the
-/// Bonus feats text) falls back to the first paragraph that opens with the group's name in bold.
-/// A heading's row goes after all the text under it, before the next heading of the same or a
-/// higher level; a bold name's row goes right after its paragraph. A group that the section does
-/// not name gets no row, and its chip in the Options section still works. The match reads the
-/// printed names, so it is the same on an imported body (bold names and plain headings) and on a
-/// converted one (headings that list `features`).
+/// The row of a group that names its feature (`feature`, #754): the heading of `body` with that
+/// explicit `{#anchor}`. The row goes after all the text under the heading, before the next
+/// heading of the same or a higher level. `None` when no heading of the body has the anchor.
+fn explicit_link(body: &[Block], group: &OptionGroup, anchor: &str) -> Option<OptionLink> {
+    let keyed = keyed_headings(body);
+    let (index, printed) = body.iter().enumerate().find_map(|(index, block)| {
+        let Block::Heading {
+            anchor: Some(_),
+            content,
+            ..
+        } = block
+        else {
+            return None;
+        };
+        let key = keyed
+            .iter()
+            .find(|(candidate, _)| std::ptr::eq(*candidate, block))
+            .and_then(|(_, key)| key.as_deref());
+        (key == Some(anchor)).then(|| (index, plain_text(content)))
+    })?;
+    let Block::Heading { level, .. } = &body[index] else {
+        return None;
+    };
+    let before = body[index + 1..]
+        .iter()
+        .position(|block| matches!(block, Block::Heading { level: next, .. } if next <= level))
+        .map_or(body.len(), |offset| index + 1 + offset);
+    Some(OptionLink {
+        group: group.slug.clone(),
+        feature: printed.trim().to_string(),
+        before,
+    })
+}
+
+/// Where each of `groups` is chosen on the class page, one row per group at most.
+///
+/// A group that sets `feature` (#754) is chosen at the heading of the class body with that
+/// explicit anchor, and only there: a body without that heading gets no row for the group, and
+/// the printed names are not tried. Any other group is chosen in the Features section of `body`,
+/// where a heading is named for it (see [`group_names`]); a class that prints no such heading (the
+/// Wizard's `Arcane Discoveries:` is a bold name inside the Bonus feats text) falls back to the
+/// first paragraph that opens with the group's name in bold. A heading's row goes after all the
+/// text under it, before the next heading of the same or a higher level; a bold name's row goes
+/// right after its paragraph. A group that no feature names gets no row, and its chip in the
+/// Options section still works. The name match reads the printed names, so it is the same on an
+/// imported body (bold names and plain headings) and on a converted one (headings that list
+/// `features`).
 pub fn option_links(body: &[Block], class_title: &str, groups: &[&OptionGroup]) -> Vec<OptionLink> {
+    let mut links: Vec<OptionLink> = groups
+        .iter()
+        .filter_map(|group| explicit_link(body, group, group.feature.as_deref()?))
+        .collect();
+    let by_name: Vec<&OptionGroup> = groups
+        .iter()
+        .copied()
+        .filter(|group| group.feature.is_none())
+        .collect();
+    links.extend(name_links(body, class_title, &by_name));
+    // Rows at one place keep the order of the groups.
+    links.sort_by_key(|link| {
+        (
+            link.before,
+            groups.iter().position(|group| group.slug == link.group),
+        )
+    });
+    links
+}
+
+/// The rows of the groups that the printed names of the Features section place.
+fn name_links(body: &[Block], class_title: &str, groups: &[&OptionGroup]) -> Vec<OptionLink> {
     let Some((start, end)) = features_span(body) else {
         return Vec::new();
     };
@@ -160,7 +220,7 @@ pub fn option_links(body: &[Block], class_title: &str, groups: &[&OptionGroup]) 
             _ => {}
         }
     }
-    let mut links: Vec<OptionLink> = groups
+    let links: Vec<OptionLink> = groups
         .iter()
         .filter_map(|group| {
             let names = group_names(group, class_title);
@@ -175,8 +235,6 @@ pub fn option_links(body: &[Block], class_title: &str, groups: &[&OptionGroup]) 
             })
         })
         .collect();
-    // Rows at one place keep the order of the groups.
-    links.sort_by_key(|link| link.before);
     links
 }
 
@@ -405,6 +463,7 @@ mod tests {
             slug: slug.into(),
             label: label.into(),
             singular: singular.into(),
+            feature: None,
             classes: Vec::new(),
             entries: Vec::new(),
         }
@@ -650,6 +709,101 @@ mod tests {
         ];
         let traps = group("ranger-trap", "Ranger traps", "Ranger trap");
         assert!(option_links(&body, "Ranger", &[&traps]).is_empty());
+    }
+
+    fn anchored(level: u8, anchor: &str, title: &str) -> Block {
+        Block::Heading {
+            level,
+            anchor: Some(anchor.into()),
+            content: vec![Inline::text(title)],
+        }
+    }
+
+    fn with_feature(mut group: OptionGroup, anchor: &str) -> OptionGroup {
+        group.feature = Some(anchor.into());
+        group
+    }
+
+    #[test]
+    fn a_group_with_a_feature_key_goes_under_the_heading_with_that_anchor() {
+        // The Inquisitor prints `Domain`; no heading says `Inquisition`, so names cannot find it.
+        let body = vec![
+            heading(3, "Class Features"),
+            anchored(4, "domain", "Domain"),
+            plain("..."),
+            heading(4, "Judgment (Su)"),
+            plain("..."),
+            heading(3, "Archetypes"),
+        ];
+        let plain_group = group("inquisition", "Inquisitions", "Inquisition");
+        assert!(option_links(&body, "Inquisitor", &[&plain_group]).is_empty());
+        let keyed = with_feature(plain_group, "domain");
+        let links = option_links(&body, "Inquisitor", &[&keyed]);
+        assert_eq!(
+            links,
+            [OptionLink {
+                group: "inquisition".into(),
+                feature: "Domain".into(),
+                before: 3,
+            }]
+        );
+    }
+
+    #[test]
+    fn the_feature_key_wins_over_a_heading_that_the_name_matches() {
+        let body = vec![
+            heading(3, "Class Features"),
+            heading(4, "Hexes"),
+            plain("..."),
+            anchored(4, "patron", "Patron"),
+            plain("..."),
+            heading(3, "Archetypes"),
+        ];
+        let hex = group("witch-hex", "Witch hexes", "Witch hex");
+        let by_name = option_links(&body, "Witch", &[&hex]);
+        assert_eq!(by_name.len(), 1);
+        assert_eq!(by_name[0].feature, "Hexes");
+        let keyed = with_feature(hex, "patron");
+        let links = option_links(&body, "Witch", &[&keyed]);
+        assert_eq!(links.len(), 1);
+        assert_eq!(links[0].feature, "Patron");
+        assert_eq!(links[0].before, 5);
+    }
+
+    #[test]
+    fn a_feature_key_that_no_heading_has_gets_no_row_even_when_a_name_matches() {
+        let body = vec![
+            heading(3, "Class Features"),
+            heading(4, "Hexes"),
+            plain("..."),
+            // A heading whose key comes from its text is not an explicit anchor.
+            heading(4, "Patron"),
+            plain("..."),
+            heading(3, "Archetypes"),
+        ];
+        let keyed = with_feature(group("witch-hex", "Witch hexes", "Witch hex"), "patron");
+        assert!(option_links(&body, "Witch", &[&keyed]).is_empty());
+        let missing = with_feature(group("witch-hex", "Witch hexes", "Witch hex"), "nowhere");
+        assert!(option_links(&body, "Witch", &[&missing]).is_empty());
+    }
+
+    #[test]
+    fn a_feature_row_can_sit_outside_the_features_section_and_keeps_group_order_in_one_place() {
+        // No `Class Features` head: only the explicit key finds the place.
+        let body = vec![
+            anchored(3, "eidolon", "Eidolon"),
+            plain("..."),
+            plain("..."),
+        ];
+        let a = with_feature(
+            group("summoner-evolution", "Evolutions", "Evolution"),
+            "eidolon",
+        );
+        let b = with_feature(group("a-other", "Others", "Other"), "eidolon");
+        let links = option_links(&body, "Summoner", &[&a, &b]);
+        let slugs: Vec<&str> = links.iter().map(|link| link.group.as_str()).collect();
+        assert_eq!(slugs, ["summoner-evolution", "a-other"]);
+        assert!(links.iter().all(|link| link.before == body.len()));
     }
 
     #[test]

@@ -327,6 +327,7 @@ mod tests {
                 slug: "rage-power".into(),
                 label: "Rage powers".into(),
                 singular: "Rage power".into(),
+                feature: None,
                 classes: vec![],
                 entries: vec![id("ref/ragepower/lesser-spirit")],
             }],

@@ -152,6 +152,10 @@ pub struct OptionGroupDef {
     /// Class entries that take the option group.
     #[serde(default)]
     pub classes: Vec<String>,
+    /// The explicit `{#anchor}` of the class heading that grants a choice from the group, in every
+    /// class of `classes` (#754). Absent when unset, so the writer writes nothing for it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub feature: Option<String>,
 }
 
 pub fn write_option_groups(groups: &OptionGroups) -> String {
@@ -808,6 +812,7 @@ mod tests {
                 label: "Hexes".into(),
                 singular: "Hex".into(),
                 classes: vec!["ref/class/witch".into()],
+                feature: None,
             },
         );
         groups.groups.insert(
@@ -816,6 +821,7 @@ mod tests {
                 label: "Arcane discoveries".into(),
                 singular: "Arcane discovery".into(),
                 classes: vec!["ref/class/wizard".into()],
+                feature: None,
             },
         );
         let text = write_option_groups(&groups);
@@ -830,6 +836,43 @@ mod tests {
             OptionGroups::default()
         );
         assert!(read_option_groups(path, "[groups.bad]\nlabel = \"L\"\n").is_err());
+    }
+
+    #[test]
+    fn an_option_group_feature_round_trips_and_stays_absent_when_unset() {
+        let path = Path::new("option-groups.toml");
+        let mut groups = OptionGroups::default();
+        groups.groups.insert(
+            "inquisition".into(),
+            OptionGroupDef {
+                label: "Inquisitions".into(),
+                singular: "Inquisition".into(),
+                classes: vec!["ref/class/inquisitor".into()],
+                feature: Some("domain".into()),
+            },
+        );
+        groups.groups.insert(
+            "hex".into(),
+            OptionGroupDef {
+                label: "Hexes".into(),
+                singular: "Hex".into(),
+                classes: vec!["ref/class/witch".into()],
+                feature: None,
+            },
+        );
+        let text = write_option_groups(&groups);
+        assert_eq!(text.matches("feature").count(), 1, "{text}");
+        assert!(
+            text.contains("classes = [\"ref/class/inquisitor\"]\nfeature = \"domain\"\n"),
+            "{text}"
+        );
+        assert_eq!(read_option_groups(path, &text).unwrap(), groups);
+
+        // A file without the key reads as `None` and writes back byte-identical.
+        let before = "[groups.hex]\nlabel = \"Hexes\"\nsingular = \"Hex\"\nclasses = [\"ref/class/witch\"]\n";
+        let read = read_option_groups(path, before).unwrap();
+        assert_eq!(read.groups["hex"].feature, None);
+        assert_eq!(write_option_groups(&read), before);
     }
 
     #[test]
