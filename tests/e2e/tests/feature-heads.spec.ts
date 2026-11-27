@@ -228,21 +228,17 @@ interface BaseClassCase {
   id: string;
   /** The feature the test follows: its anchor, its printed name and the level the data gives it. */
   feature: { anchor: string; name: string; level: number };
-  /** The title of the page's hit in a search for the feature name. */
-  hit: RegExp;
 }
 const INQUISITOR_CASE: BaseClassCase = {
   id: "ref/class/inquisitor",
   feature: { anchor: "monster-lore", name: "Monster Lore", level: 1 },
-  hit: /^Inquisitor$/,
 };
 const FIGHTER_CASE: BaseClassCase = {
   id: "ref/class/fighter",
   feature: { anchor: "weapon-mastery", name: "Weapon Mastery", level: 20 },
-  hit: /^Fighter$/,
 };
 
-async function checkBaseClassFeatures(page: Page, { id, feature: FEATURE, hit: hitTitle }: BaseClassCase) {
+async function checkBaseClassFeatures(page: Page, { id, feature: FEATURE }: BaseClassCase) {
   const entry = corpus.entries.get(id)!;
   expect(entry, `the compiled library has ${id}`).toBeTruthy();
   const listed: { anchor: string; level?: number }[] = entry.fields.features;
@@ -297,7 +293,9 @@ async function checkBaseClassFeatures(page: Page, { id, feature: FEATURE, hit: h
 
   await test.step("a search for a feature name finds the class at that feature", async () => {
     await quickSearchFor(page, FEATURE.name);
-    const hit = page.locator(".results .hit-link").filter({ has: page.locator(".hit-title", { hasText: hitTitle }) });
+    // Another entry can share the title (the Fighter's `ref/rule/class-fighter/fighter` copy), so the hit is
+    // the one whose address is the class page at a feature.
+    const hit = page.locator(`.results .hit-link[href^="#/entry/${id}?a="]`);
     await expect(hit).toHaveCount(1);
     // The result carries the matched feature in the anchor parameter: its printed name or its anchor.
     const href = (await hit.getAttribute("href"))!;
