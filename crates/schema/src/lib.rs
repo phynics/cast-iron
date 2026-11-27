@@ -1447,17 +1447,23 @@ pub struct ManifestFile {
     /// Lowercase hexadecimal.
     pub sha256: String,
     pub bytes: u64,
+    /// Present when the stored bytes are one gzip member. `path`, `sha256`, and `bytes` describe
+    /// the stored bytes.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub gzip: Option<Decoded>,
 }
 
+/// The SHA-256 and size of the decoded bytes for a gzip manifest row.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Decoded {
+    /// SHA-256 of the decoded bytes, in lowercase hexadecimal.
     pub sha256: String,
+    /// Size of the decoded bytes.
     pub bytes: u64,
 }
 
 impl ManifestFile {
+    /// Returns the name the reader uses: the path without `.gz` when `gzip` is present.
     pub fn logical_path(&self) -> &str {
         if self.gzip.is_some() {
             self.path.strip_suffix(".gz").unwrap_or(&self.path)

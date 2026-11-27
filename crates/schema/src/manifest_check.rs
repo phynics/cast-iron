@@ -131,14 +131,16 @@ pub fn validate_manifest(manifest: &ContentManifest) -> Result<(), PlanError> {
         }
         total = total.saturating_add(file.bytes);
     }
-    let logical_paths: BTreeSet<&str> = manifest
+    let mut logical_paths: Vec<&str> = manifest
         .files
         .iter()
         .map(ManifestFile::logical_path)
         .collect();
-    if logical_paths.len() != manifest.files.len() {
-        return Err(PlanError::DuplicatePath("logical path".into()));
+    logical_paths.sort_unstable();
+    if let Some(duplicate) = logical_paths.windows(2).find(|pair| pair[0] == pair[1]) {
+        return Err(PlanError::DuplicatePath(duplicate[0].to_owned()));
     }
+    let logical_paths: BTreeSet<&str> = logical_paths.into_iter().collect();
     for required in REQUIRED_FILES {
         let path = format!("{version}/{required}");
         if !logical_paths.contains(path.as_str()) {
@@ -253,6 +255,8 @@ mod tests {
             bytes: 100,
         });
         assert!(matches!(validate_manifest(&m), Err(PlanError::BadPath(_))));
+        let error = validate_manifest(&m).unwrap_err();
+        assert!(error.to_string().contains("invalid file path"), "{error}");
     }
 
     #[test]
@@ -264,6 +268,8 @@ mod tests {
             bytes: 100,
         });
         assert!(matches!(validate_manifest(&m), Err(PlanError::BadPath(_))));
+        let error = validate_manifest(&m).unwrap_err();
+        assert!(error.to_string().contains("invalid file path"), "{error}");
     }
 
     #[test]
@@ -275,6 +281,8 @@ mod tests {
             bytes: 100,
         });
         assert!(matches!(validate_manifest(&m), Err(PlanError::BadHash(_))));
+        let error = validate_manifest(&m).unwrap_err();
+        assert!(error.to_string().contains("invalid checksum"), "{error}");
     }
 
     #[test]
@@ -292,5 +300,10 @@ mod tests {
             validate_manifest(&m),
             Err(PlanError::DuplicatePath(_))
         ));
+        let error = validate_manifest(&m).unwrap_err();
+        assert!(
+            error.to_string().contains("v0123456789abcdef/catalog.json"),
+            "{error}"
+        );
     }
 }
