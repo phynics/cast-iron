@@ -233,7 +233,7 @@ The frame leaves focus alone in these cases:
 - Search: the page focuses its own field, and an edit from one search route to another moves nothing.
 - A change inside the page that is on screen: opening a chapter of the book that is shown, choosing a school on the spell list that is shown, typing in the `Find a book` field of Books or Manage books, and a jump between the sections of an entry page.
 
-Two pages move focus themselves after the frame has settled: Manage books (to its H1, or, when a share link opened it, to the question the link is for) and Settings with `?section=updates` (to the `Updates` section).
+Two pages move focus themselves after the frame has settled: Manage books (to its H1, or, when a share link opened it, to the question the link is for) and Settings with `?section=updates` (to the `Version & updates` section).
 
 The skip link focuses `<main>` without changing the hash.
 
@@ -745,24 +745,25 @@ An entry opened from a book or a chapter carries `?book=<id>` and ends with the 
 
 ### Settings
 
-`#/settings` is an `h1` `Settings` with no count line, then seven `section.settings-section` blocks in a fixed order, each named by its `h2` through `aria-labelledby`. One `--measure` column; the left edge follows the brand from 48rem.
+`#/settings` is an `h1` `Settings` with no count line, then seven `section.settings-section` blocks in a fixed order (Version & updates, Appearance, Books, Library, Install, Storage, Help), each named by its `h2` through `aria-labelledby`. One `--measure` column; the left edge follows the brand from 48rem.
 
-1. **Updates** (`#set-updates`, `tabindex="-1"`). Always first, with or without a pending item (#206); the header action opens Settings with `?updates` and moves focus here.
+1. **Version & updates** (`#set-updates`, `tabindex="-1"`). Always first, with or without a pending item (#206, #747); the header action opens Settings with `?updates` and moves focus here. A facts block (`library-facts`) names what is installed: `App version` (`Released 7 Nov 2026 (5ec392ee…)`), `Rules library` (`v0.1.37 (v28481793…)`), `Size on this device` and `Books`. The update rows, the check switch and `Check now` follow (see below).
 2. **Appearance.** `Theme` and `Spell row density` as native radios in `.choice` fieldsets.
 3. **Books.** A facts row `Active` with the count line of Books (`28 of 443 books active · Paizo Rulebooks`), then a `.page-link` `Manage books`.
-4. **Library.** Facts rows `Rules library` (`v0.1.37 (v28481793…)`), `Entries`, `Size on this device` and `Installed`; a `.btn` `Verify library`; its result is a `p.status` with `role="status"` (`Verifying…`, `Library verified. …`, or the failure sentence).
+4. **Library.** Facts rows `Entries` and `Installed`, then a `.btn` `Verify library`; its result is a `p.status` with `role="status"` (`Verifying…`, `Library verified. …`, or the failure sentence).
 5. **Install.** One of three states: a facts row `Installed as an app`, the sentence with `Install app`, or the muted hint that the browser menu may offer it.
 6. **Storage.** Facts rows `Used`, `Available to this app` and `Persistent storage`; `Request persistent storage` is a `.btn` that shows only while storage is not granted. A press is answered in a `role="status"` line below it: `Granted. The browser will not clear the library on its own.` (focus moves to that line, because the button goes) or `Not granted. On iPhone, add Cast Iron to the Home Screen; other browsers decide on their own.` (focus stays on the button). The section sits below Install, so a late answer from the browser cannot move Install (#666); the `Persistent storage` value reserves the height of its longest text, so only the button, which appears when storage is not granted, moves Help.
-7. **Help.** A facts row `App version` (`Released 7 Nov 2026 (5ec392ee…)`), then `.page-link` rows `Diagnostics`, `Report a problem` (the footer's link, opens a new tab) and `Legal and attribution`.
+7. **Help.** `.page-link` rows `Diagnostics`, `Report a problem` (the footer's link, opens a new tab) and `Legal and attribution`.
 
-**The update rows.** What waits sits at the top of Updates, one `div.update-row` each, library first, with a facts row and one control:
+**The update rows.** What waits sits below the facts block of Version & updates, one `div.update-row` each, library first, with a facts row and one control:
 
-- Library: a facts row `Rules library` / `v0.1.38 · 214 MB`, then the installer panel in its update form: one `.btn-primary` `Download update` and one muted line `Your stars and book choices stay. The current library keeps working until the new one is verified.` The size and the reassurance each appear once. The panel shows progress and failures in place of the button during and after a download, and nothing else (no facts block, no iPhone paragraph). Offline, the panel and the button give way to the muted line `Connect to download it.` A record from an earlier session has no file list yet: the row shows a `.btn` `Check now` and the muted line `Check first, then download it.`, and mounts no panel.
+- Library: a facts row `Update available` / `v0.1.38 · 214 MB`, then the installer panel in its update form: one `.btn-primary` `Download update` and one muted line `Your stars and book choices stay. The current library keeps working until the new one is verified.` The size and the reassurance each appear once. The panel shows progress and failures in place of the button during and after a download, and nothing else (no facts block, no iPhone paragraph). Offline, the panel and the button give way to the muted line `Connect to download it.` A record from an earlier session has no file list yet: the row shows a `.btn` `Check now` and the muted line `Check first, then download it.`, and mounts no panel.
+- Library, paused (#747): a download that a reload or a closed app cut off keeps its files in the cache and its `pending_install` marker. The next open shows the row with a `p.status` `Update paused · 98 of 277 files` (`update-paused`; the count lists the cache's keys, reads no file, and the line is only `Update paused` when the marker does not know the total) and a `.btn-primary` `Resume` with the muted line `Files already downloaded are kept.` Nothing is fetched or downloaded until `Resume` is pressed; it then reads the manifest if this session has none and the installer panel starts by itself, scanning the cache and fetching only what is missing. Offline, `Resume` is disabled and the muted line reads `Connect to resume.` When the manifest names a newer version than the paused one, the paused download is dropped with its cache and the newer one is offered as usual (`Download update`). A failure to read the manifest shows as an `.error` under the button. The header action reads `Update paused` (accessible name `Library update paused. Open Settings`) while the library update is paused and no app update waits.
 - App shell: a facts row `App` / `Update ready`, then a `.btn` `Reload`.
 
 Below the rows, or alone when nothing waits: the `Check for updates automatically` checkbox as a `.toggle-row`, the muted sentence about the daily check, a `.btn` `Check now` with `Last checked: 21 Nov 2026`, `You are offline. Connect to check for updates.` while offline, and a live `p.status` for the result of a check.
 
-No maintainer words on this page: no schema, manifest or content hash outside the version values and error text; those live in Diagnostics, which holds the content format. Updates is always first; pending items sit at its top.
+No maintainer words on this page: no schema, manifest or content hash outside the version values and error text; those live in Diagnostics, which holds the content format. Version & updates is always first; pending items sit below its facts.
 
 ### Diagnostics
 

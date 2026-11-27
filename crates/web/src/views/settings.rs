@@ -1,4 +1,5 @@
-//! Settings (#584): seven sections in a fixed order. Updates comes first and never moves.
+//! Settings (#584, #747): seven sections in a fixed order. "Version & updates" comes first and
+//! never moves.
 
 use crate::app::use_app;
 use crate::book_presets;
@@ -126,9 +127,6 @@ pub fn Settings() -> impl IntoView {
     };
     refresh_storage();
 
-    let shell = RwSignal::new(None::<Option<js::ShellInfo>>);
-    spawn_local(async move { shell.set(Some(js::shell_info().await)) });
-
     let verify = RwSignal::new(VerifyState::Idle);
 
     let run_verify = {
@@ -149,11 +147,6 @@ pub fn Settings() -> impl IntoView {
 
     // The conversion is retried on the next load, so this is a notice, not an error.
     let conversion_pending = library.migration_refused();
-
-    let corpus_label = fmt::corpus_label(
-        library.manifest().corpus_tag.as_deref(),
-        &active.content_version,
-    );
 
     // The same link as the footer's, for this page.
     let report_link = {
@@ -192,7 +185,7 @@ pub fn Settings() -> impl IntoView {
     view! {
         <h1>"Settings"</h1>
 
-        <UpdatesSection />
+        <VersionSection />
 
         <section class="settings-section" aria-labelledby="set-appearance">
             <h2 id="set-appearance">"Appearance"</h2>
@@ -249,10 +242,8 @@ pub fn Settings() -> impl IntoView {
 
         <section class="settings-section" aria-labelledby="set-library">
             <h2 id="set-library">"Library"</h2>
-            <dl class="facts" data-testid="library-facts">
-                <div><dt>"Rules library"</dt><dd data-testid="library-version">{corpus_label}</dd></div>
+            <dl class="facts">
                 <div><dt>"Entries"</dt><dd data-testid="library-entries">{fmt::count(active.entry_count)}</dd></div>
-                <div><dt>"Size on this device"</dt><dd data-testid="library-size">{fmt::bytes(active.total_bytes)}</dd></div>
                 <div><dt>"Installed"</dt><dd>{format_date(active.activated_at)}</dd></div>
             </dl>
             <p>
@@ -352,13 +343,6 @@ pub fn Settings() -> impl IntoView {
 
         <section class="settings-section" aria-labelledby="set-help">
             <h2 id="set-help">"Help"</h2>
-            <dl class="facts">
-                <div><dt>"App version"</dt><dd data-testid="shell-version">{move || match shell.get() {
-                    None => "Checking…".to_string(),
-                    Some(Some(info)) => fmt::app_label(info.date.as_deref(), &info.version),
-                    Some(None) => "Not available until the app has been reloaded once".to_string(),
-                }}</dd></div>
-            </dl>
             <p>
                 <a class="page-link" href=Route::Diagnostics.href()>
                     <span>"Diagnostics"</span>
@@ -387,13 +371,32 @@ pub fn Settings() -> impl IntoView {
     }
 }
 
-/// The Updates section, always first. What waits sits at its top, one row each, with the control
-/// that applies it; then the automatic-check switch and the explicit check.
+/// What Resume is doing. The reader's tap fetches the manifest when this session has none.
+#[derive(Clone)]
+enum ResumeState {
+    Idle,
+    Working,
+    Failed(String),
+}
+
+/// "Version & updates", always first: the app and the rules library that are installed, what
+/// waits (one row each, with the control that applies it), the automatic-check switch, and the
+/// explicit check.
 #[component]
-fn UpdatesSection() -> impl IntoView {
+fn VersionSection() -> impl IntoView {
     let app = use_app();
     let updates = use_updates();
+    let library = use_library();
+    let active = library.active().clone();
+    let corpus_label = fmt::corpus_label(
+        library.manifest().corpus_tag.as_deref(),
+        &active.content_version,
+    );
+    let book_count = library.sources().len();
+    let shell = RwSignal::new(None::<Option<js::ShellInfo>>);
+    spawn_local(async move { shell.set(Some(js::shell_info().await)) });
     let status = RwSignal::new(UpdateState::Idle);
+    let resume = RwSignal::new(ResumeState::Idle);
     let on_done = Callback::new(move |active: ActiveLibrary| app.activate(active));
 
     let check_now = Callback::new(move |_: ()| {
@@ -409,9 +412,30 @@ fn UpdatesSection() -> impl IntoView {
         });
     });
 
+    let resume_download = move |_| {
+        resume.set(ResumeState::Working);
+        spawn_local(async move {
+            resume.set(match updates.resume().await {
+                Ok(()) => ResumeState::Idle,
+                Err(message) => ResumeState::Failed(message),
+            });
+        });
+    };
+
     view! {
         <section class="settings-section" id="set-updates" tabindex="-1" aria-labelledby="set-updates-title">
-            <h2 id="set-updates-title">"Updates"</h2>
+            <h2 id="set-updates-title">"Version & updates"</h2>
+
+            <dl class="facts" data-testid="library-facts">
+                <div><dt>"App version"</dt><dd data-testid="shell-version">{move || match shell.get() {
+                    None => "Checking…".to_string(),
+                    Some(Some(info)) => fmt::app_label(info.date.as_deref(), &info.version),
+                    Some(None) => "Not available until the app has been reloaded once".to_string(),
+                }}</dd></div>
+                <div><dt>"Rules library"</dt><dd data-testid="library-version">{corpus_label}</dd></div>
+                <div><dt>"Size on this device"</dt><dd data-testid="library-size">{fmt::bytes(active.total_bytes)}</dd></div>
+                <div><dt>"Books"</dt><dd data-testid="library-books">{fmt::count(book_count)}</dd></div>
+            </dl>
 
             {move || {
                 let Some(found) = updates.library_update.get() else {
@@ -429,16 +453,55 @@ fn UpdatesSection() -> impl IntoView {
                     name
                 };
                 let online = app.online.get();
+                // A paused update waits for the reader. Nothing downloads, and nothing is
+                // fetched, until Resume is tapped.
+                if let Some(paused) = found.paused {
+                    return view! {
+                        <div class="update-row" data-testid="library-update">
+                            <dl class="facts">
+                                <div><dt>"Update available"</dt><dd>{value}</dd></div>
+                            </dl>
+                            <p class="status" role="status" data-testid="update-paused">{paused.label()}</p>
+                            <p class="update-prompt">
+                                <button class="btn btn-primary" type="button" on:click=resume_download
+                                    prop:disabled=move || !app.online.get()
+                                        || matches!(resume.get(), ResumeState::Working)>
+                                    "Resume"
+                                </button>
+                                <span class="muted">{move || if app.online.get() {
+                                    "Files already downloaded are kept.".to_string()
+                                } else {
+                                    "Connect to resume.".to_string()
+                                }}</span>
+                            </p>
+                            {move || match resume.get() {
+                                ResumeState::Failed(message) => view! {
+                                    <p class="error" role="alert">{message}</p>
+                                }.into_any(),
+                                _ => ().into_any(),
+                            }}
+                        </div>
+                    }.into_any();
+                }
+                // One-shot: a later re-render of this row must not start the download again.
+                let autostart = found.resume;
+                if autostart {
+                    updates.library_update.update_untracked(|slot| {
+                        if let Some(slot) = slot {
+                            slot.resume = false;
+                        }
+                    });
+                }
                 view! {
                     <div class="update-row" data-testid="library-update">
                         <dl class="facts">
-                            <div><dt>"Rules library"</dt><dd>{value}</dd></div>
+                            <div><dt>"Update available"</dt><dd>{value}</dd></div>
                         </dl>
                         // Only a manifest from this session may mount the panel: the panel fetches
                         // one on mount, which would bypass the switch and the daily budget.
                         {match (manifest, online) {
                             (Some(manifest), true) => view! {
-                                <InstallPanel mode=InstallMode::Update manifest on_done />
+                                <InstallPanel mode=InstallMode::Update manifest autostart on_done />
                             }.into_any(),
                             (Some(_), false) => view! {
                                 <p class="muted">"Connect to download it."</p>

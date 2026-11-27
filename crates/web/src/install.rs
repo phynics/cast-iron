@@ -88,6 +88,7 @@ pub async fn install(
     store::set_pending_install(&PendingInstall {
         content_version: version.clone(),
         started_at: js::now_ms(),
+        files_total: u32::try_from(manifest.files.len()).unwrap_or(u32::MAX),
     })
     .await
     .map_err(storage_failure)?;
@@ -187,6 +188,30 @@ pub async fn install(
     remove_other_caches(&version).await;
     report(Phase::Done, plan.borrow().progress());
     Ok(active)
+}
+
+/// How many library files the cache of `version` holds. Zero when the cache is missing. It
+/// lists the cache's keys and reads no body, so a paused update can show its progress at once;
+/// the installer re-verifies each file when it resumes.
+pub async fn cached_file_count(version: &str) -> usize {
+    let Ok(Some(cache)) = content_cache::open_existing(version).await else {
+        return 0;
+    };
+    let stored = format!("/{}", stored_manifest_path(version));
+    content_cache::cached_paths(&cache).await.map_or(0, |urls| {
+        urls.iter().filter(|url| !url.ends_with(&stored)).count()
+    })
+}
+
+/// Drops a partly downloaded version that is no longer offered: its cache and its marker.
+/// The marker goes only if it names this version, so a newer download is never forgotten.
+pub async fn discard_pending(version: &str) {
+    let _ = content_cache::delete(&content_cache::cache_name(version)).await;
+    if let Ok(Some(pending)) = store::pending_install().await
+        && pending.content_version == version
+    {
+        let _ = store::clear_pending_install().await;
+    }
 }
 
 /// Deletes every content cache except the one for `keep`. Failures are ignored: the leftovers

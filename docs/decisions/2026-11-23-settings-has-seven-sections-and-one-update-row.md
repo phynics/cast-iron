@@ -1,8 +1,8 @@
 ---
 title: "Settings has seven sections, and the update panel says each thing once"
 date: 2026-11-23
-status: current
-superseded_by: []
+status: partly-superseded
+superseded_by: ["2026-11-27-settings-opens-with-version-and-updates"]
 issues: [584]
 prs: [632]
 area: ui

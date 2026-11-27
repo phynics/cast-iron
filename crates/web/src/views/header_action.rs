@@ -17,9 +17,11 @@ use wasm_bindgen::JsCast;
 pub enum HeaderActionKind {
     Install,
     /// An update is waiting. `app` and `library` say which; at least one of them is true.
+    /// `paused` means the library update was started and stopped; it needs `library`.
     Update {
         app: bool,
         library: bool,
+        paused: bool,
     },
 }
 
@@ -28,6 +30,11 @@ impl HeaderActionKind {
     fn label(self) -> &'static str {
         match self {
             Self::Install => "Install",
+            Self::Update {
+                app: false,
+                paused: true,
+                ..
+            } => "Update paused",
             Self::Update { .. } => "Update ready",
         }
     }
@@ -40,10 +47,17 @@ impl HeaderActionKind {
             Self::Update {
                 app: true,
                 library: false,
+                ..
             } => "App update ready. Open Settings",
             Self::Update {
                 app: false,
                 library: true,
+                paused: true,
+            } => "Library update paused. Open Settings",
+            Self::Update {
+                app: false,
+                library: true,
+                paused: false,
             } => "Library update ready. Open Settings",
             Self::Update { .. } => "Updates available. Open Settings",
         }
@@ -56,10 +70,17 @@ impl HeaderActionKind {
             Self::Update {
                 app: true,
                 library: false,
+                ..
             } => Some("App update ready."),
             Self::Update {
                 app: false,
                 library: true,
+                paused: true,
+            } => Some("Library update paused."),
+            Self::Update {
+                app: false,
+                library: true,
+                paused: false,
             } => Some("Library update ready."),
             Self::Update { .. } => Some("Updates ready."),
         }
@@ -84,12 +105,14 @@ impl HeaderActionKind {
 fn choose_action(
     app_update: bool,
     library_update: bool,
+    library_paused: bool,
     install_should_show: bool,
 ) -> Option<HeaderActionKind> {
     if app_update || library_update {
         Some(HeaderActionKind::Update {
             app: app_update,
             library: library_update,
+            paused: library_update && library_paused,
         })
     } else {
         install_should_show.then_some(HeaderActionKind::Install)
@@ -102,9 +125,11 @@ pub fn HeaderAction() -> impl IntoView {
     let install = use_install();
     let updates = use_updates();
     let current = Memo::new(move |_| {
+        let library = updates.library_update.get();
         choose_action(
             app.shell_update_ready.get(),
-            updates.library_update.get().is_some(),
+            library.is_some(),
+            library.is_some_and(|update| update.paused.is_some()),
             install.show_in_header(),
         )
     });
@@ -149,24 +174,45 @@ mod tests {
     use super::*;
 
     fn update(app: bool, library: bool) -> HeaderActionKind {
-        HeaderActionKind::Update { app, library }
+        HeaderActionKind::Update {
+            app,
+            library,
+            paused: false,
+        }
+    }
+
+    fn paused(app: bool) -> HeaderActionKind {
+        HeaderActionKind::Update {
+            app,
+            library: true,
+            paused: true,
+        }
     }
 
     #[test]
     fn update_outranks_install_in_the_one_header_slot() {
-        assert_eq!(choose_action(false, false, false), None);
+        assert_eq!(choose_action(false, false, false, false), None);
         assert_eq!(
-            choose_action(false, false, true),
+            choose_action(false, false, false, true),
             Some(HeaderActionKind::Install)
         );
-        assert_eq!(choose_action(true, false, false), Some(update(true, false)));
-        assert_eq!(choose_action(true, false, true), Some(update(true, false)));
         assert_eq!(
-            choose_action(false, true, true),
+            choose_action(true, false, false, false),
+            Some(update(true, false))
+        );
+        assert_eq!(
+            choose_action(true, false, false, true),
+            Some(update(true, false))
+        );
+        assert_eq!(
+            choose_action(false, true, false, true),
             Some(update(false, true)),
             "a library update shows even when Install would"
         );
-        assert_eq!(choose_action(false, true, false), Some(update(false, true)));
+        assert_eq!(
+            choose_action(false, true, false, false),
+            Some(update(false, true))
+        );
     }
 
     #[test]
@@ -184,6 +230,15 @@ mod tests {
             "Updates available. Open Settings"
         );
         assert_eq!(update(true, true).label(), "Update ready");
+        // A paused library update says so, in the label and the name, and Install still yields.
+        assert_eq!(paused(false).label(), "Update paused");
+        assert_eq!(
+            paused(false).aria_label(),
+            "Library update paused. Open Settings"
+        );
+        assert_eq!(paused(false).status(), Some("Library update paused."));
+        assert_eq!(paused(true).label(), "Update ready");
+        assert_eq!(choose_action(false, true, true, true), Some(paused(false)));
         assert_eq!(HeaderActionKind::Install.status(), None);
         assert_eq!(update(false, true).status(), Some("Library update ready."));
         assert_eq!(update(true, true).status(), Some("Updates ready."));

@@ -106,6 +106,10 @@ pub struct ActiveLibrary {
 pub struct PendingInstall {
     pub content_version: String,
     pub started_at: f64,
+    /// How many files the version has, so a paused update can say how far it got. Zero when the
+    /// marker is from an older release.
+    #[serde(default)]
+    pub files_total: u32,
 }
 
 /// The last library update check: when it ran, and the newest manifest it saw. It survives a
@@ -446,6 +450,10 @@ pub async fn pending_install() -> Result<Option<PendingInstall>> {
 
 pub async fn set_pending_install(pending: &PendingInstall) -> Result<()> {
     set_meta(KEY_PENDING_INSTALL, pending).await
+}
+
+pub async fn clear_pending_install() -> Result<()> {
+    remove_meta(KEY_PENDING_INSTALL).await
 }
 
 /// Makes a verified library the active one, and clears the pending marker, in one transaction.

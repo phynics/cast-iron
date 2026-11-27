@@ -55,6 +55,8 @@ pub fn InstallerScreen(notice: Option<String>) -> impl IntoView {
 pub fn InstallPanel(
     mode: InstallMode,
     #[prop(optional)] manifest: Option<ContentManifest>,
+    // The reader already asked for this download (Resume), so it starts on mount.
+    #[prop(optional)] autostart: bool,
     on_done: Callback<ActiveLibrary>,
 ) -> impl IntoView {
     let phase = RwSignal::new(if manifest.is_some() {
@@ -113,6 +115,16 @@ pub fn InstallPanel(
             }
         });
     };
+
+    if autostart && manifest.get_untracked().is_some() {
+        start();
+        // The Resume button went away with the paused row; the status line takes focus.
+        request_animation_frame(move || {
+            if let Some(status) = status_ref.get_untracked() {
+                let _ = status.focus();
+            }
+        });
+    }
 
     let status = move || match phase.get() {
         Phase::Checking | Phase::Offer | Phase::Failed(_) => String::new(),
