@@ -432,9 +432,14 @@ export function writeLibraryFile(dir: string, file: ManifestFile, decoded: Buffe
  * which the test server overlays on dist. The version follows the compiler's documented rule
  * (sha256 of the sorted "path:sha256" lines of the stored files), but the client must not depend
  * on that. Files are read decoded and stored the way their rows store them: gzipped when dist's
- * rows carry `gzip`, plain for a library of schema 7 or older.
+ * rows carry `gzip`, plain for a library of schema 7 or older. `dropFromBook` also removes one
+ * entry from one book's membership in the catalog, as a library update can (#543): the entry
+ * stays in the library under another book.
  */
-export function buildUpdatedLibrary(marker: string) {
+export function buildUpdatedLibrary(
+  marker: string,
+  options: { dropFromBook?: { book: string; entryId: string } } = {},
+) {
   const old = distManifest();
   const oldPrefix = `${old.content_version}/`;
   // Each file by its logical name, decoded; `gz` keeps the way its row stores it.
@@ -444,6 +449,22 @@ export function buildUpdatedLibrary(marker: string) {
   const legal = JSON.parse(legalFile.decoded.toString());
   legal.community_use_notice += ` ${marker}`;
   legalFile.decoded = Buffer.from(JSON.stringify(legal));
+  if (options.dropFromBook) {
+    const { book, entryId } = options.dropFromBook;
+    const catalogFile = files.get("catalog.json")!;
+    const catalog = JSON.parse(catalogFile.decoded.toString());
+    const fallback = catalog.sources.find((source: { id: string }) => source.id !== book)?.id;
+    const stub = catalog.entries.find((candidate: { id: string }) => candidate.id === entryId);
+    if (!stub || !fallback) throw new Error(`The catalog cannot drop ${entryId} from ${book}.`);
+    const members: string[] = stub.books?.length ? stub.books : [stub.source];
+    if (!members.includes(book)) throw new Error(`${entryId} is not in ${book}.`);
+    const remaining = members.filter((member) => member !== book);
+    if (remaining.length === 0) remaining.push(fallback);
+    stub.source = remaining[0];
+    if (remaining.length > 1) stub.books = remaining;
+    else delete stub.books;
+    catalogFile.decoded = Buffer.from(JSON.stringify(catalog));
+  }
 
   // The stored files, sorted by stored name: the version hashes these lines, as the compiler does.
   const stored = [...files]

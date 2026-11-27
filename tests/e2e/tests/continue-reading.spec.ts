@@ -207,12 +207,15 @@ test("A tab on the old library records no continue point and reopens on the repl
   test.setTimeout(300_000);
   const { book, entry } = placedEntry();
   const marker = "CONTINUE-RACE-MARKER";
-  const next = buildUpdatedLibrary(marker);
+  // The replacement no longer lists the entry among the book's members, so a point recorded for
+  // it under that library is exactly the stale point that the old tab must not write.
+  const next = buildUpdatedLibrary(marker, { dropFromBook: { book: book.source, entryId: entry.id } });
   try {
     const v1 = (await activeLibrary(page)).content_version;
     expect(next.version).not.toBe(v1);
 
-    // Tab B reads the entry under the old library. Its shard is now cached in the tab.
+    // Tab B reads the entry under the old library, which records the point. Its shard is now
+    // cached in the tab.
     await openBookEntry(page, book, entry.id);
     await expect(page.getByTestId("entry-title")).toContainText(entry.title);
     await expectStoredPoint(page, book.source, entry.id);
@@ -240,11 +243,9 @@ test("A tab on the old library records no continue point and reopens on the repl
     await page.goto("#/legal");
     await expect(page.locator("#community-use + .legal-text")).toContainText(marker, { timeout: 60_000 });
 
-    // The point that B holds is one the replacement library wrote after it reloaded: it is still
-    // this entry in this book, never older than the point from before the replacement.
-    const after = (await storedContinuePoints(page)).find((point) => point.source === book.source)!;
-    expect(after.entry_id).toBe(recorded.entry_id);
-    expect(after.read_at).toBeGreaterThanOrEqual(recorded.read_at);
+    // The replacement does not list the entry in the book, so nothing records a new point for
+    // it: the stored point is the one from before, unchanged.
+    expect((await storedContinuePoints(page)).find((point) => point.source === book.source)).toEqual(recorded);
   } finally {
     await server.overlay(null);
     next.cleanup();
