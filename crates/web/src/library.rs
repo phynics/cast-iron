@@ -719,19 +719,26 @@ impl Library {
             .collect();
         paths.sort_unstable();
         paths.dedup();
-        let wanted: BTreeSet<&EntryId> = ids.iter().collect();
-        let mut found: BTreeMap<EntryId, T> = BTreeMap::new();
+        // Where each wanted id sits in `ids` (the first, when an id is listed twice), and what is
+        // read for it, by that place. One map of ids keeps the code small: the values are not in a
+        // map of their own.
+        let mut place: BTreeMap<&EntryId, usize> = BTreeMap::new();
+        for (index, id) in ids.iter().enumerate() {
+            place.entry(id).or_insert(index);
+        }
+        let mut found: Vec<Option<T>> = ids.iter().map(|_| None).collect();
         for path in paths {
             let shard = self.shard(path).await?;
             for entry in shard.iter() {
-                if wanted.contains(&entry.id) {
-                    found.insert(entry.id.clone(), read(entry));
+                if let Some(&index) = place.get(&entry.id) {
+                    found[index] = Some(read(entry));
                 }
             }
         }
         Ok(ids
             .iter()
-            .filter_map(|id| found.remove(id).map(|value| (id.clone(), value)))
+            .zip(found)
+            .filter_map(|(id, value)| value.map(|value| (id.clone(), value)))
             .collect())
     }
 
