@@ -15,7 +15,7 @@ use crate::library::Library;
 use crate::route::{ArchFilter, Route, push, use_route};
 use crate::views::filter_menu::{
     FilterMenuButton, FilterMenuPanel, MenuOption, MenuSpec, MenuState, MultiFilterMenuPanel,
-    MultiOption, button_id, focus_by_id, multi_trigger_text,
+    MultiOption, button_id, dismiss_on_change, focus_by_id, multi_trigger_text,
 };
 use crate::views::related::source_title;
 use crate::views::util::{Shared, sort_key};
@@ -210,18 +210,11 @@ pub fn ArchetypeList(
     // A choice of archetype closes its panel and puts focus back on the button, as a choice
     // in a single-choice menu does on a list page. Back and Forward change the choice with the
     // panel shut, and leave focus where it is.
-    Effect::new(move |previous: Option<Option<EntryId>>| {
-        let now = with.get();
-        if previous.is_some_and(|before| before != now) {
-            // The panel's link asked the next list page to focus the button; this page has no
-            // rebuild to read the request, so it is read here.
-            crate::views::filter_menu::take_focus_request();
-            if with_menu.open.get_untracked() {
-                with_menu.dismiss(&WITH);
-            }
-        }
-        now
-    });
+    dismiss_on_change(
+        with_menu,
+        WITH,
+        Box::new(move || with.with(|id| id.as_ref().map(ToString::to_string))),
+    );
 
     // The features to keep. The panel reads the choices from the route, and its `Any feature`
     // link follows the archetype that is chosen.

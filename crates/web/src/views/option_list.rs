@@ -16,8 +16,8 @@ use crate::library::Library;
 use crate::option_list::{self, OptionRow};
 use crate::route::{ArchFilter, OptionChoice, Route, push, replace, use_route};
 use crate::views::filter_menu::{
-    FilterMenuButton, FilterMenuPanel, MenuOption, MenuSpec, MenuState, focus_by_id,
-    take_focus_request,
+    FilterMenuButton, FilterMenuPanel, MenuOption, MenuSpec, MenuState, dismiss_on_change,
+    focus_by_id,
 };
 use crate::views::icons;
 use crate::views::util::{Shared, sort_key};
@@ -412,16 +412,7 @@ pub fn OptionsSection(
             Box::new(move || choice.with(|choice| choice.level.map(|level| level.to_string()))),
         ),
     ] {
-        Effect::new(move |previous: Option<Option<String>>| {
-            let now = pick();
-            if previous.is_some_and(|before| before != now) {
-                take_focus_request();
-                if menu.open.get_untracked() {
-                    menu.dismiss(&spec);
-                }
-            }
-            now
-        });
+        dismiss_on_change(menu, spec, pick);
     }
 
     let book_text = Signal::derive(move || {

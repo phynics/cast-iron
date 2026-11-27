@@ -228,6 +228,22 @@ impl Default for MenuState {
     }
 }
 
+/// Closes `menu` when `pick`, the route's choice for it, changes under it (a choice, Back or
+/// Forward), and drops the focus request that the choice's link left. A list page that a choice
+/// does not rebuild never reads that request, so it is read here. The first run only reads `pick`.
+pub fn dismiss_on_change(menu: MenuState, spec: MenuSpec, pick: Box<dyn Fn() -> Option<String>>) {
+    Effect::new(move |previous: Option<Option<String>>| {
+        let now = pick();
+        if previous.is_some_and(|before| before != now) {
+            take_focus_request();
+            if menu.open.get_untracked() {
+                menu.dismiss(&spec);
+            }
+        }
+        now
+    });
+}
+
 /// The button. Its visible text is its accessible name. `text` is `None` while the choices
 /// load, which disables it.
 #[component]
@@ -241,15 +257,15 @@ pub fn FilterMenuButton(
 ) -> impl IntoView {
     if focus {
         // The button is disabled while the choices load, and a disabled button cannot take focus.
-        Effect::new(move |done: Option<bool>| {
-            if done == Some(true) {
-                return true;
+        let mut done = false;
+        crate::views::util::effect(move || {
+            if done {
+                return;
             }
-            let ready = text.with(Option::is_some);
-            if ready {
+            if text.with(Option::is_some) {
                 focus_by_id_later(button_id(&spec));
+                done = true;
             }
-            ready
         });
     }
     view! {
