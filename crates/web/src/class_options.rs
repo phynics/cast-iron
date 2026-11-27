@@ -124,6 +124,7 @@ mod tests {
             slug: slug.into(),
             label: label.into(),
             singular: singular.into(),
+            feature: None,
             classes: classes.iter().map(|value| id(value)).collect(),
             entries: entries.iter().map(|value| id(value)).collect(),
         }

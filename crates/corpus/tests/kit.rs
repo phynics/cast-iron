@@ -119,6 +119,7 @@ fn the_examples_check_as_one_corpus_with_no_drift() {
                     label: "Arcane discoveries".into(),
                     singular: "Arcane discovery".into(),
                     classes: vec!["ref/class/example-wayfarer".into()],
+                    feature: None,
                 },
             );
             groups

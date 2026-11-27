@@ -733,6 +733,7 @@ mod tests {
                 label: "Domains".into(),
                 singular: "Domain".into(),
                 classes: vec![],
+                feature: None,
             },
         );
         assert!(check(&c).problems.is_empty());

@@ -2390,6 +2390,39 @@ fn check_option_groups(corpus: &Corpus, ids: &BTreeSet<&str>, report: &mut Repor
                 "option-groups.toml:{line}: group `{slug}` holds no class_option entries"
             ));
         }
+        if let Some(feature) = &group.feature {
+            // The `feature = ` line of this group, which follows its table header.
+            let feature_line = text
+                .lines()
+                .enumerate()
+                .skip(line)
+                .take_while(|(_, text)| !text.trim_start().starts_with('['))
+                .find(|(_, text)| text.trim_start().starts_with("feature"))
+                .map_or(line, |(index, _)| index + 1);
+            for class in &group.classes {
+                let Some(stored) = corpus.entries.get(class) else {
+                    continue;
+                };
+                let has_anchor = keyed_headings(&stored.entry.body)
+                    .iter()
+                    .any(|(block, key)| {
+                        matches!(
+                            block,
+                            Block::Heading {
+                                anchor: Some(_),
+                                ..
+                            }
+                        ) && key.as_deref() == Some(feature.as_str())
+                    });
+                if !has_anchor {
+                    report.problems.push(format!(
+                        "option-groups.toml:{feature_line}: group `{slug}` names the feature \
+                         anchor `{feature}`, but `{class}` has no heading with the explicit \
+                         anchor `{{#{feature}}}`"
+                    ));
+                }
+            }
+        }
     }
 }
 
@@ -5133,6 +5166,7 @@ mod tests {
                 label: "Discoveries".into(),
                 singular: "Discovery".into(),
                 classes: vec!["ref/class/ghost".into()],
+                feature: None,
             },
         );
         let text = check(&c).problems.join("\n");
@@ -5148,6 +5182,7 @@ mod tests {
                 label: "Empty".into(),
                 singular: "Empty".into(),
                 classes: vec![],
+                feature: None,
             },
         );
         let text = check(&c).problems.join("\n");
@@ -5325,6 +5360,7 @@ mod tests {
                 label: "Discoveries".into(),
                 singular: "Discovery".into(),
                 classes: vec![],
+                feature: None,
             },
         );
         let text = check(&c).problems.join("\n");
@@ -5721,11 +5757,82 @@ mod tests {
                 label: "Discoveries".into(),
                 singular: "Discovery".into(),
                 classes: vec!["ref/class/wizard".into()],
+                feature: None,
             },
         );
         let report = check(&c);
         assert!(report.problems.is_empty(), "{:?}", report.problems);
         assert!(report.warnings.is_empty(), "{:?}", report.warnings);
+    }
+
+    fn feature_corpus(feature: Option<&str>, class_heading: Block) -> Corpus {
+        let class = typed(
+            rule("ref/class/inquisitor", vec![class_heading]),
+            EntryKind::Class,
+            TypedFields::Class(Default::default()),
+        );
+        let mut c = corpus(vec![
+            class,
+            class_option("ref/inquisition/example", "inquisition"),
+        ]);
+        c.option_groups.groups.insert(
+            "inquisition".into(),
+            crate::OptionGroupDef {
+                label: "Inquisitions".into(),
+                singular: "Inquisition".into(),
+                classes: vec!["ref/class/inquisitor".into()],
+                feature: feature.map(str::to_string),
+            },
+        );
+        c
+    }
+
+    #[test]
+    fn an_option_group_feature_must_be_an_explicit_anchor_of_each_listed_class() {
+        // The explicit anchor is accepted, and a group without the key is not checked.
+        let report = check(&feature_corpus(
+            Some("domain"),
+            heading(Some("domain"), "Domain"),
+        ));
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
+        let report = check(&feature_corpus(None, heading(Some("domain"), "Domain")));
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
+
+        // An anchor that no heading of the class has is refused, with the file in the message.
+        let text = check(&feature_corpus(
+            Some("patron"),
+            heading(Some("domain"), "Domain"),
+        ))
+        .problems
+        .join("\n");
+        assert!(
+            text.contains(
+                "option-groups.toml:1: group `inquisition` names the feature anchor `patron`"
+            ) && text.contains("`ref/class/inquisitor` has no heading with the explicit anchor"),
+            "{text}"
+        );
+
+        // Two equal explicit anchors: the second heading's key is `domain-2`, and it counts.
+        let two = Block::Heading {
+            level: 2,
+            anchor: Some("domain".into()),
+            content: vec![Inline::text("Domain")],
+        };
+        let mut c = feature_corpus(Some("domain-2"), heading(Some("domain"), "Domain"));
+        c.entries
+            .get_mut("ref/class/inquisitor")
+            .unwrap()
+            .entry
+            .body
+            .push(two);
+        let report = check(&c);
+        assert!(report.problems.is_empty(), "{:?}", report.problems);
+
+        // A heading that only gets the key from its text has no explicit anchor.
+        let text = check(&feature_corpus(Some("domain"), heading(None, "Domain")))
+            .problems
+            .join("\n");
+        assert!(text.contains("names the feature anchor `domain`"), "{text}");
     }
 
     fn split(mut corpus: Corpus, trees: Vec<BookTree>) -> Corpus {

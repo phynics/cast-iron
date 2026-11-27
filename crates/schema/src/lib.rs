@@ -75,7 +75,8 @@ pub mod validate;
 /// version. So are `features` of [`ArchetypeFields`], [`ClassOptionFields`] and [`ClassFields`]
 /// and `by` of [`Trade`] (corpus format 4, #540): both are omitted when empty, and no reader of
 /// these types denies unknown fields. So is `ability_type` of [`ClassOptionFields`] (#540,
-/// owner ruling 63): omitted when absent, ignored by a reader that does not know it.
+/// owner ruling 63): omitted when absent, ignored by a reader that does not know it. So is `feature`
+/// of [`OptionGroup`] (#754): omitted when absent, ignored by a reader that does not know it.
 pub const SCHEMA_VERSION: u32 = 7;
 
 /// Name of the relation index, relative to the version directory.
@@ -1124,6 +1125,11 @@ pub struct OptionGroup {
     pub label: String,
     /// Singular display label, such as `Arcane discovery`.
     pub singular: String,
+    /// The explicit `{#anchor}` of the class heading that grants a choice from the group, in
+    /// every class that `classes` lists (#754). Absent when the corpus sets none; the class page
+    /// then finds the feature by name.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub feature: Option<String>,
     /// Class entries that take the group, sorted by id.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub classes: Vec<EntryId>,
@@ -2430,6 +2436,46 @@ mod tests {
         assert_eq!(
             serde_json::from_str::<Before>(&json).unwrap().group,
             "rage-power"
+        );
+    }
+
+    #[test]
+    fn feature_is_an_additive_optional_key_of_an_option_group() {
+        // #754: absent when `None`, so `option-groups.json` of a corpus that sets none keeps its
+        // bytes; present when set; and a reader that does not know the key ignores it.
+        let mut group = OptionGroup {
+            slug: "inquisition".into(),
+            label: "Inquisitions".into(),
+            singular: "Inquisition".into(),
+            feature: None,
+            classes: Vec::new(),
+            entries: Vec::new(),
+        };
+        let none = serde_json::to_string(&group).unwrap();
+        assert_eq!(
+            none,
+            r#"{"slug":"inquisition","label":"Inquisitions","singular":"Inquisition"}"#
+        );
+        group.feature = Some("domain".into());
+        let json = serde_json::to_string(&group).unwrap();
+        assert_eq!(
+            json,
+            r#"{"slug":"inquisition","label":"Inquisitions","singular":"Inquisition","feature":"domain"}"#
+        );
+        assert_eq!(serde_json::from_str::<OptionGroup>(&json).unwrap(), group);
+        // A library written before the key reads as `None`.
+        assert_eq!(
+            serde_json::from_str::<OptionGroup>(&none).unwrap().feature,
+            None
+        );
+        // An older client's `OptionGroup` has no `feature` and no `deny_unknown_fields`.
+        #[derive(Deserialize)]
+        struct Before {
+            slug: String,
+        }
+        assert_eq!(
+            serde_json::from_str::<Before>(&json).unwrap().slug,
+            "inquisition"
         );
     }
 

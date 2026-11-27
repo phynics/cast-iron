@@ -29,6 +29,7 @@ pub fn option_groups(corpus: &Corpus, entries: &[RuleEntry]) -> OptionGroupIndex
             slug: slug.clone(),
             label: group.label.clone(),
             singular: group.singular.clone(),
+            feature: group.feature.clone(),
             classes: group
                 .classes
                 .iter()
