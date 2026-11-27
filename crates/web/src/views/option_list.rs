@@ -16,8 +16,7 @@ use crate::library::Library;
 use crate::option_list::{self, OptionRow};
 use crate::route::{ArchFilter, OptionChoice, Route, push, replace, use_route};
 use crate::views::filter_menu::{
-    FilterMenuButton, FilterMenuPanel, MenuOption, MenuSpec, MenuState, focus_by_id,
-    take_focus_request,
+    MenuOption, MenuSpec, MenuState, dismiss_on_change, focus_by_id, menu_button, menu_panel,
 };
 use crate::views::icons;
 use crate::views::util::{Shared, sort_key};
@@ -412,16 +411,7 @@ pub fn OptionsSection(
             Box::new(move || choice.with(|choice| choice.level.map(|level| level.to_string()))),
         ),
     ] {
-        Effect::new(move |previous: Option<Option<String>>| {
-            let now = pick();
-            if previous.is_some_and(|before| before != now) {
-                take_focus_request();
-                if menu.open.get_untracked() {
-                    menu.dismiss(&spec);
-                }
-            }
-            now
-        });
+        dismiss_on_change(menu, spec, pick);
     }
 
     let book_text = Signal::derive(move || {
@@ -462,8 +452,7 @@ pub fn OptionsSection(
                     })
                     .collect();
                 let all_href = with_group(&|next| next.source = None).href();
-                view! { <FilterMenuPanel spec=BOOK state=book_menu options current=current.source all_href /> }
-                    .into_any()
+                menu_panel(BOOK, book_menu, options, current.source, all_href)
             })
         }
     };
@@ -507,8 +496,7 @@ pub fn OptionsSection(
                     .collect();
                 let all_href = with_group(&|next| next.level = None).href();
                 let level = current.level.map(|level| level.to_string());
-                view! { <FilterMenuPanel spec=LEVEL state=level_menu options current=level all_href /> }
-                    .into_any()
+                menu_panel(LEVEL, level_menu, options, level, all_href)
             })
         }
     };
@@ -600,17 +588,11 @@ pub fn OptionsSection(
                     />
                 </form>
                 <div class="filter-row">
-                    <div class="filter-menu">
-                        <FilterMenuButton spec=BOOK state=book_menu text=book_text narrowed=book_on focus=false />
-                    </div>
-                    <Show when=move || has_levels.get()>
-                        <div class="filter-menu">
-                            <FilterMenuButton spec=LEVEL state=level_menu text=level_text narrowed=level_on focus=false />
-                        </div>
-                    </Show>
+                    {menu_button(BOOK, book_menu, book_text, book_on)}
+                    {move || has_levels.get().then(|| menu_button(LEVEL, level_menu, level_text, level_on))}
                 </div>
                 {book_panel}
-                <Show when=move || has_levels.get()>{level_panel.clone()}</Show>
+                {move || has_levels.get().then(&level_panel)}
                 <p class="list-count" role="status">
                     {count_line}
                     {move || narrowed().then(|| view! {
