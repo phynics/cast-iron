@@ -166,6 +166,29 @@ pub fn feature_of<'a>(
     features.iter().find(|fact| fact.anchor == anchor)
 }
 
+/// A feature heading split for display: the name content and the ability tag, when the printed
+/// heading ends in one. The text of the two parts, joined by one space, is the printed heading, so
+/// the heading's id, anchor and accessible name do not change. Only a heading whose last inline is
+/// plain text can hold a tag; a tag inside markup stays in the name.
+pub fn split_heading_tag(content: &[Inline]) -> (Vec<Inline>, Option<String>) {
+    if let Some((Inline::Text { v }, before)) = content.split_last() {
+        let (name, tag) = crate::power::split_ability_tag(v);
+        if let Some(tag) = tag {
+            let mut name_content = before.to_vec();
+            if !name.is_empty() {
+                name_content.push(Inline::Text {
+                    v: name.to_string(),
+                });
+            }
+            // A heading that is only a tag has no name to separate it from.
+            if !plain_text(&name_content).trim().is_empty() {
+                return (name_content, Some(tag.to_string()));
+            }
+        }
+    }
+    (content.to_vec(), None)
+}
+
 /// The `features` of an entry that have a heading in `body`, in body order (see [`feature_of`]).
 /// A feature with no such heading is left out, and so is one whose heading has no text, so a
 /// reader never meets a head with nothing in it. A feature listed twice yields its first heading.
@@ -320,6 +343,42 @@ fn apply(body: &mut [Block], keys: &[Option<String>], select: impl Fn(&str) -> b
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_trailing_ability_tag_splits_off_a_heading_and_the_text_is_unchanged() {
+        for (printed, name, tag) in [
+            ("Shattering Strike (Ex)", "Shattering Strike", Some("(Ex)")),
+            ("Gaze (Ex or Sp)", "Gaze", Some("(Ex or Sp)")),
+            ("Weapon Training", "Weapon Training", None),
+            ("Armor (Heavy)", "Armor (Heavy)", None),
+            // A tag with no name stays in the name.
+            ("(Su)", "(Su)", None),
+        ] {
+            let (content, found) = split_heading_tag(&[Inline::text(printed)]);
+            assert_eq!(plain_text(&content), name, "{printed}");
+            assert_eq!(found.as_deref(), tag, "{printed}");
+            if let Some(tag) = tag {
+                assert_eq!(format!("{} {tag}", plain_text(&content)), printed);
+            }
+        }
+    }
+
+    #[test]
+    fn a_tag_inside_markup_stays_in_the_name_and_markup_before_it_is_kept() {
+        let em = Inline::Em {
+            c: vec![Inline::text("Lunge")],
+        };
+        let (content, tag) = split_heading_tag(&[em.clone(), Inline::text(" Strike (Su)")]);
+        assert_eq!(tag.as_deref(), Some("(Su)"));
+        assert_eq!(content, [em.clone(), Inline::text(" Strike")]);
+        let tagged = Inline::Em {
+            c: vec![Inline::text("Lunge (Su)")],
+        };
+        assert_eq!(
+            split_heading_tag(std::slice::from_ref(&tagged)),
+            (vec![tagged.clone()], None)
+        );
+    }
 
     fn h(anchor: Option<&str>, text: &str) -> Block {
         Block::Heading {
