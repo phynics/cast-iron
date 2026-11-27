@@ -379,6 +379,27 @@ pub fn FilterMenuPanel(
         })
     };
 
+    let find = find.then(|| FindProps {
+        status: Signal::derive(status),
+        none_match: Signal::derive(none_match),
+    });
+    panel_shell(spec, state, find, view! { {all_row} {rows} }.into_any())
+}
+
+/// What the find field of a panel shows: its status line, and whether no choice matches.
+struct FindProps {
+    status: Signal<String>,
+    none_match: Signal<bool>,
+}
+
+/// The panel that both menus share: the `div` that hides while the menu is shut and closes it on
+/// Escape, the find field (`find` is `None` for a short list), and the list of choices.
+fn panel_shell(
+    spec: MenuSpec,
+    state: MenuState,
+    find: Option<FindProps>,
+    items: AnyView,
+) -> AnyView {
     view! {
         <div
             id=panel_id(&spec)
@@ -391,7 +412,7 @@ pub fn FilterMenuPanel(
                 }
             }
         >
-            {find.then(|| view! {
+            {find.map(|FindProps { status, none_match }| view! {
                 <div class="filter-find">
                     <input
                         id=find_id(&spec)
@@ -406,8 +427,8 @@ pub fn FilterMenuPanel(
                         prop:value=move || state.query.get()
                         on:input=move |event| state.query.set(event_target_value(&event))
                     />
-                    <p class="filter-find-status" role="status">{status}</p>
-                    <Show when=none_match>
+                    <p class="filter-find-status" role="status">{move || status.get()}</p>
+                    <Show when=move || none_match.get()>
                         <button type="button" class="filter-find-clear"
                             on:click=move |_| {
                                 state.query.set(String::new());
@@ -416,12 +437,10 @@ pub fn FilterMenuPanel(
                     </Show>
                 </div>
             })}
-            <ul class="choice-list" aria-label=spec.list_label>
-                {all_row}
-                {rows}
-            </ul>
+            <ul class="choice-list" aria-label=spec.list_label>{items}</ul>
         </div>
     }
+    .into_any()
 }
 
 /// The multi-select panel under the filter row: an `All` link, then one checkbox row per option,
@@ -521,70 +540,36 @@ pub fn MultiFilterMenuPanel(
     };
     let none_match = move || matches().is_empty();
     let none_chosen = move || chosen.with(Vec::is_empty);
-    view! {
-        <div
-            id=panel_id(&spec)
-            class="filter-panel"
-            hidden=move || !state.open.get()
-            on:keydown=move |event| {
-                if event.key() == "Escape" {
-                    event.prevent_default();
-                    state.dismiss(&spec);
+    let find = find.then(|| FindProps {
+        status: Signal::derive(status),
+        none_match: Signal::derive(none_match),
+    });
+    let items = view! {
+        <li>
+            <a
+                class="choice-row"
+                id=all_id
+                href=move || all_href.get()
+                aria-current=move || none_chosen().then_some("true")
+                on:click=move |event| {
+                    // The current choice only closes the panel, as in a single-choice menu.
+                    if none_chosen() {
+                        event.prevent_default();
+                        state.dismiss(&spec);
+                    }
                 }
-            }
-        >
-            {find.then(|| view! {
-                <div class="filter-find">
-                    <input
-                        id=find_id(&spec)
-                        type="search"
-                        class="filter-find-input"
-                        placeholder=spec.find_label
-                        aria-label=spec.find_label
-                        autocomplete="off"
-                        autocapitalize="off"
-                        spellcheck="false"
-                        enterkeyhint="search"
-                        prop:value=move || state.query.get()
-                        on:input=move |event| state.query.set(event_target_value(&event))
-                    />
-                    <p class="filter-find-status" role="status">{status}</p>
-                    <Show when=none_match>
-                        <button type="button" class="filter-find-clear"
-                            on:click=move |_| {
-                                state.query.set(String::new());
-                                focus_by_id(&find_id(&spec));
-                            }>"Clear"</button>
-                    </Show>
-                </div>
-            })}
-            <ul class="choice-list" aria-label=spec.list_label>
-                <li>
-                    <a
-                        class="choice-row"
-                        id=all_id
-                        href=move || all_href.get()
-                        aria-current=move || none_chosen().then_some("true")
-                        on:click=move |event| {
-                            // The current choice only closes the panel, as in a single-choice menu.
-                            if none_chosen() {
-                                event.prevent_default();
-                                state.dismiss(&spec);
-                            }
-                        }
-                    >
-                        // The same box as the rows, drawn: it is ticked while nothing is chosen.
-                        // It is a link, so it carries no checkbox role; `aria-current` says it.
-                        <span class="choice-box" aria-hidden="true">
-                            {move || none_chosen().then(icons::choice_check)}
-                        </span>
-                        <span class="choice-label">{spec.all_label}</span>
-                    </a>
-                </li>
-                {rows}
-            </ul>
-        </div>
-    }
+            >
+                // The same box as the rows, drawn: it is ticked while nothing is chosen.
+                // It is a link, so it carries no checkbox role; `aria-current` says it.
+                <span class="choice-box" aria-hidden="true">
+                    {move || none_chosen().then(icons::choice_check)}
+                </span>
+                <span class="choice-label">{spec.all_label}</span>
+            </a>
+        </li>
+        {rows}
+    };
+    panel_shell(spec, state, find, items.into_any())
 }
 
 /// Focuses the first ticked checkbox in the panel, or the element `fallback` when none is.
