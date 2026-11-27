@@ -824,6 +824,23 @@ fn verify_generated_content(content: &Path) -> Result<usize> {
 fn verify_published_content(content: &Path) -> Result<usize> {
     let count = verify_library(content, false)?;
     let manifest = read_manifest(content)?;
+    // Section 1 of docs/decisions/2026-11-27-precompressed-library.md: the compiler gzips every
+    // library file except `manifest.json`, which is no row of the manifest. So each row of the
+    // published manifest is a gzip row. The shared validator also allows plain rows, for the
+    // installed libraries of schema 1 to 7; the site ships none.
+    let plain: Vec<&str> = manifest
+        .files
+        .iter()
+        .filter(|file| file.gzip.is_none())
+        .map(|file| file.path.as_str())
+        .collect();
+    if !plain.is_empty() {
+        return Err(format!(
+            "{} lists files that are not gzip rows; only manifest.json ships uncompressed: {}",
+            content.join("manifest.json").display(),
+            plain.join(", ")
+        ));
+    }
     let listed: std::collections::BTreeSet<PathBuf> = manifest
         .files
         .iter()
@@ -1668,6 +1685,14 @@ mod tests {
         let error = verify_published_content(&to).unwrap_err();
         assert!(error.contains("does not match"), "{error}");
         fs::write(&stored, &good).unwrap();
+
+        // A manifest that lists a plain (non-gzip) file, even when the file matches its row.
+        let plain_dir = temp_tree("publish-plain");
+        write_library(&plain_dir);
+        let error = verify_published_content(&plain_dir).unwrap_err();
+        assert!(error.contains("not gzip rows"), "{error}");
+        assert!(error.contains("vabc/catalog.json"), "{error}");
+        fs::remove_dir_all(&plain_dir).unwrap();
 
         // A file the manifest does not list, such as a decoded file.
         fs::write(to.join("vabc/catalog.json"), "{}").unwrap();
