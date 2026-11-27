@@ -5790,26 +5790,31 @@ label.choice-row {
 
 /* The archetype list of a class page (#170, part D): rows of the browse list, with the muted
    replaces line on a line of its own under the name and the book. */
-.arch-list {
+.arch-list,
+.opt-list {
   margin: var(--space-3) 0 var(--space-4);
 }
 
 /* The two menus keep their whole text: each takes a row of its own at 390 px and they share a
    row from about 30 rem. */
-.arch-list .filter-menu {
+.arch-list .filter-menu,
+.opt-list .filter-menu {
   flex: 1 1 14rem;
 }
 
 /* One column at every width: a row has a replaces line, which the browse list's columns cramp. */
-.arch-list .arch-rows {
+.arch-list .arch-rows,
+.opt-list .opt-rows {
   columns: auto;
 }
 
-.arch-list .list-count {
+.arch-list .list-count,
+.opt-list .list-count {
   margin: var(--space-3) 0 var(--space-2);
 }
 
-.arch-row .arch-meta {
+.arch-row .arch-meta,
+.opt-row .opt-meta {
   flex: 1 0 100%;
   margin: 0 0 var(--space-2);
   font-size: var(--step--1);

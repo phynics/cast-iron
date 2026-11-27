@@ -229,7 +229,7 @@ fn row_view(row: &OptionRow) -> impl IntoView + use<> {
         None => row.book.clone(),
     };
     view! {
-        <li class="arch-row opt-row">
+        <li class="opt-row">
             <span class="opt-title">
                 <a href=Route::entry(row.id.clone()).href()>
                     <span class="opt-name">{row.title.clone()}</span>
@@ -237,7 +237,7 @@ fn row_view(row: &OptionRow) -> impl IntoView + use<> {
                 {tag}
             </span>
             {aside}
-            <p class="arch-meta muted">{line}</p>
+            <p class="opt-meta muted">{line}</p>
         </li>
     }
 }
@@ -581,7 +581,7 @@ pub fn OptionsSection(
             <nav aria-label="Option groups">
                 <ul class="opt-chips">{chips}</ul>
             </nav>
-            <div class="arch-list opt-list">
+            <div class="opt-list">
                 <form class="search-form list-filter" role="search" on:submit=|event| event.prevent_default()>
                     <label class="sr-only" for=FIND_ID>"Filter this list by name"</label>
                     <input
@@ -615,7 +615,7 @@ pub fn OptionsSection(
                     })}
                 </p>
                 {move || notice().map(|text| view! { <p class="hint">{text}</p> })}
-                <ul class="entry-list arch-rows opt-rows">{list}</ul>
+                <ul class="entry-list opt-rows">{list}</ul>
             </div>
         </section>
     }
