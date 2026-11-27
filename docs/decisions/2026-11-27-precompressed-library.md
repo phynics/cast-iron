@@ -1,7 +1,7 @@
 ---
 title: "The library is shipped, verified and stored as gzip files (schema 8)"
 date: 2026-11-27
-status: proposed
+status: current
 superseded_by: []
 issues: [744, 746, 747]
 prs: [748]
@@ -186,7 +186,7 @@ the failure is safe (rule 7). The fallback is then a suffix that Pages serves as
 `application/octet-stream`: Pages compresses it again on the wire and the browser removes only that outer
 layer, so the stored bytes still arrive. That fallback changes the suffix rule in `crates/schema` and
 needs a new schema version. The upgrade check confirms the headers on the live site before anyone relies
-on them (owner question 3).
+on them (owner answer 3: no separate probe first).
 
 ## 4. Decompression in the client
 
@@ -227,9 +227,14 @@ export async function cacheReadGunzip(cache, url) {
   flight. The JavaScript buffers are collected after the read. The WASM memory is the same as today.
 - **Diagnostics.** `IndexLoad` counts the decoding in `read_ms` and records both the stored and the decoded
   size, so the Diagnostics page shows the real cost on a phone.
-- **A browser without `DecompressionStream`.** The installer refuses a manifest with `gzip` rows before it
-  downloads anything: "This browser cannot unpack the library. Update the browser, then try again." The
-  installed library stays active. A schema 1 to 7 library keeps working in that browser.
+- **A browser without `DecompressionStream` (owner, 2026-11-27: add a Rust fallback).** `read_file` decodes
+  through `cacheReadGunzip` when `gunzipSupported()` is true, and otherwise reads the stored bytes and
+  inflates them in WASM with `miniz_oxide` (about 14 KB of WASM; no CRC check, because the installer has
+  already verified the SHA-256 of the stored bytes, and the decoded length is checked against
+  `gzip.bytes`). So a browser older than Safari/iOS 16.4 can still install and read a schema 8 library,
+  only slower (section 4 table) and with the higher WASM memory mark. The installer no longer refuses gzip
+  rows for lack of `DecompressionStream`. The fallback's size comes out of the WASM budget, which has
+  about 33 KB left (#744); slice 2 reports the budget.
 - **The alias hash.** `Library::load` keeps the hash of `aliases.json` to decide whether the stored ids need
   the migration again. It uses the decoded hash when the row has one. The hash then stays the same across
   the 7 to 8 upgrade when the alias map does not change, and the migration does not run again for nothing.
@@ -343,9 +348,11 @@ follows `AGENTS.md`, "Test scope".
    *Scope:* `cargo xtask check`; `cargo xtask build-site --public-url /cast-iron/`; one spec,
    `canonical-cutover.spec.ts`, `--project=chromium` (the feature map row for `library.rs` aliases). No
    full CI.
-2. **The reader decodes.** The bridge functions `gunzipSupported` and `cacheReadGunzip`. `read_file` reads
-   through the manifest row and checks the decoded length. The installer refuses gzip rows when the browser
-   cannot decode them. The `IndexLoad` fields. `server.mjs` serves `.gz` as `application/gzip`. A new spec,
+2. **The reader decodes.** The bridge functions `gunzipSupported` and `cacheReadGunzip`, and the
+   `miniz_oxide` fallback for a browser without `DecompressionStream` (owner answer 1; a new dependency, so
+   `Cargo.toml` and `Cargo.lock` change). `read_file` reads through the manifest row and checks the decoded
+   length. The spec also runs the fallback path once, by hiding `DecompressionStream` in an init script,
+   and the PR reports `cargo xtask size-budget`. The `IndexLoad` fields. `server.mjs` serves `.gz` as `application/gzip`. A new spec,
    `compressed-library.spec.ts`, with a feature map row in the verify skill: an overlay gzips every file
    of `dist` (still schema 7, which slice 1 allows to carry gzip rows), then the spec installs it, opens an
    entry, searches, reloads offline, and checks that a corrupted `.gz` stops the install while the old
@@ -368,17 +375,13 @@ follows `AGENTS.md`, "Test scope".
    before the promotion that ships slice 3, and the result is a `docs/status/` entry.
    *Scope:* docs only, `cargo xtask check`.
 
-## Owner questions
+## Owner answers (2026-11-27)
 
-1. **Browsers.** `DecompressionStream` needs Safari and iOS 16.4 or later (Chrome 80, Firefox 113).
-   Recommended: accept that floor. A browser without it keeps its installed library and is refused the
-   schema-8 one with an "update the browser" message. The other answer is the Rust inflater (14 KB of the
-   WASM budget, #744).
-2. **The size shown.** Recommended: "Download size" and "Size on this device" show the stored size only
-   (about 45 MB). Should Settings also show the decoded size (215 MB)?
-3. **A live probe.** The issue asks for a check of Pages "on the live site with a test file before relying
-   on it". Our deployment has no `.gz` file today, and promotion is explicit and on hold. Recommended:
-   accept the evidence of section 3 (three Pages sites, every `Accept-Encoding`) together with step 8 of
-   the upgrade check, since a wrong header fails safely. The other answer: slice 1 adds a small probe
-   file, `content/pages-probe.json.gz`, which the next ordinary release ships and `curl` checks before
-   slice 3 merges.
+1. **Browsers: add the Rust fallback.** `DecompressionStream` is used where the browser has it. Elsewhere
+   `read_file` inflates in WASM with `miniz_oxide` (section 4), so older browsers can still update. The
+   WASM cost (about 14 KB) is taken from the budget.
+2. **The size shown: the stored size only.** "Download size" and "Size on this device" show the stored
+   size (about 45 MB). The decoded size is not shown in Settings. Diagnostics may record it (`IndexLoad`).
+3. **No live probe first.** The evidence of section 3 is accepted. Step 8 of the upgrade check confirms
+   the live site at the release that ships slice 3. A wrong header fails safely: the hash check refuses
+   the install, and the old library stays active.
