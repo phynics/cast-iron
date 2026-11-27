@@ -575,7 +575,9 @@ the rule and the list holds the 234 rogue talents (#739; decision
   without regard to case with the group's label or singular, each also without the leading words that
   only name the class (`Witch hex` is `Hex`). A heading's row goes after all the text under it; a bold
   name's row goes right after its paragraph. It reads the printed names, so it is the same on an
-  imported body and on a converted one. A group that no feature names has a chip and no row.
+  imported body and on a converted one. A group that no feature names has a chip and no row. A group
+  whose corpus entry sets `feature` (the explicit `{#anchor}` of a class heading, #754) goes under that
+  heading instead, and is not matched by name; when the page has no such heading it gets no row.
 
 #### Heading levels in an entry body (#12, L3)
 

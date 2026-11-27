@@ -969,6 +969,7 @@ mod tests {
                 label: "Domains".into(),
                 singular: "Domain".into(),
                 classes: vec![],
+                feature: None,
             },
         );
         let planned = plan(&c);

@@ -644,6 +644,8 @@ fn attached_entry_indexes_are_derived_from_the_corpus() {
         serde_json::from_slice(&fs::read(version.join("option-groups.json")).unwrap()).unwrap();
     assert_eq!(groups["groups"][0]["slug"], "discoveries");
     assert_eq!(groups["groups"][0]["entries"][0], "ref/arcanedisc/example");
+    // A group without `feature` writes no such key (#754), so the file keeps its old bytes.
+    assert!(groups["groups"][0].get("feature").is_none(), "{groups}");
     let trades: serde_json::Value =
         serde_json::from_slice(&fs::read(version.join("trades.json")).unwrap()).unwrap();
     assert_eq!(
@@ -664,6 +666,25 @@ fn attached_entry_indexes_are_derived_from_the_corpus() {
         assert!(!shard.contains("\"trades\""), "{shard}");
         assert!(!shard.contains("\"printed\""), "{shard}");
     }
+
+    // The same corpus with `feature` set on the group: the compiler copies the anchor (#754).
+    fs::write(
+        corpus.join("option-groups.toml"),
+        "[groups.discoveries]\nlabel = \"Discoveries\"\nsingular = \"Discovery\"\nclasses = [\"ref/class/fighter\"]\nfeature = \"trap-sense\"\n",
+    )
+    .unwrap();
+    let out = temp("attached-feature-out");
+    let outcome = compile_corpus(&corpus, &out, &temp("attached-feature-reports"), None, None)
+        .unwrap_or_else(|failure| panic!("{}", failure.lines.join("\n")));
+    let groups: serde_json::Value = serde_json::from_slice(
+        &fs::read(
+            out.join(&outcome.content_version)
+                .join("option-groups.json"),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(groups["groups"][0]["feature"], "trap-sense");
 }
 
 #[test]

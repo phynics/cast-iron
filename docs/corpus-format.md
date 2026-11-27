@@ -515,6 +515,25 @@ class entries that take the group. Every id must resolve, and a declared group m
 least one `class_option` entry; `corpus-check` reports both failures. The compiler writes the
 same data, plus the group's entries, to `option-groups.json`.
 
+An optional `feature` key names the class feature that grants a choice from the group, so that
+the class page puts its Options link row there (#754):
+
+```toml
+[groups.inquisition]
+label = "Inquisitions"
+singular = "Inquisition"
+classes = ["ref/class/inquisitor"]
+feature = "domain"
+```
+
+`feature` is the explicit `{#anchor}` of a heading of the class body. It names one anchor for every
+class in `classes`, so each of those classes must have a heading with exactly that anchor;
+`corpus-check` reports a class without one, with the line of the `feature` key. A heading that
+only gets its key from its text does not count. The key wins over name matching on the class
+page: a group with `feature` is not matched by its label. A group without it keeps name
+matching. The key is absent when unset, so a file that does not use it is written back
+byte-identical, and the compiler copies it to `option-groups.json` as `feature` only when set.
+
 ## Stored and derived data
 
 The compiler rebuilds everything it can. A stored file exists only when it is
@@ -1141,7 +1160,8 @@ file and line, when:
   `merged` body that links no feat;
 - a `mythic` add-on is not a feat whose `feat_types` include `Mythic`;
 - a `class_option` names a group missing from `option-groups.toml`, a declared
-  group names a class that does not resolve, or a group holds no option;
+  group names a class that does not resolve, or a group holds no option, or a group's
+  `feature` is not an explicit heading anchor of a class that the group lists;
 - an add-on or revision does not take the id suffix its publication declares, or
   an id under an existing entry ends in a known suffix but holds no matching edge;
 - two publications share a suffix, or a suffix is not one id segment;
