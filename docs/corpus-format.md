@@ -1342,7 +1342,7 @@ the raging song class feature and does not prevent a war painter from performing
 songs." is an `alters` trade of `the raging song class feature`). A negated clause may start with a pronoun ("and it does not ...") and may carry punctuation ("and cannot,"). "And also" (or ", and it also") before a trade verb starts a
 second trade ("This ability alters sacred weapon and also replaces sacred armor." is an `alters`
 trade of `sacred weapon` and a `replaces` trade of `sacred armor`; here `changes` and `modifies`
-count as verbs too, and "and also" before any other word splits nothing); a verb joined later by `and` is read as `replaces` or `alters` only. The feature's own
+count as verbs too, and "and also" before any other word splits nothing). "Replaces and modifies X" ("replace and modify X") is one `replaces` trade of `X`, because replacing covers the modifying (owner ruling 58: "This ability replaces and modifies spellstrike." is a `replaces` trade of `spellstrike`, no second `alters` trade): the words "and modifies" right after a `replaces` verb are dropped. It is not ruling 49 ("alters and replaces X" keeps both verbs), "replaces X and modifies Y" is not this case, and "replaces and alters X" is not covered. A verb joined later by `and` is read as `replaces` or `alters` only. The feature's own
 heading may stand for the subject: under the feature "Sermonic Performance (Su)" the sentence
 "Sermonic performance replaces the 1st-, 9th-, and 15th-level channel energy abilities." is a
 sentence of an ability (not bare); the heading is compared as a name, so tags and case do not
