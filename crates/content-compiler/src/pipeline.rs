@@ -308,8 +308,8 @@ pub fn package(
     // the stored lines, so one version means one set of stored bytes.
     let stored = gzip::gzip_all(&files)?;
     let mut rows: Vec<(String, ManifestFile)> = files
-        .iter()
-        .map(|(name, _)| {
+        .keys()
+        .map(|name| {
             let path = format!("{name}{}", gzip::SUFFIX);
             let gz = &stored[&path];
             let row = ManifestFile {
